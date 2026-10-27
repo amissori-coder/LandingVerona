@@ -3437,6 +3437,15 @@
         return !q || String(testoCella || '').toLowerCase().includes(q);
     };
 
+    /* Il nome di un'intestazione, senza i comandi che ci stanno dentro: nella
+       tabella degli iscritti ogni intestazione porta le frecce e la x
+       (.ev-th-strumenti) e l'ultima e' il "+" delle colonne, che non e' una
+       colonna da cercare o filtrare. */
+    function nomeIntestazione(th) {
+        if (!th || th.classList.contains('ev-th-piu')) return '';
+        const nome = th.querySelector('.ev-th-nome');
+        return String((nome || th).textContent || '').trim();
+    }
     function attrezzaTabella(elOrScope, opts) {
         opts = opts || {};
         const tabella = (elOrScope && elOrScope.tagName === 'TABLE') ? elOrScope : (elOrScope && elOrScope.querySelector('table.dati'));
@@ -3446,7 +3455,7 @@
         const ths = Array.from(tabella.tHead.rows[0].cells);
         const corpo = tabella.tBodies[0];
         // la ricerca globale guarda solo le colonne con intestazione (esclude la colonna azioni: Apri/Duplica/Elimina)
-        const idxCerca = ths.map((th, i) => (th.textContent.trim() ? i : -1)).filter(i => i >= 0);
+        const idxCerca = ths.map((th, i) => (nomeIntestazione(th) ? i : -1)).filter(i => i >= 0);
         const barra = document.createElement('div');
         barra.className = 'barra-tabella';
 
@@ -3461,7 +3470,7 @@
         }
         if (opts.filtri !== false) {
             ths.forEach((th, i) => {
-                const nome = th.textContent.trim();
+                const nome = nomeIntestazione(th);
                 if (!nome) return; // colonna d'azione
                 const valori = new Set();
                 Array.from(corpo.rows).forEach(tr => { const v = _testoCella(tr.cells[i]); if (v) valori.add(v); });
@@ -16220,7 +16229,8 @@
         if (!a || a === document.body || !a.closest) return false;
         // il contenitore della vista e' <main id="vista">: cercarlo per classe
         // non troverebbe mai niente, e la guardia direbbe sempre "libero"
-        if (!a.closest('#vista')) return false;
+        // il pannello delle colonne sta fuori da #vista (nel corpo della pagina), ma e' della vista
+        if (!a.closest('#vista') && !a.closest('.ev-piu-pannello')) return false;
         return /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable === true;
     }
     function vistaEventiMantenendoPosto() {
@@ -17295,14 +17305,14 @@
        sigle, con le varianti d'uso ("Monza e Brianza", "Reggio nell'Emilia",
        "Forlì Cesena", "Bozen") e le vecchie province sarde. */
     const PROVINCE_REGIONE = {
-        'Abruzzo': ['L\'Aquila|AQ', 'Chieti|CH', 'Pescara|PE', 'Teramo|TE'],
+        'Abruzzo': ['L\'Aquila|Aquila|AQ', 'Chieti|CH', 'Pescara|PE', 'Teramo|TE'],
         'Basilicata': ['Potenza|PZ', 'Matera|MT'],
         'Calabria': ['Catanzaro|CZ', 'Cosenza|CS', 'Crotone|KR', 'Reggio Calabria|Reggio di Calabria|RC', 'Vibo Valentia|VV'],
         'Campania': ['Napoli|NA', 'Avellino|AV', 'Benevento|BN', 'Caserta|CE', 'Salerno|SA'],
         'Emilia-Romagna': ['Bologna|BO', 'Ferrara|FE', 'Forlì-Cesena|Forlì Cesena|Forlì|FC', 'Modena|MO', 'Parma|PR', 'Piacenza|PC', 'Ravenna|RA', 'Reggio Emilia|Reggio nell\'Emilia|RE', 'Rimini|RN'],
         'Friuli-Venezia Giulia': ['Trieste|TS', 'Gorizia|GO', 'Pordenone|PN', 'Udine|UD'],
         'Lazio': ['Roma|RM', 'Frosinone|FR', 'Latina|LT', 'Rieti|RI', 'Viterbo|VT'],
-        'Liguria': ['Genova|GE', 'Imperia|IM', 'La Spezia|SP', 'Savona|SV'],
+        'Liguria': ['Genova|GE', 'Imperia|IM', 'La Spezia|Spezia|SP', 'Savona|SV'],
         'Lombardia': ['Milano|MI', 'Bergamo|BG', 'Brescia|BS', 'Como|CO', 'Cremona|CR', 'Lecco|LC', 'Lodi|LO', 'Mantova|MN', 'Monza e della Brianza|Monza e Brianza|Monza-Brianza|Monza Brianza|Monza|MB', 'Pavia|PV', 'Sondrio|SO', 'Varese|VA'],
         'Marche': ['Ancona|AN', 'Ascoli Piceno|AP', 'Fermo|FM', 'Macerata|MC', 'Pesaro e Urbino|Pesaro-Urbino|Pesaro Urbino|PU'],
         'Molise': ['Campobasso|CB', 'Isernia|IS'],
@@ -17332,7 +17342,8 @@
         let k = chiaveProvincia(p);
         if (!k) return '';
         if (REGIONE_DI_PROVINCIA[k]) return REGIONE_DI_PROVINCIA[k];
-        k = k.replace(/^provincia (di |del |della |dell )?/, '').replace(/^citta metropolitana (di |del )?/, '');
+        k = k.replace(/^provincia (di |del |della )/, '').replace(/^provincia dell /, 'l ').replace(/^provincia /, '')
+            .replace(/^citta metropolitana (di |del |dell )?/, '');
         if (REGIONE_DI_PROVINCIA[k]) return REGIONE_DI_PROVINCIA[k];
         const sigla = (String(p || '').match(/\(([A-Za-z]{2})\)\s*$/) || [])[1];
         if (sigla && REGIONE_DI_PROVINCIA[sigla.toLowerCase()]) return REGIONE_DI_PROVINCIA[sigla.toLowerCase()];
@@ -17382,8 +17393,12 @@
     }
     function colonneCalcolateDi(file) {
         const out = [];
+        /* la regione calcolata esiste solo con la provincia nel file; se il file
+           ha anche la sua colonna della regione, la calcolata la sostituisce
+           (prende la sua dove c'e', e riempie i vuoti dalla provincia) e la
+           colonna nuda del file non si offre (catalogoColonne) */
         const prov = nomeColonnaFile(file, COL_FILE_PROVINCIA_OP), reg = nomeColonnaFile(file, COL_FILE_REGIONE_OP) || nomeColonnaFile(file, 'Regione');
-        if (prov || reg) out.push({ chiave: COL_CALC_REGIONE, nome: COL_FILE_REGIONE_OP, gruppo: 'calcolata', col: 'c-extra', tinta: 'ev-col-file', file: true,
+        if (prov) out.push({ chiave: COL_CALC_REGIONE, nome: COL_FILE_REGIONE_OP, gruppo: 'calcolata', col: 'c-extra', tinta: 'ev-col-file', file: true,
             titolo: 'Dal file delle aziende invitate; quando il file non la indica, ricavata dalla provincia della sede operativa', fonte: { provincia: prov, regione: reg } });
         const rev = nomeColonnaFile(file, COL_FILE_REVISORE), nomina = nomeColonnaFile(file, COL_FILE_DATA_NOMINA);
         if (rev) out.push({ chiave: COL_CALC_REVISORE, nome: 'Revisore e data nomina', gruppo: 'calcolata', col: 'c-extra', tinta: 'ev-col-file', file: true,
@@ -17415,16 +17430,26 @@
         const disp = colonneAggiuntiveDi(ev, tutte);
         const extra = disp.extra.map(c => ({ chiave: PREFISSO_COL_EXTRA + c, nome: c, gruppo: 'extra', col: 'c-extra',
             tinta: COLONNE_DAL_MODULO.indexOf(c) >= 0 ? 'ev-col-modulo' : '', modulo: COLONNE_DAL_MODULO.indexOf(c) >= 0, file: false }));
-        const file = disp.file.map(c => ({ chiave: PREFISSO_COL_FILE + c, nome: c, gruppo: 'file', col: 'c-extra', tinta: 'ev-col-file', file: true, modulo: false,
+        const calcolate = colonneCalcolateDi(disp.file);
+        const regioneCalc = calcolate.find(c => c.chiave === COL_CALC_REGIONE);
+        const sostituita = regioneCalc && regioneCalc.fonte.regione ? regioneCalc.fonte.regione : '';
+        const file = disp.file.filter(c => c !== sostituita).map(c => ({ chiave: PREFISSO_COL_FILE + c, nome: c, gruppo: 'file', col: 'c-extra', tinta: 'ev-col-file', file: true, modulo: false,
             titolo: 'Dal file delle aziende invitate' }));
-        return base.concat(extra, file, colonneCalcolateDi(disp.file));
+        return base.concat(extra, file, calcolate);
     }
     // la colonna del catalogo con quella chiave, cercata anche senza badare a maiuscole e accenti (le colonne del file)
     function colonnaDelCatalogo(catalogo, chiave) {
         let c = catalogo.find(x => x.chiave === chiave);
         if (c) return c;
         const k = chiaveNomeColonna(chiave);
-        return catalogo.find(x => chiaveNomeColonna(x.chiave) === k) || null;
+        c = catalogo.find(x => chiaveNomeColonna(x.chiave) === k);
+        if (c) return c;
+        /* la regione: la calcolata e la colonna del file si sostituiscono a
+           vicenda (colonneCalcolateDi), e una chiave vale per l'altra */
+        const kReg = chiaveNomeColonna(PREFISSO_COL_FILE + COL_FILE_REGIONE_OP);
+        if (chiave === COL_CALC_REGIONE) return catalogo.find(x => x.gruppo === 'file' && chiaveNomeColonna(x.chiave) === kReg) || null;
+        if (k === kReg) return catalogo.find(x => x.chiave === COL_CALC_REGIONE) || null;
+        return null;
     }
     function colonneDiBaseDi(ev) { return ev && ev.tutti ? COLONNE_DI_BASE_TUTTI : COLONNE_DI_BASE; }
     /* Le colonne da MOSTRARE, nell'ordine scelto: le scelte che oggi non
@@ -17476,7 +17501,9 @@
                 const a = JSON.parse(localStorage.getItem(CHIAVE_COLONNE_EVENTO + ev.id) || '[]');
                 if (Array.isArray(a)) salvate = a.filter(x => typeof x === 'string');
             } catch (e) { salvate = []; }
-            if (salvate.length && !salvate.some(k => k.indexOf(PREFISSO_COL_BASE) === 0)) {
+            // la versione di prima salvava i nomi di `extra` nudi e "file:...": nessuna chiave con b:, x: o d:
+            const conPrefisso = k => [PREFISSO_COL_BASE, PREFISSO_COL_EXTRA, PREFISSO_COL_CALC].some(pr => k.indexOf(pr) === 0);
+            if (salvate.length && !salvate.some(conPrefisso)) {
                 salvate = colonneDiBaseDi(ev).concat(salvate.map(k => k.indexOf(PREFISSO_COL_FILE) === 0 ? k : PREFISSO_COL_EXTRA + k));
             }
             _evColonne[ev.id] = salvate;
@@ -17564,7 +17591,9 @@
        con la sua x, con Esc, o cliccando fuori. */
     function apriPannelloColonne(ev, tutte) {
         if (_evPannelloColonne) { try { _evPannelloColonne.stacca(); } catch (e) { } _evPannelloColonne = null; }
-        const bottone = $vista().querySelector('.ev-piu');
+        // il "+" che si vede: quello in cima alla tabella, o quello sopra la legenda quando l'intestazione e' nascosta
+        const bottoni = Array.from($vista().querySelectorAll('.ev-piu'));
+        const bottone = bottoni.find(b => b.offsetWidth > 0 && b.offsetHeight > 0) || bottoni[0];
         if (!bottone) return;
         const box = document.createElement('div');
         box.className = 'ev-piu-pannello';
@@ -17572,20 +17601,28 @@
         box.setAttribute('aria-label', 'Colonne della tabella');
         box.innerHTML = pannelloColonneHtml(ev, tutte);
         document.body.appendChild(box);
+        /* sotto il pulsante se c'e' posto, altrimenti sopra: mai fuori dalla
+           finestra, perche' a posizione fissa quello che esce non si raggiunge */
         const posiziona = () => {
             const r = bottone.getBoundingClientRect();
             const larg = Math.min(560, window.innerWidth - 24);
             let sinistra = Math.min(r.right - larg, window.innerWidth - larg - 12);
             if (sinistra < 12) sinistra = 12;
             box.style.left = sinistra + 'px';
-            box.style.top = Math.min(r.bottom + 6, window.innerHeight - 80) + 'px';
             box.style.width = larg + 'px';
-            box.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 18) + 'px';
+            const sotto = window.innerHeight - r.bottom - 18, sopra = r.top - 18;
+            if (sotto >= 240 || sotto >= sopra) {
+                box.style.maxHeight = Math.max(120, sotto) + 'px';
+                box.style.top = Math.max(12, Math.min(r.bottom + 6, window.innerHeight - 132)) + 'px';
+            } else {
+                box.style.maxHeight = Math.max(120, sopra) + 'px';
+                box.style.top = Math.max(12, r.top - 6 - box.offsetHeight) + 'px';
+            }
         };
         posiziona();
         _evColonneAperte[ev.id] = true;
-        bottone.setAttribute('aria-expanded', 'true');
-        const fuori = e => { if (box.contains(e.target) || bottone.contains(e.target)) return; chiudiPannelloColonne(ev); };
+        bottoni.forEach(b => b.setAttribute('aria-expanded', 'true'));
+        const fuori = e => { if (box.contains(e.target) || (e.target.closest && e.target.closest('.ev-piu'))) return; chiudiPannelloColonne(ev); };
         const tasto = e => { if (e.key === 'Escape') { chiudiPannelloColonne(ev); try { bottone.focus(); } catch (x) { } } };
         document.addEventListener('pointerdown', fuori, true);
         document.addEventListener('keydown', tasto);
@@ -17595,7 +17632,7 @@
             document.removeEventListener('keydown', tasto);
             window.removeEventListener('resize', posiziona);
             if (box.parentNode) box.parentNode.removeChild(box);
-            bottone.setAttribute('aria-expanded', 'false');
+            bottoni.forEach(b => { if (b.isConnected) b.setAttribute('aria-expanded', 'false'); });
         } };
         /* Le spunte: la tabella si ridisegna con le colonne nuove e il pannello
            si riapre com'era; il fuoco torna sulla casella appena usata se si
@@ -17640,10 +17677,9 @@
        con un clic; la x la toglie. Si ridisegna tenendo il posto, e il fuoco
        torna sulla stessa freccia della stessa colonna. */
     function agganciaColonneTabella(ev, tutte) {
-        const bottone = $vista().querySelector('.ev-piu');
-        if (bottone) bottone.addEventListener('click', () => {
+        $vista().querySelectorAll('.ev-piu').forEach(bottone => bottone.addEventListener('click', () => {
             if (_evPannelloColonne) chiudiPannelloColonne(ev); else apriPannelloColonne(ev, tutte);
-        });
+        }));
         const muovi = (chiavi, ritrova) => {
             if (!chiavi) return;
             salvaColonneScelte(ev, chiavi);
@@ -18163,6 +18199,9 @@
         const conFile = !!ev.iscrizioniPerCodice || colonneFileDisponibili(tutte).length > 0
             || (tutte || []).some(r => r && r.invito && r.invito.codice);
         return '<div class="ev-legenda">'
+            /* il "+" delle colonne sta in cima alla tabella; sotto i 1200px
+               l'intestazione non c'e' (le righe sono schede) e lo si trova qui */
+            + '<button type="button" class="ev-piu ev-piu-fuori" title="Colonne: aggiungi, togli, torna a quelle di base" aria-label="Colonne della tabella" aria-haspopup="dialog" aria-expanded="false">+ Colonne</button>'
             + '<span class="ev-legenda-voce ev-col-modulo">Scritto da chi si iscrive, nel modulo</span>'
             + (conFile ? '<span class="ev-legenda-voce ev-col-file">Dal file delle aziende invitate'
                 + ' <span class="hint">(anche la ragione sociale di chi è arrivato con il codice)</span></span>' : '')
@@ -19031,6 +19070,7 @@
                 const b = l.previousElementSibling;
                 if (b) b.setAttribute('aria-expanded', 'false');
             });
+            $vista().querySelectorAll('td.ev-menu-aperto').forEach(td => td.classList.remove('ev-menu-aperto'));
             menuEvFuoriDalRiquadro();
         };
         /* I COMANDI DEL MENU DELLA RIGA, collegati su una RADICE qualunque:
@@ -19112,7 +19152,14 @@
                 const lista = b.nextElementSibling;
                 const eraChiuso = lista.classList.contains('hidden');
                 chiudiMenuEv();
-                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); menuEvNelRiquadro(lista); }
+                if (eraChiuso) {
+                    lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true');
+                    /* la cella delle azioni e' appiccicata a destra (un livello suo):
+                       finche' il menu e' aperto la sua cella sale sopra quelle delle
+                       righe sotto, altrimenti il menu ci finirebbe dietro */
+                    const td = b.closest('td'); if (td) td.classList.add('ev-menu-aperto');
+                    menuEvNelRiquadro(lista);
+                }
             }));
             radice.querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
         };

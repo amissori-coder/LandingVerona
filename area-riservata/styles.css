@@ -2561,6 +2561,13 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-wrap table.dati th.ev-th-piu { position: sticky; right: 0; z-index: 2; background: #fff; box-shadow: -1px 0 0 var(--grigio-200); }
 .ev-wrap table.dati thead th.ev-th-piu { z-index: 4; top: 0; text-align: center; padding: 2px; vertical-align: middle; }
 .ev-wrap table.dati tbody tr:hover td.ev-azioni { background: var(--blu-100); }
+/* con il menu della riga aperto la sua cella sale sopra quelle delle righe
+   sotto (ognuna e' un livello suo, perche' appiccicata): altrimenti il menu
+   ci finirebbe dietro, coperto dai pulsanti delle righe seguenti */
+.ev-wrap table.dati td.ev-azioni.ev-menu-aperto { z-index: 5; }
+/* il "+" sopra la legenda: solo dove l'intestazione della tabella e' nascosta (le schede, fino a 1200px) */
+.ev-piu.ev-piu-fuori { display: none; width: auto; height: 26px; border-radius: 13px; padding: 0 10px; font-size: 0.82rem; font-weight: 600; align-items: center; }
+@media screen and (max-width: 1200px) { .ev-piu.ev-piu-fuori { display: inline-flex; } }
 .ev-piu { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--blu-700); background: #fff; color: var(--blu-700); font-size: 17px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; }
 .ev-piu:hover, .ev-piu[aria-expanded="true"] { background: var(--blu-700); color: #fff; }
 /* Il pannello delle colonne, sopra la pagina, ancorato al "+" (apriPannelloColonne) */
