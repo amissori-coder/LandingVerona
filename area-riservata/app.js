@@ -16531,10 +16531,12 @@
         return inAttesaConfermaMail(ev, r, lista) ? 'attesa' : modalitaDi(ev, r);
     }
     /* Le parole della sezione dell'attesa, come quelle di SEZIONI_MODALITA:
-       il nome per la voce sopra l'elenco e per l'esportazione, il breve per il
-       riquadro dei conteggi, e la spiegazione che sta nel suggerimento. */
+       il nome per l'esportazione, quello della voce sopra l'elenco - dentro il
+       riquadro "tutti in presenza" dice di chi si tratta, le aziende che si
+       sono iscritte dal sito -, il breve per il riquadro dei conteggi, e la
+       spiegazione che sta nel suggerimento. */
     const SEZIONE_ATTESA = {
-        id: 'attesa', nome: 'In attesa di conferma mail', breve: 'in attesa di conferma mail',
+        id: 'attesa', nome: 'In attesa di conferma mail', nelRiquadro: 'Aziende in attesa di conferma mail', breve: 'in attesa di conferma mail',
         spiega: 'Iscritti dal sito che non hanno ancora premuto il pulsante di conferma nella mail: '
             + 'finché non lo fanno non occupano un posto, non entrano nei conteggi della sala e non ricevono i promemoria. '
             + 'Dal menu della riga si può rimandare la mail.'
@@ -18435,7 +18437,7 @@
             + (ev.confermaEmail ? '. Chi aspetta di confermare la mail si è iscritto in presenza, ma il posto lo occupa solo dopo la conferma' : '') + '">'
             + '<span class="ev-sez-gruppo-tit" aria-hidden="true">tutti in presenza</span>'
             + SEZIONI_MODALITA.filter(x => x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nelRiquadro || x.nome)).join('')
-            + (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nome) : '')
+            + (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nelRiquadro) : '')
             + '</span>'
             + SEZIONI_MODALITA.filter(x => !x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
             + (daRiconoscere
