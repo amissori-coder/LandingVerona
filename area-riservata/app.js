@@ -16805,12 +16805,24 @@
         const daConfermare = [];
         const trovati = new Set();
         const altrove = new Map();
+        /* LE PRESENZE SONO PER IDENTIFICATIVO, e l'identificativo e'
+           indirizzo|data: in un ordine, un compagno con l'indirizzo
+           dell'intestatario ha il suo stesso, e spostarlo sposta anche lui.
+           Se l'intestatario e' la persona della cena (un aderente, oggi o
+           appena conferma), il compagno non si propone: la finestra promette
+           che gli aderenti non si spostano da qui. */
+        const idCena = new Set((lista || []).filter(x => x && inSala(modalitaDi(ev, x)) && partecipantiDi(x) === 1
+            && rigaDellaCena(ev, x, lista)).map(x => x.id));
         (lista || []).forEach(r => {
             /* dove la riga si MOSTRA: chi e' alla cena e al meeting e si vede fra
                gli aderenti e' un aderente, e la finestra promette che gli
                aderenti non entrano nel confronto e non si spostano da qui */
             const sez = sezioneElenco(ev, r, lista);
             const e = String(r.email || '').trim().toLowerCase();
+            if (idCena.has(r.id) && !rigaDellaCena(ev, r, lista)) {
+                if (e && dentro.has(e)) trovati.add(e);
+                return;
+            }
             if (sez === SEZIONE_ATTESA.id && e && !dentro.has(e) && ospiteDopoConferma(ev, r, lista)) {
                 daConfermare.push({ riga: r, email: e, sezione: sez, motivo: 'email da confermare' });
                 return;
@@ -17185,7 +17197,7 @@
                (iscrittiPerInvitoB2B), la sezione in cui la riga si MOSTRA -
                che tiene gia' l'attesa della conferma. */
             + (puoRichiedere && ev.manuale && r.email && daInvitareB2B(sezioneElenco(ev, r))
-                ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
+                ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '') + '">Invita agli incontri B2B</button>'
                 : ''),
             /* Una persona alla volta: le sezioni in cui NON e' gia', piu' -
                per chi e' gia' online - il reinvio dell'avviso. Nel riepilogo
@@ -18640,7 +18652,7 @@
             const segnaR = segna && !r.soloCena;
             // in sola lettura si mostra il valore, senza comandi che non salverebbero
             const cellaStato = segnaR
-                ? '<td data-label="Stato"><select class="ev-stato" data-id="' + esc(r.id) + '">'
+                ? '<td data-label="Stato"><select class="ev-stato" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '') + '">'
                 + opz('', '-') + opz('confermato', 'Confermato') + opz('presente', 'Presente') + opz('assente', 'Assente')
                 + '</select></td>'
                 : '<td data-label="Stato">' + esc(NOMI_STATO[p.stato || ''] || '-') + '</td>';
@@ -18664,7 +18676,7 @@
             const hintC = hintCenaHtml(ev, r);
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
             const cellaModalita = segnaR
-                ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
+                ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '') + '">'
                 + SEZIONI_MODALITA.map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
                 + '</select>' + hintM + hintC + '</td>'
                 : '<td data-label="Modalità"><span class="ev-sez-' + md + '">' + esc(NOMI_MODALITA[md]) + '</span>'
@@ -19225,7 +19237,7 @@
         agganciaScorriX();
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
-            const rr = (_evIscrizioni || []).find(x => x.id === id);
+            const rr = rigaPerScheda(id, s.dataset.doc);
             const sezPrima = rr ? sezioneElenco(ev, rr) : '';
             EventiPresenze.imposta(ev.id, id, { stato: s.value }, () => {
                 if (vistaCorrente !== 'eventi') return;
@@ -19269,7 +19281,7 @@
                    l'impronta dell'elenco combacia di nuovo, quindi un ridisegno
                    non arriverebbe, e resterebbe a video una cosa non vera. */
                 const riga = s.closest('tr');
-                const rr = (_evIscrizioni || []).find(x => x.id === id);
+                const rr = rigaPerScheda(id, s.dataset.doc);
                 const cella = s.parentNode;
                 if (cella) {
                     cella.querySelectorAll('.hint').forEach(x => x.remove());
@@ -19408,7 +19420,8 @@
                 });
             }));
             radice.querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
-                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                // la scheda del bottone, non la prima con quell'identificativo (rigaPerScheda)
+                const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
                 if (r) modaleInvitoB2B(ev, r);
             }));
             radice.querySelectorAll('.ev-sposta').forEach(b => b.addEventListener('click', () => {
@@ -22907,6 +22920,15 @@
        una: l'intestatario (la scheda senza "~pN"), o la prima riga. Righe
        con lo stesso indirizzo in iscrizioni diverse sono un doppio, e lo
        sono tutte (lo dice "Indirizzi doppi"). */
+    /* LA SCHEDA DI UN COMANDO DELLA TABELLA. I comandi portano l'identificativo
+       (indirizzo|data) e il documento: due schede dello stesso ordine con lo
+       stesso indirizzo hanno lo stesso identificativo, e cercare solo quello
+       restituirebbe sempre la prima - l'intestatario anche dalla riga del
+       compagno. Senza documento (le righe del vecchio foglio) vale l'id. */
+    function rigaPerScheda(id, doc) {
+        const lst = _evIscrizioni || [];
+        return lst.find(x => x.id === id && String(x.doc || '') === String(doc || '')) || lst.find(x => x.id === id) || null;
+    }
     function rigaDellaCena(ev, r, lista) {
         if (!allaCena(ev, r)) return false;
         if (r.soloCena) return true;

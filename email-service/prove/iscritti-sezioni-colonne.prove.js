@@ -123,7 +123,7 @@ const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalMod
     'righeCsvIscrizioni', 'testoCsv', 'esc', 'dataIscrizioneMs', 'invioConfermaTesto', 'hintAttesaMailHtml',
     // gli iscritti alla cena e al meeting nell'elenco del convegno
     'inSala', 'evHaAderenti', 'aderentiDi', 'indirizziCena', 'allaCena', 'rigaCena', 'righeCena', 'righeElenco', 'firmaCena', 'sezioneElenco', 'hintCenaHtml',
-    'rigaDellaCena', 'emailAderenti', 'righeDaRiconoscere', 'ospiteDopoConferma', 'confrontoElencoDefinitivo', 'segnatoInvitoB2B', 'daInvitareB2B', 'iscrittiPerInvitoB2B', 'relatoriEAderenti'];
+    'rigaDellaCena', 'rigaPerScheda', 'emailAderenti', 'righeDaRiconoscere', 'ospiteDopoConferma', 'confrontoElencoDefinitivo', 'segnatoInvitoB2B', 'daInvitareB2B', 'iscrittiPerInvitoB2B', 'relatoriEAderenti'];
 const sorgente = NOMI.map(n => ritaglia('function ' + n + '(', '{', '}')).join('\n');
 
 /* Le finzioni. Le presenze sono una tabella che ogni scenario riempie;
@@ -969,6 +969,21 @@ prova('Fra gli aderenti si sposta solo la persona della cena, e per una persona 
     esigi(A.hintCenaHtml(MILANO, comp) === '' && /anche cena e meeting/.test(A.hintCenaHtml(MILANO, capo)), 'e la scritta la porta solo lui');
     // anche quando la riga arriva come copia (stesso documento): e' lei
     esigi(A.rigaDellaCena(MILANO, Object.assign({}, capo), e.lista) === true && A.rigaDellaCena(MILANO, Object.assign({}, comp), e.lista) === false, 'si riconosce la scheda dal documento, non dall\'identificativo');
+    // i comandi della tabella ritrovano la scheda dal documento: dalla riga del compagno, il compagno
+    esigi(A.rigaPerScheda(ID, 'ord|1~p2') === comp && A.rigaPerScheda(ID, 'ord|1') === capo && A.rigaPerScheda(ID, '') === comp,
+        'rigaPerScheda: la scheda del comando, non la prima con quell\'identificativo (senza documento, la prima)');
+    // elenco definitivo: il compagno condivide la presenza con l'intestatario della cena, e non si propone
+    const c5 = A.confrontoElencoDefinitivo(MILANO, e.lista, [e.ospite.email]);
+    esigi(!c5.fuori.some(x => x.riga === comp) && !c5.fuori.some(x => x.riga === capo), 'elenco definitivo: spostare il compagno sposterebbe l\'aderente (stessa presenza): non si propone');
+    const c6 = A.confrontoElencoDefinitivo(MILANO, e.lista, ['seg@studio.it']);
+    esigi(c6.mancanti.every(x => x.email !== 'seg@studio.it'), 'e se il suo indirizzo e\' nell\'elenco incollato, risulta trovato');
+    const ME = APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000);
+    esigi(/class="ev-menu-voce ev-b2bi" data-id="' \+ esc\(r\.id\) \+ '" data-doc="' \+ esc\(r\.doc \|\| ''\)/.test(ME)
+        && /querySelectorAll\('\.ev-b2bi'\)[\s\S]{0,200}rigaPerScheda\(b\.dataset\.id, b\.dataset\.doc\)/.test(APP),
+        'la voce B2B del menu porta il documento, e il clic ritrova quella scheda');
+    esigi(/<select class="ev-stato" data-id="' \+ esc\(r\.id\) \+ '" data-doc="/.test(APP) && /<select class="ev-modalita ' \+ md \+ '" data-id="' \+ esc\(r\.id\) \+ '" data-doc="/.test(APP)
+        && (APP.match(/rigaPerScheda\(id, s\.dataset\.doc\)/g) || []).length === 2,
+        'e cosi\' le tendine di stato e modalita\'');
     // la voce del menu "Invita agli incontri B2B" segue la stessa regola dell'invito a tutte
     esigi(/daInvitareB2B\(sezioneElenco\(ev, r\)\)/.test(APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000)),
         'la voce "Invita agli incontri B2B" del menu guarda la sezione in cui la riga si mostra');
