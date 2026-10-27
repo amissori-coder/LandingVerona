@@ -1668,10 +1668,11 @@ nelle cartelle Promozioni e Aggiornamenti, che dopo il clic arriva l'invito
 in PDF (per chi segue online: la conferma, e le istruzioni con un'email a
 parte), e di rispondere se non la trova. Personalizzata con nome, azienda del modulo, data e sede dell'evento
 (`CONF.dettagliEvento`); tag Brevo `X-Mailin-Tag: sollecito-conferma`. Una
-per scheda. Sulla riga dell'area riservata ogni invio tentato si vede con
-data e ora ("sollecito 26/10/2026 15:51", "PEC 27/10/2026 15:51, consegnata
-(ha risposto)"), in rosso quello che non e' andato ("NON partito",
-"PEC non mandata: nessun indirizzo PEC"). **La copia nascosta non copre un no alla persona**: con due
+per scheda. Sulla riga dell'area riservata, sotto il nome dell'azienda,
+"email da confermare" e ogni invio tentato con data e ora ("sollecito
+26/10/2026 15:51", "PEC 27/10/2026 15:51, consegnata (ha risposto)"), in
+rosso quello che non e' andato ("NON partito", "PEC non mandata: nessun
+indirizzo PEC"). **La copia nascosta non copre un no alla persona**: con due
 destinatari, davanti a un no alla casella dell'iscritto, nodemailer va avanti
 con la copia e la spedizione "riesce"; il rifiuto si legge dopo, in
 `info.rejected` (`rifiutato`, con il dominio in punycode com'e' nella busta),
