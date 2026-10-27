@@ -18530,10 +18530,13 @@
                conferma che l'avviso e' partito e quando, che deve ancora
                partire, oppure - per chi quella sezione se l'e' scelta
                iscrivendosi - da dove viene, che e' anche il motivo per cui non
-               c'e' nessun avviso da mandargli. In cima a tutte, per chi non ha
-               ancora confermato l'email, "email da confermare". */
+               c'e' nessun avviso da mandargli. "Email da confermare", con i
+               solleciti (lettera e PEC) e le loro date, sta invece sotto il
+               nome dell'azienda (hintAttesaMailHtml): e' dell'iscrizione, non
+               della modalita', e li' si legge con il nome. */
             const md = modalitaDi(ev, r);
-            const hintM = [hintAttesaMailHtml(ev, r), hintModalitaHtml(ev, r, md)].filter(Boolean).join(' ');
+            const attesa = hintAttesaMailHtml(ev, r);
+            const hintM = hintModalitaHtml(ev, r, md) || '';
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
             const cellaModalita = segna
                 ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
@@ -18578,6 +18581,8 @@
                         ? ', intestato a ' + esc(inv.azienda) : '')
                     + '">' + esc(inv.codice) + '</span>'
                     : '')
+                // sotto il nome: "email da confermare" con i solleciti, poi l'eventuale spostamento d'azienda
+                + attesa
                 + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
                 + '</td>')
                 ((r.extra || {})[COL_SPOSTATO] || '', r.invito);
