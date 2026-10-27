@@ -88,6 +88,7 @@ const COSTANTI = [
     rigaDaAppJs('const COL_FILE_REGIONE_OP ='),
     rigaDaAppJs('const COL_FILE_REVISORE ='),
     rigaDaAppJs('const COL_FILE_DATA_NOMINA ='),
+    rigaDaAppJs('const COL_FILE_SETTORE ='),
     rigaDaAppJs('const COL_CALC_REGIONE ='),
     rigaDaAppJs('const COL_CALC_REVISORE ='),
     ritaglia('const COLONNE_DI_BASE = [', '[', ']') + ';',
@@ -96,6 +97,10 @@ const COSTANTI = [
     ritaglia('const REGIONE_DI_PROVINCIA = (', '(', ')') + '();',
     rigaDaAppJs('const CHIAVE_COLONNE_EVENTO ='),
     rigaDaAppJs('const PORTALE_DESK ='),
+    rigaDaAppJs('const EVENTI_CON_ADERENTI ='),
+    rigaDaAppJs('const PORTALE_CENA ='),
+    rigaDaAppJs('const COL_INVITO_B2B ='),
+    ritaglia('const TITOLO_CENA = {', '{', '}') + ';',
     ritaglia('const NOMI_MODALITA = {', '{', '}') + ';',
     ritaglia('const NOMI_STATO = {', '{', '}') + ';',
     ritaglia('const SEZIONI_MODALITA = [', '[', ']') + ';',
@@ -115,7 +120,10 @@ const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalMod
     'chiaveProvincia', 'regioneDaProvincia', 'chiaveNomeColonna', 'nomeColonnaFile', 'colonneCalcolateDi', 'catalogoColonne',
     'colonnaDelCatalogo', 'colonneDiBaseDi', 'valoreColonnaDi', 'chiaviColonneViste', 'spostaColonna', 'nomeIntestazione',
     'colonneDaMostrare', 'fmtDataOra', 'firmaPresenza', 'aggiornatoDaDi', 'nomeEventoDa',
-    'righeCsvIscrizioni', 'testoCsv', 'esc', 'dataIscrizioneMs', 'invioConfermaTesto', 'hintAttesaMailHtml'];
+    'righeCsvIscrizioni', 'testoCsv', 'esc', 'dataIscrizioneMs', 'invioConfermaTesto', 'hintAttesaMailHtml',
+    // gli iscritti alla cena e al meeting nell'elenco del convegno
+    'inSala', 'evHaAderenti', 'aderentiDi', 'indirizziCena', 'allaCena', 'rigaCena', 'righeCena', 'righeElenco', 'firmaCena', 'sezioneElenco', 'hintCenaHtml',
+    'rigaDellaCena', 'rigaPerScheda', 'emailAderenti', 'righeDaRiconoscere', 'ospiteDopoConferma', 'confrontoElencoDefinitivo', 'segnatoInvitoB2B', 'daInvitareB2B', 'iscrittiPerInvitoB2B', 'relatoriEAderenti'];
 const sorgente = NOMI.map(n => ritaglia('function ' + n + '(', '{', '}')).join('\n');
 
 /* Le finzioni. Le presenze sono una tabella che ogni scenario riempie;
@@ -131,9 +139,12 @@ const localStorage = {
 };
 const AMBIENTE = new Function('EventiPresenze', 'window', 'localStorage', 'vedoCollaboratoreDi', 'nomeDaFirma',
     'let _evIscrizioni = null, _evColonne = {}, _evConfCache = { lista: null, mappa: null };\n'
+    + 'let _aderenti = null, _aderentiEv = \'\', _cenaIndirizzi = { quote: null, set: new Set() };\n'
     + COSTANTI + '\n' + sorgente
     + '\nreturn { ' + NOMI.join(', ') + ', SEZIONI_MODALITA, SEZIONE_ATTESA, EVENTI_DEF, PREFISSO_COL_FILE, CHIAVE_COLONNE_EVENTO, PORTALE_DESK, COLONNE_DI_BASE, COLONNE_DI_BASE_TUTTI, COL_CALC_REGIONE, COL_CALC_REVISORE,'
-    + '  azzeraColonne: () => { _evColonne = {}; }, metti: l => { _evIscrizioni = l; } };')(
+    + '  EVENTI_CON_ADERENTI, PORTALE_CENA, TITOLO_CENA,'
+    + '  azzeraColonne: () => { _evColonne = {}; }, metti: l => { _evIscrizioni = l; },'
+    + '  mettiAderenti: (ev, q) => { _aderenti = q; _aderentiEv = ev; } };')(
     EventiPresenze, {}, localStorage, () => false, x => x);
 const A = AMBIENTE;
 
@@ -345,6 +356,11 @@ prova('Le colonne di base: quelle richieste, nel loro ordine, e solo se l\'event
     esigi(m.every(x => x.col) && m.find(x => x.chiave === 'file:Ricavi (EUR)').col === 'c-extra' && m[0].col === 'c-data', 'ognuna con la sua classe di misura');
     esigi(A.valoreColonnaDi(conFile, m[8]) === 'Lombardia', 'la regione ricavata dalla provincia della sede operativa', A.valoreColonnaDi(conFile, m[8]));
     esigi(A.valoreColonnaDi(conFile, m[10]) === 'Dott. Mario Rossi · 30/06/2026', 'revisore e data nomina in una colonna', A.valoreColonnaDi(conFile, m[10]));
+    // con il settore nel file, sta dopo revisore e data nomina e prima della modalita'
+    const conSettore = riga({ datiInvito: conFile.datiInvito.concat([{ c: 'Settore di attività', v: 'FABBRICAZIONE DI MACCHINARI' }]) });
+    const ms = A.colonneDaMostrare(MILANO, [conSettore]);
+    esigi(ms.map(x => x.nome).slice(10).join('|') === 'Revisore e data nomina|Settore di attività|Modalità' && A.valoreColonnaDi(conSettore, ms[11]) === 'FABBRICAZIONE DI MACCHINARI',
+        'il settore di attivita\' del file (anche con l\'accento) dopo revisore e data nomina', ms.map(x => x.nome));
     // senza il file (Napoli, o chi si e' iscritto senza codice) restano le colonne della tabella
     const n = A.colonneDaMostrare(NAPOLI, [riga()]);
     esigi(n.map(x => x.nome).join('|') === 'Data|Nome|Azienda|Ruolo|Email|Telefono' + (NAPOLI.manuale ? '|Preferenze iscrizione' : '') + '|Modalità', 'Napoli: senza le colonne del file (e le preferenze solo se l\'evento e\' manuale)', n.map(x => x.nome));
@@ -813,8 +829,10 @@ prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail
     /* "email da confermare" con i solleciti sta sotto il nome dell'azienda, non nella cella della modalita' */
     const tab = APP.slice(APP.indexOf('function tabellaIscrizioni('), APP.indexOf('function agganciaScorriX('));
     esigi(/const attesa = hintAttesaMailHtml\(ev, r\);/.test(tab) && /const hintM = hintModalitaHtml\(ev, r, md\) \|\| '';/.test(tab), 'l\'attesa e il suggerimento della modalita\' sono due cose');
+    const email = tab.slice(tab.indexOf("celle['b:email']"), tab.indexOf("celle['b:telefono']"));
+    esigi(/emailInterrompibile\(r\.email\) \+ esitoMailDi\(r\) \+ attesa \+ '<\/td>'/.test(email), 'e l\'attesa sta nella cella dell\'email, sotto l\'indirizzo');
     const azienda = tab.slice(tab.indexOf("celle['b:azienda']"), tab.indexOf("celle['b:ruolo']"));
-    esigi(/\+ attesa\s*\n\s*\+ \(t \? '<div class="hint ev-spostato">/.test(azienda), 'e l\'attesa sta nella cella dell\'azienda, sotto il nome, prima dello spostamento');
+    esigi(azienda.indexOf('attesa') < 0, 'e non in quella dell\'azienda');
     const modalita = tab.slice(tab.indexOf('const cellaModalita = segna'), tab.indexOf("celle['b:data']"));
     esigi(modalita.indexOf('hintAttesaMailHtml') < 0 && modalita.indexOf('attesa') < 0, 'e non piu\' in quella della modalita\'');
     /* i solleciti sulla riga, a vista: ogni invio tentato con data e ora, in rosso quello che non e' andato */
@@ -840,6 +858,244 @@ prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail
     esigi(s.indexOf('PEC 27/10/2026 15:51 (esito incerto)') >= 0, 'la PEC dall\'esito incerto', s);
     s = h({ sollecitoConferma: { quando: q, ok: true }, pecSollecito: { quando: q + 86400000, ok: false, definitivo: true, errore: '550' } });
     esigi(s.indexOf('PEC NON partita 27/10/2026 15:51 (rifiutato)') >= 0, 'la PEC rifiutata dal gestore', s);
+});
+
+/* ------------------------------------------------------------
+   GLI ISCRITTI ALLA CENA E AL MEETING FRA GLI ADERENTI REVILAW
+   ------------------------------------------------------------ */
+
+prova('Chi e\' iscritto alla cena e al meeting sta fra gli aderenti Revilaw', () => {
+    const e = elencoMilano();
+    const quando = Date.UTC(2026, 9, 20, 8, 0);
+    /* la risposta del servizio (api/presenze.js, sezione "aderenti"): una quota
+       con le sue righe (lib/iscrizioni-aderenti.js, rigaElenco) */
+    A.mettiAderenti('milano-2027-02-26', [{ quota: { id: 'milano-2027-aderenti' }, conti: { iscritti: 3 }, righe: [
+        { id: 'milano-2027-aderenti~mario', email: 'MARIO@studio.it ', nome: 'Mario', cognome: 'Rossi', studio: 'Studio Rossi', telefono: '333 1', citta: 'Verona', note: 'celiaco', quando: quando, primaVolta: quando - 3600000 },
+        // l'ospite del convegno e' anche alla cena: resta con la sua riga, fra gli aderenti
+        { id: 'milano-2027-aderenti~ospite', email: e.ospite.email.toUpperCase(), nome: 'X', cognome: 'Y', studio: 'Z', quando: quando, primaVolta: quando },
+        // chi aspetta la conferma resta nell'attesa; chi e' online resta online
+        { id: 'milano-2027-aderenti~attesa', email: e.attesa.email, nome: 'A', cognome: 'B', studio: 'C', quando: quando, primaVolta: quando },
+        { id: 'milano-2027-aderenti~online', email: e.online.email, nome: 'D', cognome: 'E', studio: 'F', quando: quando, primaVolta: quando }
+    ] }]);
+    A.metti(e.lista);
+    const el = A.righeElenco(MILANO, e.lista);
+    esigi(el.length === 6, 'l\'elenco: le cinque iscrizioni del convegno (il solo B2B fuori) piu\' la riga della cena di chi al convegno non c\'e\'', el.length);
+    const cena = el.find(r => r.soloCena);
+    esigi(cena && cena.id === 'cena~milano-2027-aderenti~mario' && cena.modalita === 'aderenti' && cena.doc === '', 'la riga della cena: aderente, senza documento del convegno', JSON.stringify(cena));
+    esigi(cena && cena.nome === 'Mario' && cena.cognome === 'Rossi' && cena.azienda === 'Studio Rossi' && cena.email === 'MARIO@studio.it ' && cena.telefono === '333 1',
+        'con i dati della scheda della cena: lo studio fa da azienda', JSON.stringify(cena));
+    esigi(cena && cena.extra.Portale === A.PORTALE_CENA && cena.extra.Partecipanti === '1' && cena.extra['Citt\u00e0'] === 'Verona' && cena.extra['Note cena'] === 'celiaco',
+        'e "Cena e meeting" nella colonna Portale, una persona, citta\' e note fra le aggiuntive', JSON.stringify(cena && cena.extra));
+    esigi(cena && cena.data === A.fmtDataOra(quando - 3600000), 'la data e\' quella della prima iscrizione alla cena, nella forma delle altre righe', cena && cena.data);
+    esigi(el.filter(r => r.soloCena).length === 1, 'chi ha gia\' una riga del convegno (ospite, attesa, online) non ne ha una seconda');
+    // la sezione in cui si mostra, e quella in cui si conta
+    esigi(A.sezioneElenco(MILANO, cena, e.lista) === 'aderenti', 'la riga della cena si mostra fra gli aderenti');
+    esigi(A.sezioneVista(MILANO, e.ospite, e.lista) === 'presenza' && A.sezioneElenco(MILANO, e.ospite, e.lista) === 'aderenti',
+        'l\'ospite che e\' anche alla cena si conta in presenza ma si mostra fra gli aderenti');
+    esigi(A.sezioneElenco(MILANO, e.attesa, e.lista) === 'attesa', 'chi aspetta la conferma resta nell\'attesa anche se e\' alla cena');
+    esigi(A.sezioneElenco(MILANO, e.online, e.lista) === 'online', 'chi segue online resta online anche se e\' alla cena');
+    esigi(A.sezioneElenco(MILANO, e.aMano, e.lista) === 'presenza' && A.sezioneElenco(MILANO, e.aderente, e.lista) === 'aderenti', 'gli altri stanno dove stavano');
+    esigi(A.allaCena(MILANO, e.ospite) === true && A.allaCena(MILANO, e.aMano) === false && A.allaCena(MILANO, cena) === true, 'allaCena: per indirizzo, senza badare a maiuscole e spazi');
+    // la scritta sotto la modalita'
+    const hC = A.hintCenaHtml(MILANO, cena), hO = A.hintCenaHtml(MILANO, e.ospite);
+    esigi(/ev-cena/.test(hC) && />cena e meeting</.test(hC) && hC.indexOf(A.esc(A.TITOLO_CENA.solo)) >= 0, 'sulla riga della cena: "cena e meeting", e il suggerimento dice che si legge soltanto', hC);
+    esigi(/ev-cena/.test(hO) && />anche cena e meeting</.test(hO) && hO.indexOf(A.esc(A.TITOLO_CENA.anche)) >= 0, 'sulla riga del convegno: "anche cena e meeting"', hO);
+    esigi(A.hintCenaHtml(MILANO, e.aMano) === '', 'e niente per chi alla cena non c\'e\'');
+    // la firma con cui l'elenco si disegna: cambia quando cambiano le righe della cena
+    esigi(JSON.parse(A.firmaCena(MILANO))[0].join('|') === [e.ospite.id, e.online.id, e.attesa.id].sort().join('|') && JSON.parse(A.firmaCena(MILANO))[1].length === 4,
+        'la firma: le righe del convegno che sono la persona della cena, e i dati delle schede della cena', A.firmaCena(MILANO));
+    // il CSV: la sezione in cui si mostra, e niente conferma dell'email per la cena
+    const righe = A.righeCsvIscrizioni(MILANO, el, id => presenze[id] || null);
+    const testa = righe[0];
+    const iEmail = testa.indexOf('Email'), iConf = testa.indexOf('Email confermata'), iPort = testa.indexOf('Portale'), iMod = testa.indexOf('Modalit\u00e0');
+    const rCena = righe.find(r => r[iEmail] === 'MARIO@studio.it ');
+    esigi(righe.length === 7 && rCena && rCena[0] === 'Aderenti Revilaw' && rCena[iConf] === '' && rCena[iPort] === A.PORTALE_CENA && rCena[iMod] === 'Aderente',
+        'nel CSV la riga della cena sta fra gli aderenti, con il suo Portale e senza "email confermata"', JSON.stringify(rCena));
+    const rOspite = righe.find(r => r[iEmail] === e.ospite.email);
+    esigi(rOspite && rOspite[0] === 'Aderenti Revilaw' && rOspite[iConf].indexOf('s\u00ec') === 0 && rOspite[iMod] === 'In presenza',
+        'l\'ospite alla cena: sezione Aderenti Revilaw, modalita\' In presenza, email confermata', JSON.stringify(rOspite));
+    esigi(testa.indexOf('Citt\u00e0') >= 0 && testa.indexOf('Note cena') >= 0, 'citta\' e note della cena fra le colonne aggiuntive del CSV', testa.join('|'));
+    // senza le iscrizioni degli aderenti (non ancora lette) l'elenco e' quello di sempre
+    A.mettiAderenti('', null);
+    esigi(A.righeElenco(MILANO, e.lista).length === 5 && A.sezioneElenco(MILANO, e.ospite, e.lista) === 'presenza' && A.firmaCena(MILANO) === '[[],[]]',
+        'finche\' le iscrizioni alla cena non sono lette, niente righe in piu\' e nessuno si sposta');
+    // a Napoli non ci sono aderenti: niente di tutto questo
+    A.mettiAderenti('napoli-2026-10-02', [{ quota: {}, conti: {}, righe: [{ id: 'x', email: e.ospite.email }] }]);
+    esigi(A.righeElenco(NAPOLI, e.lista).length === 5 && A.allaCena(NAPOLI, e.ospite) === false, 'a Napoli l\'elenco resta quello del convegno');
+    A.mettiAderenti('', null);
+    A.metti(null);
+});
+
+/* La cena con le righe di elencoMilano: chi ci si iscrive, per indirizzo. */
+function conCena(e, indirizzi, extra) {
+    A.mettiAderenti('milano-2027-02-26', [{ quota: { id: 'milano-2027-aderenti' }, conti: { iscritti: indirizzi.length }, righe: indirizzi.map((m, i) => Object.assign({
+        id: 'milano-2027-aderenti~' + i, email: m, nome: 'N' + i, cognome: 'C' + i, studio: 'S' + i, quando: Date.UTC(2026, 9, 1 + i, 8, 0), primaVolta: Date.UTC(2026, 9, 1 + i, 8, 0)
+    }, (extra || {})[m] || {})) }]);
+    A.metti(e.lista);
+}
+
+prova('La firma con cui l\'elenco si ridisegna cambia quando la cena cambia davvero', () => {
+    const e = elencoMilano();
+    conCena(e, ['solo@cena.it']);
+    const prima = A.firmaCena(MILANO);
+    esigi(A.firmaCena(MILANO) === prima, 'due letture uguali, la stessa firma');
+    conCena(e, ['solo@cena.it', e.ospite.email]);
+    esigi(A.firmaCena(MILANO) !== prima, 'un iscritto al convegno si iscrive anche alla cena: la firma cambia (la sua riga va fra gli aderenti)');
+    const conOspite = A.firmaCena(MILANO);
+    conCena(e, ['solo@cena.it', e.ospite.email], { 'solo@cena.it': { nome: 'Corretto' } });
+    esigi(A.firmaCena(MILANO) !== conOspite, 'un dato corretto in una scheda della cena: la firma cambia (la riga in sola lettura va rifatta)');
+    // senza date la riga della cena prende "adesso": la firma non deve cambiare da sola
+    conCena(e, ['senza@data.it'], { 'senza@data.it': { quando: 0, primaVolta: 0 } });
+    const f1 = A.firmaCena(MILANO);
+    esigi(A.firmaCena(MILANO) === f1, 'una scheda senza data non fa cambiare la firma da sola');
+    A.mettiAderenti('', null); A.metti(null);
+});
+
+prova('Fra gli aderenti si sposta solo la persona della cena, e per una persona sola', () => {
+    const e = elencoMilano();
+    // un ordine con piu' posti: l'intestatario e un compagno con lo stesso indirizzo
+    /* come li manda il servizio: l'id e' indirizzo|data, e il posto ~p2 prende la
+       data dell'intestatario - con lo stesso indirizzo, lo stesso id */
+    const ID = 'seg@studio.it|12/01/2027 09:00:00';
+    const capo = riga({ id: ID, doc: 'ord|1', data: '12/01/2027 09:00:00', emailConfermata: CONFERMATA, email: 'seg@studio.it' });
+    const comp = riga({ id: ID, doc: 'ord|1~p2', gruppo: 'ord|1', data: '12/01/2027 09:00:00', emailConfermata: CONFERMATA, email: 'seg@studio.it' });
+    e.lista.push(comp, capo);
+    conCena(e, [e.aMano.email, e.online.email, e.attesa.email, 'seg@studio.it', e.ospite.email]);
+    // la riga da Eventbrite per tre: l'intestatario e' alla cena, gli altri due no
+    esigi(A.sezioneElenco(MILANO, e.aMano, e.lista) === 'presenza', 'una riga per tre persone resta in presenza');
+    esigi(A.hintCenaHtml(MILANO, e.aMano).indexOf(A.esc(A.TITOLO_CENA.gruppo)) >= 0, 'con la scritta e il suggerimento che dicono perche\'');
+    // l'ordine: si sposta l'intestatario, il compagno con lo stesso indirizzo e' un'altra persona
+    esigi(A.sezioneElenco(MILANO, capo, e.lista) === 'aderenti' && A.sezioneElenco(MILANO, comp, e.lista) === 'presenza', 'nell\'ordine si sposta l\'intestatario, non il compagno');
+    esigi(A.hintCenaHtml(MILANO, comp) === '' && /anche cena e meeting/.test(A.hintCenaHtml(MILANO, capo)), 'e la scritta la porta solo lui');
+    // anche quando la riga arriva come copia (stesso documento): e' lei
+    esigi(A.rigaDellaCena(MILANO, Object.assign({}, capo), e.lista) === true && A.rigaDellaCena(MILANO, Object.assign({}, comp), e.lista) === false, 'si riconosce la scheda dal documento, non dall\'identificativo');
+    // i comandi della tabella ritrovano la scheda dal documento: dalla riga del compagno, il compagno
+    esigi(A.rigaPerScheda(ID, 'ord|1~p2') === comp && A.rigaPerScheda(ID, 'ord|1') === capo && A.rigaPerScheda(ID, '') === comp,
+        'rigaPerScheda: la scheda del comando, non la prima con quell\'identificativo (senza documento, la prima)');
+    // elenco definitivo: il compagno condivide la presenza con l'intestatario della cena, e non si propone
+    const c5 = A.confrontoElencoDefinitivo(MILANO, e.lista, [e.ospite.email]);
+    esigi(!c5.fuori.some(x => x.riga === comp) && !c5.fuori.some(x => x.riga === capo), 'elenco definitivo: spostare il compagno sposterebbe l\'aderente (stessa presenza): non si propone');
+    esigi(c5.legati.length === 1 && c5.legati[0].riga === comp, 'ma si dice a parte: e\' un ospite in sala che nell\'elenco non c\'e\'', JSON.stringify(c5.legati.map(x => x.email)));
+    // con la presenza condivisa fra sponsor e relatori il compagno non e' un ospite: il suo indirizzo non e' "trovato"
+    presenze[ID] = { modalita: 'sponsor' };
+    const c7 = A.confrontoElencoDefinitivo(MILANO, e.lista, ['seg@studio.it']);
+    esigi(c7.mancanti.some(x => x.email === 'seg@studio.it' && x.dove) && c7.legati.length === 0, 'se la presenza condivisa non e\' in presenza, l\'indirizzo incollato non si trova fra gli ospiti, e si dice dove sta', JSON.stringify(c7.mancanti));
+    delete presenze[ID];
+    const FIN = APP.slice(APP.indexOf('function modaleConfrontoElenco('), APP.indexOf('function modaleConfrontoElenco(') + 12000);
+    esigi(/const legati = esito\.legati \|\| \[\];/.test(FIN) && /\(nlSala \? '' : '<p class="hint">Tutti gli ospiti in sala sono nell[^\n]*\n\s*\+ bloccoLegati/.test(FIN)
+        && /\(nlSala \? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala/.test(FIN)
+        && /const nlSala = legati\.filter\(t => t\.sezione !== SEZIONE_ATTESA\.id\)\.length;/.test(FIN),
+        'la finestra lo dice, e non scrive che tutti gli ospiti in sala sono nell\'elenco (chi aspetta la conferma non e\' "in sala")');
+    const c6 = A.confrontoElencoDefinitivo(MILANO, e.lista, ['seg@studio.it']);
+    esigi(c6.mancanti.every(x => x.email !== 'seg@studio.it'), 'e se il suo indirizzo e\' nell\'elenco incollato, risulta trovato');
+    const ME = APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000);
+    esigi(/class="ev-menu-voce ev-b2bi" data-id="' \+ esc\(r\.id\) \+ '" data-doc="' \+ esc\(r\.doc \|\| ''\)/.test(ME)
+        && /querySelectorAll\('\.ev-b2bi'\)[\s\S]{0,200}rigaPerScheda\(b\.dataset\.id, b\.dataset\.doc\)/.test(APP),
+        'la voce B2B del menu porta il documento, e il clic ritrova quella scheda');
+    esigi(/<select class="ev-stato" data-id="' \+ esc\(r\.id\) \+ '" data-doc="/.test(APP) && /<select class="ev-modalita ' \+ md \+ '" data-id="' \+ esc\(r\.id\) \+ '" data-doc="/.test(APP)
+        && (APP.match(/rigaPerScheda\(id, s\.dataset\.doc\)/g) || []).length === 2,
+        'e cosi\' le tendine di stato e modalita\'');
+    // la voce del menu "Invita agli incontri B2B" segue la stessa regola dell'invito a tutte
+    esigi(/daInvitareB2B\(sezioneElenco\(ev, r\)\)/.test(APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000)),
+        'la voce "Invita agli incontri B2B" del menu guarda la sezione in cui la riga si mostra');
+    // online e attesa: restano dove sono, e la scritta dice il vero
+    esigi(A.hintCenaHtml(MILANO, e.online).indexOf(A.esc(A.TITOLO_CENA.online)) >= 0, 'online: "anche cena e meeting" con il suggerimento dell\'online');
+    esigi(A.hintCenaHtml(MILANO, e.attesa).indexOf(A.esc(A.TITOLO_CENA.attesa)) >= 0, 'in attesa: con il suggerimento dell\'attesa');
+    esigi(A.hintCenaHtml(MILANO, e.ospite).indexOf(A.esc(A.TITOLO_CENA.anche)) >= 0, 'fra gli aderenti: con il suo');
+    A.mettiAderenti('', null); A.metti(null);
+});
+
+prova('Chi si mostra fra gli aderenti e\' un aderente anche per l\'elenco definitivo, gli inviti B2B e i relatori', () => {
+    const e = elencoMilano();
+    e.ospite.extra = Object.assign({}, e.ospite.extra, { 'Invito B2B': 'si' });
+    e.aMano.extra = Object.assign({}, e.aMano.extra, { 'Invito B2B': 'si' });
+    conCena(e, [e.ospite.email]);
+    const c = A.confrontoElencoDefinitivo(MILANO, e.lista, ['nessuno@altrove.it']);
+    esigi(!c.fuori.some(x => x.riga === e.ospite) && c.fuori.some(x => x.riga === e.aMano), 'elenco definitivo: l\'ospite alla cena non e\' fra gli ospiti da spostare online, gli altri si');
+    const c2 = A.confrontoElencoDefinitivo(MILANO, e.lista, [e.ospite.email]);
+    esigi(c2.mancanti.length === 1 && c2.mancanti[0].dove === 'aderenti', 'e se e\' nell\'elenco incollato, si dice che sta fra gli aderenti', JSON.stringify(c2.mancanti));
+    // chi aspetta la conferma ed e' alla cena: confermando va fra gli aderenti, quindi non si propone per l'online
+    const e2 = elencoMilano();
+    conCena(e2, [e2.attesa.email]);
+    const c3 = A.confrontoElencoDefinitivo(MILANO, e2.lista, [e2.ospite.email]);
+    esigi(!c3.daConfermare.some(x => x.riga === e2.attesa), 'elenco definitivo: chi aspetta la conferma ed e\' alla cena non e\' fra quelli da confermare in sala', JSON.stringify(c3.daConfermare.map(x => x.email)));
+    conCena(e2, []);
+    const c4 = A.confrontoElencoDefinitivo(MILANO, e2.lista, [e2.ospite.email]);
+    esigi(c4.daConfermare.some(x => x.riga === e2.attesa), 'senza la cena invece si propone, come prima');
+    conCena(e, [e.ospite.email]);
+    const inv = A.iscrittiPerInvitoB2B(MILANO, e.lista);
+    esigi(!inv.includes(e.ospite) && inv.includes(e.aMano), 'inviti B2B: l\'aderente della cena non e\' un\'impresa da abbinare');
+    esigi(A.relatoriEAderenti(MILANO).some(x => x.email === e.ospite.email && x.sezione === 'aderenti'), 'e fra relatori e aderenti della giornata c\'e\'');
+    A.mettiAderenti('', null); A.metti(null);
+});
+
+prova('"Riconosci aderenti": chi si mostra gia\' fra gli aderenti no, chi resta online si', () => {
+    const e = elencoMilano();
+    e.ospite.aderente = true; e.online.aderente = true;
+    conCena(e, [e.ospite.email, e.online.email]);
+    const r = A.righeDaRiconoscere(MILANO, A.righeElenco(MILANO, e.lista)).map(x => x.riga);
+    esigi(!r.includes(e.ospite) && r.includes(e.online), 'l\'ospite alla cena e\' gia\' fra gli aderenti; chi segue online si propone come sempre');
+    esigi(!r.some(x => x.soloCena), 'e le righe della cena non si propongono');
+    A.mettiAderenti('', null); A.metti(null);
+});
+
+prova('Le righe della cena stanno al loro posto per data, e l\'ordine del convegno non cambia', () => {
+    const e = elencoMilano();
+    const base = [riga({ data: '25/10/2026 10:00:00' }), riga({ data: '01/07/2026 10:00:00' }), riga({ data: '' })];
+    A.mettiAderenti('milano-2027-02-26', [{ quota: {}, conti: {}, righe: [
+        { id: 'q~vecchia', email: 'v@cena.it', primaVolta: new Date(2026, 8, 1, 10, 0).getTime() },
+        { id: 'q~oggi', email: 'o@cena.it', primaVolta: new Date(2026, 9, 26, 10, 0).getTime() }
+    ] }]);
+    const el = A.righeElenco(MILANO, base);
+    esigi(el.map(r => r.id).join(',') === ['cena~q~oggi', base[0].id, 'cena~q~vecchia', base[1].id, base[2].id].join(','),
+        'la piu\' recente in cima, ognuna al suo posto; le righe del convegno nell\'ordine di prima', el.map(r => r.id + ' ' + r.data).join(' | '));
+    A.mettiAderenti('', null);
+});
+
+prova('Il CSV legge la conferma dell\'email sull\'elenco intero, come la tabella', () => {
+    presenze = {}; seq = 0;
+    const a = riga({ email: 'Mario@Azienda.it ' });
+    const b = riga({ email: 'mario@azienda.it', emailConfermata: CONFERMATA, modalita: 'b2b', soloB2B: true });
+    const righe = A.righeCsvIscrizioni(MILANO, [a, b], id => presenze[id] || null);
+    const testa = righe[0], iConf = testa.indexOf('Email confermata');
+    esigi(righe.length === 2 && righe[1][0] === 'In presenza' && righe[1][iConf].indexOf('s\u00ec') === 0,
+        'una riga confermata fra i soli incontri B2B conferma l\'indirizzo anche nel CSV (la riga B2B non si esporta)', JSON.stringify(righe));
+    const vista = APP.slice(APP.indexOf('function vistaEventi('), APP.indexOf('function vistaEventi(') + 40000);
+    esigi(/const righe = righeCsvIscrizioni\(ev, _evIscrizioni \|\| \[\], id => EventiPresenze\.di\(ev\.id, id\)\);/.test(APP), 'l\'esportazione passa l\'elenco intero');
+});
+
+prova('Le righe della cena si leggono soltanto: niente casella, tendine o menu', () => {
+    const tab = APP.slice(APP.indexOf('function tabellaIscrizioni('), APP.indexOf('function agganciaScorriX('));
+    esigi(/const segnaR = segna && !r\.soloCena;/.test(tab) && /const cellaStato = segnaR/.test(tab) && /const cellaNota = segnaR/.test(tab) && /const cellaModalita = segnaR/.test(tab),
+        'stato, nota e modalita\' in sola lettura sulle righe della cena');
+    esigi(/r\.soloCena \? '<td data-label=""><\/td>' : '<td data-label=""><input type="checkbox" class="ev-sel"/.test(tab), 'nessuna casella di selezione');
+    esigi(/\(azioniEv && !r\.soloCena \? cellaAzioniHtml\(ev, r, md\)/.test(tab), 'e nessun menu della riga');
+    esigi(/lista = lista\.filter\(r => sezioneElenco\(ev, r\) === sezione\)/.test(tab), 'il filtro della sezione guarda dove la riga si mostra');
+    esigi(/const hintC = hintCenaHtml\(ev, r\);/.test(tab) && /\+ '<\/select>' \+ hintM \+ hintC \+ '<\/td>'/.test(tab), 'con "cena e meeting" sotto la tendina della modalita\'');
+    const vista = APP.slice(APP.indexOf('function vistaEventi('), APP.indexOf('function vistaEventi(') + 40000);
+    esigi(/tabellaIscrizioni\(ev, righeElenco\(ev, _evIscrizioni\)\)/.test(vista) && /_evCenaDisegnata = _evIscrizioni \? firmaCena\(ev\) : null;/.test(vista),
+        'la pagina disegna l\'elenco con le righe della cena e segna con quali');
+    esigi(/const tutte = righeElenco\(ev, lista \|\| \[\]\);/.test(APP.slice(APP.indexOf('function righeCsvIscrizioni('), APP.indexOf('function tabellaIscrizioni('))), 'e il CSV le esporta');
+    // cambiando la tendina della modalita' si rimettono tutte le righine, "anche cena e meeting" compresa
+    esigi(/\[hintAttesaMailHtml\(ev, rr\), hintModalitaHtml\(ev, rr, vero\), hintCenaHtml\(ev, rr\)\]/.test(APP), 'la tendina della modalita\' rimette anche "anche cena e meeting"');
+    const agg = APP.slice(APP.indexOf('function aggiornaSchedaAderenti('), APP.indexOf('function aggiornaSchedaAderenti(') + 2500);
+    esigi(/firmaCena\(ev\) !== _evCenaDisegnata\) ridisegnaEventiSeLibero\(\);/.test(agg), 'arrivate o cambiate le iscrizioni alla cena, l\'elenco si ridisegna');
+    const num = APP.slice(APP.indexOf('function aggiornaNumeriEventi('), APP.indexOf('function titoloVoceSezione('));
+    esigi(/const tutte = righeElenco\(ev, _evIscrizioni \|\| \[\]\);/.test(num) && /tutte\.filter\(r => sezioneElenco\(ev, r\) === id\)/.test(num), 'le voci sopra l\'elenco contano le righe della cena, nella sezione in cui si mostrano');
+    const filtro = APP.slice(APP.indexOf('function filtroSezioniHtml('), APP.indexOf('function righeCsvIscrizioni('));
+    esigi(/tutte\.filter\(r => sezioneElenco\(ev, r\) === id\)/.test(filtro), 'e cosi\' il filtro delle sezioni');
+    const CSS = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'styles.css'), 'utf8');
+    esigi(/\.ev-cena \{/.test(CSS), 'la riga "cena e meeting" ha la sua veste');
+});
+
+prova('I totali: aziende + aderenti + sponsor e relatori', () => {
+    const tot = APP.slice(APP.indexOf('function totaliHtml('), APP.indexOf('function totaliHtml(') + 4000);
+    esigi(/'sponsor e relatori', ti\.sponsor, '', q\('sponsor'\)/.test(tot) && /'totale', ti\.tutti, 'forte', q\('tutti'\)/.test(tot),
+        'il riquadro di sponsor e relatori sta fra gli aderenti e il totale');
+    const num = APP.slice(APP.indexOf('function aggiornaNumeriEventi('), APP.indexOf('function titoloVoceSezione('));
+    esigi(/\['aziende', 'aderenti', 'sponsor', 'tutti', 'attesa', 'conAttesaAziende', 'conAttesaTutti'\]/.test(num), 'e si aggiorna al volo con gli altri');
+    const ev = APP.slice(APP.indexOf('function totaliEvento('), APP.indexOf('function titoliTotali('));
+    esigi(/sponsor: m === 'sponsor'/.test(ev), 'le righe del convegno dicono se stanno fra sponsor e relatori');
 });
 
 console.log('\nL\'elenco degli iscritti: attesa della conferma, colonne dal file, esportazione\n');

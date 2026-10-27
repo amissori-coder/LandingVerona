@@ -150,6 +150,10 @@ const COLONNA_SPOSTATO = 'Spostamento azienda';
    a raccontare una persona sola. */
 const COLONNA_AZIENDA_B2B = 'Azienda B2B';
 const COLONNA_ATTESA_B2B = 'B2B in attesa';
+/* "Sponsor o relatore": come si e' presentato chi si e' iscritto dalla pagina
+   riservata a sponsor e relatori (iscrizione-nuova.js, `ruoloEvento`). Una
+   colonna aggiuntiva, come i campi del matching: compare solo dove c'e'. */
+const COLONNA_SPONSOR = 'Sponsor o relatore';
 function prenotatiB2B(v) {
     if (!Array.isArray(v.b2bScelte)) return [];
     return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
@@ -219,6 +223,8 @@ function extraMatching(v) {
        dominio della mail, altrimenti lo spostamento se lo rimangerebbe. */
     const traccia = tracciaSpostamento(v.aziendaSpostata);
     if (traccia) fuori[COLONNA_SPOSTATO] = traccia;
+    const come = String(v.ruoloEvento || '').trim().toLowerCase();
+    if (come) fuori[COLONNA_SPONSOR] = come === 'relatore' ? 'Relatore' : (come === 'sponsor' ? 'Sponsor' : come);
     Object.keys(CAMPI_MATCHING).forEach(campo => {
         const grezzo = String(v[campo] == null ? '' : v[campo]).trim();
         if (!grezzo) return;   // campo assente: nessuna colonna, nessuna cella vuota
@@ -505,6 +511,12 @@ module.exports = async (req, res) => {
                        "Riconosci aderenti" e la scritta "dal modulo" - restavano
                        spente senza dirlo. */
                     aderente: v.aderente === true,
+                    /* SPONSOR O RELATORE iscritto dalla pagina riservata a loro
+                       (iscrizione-nuova.js, PAGINA_SPONSOR): la dichiarazione,
+                       distinta dalla sezione, come `aderente`. Senza questa riga
+                       la scritta "dal modulo" fra sponsor e relatori resterebbe
+                       spenta, e ogni riga sembrerebbe messa li' a mano. */
+                    sponsor: v.sponsor === true,
                     /* SCHEDA NATA PER GLI INVITI B2B: l'ha scritta la finestra
                        degli inviti per avere l'impresa fra quelle da abbinare
                        ai tavoli, non una persona che si e' iscritta al

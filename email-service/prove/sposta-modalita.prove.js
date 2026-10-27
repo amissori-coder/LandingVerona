@@ -486,15 +486,19 @@ prova('La tendina della riga accetta anche sponsor', async () => {
     esigi(spedite.length === 0, 'e non parte nessuna mail');
 });
 
-prova('Dal modulo pubblico non ci si mette fra sponsor e relatori', async () => {
+prova('Dal modulo pubblico dell\'evento non ci si mette fra sponsor e relatori', async () => {
     /* Stessa regola degli aderenti: nella sezione di chi l'evento lo fa non ci
-       si mette da soli. La riga di codice che fa da confine sta in un altro
-       endpoint, e qui la si tiene ferma. */
+       si mette da soli dal modulo dell'evento. Fra sponsor e relatori si entra
+       da UNA pagina sola, quella riservata a loro (PAGINA_SPONSOR, la coda
+       "- Sponsor e relatori" del nome della pagina). Le righe di codice che
+       fanno da confine stanno in un altro endpoint, e qui le si tiene ferme. */
     scenario();
     const fs = require('fs');
     const src = fs.readFileSync(path.join(RADICE, 'api/iscrizione-nuova.js'), 'utf8');
     const riga = (src.match(/if \(modalita === [^\n]*\) scheda\.modalita = modalita;/) || [''])[0];
-    esigi(!/sponsor/.test(riga), 'il campo "modalita" del modulo non accetta sponsor', riga);
+    esigi(!/sponsor/.test(riga), 'il campo "modalita" del modulo dell\'evento non accetta sponsor', riga);
+    esigi(/if \(modalita === 'sponsor' && PAGINA_SPONSOR\.test\(pagina\)\)/.test(src) && /const PAGINA_SPONSOR = \/\\s-\\s\*sponsor e relatori\\s\*\$\/i;/.test(src),
+        'sponsor entra solo con la coda della pagina riservata a sponsor e relatori (PAGINA_SPONSOR)');
     const no = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsorizzato', destinatari: [TUTTI[0]] });
     esigi(no.stato === 400, 'e una sezione inventata resta respinta', JSON.stringify(no.corpo));
 });

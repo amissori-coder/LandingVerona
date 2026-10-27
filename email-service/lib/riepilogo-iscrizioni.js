@@ -258,18 +258,22 @@ function daSpedireAderenti(c) {
 }
 
 /* ---------- il totale con gli aderenti ----------
-   Due numeri da non confondere, nella mail di mezzanotte come nei
-   riquadri dell'area riservata (che li spartisce in due riepiloghi, in
-   presenza e online, con questa stessa regola: la loro somma e' questa):
+   Numeri da non confondere, nella mail di mezzanotte come nei riquadri
+   dell'area riservata (che li spartisce in due riepiloghi, in presenza e
+   online, con questa stessa regola: la loro somma e' questa):
      TOTALE AZIENDE            le persone iscritte al convegno, in sala e
-                               online, tolti gli aderenti;
-     TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una
-                               volta: le aziende piu' gli aderenti, cioe'
-                               chi e' iscritto alla cena e al meeting e chi
+                               online, tolti gli aderenti e sponsor e relatori;
+     ADERENTI                  chi e' iscritto alla cena e al meeting e chi
                                sta nella sezione "Aderenti Revilaw"
-                               dell'elenco del convegno.
+                               dell'elenco del convegno;
+     SPONSOR E RELATORI        chi sta nella sezione "Sponsor e relatori":
+                               chi l'evento lo fa, che un posto lo occupa ma
+                               non e' un'azienda ospite;
+     TOTALE                    tutte le persone dell'evento, ognuna una
+                               volta: aziende + aderenti + sponsor.
    Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo
-   email) e' un aderente, e si conta una volta sola, con la cena.
+   email) e' un aderente, e si conta una volta sola, con la cena - anche se
+   la sua riga del convegno sta fra sponsor e relatori.
    Del convegno contano le stesse persone dei riquadri dell'area riservata:
    le iscrizioni attive, fuori chi aspetta ancora di confermare l'email e
    gli invitati ai soli incontri B2B (che in elenco non ci sono), una riga
@@ -277,15 +281,15 @@ function daSpedireAderenti(c) {
    LA STESSA REGOLA sta in area-riservata/app.js (totaliConAderenti): se
    cambia qui va cambiata la', e prove/totali-aderenti.prove.js le mette a
    confronto.
-   `convegno`: [{ email, persone, aderente, gruppo }], le righe gia' scelte
-   (`gruppo`: il gruppo dell'ordine, o il documento della riga);
+   `convegno`: [{ email, persone, aderente, sponsor, gruppo }], le righe gia'
+   scelte (`gruppo`: il gruppo dell'ordine, o il documento della riga);
    `cena`: [{ email }], le iscrizioni alla cena e al meeting. Un aderente
    della cena che sta su una riga del convegno per piu' persone toglie da
    quella riga solo se stesso. */
 function totaliConAderenti(convegno, cena) {
     const chiave = e => String(e || '').trim().toLowerCase();
     const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
-    let aziende = 0, soloConvegno = 0;
+    let aziende = 0, soloConvegno = 0, sponsor = 0;
     const anche = new Set();
     const tolti = new Set();
     (convegno || []).forEach(r => {
@@ -302,16 +306,17 @@ function totaliConAderenti(convegno, cena) {
             const g = r && r.gruppo ? k + '\n' + r.gruppo : '';
             if (!g || !tolti.has(g)) { if (g) tolti.add(g); n = Math.max(0, n - 1); }
         }
-        if (r && r.aderente) soloConvegno += n; else aziende += n;
+        if (r && r.aderente) soloConvegno += n; else if (r && r.sponsor) sponsor += n; else aziende += n;
     });
     const cenaN = (cena || []).length;
     return {
         aziende: aziende,
         aderenti: cenaN + soloConvegno,
+        sponsor: sponsor,
         cena: cenaN,
         soloConvegno: soloConvegno,
         anche: anche.size,
-        tutti: aziende + cenaN + soloConvegno
+        tutti: aziende + cenaN + soloConvegno + sponsor
     };
 }
 const SEZIONI = ['presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
@@ -352,7 +357,7 @@ function totali(schede, presenze, ev, aderenti, cancellate) {
         const sez = sezioneDi(s, p);
         if (s.soloB2B === true || sez === 'b2b') return;
         if (CONFERMA.inAttesaDiConferma(s, p) && !confermati.has(em(s.email))) return;
-        convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti', gruppo: String(s.gruppo || id || '') });
+        convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti', sponsor: sez === 'sponsor', gruppo: String(s.gruppo || id || '') });
     });
     const quote = ADERENTI.QUOTE.filter(q => q.evento === ev.chiave).map(q => q.id);
     const cena = (aderenti || []).filter(x => quote.indexOf(String((x.dati || {}).quota || '')) >= 0)

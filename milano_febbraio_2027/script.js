@@ -193,7 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!form) return;
 
     const SERVIZIO = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
-    const PAGINA = 'Milano 26 Febbraio 2027 - Iscrizione';
+    /* Il nome con cui l'iscrizione arriva al servizio: lo dice il <body>
+       (data-pagina), perche' questo script serve due pagine - quella
+       dell'evento ("... - Iscrizione") e quella riservata a sponsor e relatori
+       ("... - Sponsor e relatori", in sponsor_relatori/), che il servizio
+       riconosce dalla coda per metterli nella loro sezione. Davanti resta
+       sempre il nome dell'evento: e' quello che lega l'iscrizione a Milano. */
+    const PAGINA = (document.body.dataset.pagina || '').trim() || 'Milano 26 Febbraio 2027 - Iscrizione';
     const $ = (id) => document.getElementById(id);
     const chiama = (corpo) => fetch(SERVIZIO, {
         method: 'POST',
@@ -1045,6 +1051,8 @@ document.addEventListener('DOMContentLoaded', () => {
             interessi: interessi,
             codiceInvito: codice,
             modalita: valore('modalita') || 'presenza',
+            // solo nella pagina di sponsor e relatori: come partecipa (sponsor o relatore)
+            ruoloEvento: valore('ruoloEvento'),
             privacy: $('privacy').checked, marketing: $('marketing').checked, riprese: $('riprese').checked,
             percorso: location.pathname
         }).then(d => {

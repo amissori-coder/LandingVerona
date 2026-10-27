@@ -406,6 +406,27 @@ prova('Napoli: il codice non tiene il conto, e non si scrive niente', async () =
     esigi(r2.corpo.ok && !dati.has('codiciInvito/Z9Z9Z'), 'un codice sparito non si ricrea (varrebbe ovunque)');
 });
 
+prova('Sponsor o relatore dalla pagina riservata: il trasloco si porta dietro la dichiarazione e il ruolo', async () => {
+    scenario();
+    const R = 'rita@gamma.it|12/01/2027 09:00:00';
+    const SP = 'Milano 26 Febbraio 2027 - Sponsor e relatori';
+    dati.set('iscrizioni/' + idScheda(R), {
+        data: '12/01/2027 09:00:00', pagina: SP, nome: 'Rita', cognome: 'Relatrice', email: 'rita@gamma.it', azienda: 'Gamma',
+        modalita: 'sponsor', sponsor: true, ruoloEvento: 'relatore', mailConferma: { quando: 3, ok: true, errore: '' }
+    });
+    const r = await modifica(R, { email: 'rita@gamma.com' });
+    const n = scheda('rita@gamma.com|12/01/2027 09:00:00') || {};
+    esigi(r.corpo.ok && n.modalita === 'sponsor' && n.sponsor === true && n.ruoloEvento === 'relatore' && n.pagina === SP,
+        'email corretta: la scheda nuova resta fra sponsor e relatori, con la dichiarazione e il ruolo', JSON.stringify({ modalita: n.modalita, sponsor: n.sponsor, ruoloEvento: n.ruoloEvento }));
+    const r2 = await modifica('rita@gamma.com|12/01/2027 09:00:00', { data: '12/01/2027 09:30:00' });
+    const n2 = scheda('rita@gamma.com|12/01/2027 09:30:00') || {};
+    esigi(r2.corpo.ok && n2.sponsor === true && n2.ruoloEvento === 'relatore', 'e cosi\' correggendo solo la data', JSON.stringify({ sponsor: n2.sponsor, ruoloEvento: n2.ruoloEvento }));
+    // chi non l'aveva non la riceve: un campo assente resta assente
+    const r3 = await modifica(B, { email: 'bruno@alfa.com' });
+    const n3 = scheda('bruno@alfa.com|10/01/2027 11:00:00') || {};
+    esigi(r3.corpo.ok && n3.sponsor === undefined && n3.ruoloEvento === undefined, 'e a chi non le aveva non si scrivono', JSON.stringify(n3));
+});
+
 prova('Senza trasloco non cambia niente del resto', async () => {
     scenario();
     const primaCodice = JSON.stringify(dati.get('codiciInvito/K7M3P'));

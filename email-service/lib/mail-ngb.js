@@ -423,6 +423,11 @@ function confermaSito(dati, link, linkConferma) {
     const evento = nomeEvento(dati.pagina);
     const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
     const online = String((dati && dati.modalita) || '').toLowerCase() === 'online';
+    /* Sponsor e relatori si iscrivono dalla loro pagina riservata: la mail e'
+       la stessa degli ospiti in sala, e nel riepilogo dice come partecipano
+       (e, se l'ha detto, se come sponsor o come relatore). */
+    const sponsor = String((dati && dati.modalita) || '').toLowerCase() === 'sponsor';
+    const comeSponsor = sponsor ? 'Sponsor e relatori' + (dati && dati.ruoloEvento === 'relatore' ? ' - relatore' : (dati && dati.ruoloEvento === 'sponsor' ? ' - sponsor' : '')) : '';
     /* L'oggetto dice cosa si chiede: con il pulsante di conferma questa mail
        e' una richiesta, e chi la vede in elenco deve capire che c'e' da fare
        un clic. Senza collegamento (le mail composte prima) resta com'era. */
@@ -459,7 +464,7 @@ function confermaSito(dati, link, linkConferma) {
             + spazio(22)
             + '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
-                + rigaBox('Partecipazione', online ? (attesa ? 'Online - in lista d\'attesa per la sala' : 'Online') : '')
+                + rigaBox('Partecipazione', online ? (attesa ? 'Online - in lista d\'attesa per la sala' : 'Online') : comeSponsor)
                 + rigaBox('Iscritto', nomeCompleto)
                 + rigaBox('Azienda', dati.azienda)
                 + rigaBox('Registrata il', String(dati.data || '').slice(0, 16))
@@ -476,7 +481,7 @@ function confermaSito(dati, link, linkConferma) {
         linkConferma ? 'Conferma il tuo indirizzo email (un clic): ' + linkConferma : '',
         apertura,
         'Evento: Next Generation Business - ' + evento
-        + (online ? '\nPartecipazione: Online' + (attesa ? ' - in lista d\'attesa per la sala' : '') : '')
+        + (online ? '\nPartecipazione: Online' + (attesa ? ' - in lista d\'attesa per la sala' : '') : (comeSponsor ? '\nPartecipazione: ' + comeSponsor : ''))
         + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '')
         + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
         'Modifica o annulla l\'iscrizione: ' + link,
@@ -974,24 +979,26 @@ function invitoB2BAnnullato(dati) {
    da lib/riepilogo-iscrizioni.js (totali) ed e' null se le iscrizioni degli
    aderenti o le presenze non si sono potute leggere - allora la mail resta
    com'era, senza un totale a meta'. Le righe del riquadro e la frase che dice
-   che cosa conta ciascun numero: "aziende" e "aziende + aderenti" non si
-   devono poter confondere. */
+   che cosa conta ciascun numero: "aziende", "aderenti", "sponsor e relatori"
+   e il totale non si devono poter confondere. */
 function aderentiTesto(t) {
     return String(t.aderenti) + (t.soloConvegno ? ' (' + t.cena + ' cena e meeting, ' + t.soloConvegno + ' solo convegno)' : '');
 }
 function righeTotali(t) {
     return rigaBox('Totale aziende', String(t.aziende), 330)
         + rigaBox('Aderenti', aderentiTesto(t), 330)
-        + rigaBox('Totale aziende + aderenti', String(t.tutti), 330);
+        + rigaBox('Sponsor e relatori', String(t.sponsor || 0), 330)
+        + rigaBox('Totale aziende + aderenti + sponsor', String(t.tutti), 330);
 }
 function spiegaTotali(t) {
-    return 'Totale aziende: le persone iscritte al convegno, in sala e online, senza gli aderenti e senza chi aspetta di confermare l\'email. '
-        + 'Totale aziende + aderenti: in più gli aderenti, cioè gli iscritti alla cena e al meeting'
-        + (t.soloConvegno ? ' e quelli iscritti al solo convegno' : '') + '.'
+    return 'Totale aziende: le persone iscritte al convegno, in sala e online, senza gli aderenti, senza sponsor e relatori e senza chi aspetta di confermare l\'email. '
+        + 'Aderenti: gli iscritti alla cena e al meeting' + (t.soloConvegno ? ' e quelli iscritti al solo convegno' : '') + '. '
+        + 'Sponsor e relatori: chi sta nella sezione omonima dell\'elenco. '
+        + 'Totale aziende + aderenti + sponsor: tutte le persone dell\'evento, ognuna una volta.'
         + (t.anche ? ' ' + (t.anche === 1 ? 'Un aderente è iscritto' : t.anche + ' aderenti sono iscritti') + ' anche al convegno: si conta una volta sola.' : '');
 }
 function testoTotali(t) {
-    return 'Totale aziende: ' + t.aziende + '\nAderenti: ' + aderentiTesto(t) + '\nTotale aziende + aderenti: ' + t.tutti;
+    return 'Totale aziende: ' + t.aziende + '\nAderenti: ' + aderentiTesto(t) + '\nSponsor e relatori: ' + (t.sponsor || 0) + '\nTotale aziende + aderenti + sponsor: ' + t.tutti;
 }
 function notaTotali(t) {
     return '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:20px;color:' + C.tenue + ';padding:10px 0 0;text-align:justify;">' + esc(spiegaTotali(t)) + '</td></tr>';
@@ -1143,7 +1150,7 @@ function riepilogoSerale(d, link) {
     const periodoAd = ads.length && ads[0].dalTesto && ads[0].dalTesto !== giornoTesto ? ' dal ' + ads[0].dalTesto + ' al ' + giornoTesto : '';
     if (ads.length) pezzi.push('aderenti' + periodoAd + ': ' + nA + (nA === 1 ? ' nuova' : ' nuove') + (uA ? ', ' + uA + (uA === 1 ? ' aggiornata' : ' aggiornate') : ''));
     const oggetto = 'Iscrizioni ' + (ev.nome || '') + ' del ' + giornoTesto + (pezzi.length ? ' - ' + pezzi.join('; ') : '')
-        + (t ? ' (aziende ' + t.aziende + ', con gli aderenti ' + t.tutti + ')' : (az ? ' (aziende confermate in tutto ' + az.totale + ')' : ''));
+        + (t ? ' (aziende ' + t.aziende + ', con aderenti e sponsor ' + t.tutti + ')' : (az ? ' (aziende confermate in tutto ' + az.totale + ')' : ''));
     const fraseAz = az ? 'Aziende: ' + (n
         ? (n === 1 ? 'una persona ha completato l\'iscrizione' : n + ' persone hanno completato l\'iscrizione') + ' confermando l\'email'
         : 'nessuna nuova iscrizione confermata')
@@ -1153,7 +1160,7 @@ function riepilogoSerale(d, link) {
         : 'nessuna nuova iscrizione alla cena e al meeting')
         + (uA ? ', ' + (uA === 1 ? 'una aggiornata' : uA + ' aggiornate') : '')
         + (daFatt ? '; fatture da emettere: ' + daFatt + ' (' + euroIt(daFattEuro) + ' IVA inclusa)' : '; nessuna fattura da emettere') + '.' : '';
-    const fraseT = t ? 'Totale aziende: ' + t.aziende + '; totale aziende + aderenti: ' + t.tutti + '.' : '';
+    const fraseT = t ? 'Totale aziende: ' + t.aziende + '; totale aziende + aderenti + sponsor: ' + t.tutti + '.' : '';
     const sommario = [fraseAz, fraseAd, fraseT].filter(Boolean).join(' ');
 
     /* LE AZIENDE: nell'HTML le prime kN confermate e gli ultimi kA in attesa
