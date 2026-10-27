@@ -4427,6 +4427,13 @@ ACCENDE (fascia e bordo ambra): e' la spia del cruscotto, e fa guardare li'
 prima che altrove senza doverli leggere tutti. Il resto sta dentro le finestre,
 che e' dove si lavora.
 
+Accanto alle iscrizioni, dove l'evento ne ha, c'e' il riquadro **Moduli
+riservati**: le pagine di iscrizione che sul sito non si vedono (`noindex`,
+fuori dalla sitemap, senza link), una per riga con "Apri" e "Copia" per il
+collegamento da mandare. Le elenca `moduliRiservati` nella definizione
+dell'evento (`EVENTI_DEF` in `area-riservata/app.js`); per Milano 2027 sono
+`/milano_febbraio_2027/aderenti/` e `/milano_febbraio_2027/sponsor_relatori/`.
+
 ## Le cene del convegno (`lib/cene-evento.js`)
 
 Le due serate di Napoli: il **1 ottobre** tutti gli aderenti Revilaw, il **2

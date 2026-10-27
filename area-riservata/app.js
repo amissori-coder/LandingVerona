@@ -15563,6 +15563,17 @@
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
             manuale: true, luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano', urlPagina: '/milano_febbraio_2027/',
+            /* I MODULI CHE SUL SITO NON SI VEDONO: pagine con `noindex`, fuori
+               dalla sitemap e senza link dal resto del sito, che si raggiungono
+               solo dal collegamento mandato a chi deve iscriversi. Stanno nel
+               riquadro "Moduli riservati" del cruscotto (moduliRiservatiHtml),
+               per aprirli e copiarne il collegamento. L'indirizzo degli aderenti
+               e' anche nel servizio (lib/iscrizioni-aderenti.js, `pagina`): se
+               la pagina si sposta, si cambia nei due posti. */
+            moduliRiservati: [
+                { nome: 'Aderenti Revilaw', per: 'cena del 26 e meeting del 27', via: '/milano_febbraio_2027/aderenti/' },
+                { nome: 'Sponsor e relatori', per: 'il convegno, nella loro sezione', via: '/milano_febbraio_2027/sponsor_relatori/' }
+            ],
             /* L'ISCRIZIONE VALE DOPO LA CONFERMA DELL'EMAIL. Chi si iscrive dal
                sito riceve una mail con il pulsante di conferma, e finche' non lo
                preme non e' un posto in sala: sta nella sezione "In attesa di
@@ -19052,6 +19063,7 @@
            chi c'e' gia' (le comunicazioni periodiche), e la giornata. */
         const cruscotto = '<div class="ev-cruscotto">'
             + gruppoEv({ titolo: 'Iscrizioni', spiega: 'l\'elenco qui sotto', stato: statoIscrizioni, azioni: bottoniIscrizioni })
+            + moduliRiservatiHtml(ev)
             + aziendeInvitoHtml(ev)
             + promemoriaEventiHtml(ev)
             + giornataHtml(ev)
@@ -19189,6 +19201,7 @@
         collegaGiornataBlocco(ev);
         collegaCeneBlocco(ev);
         collegaAderentiBlocco(ev);
+        collegaModuliRiservati();
         // le iscrizioni degli aderenti si leggono entrando, come le cene
         if (evHaAderenti(ev)) caricaAderenti(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAderenti(ev); });
         /* Le conferme alle cene si leggono entrando, come il programma e
@@ -22708,6 +22721,46 @@
                 ricarica();
             });
         }));
+    }
+
+    /* =========================================================
+       I MODULI RISERVATI
+       ---------------------------------------------------------
+       Le pagine di iscrizione che sul sito non si vedono - gli
+       aderenti, sponsor e relatori -: `noindex`, fuori dalla
+       sitemap, senza link dal resto del sito. Si raggiungono solo
+       dal collegamento, e chi lo deve mandare non aveva un posto
+       dove ritrovarlo. Qui ci sono, evento per evento
+       (`moduliRiservati` in EVENTI_DEF): si aprono, e si copia il
+       collegamento da mandare. Dove l'evento non ne ha, il riquadro
+       non c'e'.
+    ========================================================= */
+    function indirizzoSulSito(via) {
+        // come per le cene: il collegamento va al SITO, anche con l'area riservata aperta da un indirizzo di prova
+        const base = /nextgenerationbusiness\.it$/.test(location.hostname)
+            ? location.origin : 'https://nextgenerationbusiness.it';
+        return base + via;
+    }
+    function moduliRiservatiHtml(ev) {
+        const moduli = (ev && !ev.tutti && ev.moduliRiservati) || [];
+        if (!moduli.length) return '';
+        return gruppoEv({
+            id: 'ev-moduli-blocco', titolo: 'Moduli riservati', spiega: 'solo per chi ha il collegamento',
+            stato: moduli.map(m => {
+                const url = indirizzoSulSito(m.via);
+                return '<div class="ev-modulo">'
+                    + '<span class="ev-modulo-nome">' + esc(m.nome)
+                    + (m.per ? '<span>' + esc(m.per) + '</span>' : '') + '</span>'
+                    + '<span class="ev-modulo-az">'
+                    + '<a class="btn btn-sm btn-secondary" href="' + esc(url) + '" target="_blank" rel="noopener" title="Apri il modulo: ' + esc(url) + '">Apri</a>'
+                    + '<button type="button" class="btn btn-sm btn-ghost" data-copia="' + esc(url) + '" data-nome="' + esc(m.nome) + '" title="Copia il collegamento da mandare: ' + esc(url) + '">Copia</button>'
+                    + '</span></div>';
+            }).join('')
+        });
+    }
+    function collegaModuliRiservati() {
+        document.querySelectorAll('#ev-moduli-blocco [data-copia]').forEach(b => b.addEventListener('click', () =>
+            copiaNegliAppunti(b.dataset.copia, 'Collegamento al modulo "' + b.dataset.nome + '" copiato: mandalo a chi deve iscriversi.')));
     }
 
     /* =========================================================
