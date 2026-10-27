@@ -2143,8 +2143,9 @@ arriva: niente "in attesa" e niente "confermata". Per ogni quota
 Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 (`mail: false` sulla scheda), il riepilogo lo scrive sotto il suo nome.
 
-**I due totali, nella mail** (e negli stessi termini nella riga
-"Totali dell'evento" dell'area riservata, sotto i riquadri di Milano):
+**I due totali, nella mail** (e negli stessi termini nell'area riservata,
+sotto i riquadri di Milano, dove pero' si leggono in due riepiloghi, "Totali
+in presenza" e "Totali online": vedi sotto):
 - **Totale aziende**: le persone iscritte al convegno, in sala e online, senza
   gli aderenti e senza chi aspetta ancora di confermare l'email. Si contano le
   STESSE righe dell'elenco dell'area riservata: la pagina che contiene
@@ -2172,11 +2173,26 @@ in `area-riservata/app.js`: `prove/totali-aderenti.prove.js` le confronta. Per
 sapere chi e' nella sezione degli aderenti e chi e' stato cancellato il lavoro
 legge anche le presenze e `iscrizioniCancellate`; se una di queste letture, o
 quella degli aderenti, non riesce, la mail parte senza i due totali, con le
-confermate delle aziende ("Aziende: iscrizioni confermate in tutto"). Nell'area riservata i totali si
-aggiornano con l'elenco e, per le iscrizioni alla cena e al meeting, ogni
-quattro minuti; accanto, in ambra e fuori dalla somma, ci sono le aziende in
-attesa di conferma mail, con nel suggerimento i totali che ci sarebbero se
-confermassero tutte.
+confermate delle aziende ("Aziende: iscrizioni confermate in tutto").
+
+**Nell'area riservata i totali sono due riepiloghi**, "Totali in presenza" e
+"Totali online" (`RIEPILOGHI` e `totaliPerDove` in `area-riservata/app.js`),
+uno sotto l'altro con le stesse caselle della mail (totale aziende + aderenti
+in tutto = totale aziende + aderenti, e accanto, in ambra e fuori dalla
+somma, le aziende in attesa di conferma mail): la sala e la diretta si
+preparano separatamente, e la somma dei due riepiloghi e' l'evento intero,
+cioe' i totali della mail. Le righe del convegno vanno dove dice la loro
+modalita' - in presenza, aderenti Revilaw e sponsor e relatori in presenza,
+online online - anche quelle in attesa di conferma, che aspettano nel
+riepilogo della modalita' scelta. Gli iscritti alla cena e al meeting vengono
+di persona e stanno in presenza, salvo chi si e' iscritto al convegno online
+(e non anche in sala): e' un aderente che si conta online, una volta, con la
+cena; il suggerimento del riquadro lo dice. I totali si aggiornano con
+l'elenco e, per le iscrizioni alla cena e al meeting, ogni quattro minuti; nel
+suggerimento delle aziende in attesa ci sono i totali del riepilogo che ci
+sarebbero se confermassero tutte. `prove/totali-aderenti.prove.js` verifica
+anche la spartizione: riepilogo per riepilogo aziende + aderenti = tutti, e i
+due riepiloghi insieme fanno il totale intero.
 
 **Le due parti tengono ognuna il suo modo di non spedire due volte.** Le
 aziende si prenotano su `meta/riepilogoIscrizioni-<evento>` solo quando hanno
