@@ -2132,8 +2132,8 @@ A **mezzanotte, ora di Milano**, per gli eventi di
 mail con le iscrizioni **completate** nella giornata appena finita (l'email
 confermata quel giorno, anche se il modulo era di giorni prima: nome,
 azienda, ruolo, email, cellulare, ora, azienda invitata), chi e' ancora **in
-attesa di confermare** l'email, i due totali (aziende, e aziende + aderenti:
-vedi sotto) e il pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
+attesa di confermare** l'email, i totali (aziende, aderenti, sponsor e
+relatori, e la loro somma: vedi sotto) e il pulsante per l'area riservata (`/area-riservata/#eventi`). **Se non ci sono
 conferme nuove ne' persone in attesa non parte niente.** Le annullate non
 contano. "In attesa" e' la stessa regola dei promemoria e dell'area
 riservata (`inAttesaDiConferma`, in "Conferma dell'indirizzo email"): le
@@ -2144,7 +2144,7 @@ ci compaiono mai.
 **UNA MAIL SOLA per aziende e aderenti** (`riepilogoSerale` in
 `lib/mail-ngb.js`; fino a ottobre 2026 erano due). Dall'alto: la giornata in
 numeri (nuove conferme e attese delle aziende, iscrizioni nuove e corrette
-degli aderenti, fatture da emettere), i due totali dell'evento, la parte
+degli aderenti, fatture da emettere), i totali dell'evento, la parte
 degli **aderenti** e poi quella delle **aziende** (le confermate del giorno,
 chi e' in attesa). Gli aderenti vengono prima perche' i loro dati per la
 fattura stanno solo in questa mail: se la mail e' troppo lunga si accorciano
@@ -2240,8 +2240,10 @@ confermassero tutte, con la stessa regola, per
 cui chi aspetta ed e' iscritto alla cena e al meeting e' gia' fra gli
 aderenti e non si aggiunge (il suggerimento lo dice quando la somma non
 torna). `prove/totali-aderenti.prove.js` verifica
-anche la spartizione: riepilogo per riepilogo aziende + aderenti = tutti, e i
-due riepiloghi insieme fanno il totale intero.
+anche la spartizione: riepilogo per riepilogo aziende + aderenti + sponsor =
+tutti, e i due riepiloghi insieme fanno il totale intero. Chi aspetta fra
+sponsor e relatori sta nel riquadro dell'attesa, ma non fra le "aziende con le
+attese": confermando va fra sponsor e relatori, e il suggerimento lo dice.
 
 **Le due parti tengono ognuna il suo modo di non spedire due volte.** Le
 aziende si prenotano su `meta/riepilogoIscrizioni-<evento>` solo quando hanno

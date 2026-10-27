@@ -18074,11 +18074,23 @@
            confermassero tutte (con la stessa regola: chi di loro e' alla cena
            e' gia' contato fra gli aderenti, e non si aggiungerebbe) */
         const attesa = { presenza: 0, online: 0 };
-        inAttesa.forEach(r => { attesa[r.sala ? 'presenza' : 'online'] += r.persone; });
+        /* e di loro quanti sono AZIENDE: chi aspetta fra sponsor e relatori (la
+           loro pagina riservata chiede la conferma come le altre) o fra gli
+           aderenti, confermando, non va fra le aziende. Serve al suggerimento,
+           che altrimenti spiegherebbe la differenza con la cena. */
+        const attesaAziende = { presenza: 0, online: 0 }, attesaSponsor = { presenza: 0, online: 0 };
+        inAttesa.forEach(r => {
+            const k = r.sala ? 'presenza' : 'online';
+            attesa[k] += r.persone;
+            if (r.sponsor) attesaSponsor[k] += r.persone;
+            else if (!r.aderente) attesaAziende[k] += r.persone;
+        });
         // le righe nell'ordine dell'elenco, come le contera' totaliEvento a conferme avvenute
         const se = totaliPerDove(tutte.map(riga), cena);
         RIEPILOGHI.forEach(h => {
             t[h.id].attesa = attesa[h.id];
+            t[h.id].attesaAziende = attesaAziende[h.id];
+            t[h.id].attesaSponsor = attesaSponsor[h.id];
             t[h.id].seConfermano = se[h.id];
             // i due totali con le attese dentro, a portata dei riquadri e dell'aggiornamento al volo
             t[h.id].conAttesaAziende = se[h.id].aziende;
@@ -18098,12 +18110,19 @@
         const quanti = (q, uno, piu) => q + ' ' + (q === 1 ? uno : piu);
         /* "26 + 6 = 31": quando la somma non torna, e' perche' chi aspetta ed e'
            alla cena e al meeting e' gia' contato fra gli aderenti, e lo si dice */
-        const nonTorna = t.aziende + t.attesa !== sc.aziende;
+        /* le aziende fra chi aspetta: senza sponsor e relatori (e senza chi sta
+           fra gli aderenti), che confermando non vanno fra le aziende */
+        const attAz = typeof t.attesaAziende === 'number' ? t.attesaAziende : t.attesa;
+        const nonTorna = t.aziende + attAz !== sc.aziende;
+        const attSp = t.attesaSponsor || 0;
         return {
             attesa: 'Iscritte dal sito per seguire ' + h.dove + ', non hanno ancora premuto il pulsante di conferma nella mail: non sono nei totali qui a sinistra; '
-                + 'i totali con le attese dentro sono qui a destra. Dal menu della riga si può rimandare la mail.',
-            conAttesaAziende: 'Le aziende ' + h.dove + ' se tutte quelle in attesa confermassero l\'email: ' + t.aziende + ' aziende + ' + t.attesa + ' in attesa'
-                + (nonTorna ? ', tolto chi fra loro è iscritto alla cena e al meeting, già contato fra gli aderenti' : '') + '.',
+                + 'i totali con le attese dentro sono qui a destra. '
+                + (attSp ? (attSp === 1 ? 'Una di queste persone è' : attSp + ' di queste persone sono') + ' fra sponsor e relatori: confermando, si conta lì e non fra le aziende. ' : '')
+                + 'Dal menu della riga si può rimandare la mail.',
+            conAttesaAziende: 'Le aziende ' + h.dove + ' se tutte quelle in attesa confermassero l\'email: ' + t.aziende + ' aziende + ' + attAz + ' in attesa'
+                + (nonTorna ? ', tolto chi fra loro è iscritto alla cena e al meeting, già contato fra gli aderenti' : '') + '.'
+                + (attSp ? ' Chi aspetta fra sponsor e relatori non è fra le aziende.' : ''),
             conAttesaTutti: 'Tutte le persone dell\'evento ' + h.dove + ' se tutte le aziende in attesa confermassero l\'email, ognuna una volta: '
                 + sc.aziende + ' aziende + ' + sc.aderenti + ' aderenti + ' + sc.sponsor + ' sponsor e relatori.',
             aziende: (online
