@@ -2589,7 +2589,8 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-wrap table.dati td.ev-azioni.ev-menu-aperto { z-index: 8; }   /* sopra anche la barra che segue (6) */
 /* il "+" sopra la legenda: solo dove l'intestazione della tabella e' nascosta (le schede, fino a 1200px) */
 .ev-piu.ev-piu-fuori { display: none; width: auto; height: 26px; border-radius: 13px; padding: 0 10px; font-size: 0.82rem; font-weight: 600; align-items: center; }
-@media screen and (max-width: 1200px) { .ev-piu.ev-piu-fuori { display: inline-flex; } }
+.ev-piu-riga { display: none; }
+@media screen and (max-width: 1200px) { .ev-piu-riga { display: block; margin: 0 0 8px; } .ev-piu.ev-piu-fuori { display: inline-flex; } }
 .ev-piu { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--blu-700); background: #fff; color: var(--blu-700); font-size: 17px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; }
 .ev-piu:hover, .ev-piu[aria-expanded="true"] { background: var(--blu-700); color: #fff; }
 /* Il pannello delle colonne, sopra la pagina, ancorato al "+" (apriPannelloColonne) */

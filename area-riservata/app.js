@@ -18333,18 +18333,15 @@
        modulo puo' avere un errore di battitura). Senza legenda due tinte sono
        due decorazioni. La voce del file compare solo dove il file c'entra:
        colonne dal file, iscritti con il codice, o un evento con i codici. */
+    /* Sopra la tabella resta solo il "+" delle colonne per gli schermi dove
+       l'intestazione non c'e' (le schede, fino a 1200px): a video largo non si
+       vede, perche' il "+" sta in cima alla colonna delle azioni. La legenda
+       delle tinte che stava qui (azzurro dal modulo, verde dal file) non c'e'
+       piu': le tinte si leggono sulle intestazioni, e le colonne del file lo
+       dicono nel loro suggerimento. */
     function legendaColonneHtml(ev, tutte) {
-        const conFile = !!ev.iscrizioniPerCodice || colonneFileDisponibili(tutte).length > 0
-            || (tutte || []).some(r => r && r.invito && r.invito.codice);
-        return '<div class="ev-legenda">'
-            /* il "+" delle colonne sta in cima alla tabella; sotto i 1200px
-               l'intestazione non c'e' (le righe sono schede) e lo si trova qui */
+        return '<div class="ev-piu-riga">'
             + '<button type="button" class="ev-piu ev-piu-fuori" title="Colonne: aggiungi, togli, torna a quelle di base" aria-label="Colonne della tabella" aria-haspopup="dialog" aria-expanded="false">+ Colonne</button>'
-            + '<span class="ev-legenda-voce ev-col-modulo">Scritto da chi si iscrive, nel modulo</span>'
-            + (conFile ? '<span class="ev-legenda-voce ev-col-file">Dal file delle aziende invitate'
-                + ' <span class="hint">(anche la ragione sociale di chi è arrivato con il codice)</span></span>' : '')
-            + '<span class="hint">Senza tinta: sezione, stato, nota e le altre colonne che scrivete voi o il servizio, '
-            + 'e le righe inserite da voi, arrivate da altri portali (Eventbrite) o caricate con «Importa».</span>'
             + '</div>';
     }
     /* LA TINTA AZZURRA E' DELLA RIGA, NON SOLO DELLA COLONNA. "Scritto da chi
