@@ -66,6 +66,7 @@ const ETICHETTE = {
     '': 'Eventi B2B · Legalità, innovazione, crescita',
     'milano_febbraio_2027': 'Evento · Milano',
     'milano_febbraio_2027/aderenti': 'Riservato agli aderenti Revilaw',
+    'milano_febbraio_2027/sponsor_relatori': 'Riservato a sponsor e relatori',
     'napoli_ottobre_2026': 'Evento · Napoli',
     'roma_aprile_2026': 'Evento · Roma',
     'verona_marzo_2026': 'Evento · Verona',

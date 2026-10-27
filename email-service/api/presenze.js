@@ -176,10 +176,13 @@ const STATI = ['', 'confermato', 'presente', 'assente'];
    dell'iscritto: e' una decisione di chi organizza, non un dato dichiarato.
    Quando il modulo comincera' a chiederla, il valore dichiarato arrivera'
    sulla scheda e questo restera' l'ultima parola (chi entra in sala, e in
-   quale sezione, lo decide chi organizza). 'aderenti' e 'sponsor' in
-   particolare NON possono arrivare dal modulo pubblico: nessuno si dichiara
-   aderente o relatore da se', e infatti iscrizione-nuova accetta solo
-   'presenza' e 'online'. */
+   quale sezione, lo decide chi organizza). 'aderenti' in particolare NON
+   puo' arrivare dal modulo pubblico: nessuno si dichiara aderente da se', e
+   infatti iscrizione-nuova dal modulo dell'evento accetta solo 'presenza' e
+   'online'. 'sponsor' arriva da UNA pagina sola, quella riservata a sponsor
+   e relatori che si raggiunge con il collegamento mandato a loro
+   (iscrizione-nuova, PAGINA_SPONSOR): da li' la scheda nasce in quella
+   sezione, con la bandiera `sponsor`, e chi organizza la sposta se serve. */
 const MODALITA = ['', 'presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
 // le sezioni in cui si puo' SPOSTARE qualcuno (il vuoto non e' una scelta:
 // e' solo com'e' scritta un'iscrizione che nessuno ha ancora toccato)

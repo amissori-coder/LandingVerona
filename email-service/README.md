@@ -1104,7 +1104,7 @@ Un'iscrizione sta in **una** sezione sola. Tre sono in sala, e solo l'online no:
 |---|---|---|---|
 | In presenza | `presenza` (o vuoto) | si | gli **ospiti** in sala |
 | Aderenti Revilaw | `aderenti` | si | gli **aderenti** in sala: occupano un posto come gli altri, ma si contano a parte - sono la rete dello studio, non ospiti da invitare |
-| Sponsor e relatori | `sponsor` | si | chi l'evento lo **fa**: occupa un posto come gli altri e va sempre contato fra quelli in sala. E' una divisione a **uso interno** di chi organizza - serve a sapere quali posti sono gia impegnati - e per la persona non cambia niente: nessuna mail parte |
+| Sponsor e relatori | `sponsor` | si | chi l'evento lo **fa**: occupa un posto come gli altri e va sempre contato fra quelli in sala, ma a parte dalle aziende (nei totali di Milano e' la casella "sponsor e relatori"). Ci si entra dall'area riservata oppure iscrivendosi dalla **pagina riservata** `/milano_febbraio_2027/sponsor_relatori/` (vedi sotto); per la persona non cambia niente: nessuna mail in piu' parte |
 | Online | `online` | no | chi segue **da remoto**, che in sala non occupa niente |
 
 Fino all'evento di Napoli il modulo non chiedeva nulla e le iscrizioni erano
@@ -1130,10 +1130,43 @@ La sezione si legge da due posti, in quest'ordine:
    solo se arriva davvero; **il modulo di Napoli lo manda gia**, fisso su
    `online`, da quando la sala e al completo. La conferma automatica (`lib/mail-ngb.js`,
    `confermaSito`) sa gia dirlo, e a chi si iscrive online non promette un posto
-   in sala. Dal modulo pubblico si accettano **solo `presenza` e `online`**:
-   nelle sezioni degli aderenti e di sponsor e relatori non ci si mette da
-   soli, e infatti un `modalita: "aderenti"` o `"sponsor"` arrivato da li viene
+   in sala. Dal modulo pubblico dell'evento si accettano **solo `presenza` e
+   `online`**: nella sezione degli aderenti non ci si mette da soli, e un
+   `modalita: "aderenti"` o `"sponsor"` arrivato dal modulo dell'evento viene
    semplicemente ignorato.
+
+**La pagina riservata a sponsor e relatori** (`/milano_febbraio_2027/sponsor_relatori/`,
+Milano 2027) e' l'unica strada per iscriversi direttamente nella sezione
+"Sponsor e relatori". Si raggiunge solo con il collegamento che si manda a
+loro: `noindex`, esclusa in `robots.txt`, fuori dalla sitemap, senza link dal
+resto del sito (come la pagina degli aderenti). Usa lo stesso `script.js` e lo
+stesso servizio della pagina dell'evento - cellulare verificato per SMS,
+conferma dell'email, invito in PDF, codice invito non richiesto - e scrive in
+`pagina` "Milano 26 Febbraio 2027 - Sponsor e relatori" con `modalita:
+"sponsor"`: `/api/iscrizione-nuova` accetta `sponsor` **solo** con quella coda
+(`PAGINA_SPONSOR`) e segna la scheda con `sponsor: true` (la dichiarazione,
+distinta dalla sezione, come `aderente`: nell'elenco si legge "dal modulo", e
+chi organizza puo' spostare la persona come sempre). La pagina chiede anche
+"Partecipo come" (sponsor o relatore): e' una nota, `ruoloEvento`, che
+nell'elenco compare nella colonna aggiuntiva "Sponsor o relatore" e nella mail
+di conferma ("Partecipazione: Sponsor e relatori - relatore").
+
+**Gli iscritti alla cena e al meeting nella sezione "Aderenti Revilaw"** (Milano
+2027). Chi si iscrive alla cena del 26 e al meeting del 27 dalla pagina degli
+aderenti e' un aderente, e i totali lo contano cosi'; nell'elenco del convegno
+pero' non c'era. Ora la sezione "Aderenti Revilaw" li mostra (`righeElenco`,
+`sezioneElenco` in `area-riservata/app.js`): chi e' iscritto **anche** al
+convegno (stesso indirizzo email) si mostra con la sua riga del convegno fra
+gli aderenti, con sotto "anche cena e meeting", qualunque sia la sezione della
+riga (la tendina non cambia e si puo' spostare come sempre; l'attesa della
+conferma e l'online restano dove sono); chi e' iscritto **solo** alla cena ha
+una riga in sola lettura, con "Cena e meeting" nella colonna Portale e i dati
+della scheda della cena - niente casella, tendine o menu: per fattura e dati c'e'
+"Aderenti" > "Apri le iscrizioni". Queste righe stanno nelle voci sopra
+l'elenco, nella tabella e nel CSV (con la sezione "Aderenti Revilaw"), non nei
+conteggi dei posti, nei promemoria o negli inviti B2B, che leggono le sole
+iscrizioni del convegno come il servizio. Quando le iscrizioni alla cena
+arrivano o cambiano, l'elenco si ridisegna da solo (appena la pagina e' libera).
 
 **La casella "Sono un aderente Revilaw"** del modulo di Napoli fa due cose:
 spuntandola l'iscrizione chiede **solo nome, cognome ed email** - la scheda
@@ -2117,7 +2150,7 @@ chi e' in attesa). Gli aderenti vengono prima perche' i loro dati per la
 fattura stanno solo in questa mail: se la mail e' troppo lunga si accorciano
 gli elenchi delle aziende, mai quelli degli aderenti (vedi sotto). L'oggetto
 dice tutte e due: "Iscrizioni Milano del 15/01/2027 - aziende: 2 confermate,
-1 in attesa; aderenti: 1 nuova (aziende 152, con gli aderenti 190)"; una
+1 in attesa; aderenti: 1 nuova (aziende 152, con aderenti e sponsor 190)"; una
 notte recuperata lo dice anche qui e nel riquadro in cima ("aderenti dal
 06/02/2027 al 07/02/2027: 2 nuove"). Parte se almeno una delle due parti ha
 qualcosa di nuovo; l'altra c'e' lo stesso, con i suoi numeri. Una parte che
@@ -2144,11 +2177,12 @@ arriva: niente "in attesa" e niente "confermata". Per ogni quota
 Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 (`mail: false` sulla scheda), il riepilogo lo scrive sotto il suo nome.
 
-**I due totali, nella mail** (e negli stessi termini nell'area riservata,
+**I totali, nella mail** (e negli stessi termini nell'area riservata,
 in testa all'elenco di Milano, dove pero' si leggono in due riepiloghi,
 "Totali in presenza" e "Totali online": vedi sotto):
 - **Totale aziende**: le persone iscritte al convegno, in sala e online, senza
-  gli aderenti e senza chi aspetta ancora di confermare l'email. Si contano le
+  gli aderenti, senza sponsor e relatori e senza chi aspetta ancora di
+  confermare l'email. Si contano le
   STESSE righe dell'elenco dell'area riservata: la pagina che contiene
   "milano" (il `filtro` dell'evento in `VERIFICATA.EVENTI`), anche le
   iscrizioni inserite a mano, dal desk e importate, una riga per le persone
@@ -2159,28 +2193,33 @@ in testa all'elenco di Milano, dove pero' si leggono in due riepiloghi,
 - **Aderenti**: gli iscritti alla cena e al meeting, piu' chi chi organizza ha
   messo nella sezione "Aderenti Revilaw" del convegno ("38 (35 cena e
   meeting, 3 solo convegno)");
-- **Totale aziende + aderenti**: la somma dei due, cioe' tutte le persone
-  dell'evento una volta sola. Chi e' iscritto al convegno **e** alla cena
-  (stesso indirizzo email) e' un aderente e si conta una volta, con la cena;
-  la mail lo dice. Se la sua riga del convegno vale per piu' persone (un
-  ordine da Eventbrite), gli altri restano fra le aziende.
+- **Sponsor e relatori**: le persone nella sezione "Sponsor e relatori"
+  dell'elenco (chi l'evento lo fa): un posto lo occupano, ma non sono aziende
+  ospiti, e si contano a parte;
+- **Totale aziende + aderenti + sponsor**: la somma dei tre, cioe' tutte le
+  persone dell'evento una volta sola. Chi e' iscritto al convegno **e** alla
+  cena (stesso indirizzo email) e' un aderente e si conta una volta, con la
+  cena, anche se la sua riga sta fra sponsor e relatori; la mail lo dice. Se
+  la sua riga del convegno vale per piu' persone (un ordine da Eventbrite),
+  gli altri restano dove sono.
 
 Nella parte degli aderenti il numero della cena si chiama "Iscritti", per non
-confonderlo con i due totali. La lista "in attesa di conferma" delle aziende
+confonderlo con i totali. La lista "in attesa di conferma" delle aziende
 non porta piu' chi e' gia' segnato presente in sala.
 
 La regola sta in `totaliConAderenti` (`lib/riepilogo-iscrizioni.js`) e, uguale,
 in `area-riservata/app.js`: `prove/totali-aderenti.prove.js` le confronta. Per
 sapere chi e' nella sezione degli aderenti e chi e' stato cancellato il lavoro
 legge anche le presenze e `iscrizioniCancellate`; se una di queste letture, o
-quella degli aderenti, non riesce, la mail parte senza i due totali, con le
+quella degli aderenti, non riesce, la mail parte senza i totali, con le
 confermate delle aziende ("Aziende: iscrizioni confermate in tutto").
 
 **Nell'area riservata i totali sono due riepiloghi**, "Totali in presenza" e
 "Totali online" (`RIEPILOGHI` e `totaliPerDove` in `area-riservata/app.js`),
 uno sotto l'altro con le stesse caselle della mail (totale aziende + aderenti
-in tutto = totale aziende + aderenti, e accanto, in ambra e fuori dalla
-somma, le aziende in attesa di conferma mail): la sala e la diretta si
+in tutto + sponsor e relatori = totale aziende + aderenti + sponsor, e accanto,
+in ambra e fuori dalla somma, le aziende in attesa di conferma mail e i totali
+con le attese dentro): la sala e la diretta si
 preparano separatamente, e la somma dei due riepiloghi e' l'evento intero,
 cioe' i totali della mail. Sono gli unici numeri in testa all'elenco di
 Milano: i riquadri dei conteggi degli altri eventi (iscrizioni, indirizzi,
@@ -2194,7 +2233,8 @@ di persona e stanno in presenza, salvo chi si e' iscritto al convegno online
 cena; il suggerimento del riquadro lo dice. I totali si aggiornano con
 l'elenco e, per le iscrizioni alla cena e al meeting, ogni quattro minuti.
 Dopo le aziende in attesa ci sono **i totali con le attese dentro**
-("aziende con le attese" e "aziende + aderenti con le attese"), in evidenza
+("aziende con le attese" e "totale con le attese", cioe' aziende + aderenti +
+sponsor), in evidenza
 su tutto il resto, in un riquadro a fondo blu pieno: quanti sarebbero se
 confermassero tutte, con la stessa regola, per
 cui chi aspetta ed e' iscritto alla cena e al meeting e' gia' fra gli

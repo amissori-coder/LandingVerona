@@ -202,10 +202,13 @@ async function chiama(corpo) {
         setHeader() { }, status(s) { stato = s; return res; },
         json(c) { risposta = c; return res; }, end() { return res; }
     };
-    // un IP diverso a ogni chiamata: qui non si prova il freno per IP
-    await servizio({ method: 'POST', headers: { 'x-forwarded-for': '10.0.' + (ipProgressivo++ % 250) + '.1' }, body: corpo }, res);
+    // un IP diverso a ogni chiamata, senza mai ripetersi: qui non si prova il freno per IP
+    const n = ipProgressivo++;
+    await servizio({ method: 'POST', headers: { 'x-forwarded-for': '10.' + (Math.floor(n / 250) % 250) + '.' + (n % 250) + '.1' }, body: corpo }, res);
     return { stato: stato, corpo: risposta || {} };
 }
+// una firma sbagliata di sicuro: il primo carattere cambiato (non "x" fisso: se la firma vera cominciasse per x, resterebbe uguale)
+const guasta = t => (String(t)[0] === 'x' ? 'y' : 'x') + String(t).slice(1);
 function ultimoCodice() {
     const m = /^(\d{6})/.exec(sms.length ? sms[sms.length - 1].content : '');
     return m ? m[1] : '';
@@ -462,6 +465,29 @@ prova('Con il numero verificato l\'iscrizione passa, e la conferma email parte',
     esigi(spedite.length === 1 && /conferma/i.test(spedite[0].subject), 'parte la mail con il pulsante di conferma', spedite[0] && spedite[0].subject);
 });
 
+prova('Sponsor e relatori: dalla loro pagina riservata entrano nella loro sezione, dal modulo dell\'evento no', async () => {
+    const SPONSOR = 'Milano 26 Febbraio 2027 - Sponsor e relatori';
+    const v = await verificaNumero('346 222 3344', 'relatrice@azienda.it');
+    const r = await iscrivi({ pagina: SPONSOR, email: 'relatrice@azienda.it', telefono: '3462223344', smsToken: v.token, azienda: 'Gamma Spa', modalita: 'sponsor', ruoloEvento: 'relatore' });
+    esigi(r.stato === 200 && r.corpo.ok, 'iscritta dalla pagina riservata, con lo stesso cellulare verificato', JSON.stringify(r.corpo));
+    const s = schede().find(x => x.email === 'relatrice@azienda.it');
+    esigi(s && s.modalita === 'sponsor' && s.sponsor === true && s.ruoloEvento === 'relatore', 'la scheda nasce fra sponsor e relatori, con la bandiera e il ruolo',
+        JSON.stringify(s && { modalita: s.modalita, sponsor: s.sponsor, ruoloEvento: s.ruoloEvento }));
+    esigi(s && s.pagina === SPONSOR && s.confermaInAttesa === true, 'e\' di Milano e aspetta la conferma dell\'email come gli altri', JSON.stringify(s && { pagina: s.pagina, attesa: s.confermaInAttesa }));
+    esigi(spedite.length === 1 && /Sponsor e relatori - relatore/.test(String(spedite[0].text || '') + String(spedite[0].html || '')), 'la mail di conferma dice come partecipa', spedite[0] && spedite[0].subject);
+    // un ruolo inventato non si scrive; "sponsor" si
+    const v2 = await verificaNumero('346 222 3355', 'sponsor@azienda.it');
+    const r2 = await iscrivi({ pagina: SPONSOR, email: 'sponsor@azienda.it', telefono: '3462223355', smsToken: v2.token, modalita: 'sponsor', ruoloEvento: 'padrino' });
+    const s2 = schede().find(x => x.email === 'sponsor@azienda.it');
+    esigi(r2.corpo.ok && s2 && s2.modalita === 'sponsor' && s2.ruoloEvento === undefined, 'un ruolo inventato non si scrive', JSON.stringify(s2 && { modalita: s2.modalita, ruoloEvento: s2.ruoloEvento }));
+    // dal modulo dell'evento "sponsor" resta ignorato, come sempre
+    const v3 = await verificaNumero('346 222 3366', 'finto@azienda.it');
+    const r3 = await iscrivi({ email: 'finto@azienda.it', telefono: '3462223366', smsToken: v3.token, modalita: 'sponsor', ruoloEvento: 'sponsor' });
+    const s3 = schede().find(x => x.email === 'finto@azienda.it');
+    esigi(r3.corpo.ok && s3 && s3.modalita === undefined && s3.sponsor === undefined && s3.ruoloEvento === undefined,
+        'dal modulo dell\'evento la scheda resta in presenza, senza bandiera', JSON.stringify(s3 && { modalita: s3.modalita, sponsor: s3.sponsor, ruoloEvento: s3.ruoloEvento }));
+});
+
 prova('Una sola iscrizione per email e per numero', async () => {
     const v1 = await verificaNumero('349 000 1111', 'paolo@studio.it');
     const r1 = await iscrivi({ email: 'paolo@studio.it', telefono: '3490001111', smsToken: v1.token });
@@ -606,7 +632,7 @@ prova('La pagina si accorge della conferma, e l\'invito porta il calendario', as
     esigi(prima.corpo.mail === 'inviata', 'e la mail di conferma risulta partita', JSON.stringify(prima.corpo));
     esigi(Object.keys(prima.corpo).sort().join(',') === 'annullato,attesaRimanda,emailConfermata,invito,mail,ok', 'e la risposta non porta dati personali', Object.keys(prima.corpo).join(','));
     esigi(prima.corpo.attesaRimanda > 110 && prima.corpo.attesaRimanda <= 120, 'mail appena partita: il pulsante "rimandala" aspetta i suoi due minuti', String(prima.corpo.attesaRimanda));
-    const falsa = await chiama({ azione: 'stato-iscrizione', d: st.d, t: 'x' + st.t.slice(1) });
+    const falsa = await chiama({ azione: 'stato-iscrizione', d: st.d, t: guasta(st.t) });
     esigi(falsa.stato === 403, 'con una firma sbagliata non si legge niente');
     const altra = await chiama({ azione: 'stato-iscrizione', d: st.d, t: NL.firmaCompleta(st.d) });
     esigi(altra.stato === 403, 'e la firma del collegamento "modifica" non vale qui');
@@ -915,8 +941,8 @@ prova('"Non e\' arrivata? Rimandala": firmata, due minuti fra un invio e l\'altr
     const r = await iscrivi({ email: 'rimanda@studio.it', telefono: '3401010101', smsToken: v.token });
     const st = r.corpo.stato;
     const rimanda = () => chiama({ azione: 'rimanda-conferma', d: st.d, t: st.t });
-    const falsa = await chiama({ azione: 'rimanda-conferma', d: st.d, t: 'x' + st.t.slice(1) });
-    esigi(falsa.stato === 403 && !falsa.corpo.msg, 'firma sbagliata: 403, e nient\'altro');
+    const falsa = await chiama({ azione: 'rimanda-conferma', d: st.d, t: guasta(st.t) });
+    esigi(falsa.stato === 403 && !falsa.corpo.msg, 'firma sbagliata: 403, e nient\'altro', JSON.stringify(falsa));
     const altra = await chiama({ azione: 'rimanda-conferma', d: st.d, t: NL.firmaConfermaEmail(st.d) });
     esigi(altra.stato === 403, 'la firma del pulsante di conferma non vale qui');
     spedite = [];

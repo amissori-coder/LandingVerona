@@ -42,6 +42,10 @@ Disallow: /cene_napoli/
 # 2027): la pagina si raggiunge solo dal collegamento mandato agli aderenti.
 Disallow: /milano_febbraio_2027/aderenti/
 
+# Iscrizione di sponsor e relatori a Milano: la pagina si raggiunge solo dal
+# collegamento mandato a loro.
+Disallow: /milano_febbraio_2027/sponsor_relatori/
+
 # Accredito al desk di Napoli: si apre dal QR sul cartello in sala, il
 # giorno dell'evento, e non ha senso fuori da li'.
 Disallow: /p26/

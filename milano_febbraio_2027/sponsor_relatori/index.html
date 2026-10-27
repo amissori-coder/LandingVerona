@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <!-- Pagina riservata a sponsor e relatori dell'evento di Milano: si
+         raggiunge SOLO dal collegamento che si manda a loro. Non va
+         indicizzata, non e' nella sitemap, non ha link dal resto del sito ed
+         e' esclusa in robots.txt, come la pagina degli aderenti (../aderenti/).
+         Il modulo e' quello della pagina dell'evento, con lo stesso script
+         (../script.js) e lo stesso servizio: cambia la pagina che dichiara
+         (data-pagina sul body) e la modalita' (sponsor), che il servizio accetta
+         solo da qui e che mette l'iscrizione nella sezione "Sponsor e relatori"
+         dell'area riservata. Codice invito, profilo, settore e fatturato non
+         si chiedono: i campi restano nel documento, nascosti, perche' lo script
+         li cerca per nome, ma non sono obbligatori e viaggiano vuoti. -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#164068">
+    <title>Iscrizione sponsor e relatori, Milano 26 febbraio 2027 | Revilaw</title>
+    <meta name="description" content="Iscrizione riservata a sponsor e relatori di Next Generation Business, Milano, venerdì 26 febbraio 2027, Excelsior Hotel Gallia.">
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="apple-touch-icon" href="/assets/favicon.png">
+
+    <!-- Anteprima per WhatsApp, LinkedIn, Facebook e X quando si condivide il
+         collegamento. L'immagine la fa scripts/anteprime/genera-anteprime.cjs
+         dal titolo e dalla descrizione qui sotto. -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Next Generation Business">
+    <meta property="og:url" content="https://nextgenerationbusiness.it/milano_febbraio_2027/sponsor_relatori/">
+    <meta property="og:title" content="Iscrizione sponsor e relatori, Milano 26 febbraio 2027">
+    <meta property="og:description" content="Iscrizione riservata a sponsor e relatori di Next Generation Business, Milano, venerdì 26 febbraio 2027, Excelsior Hotel Gallia.">
+    <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og/milano_febbraio_2027.jpg?v=72b1bff630">
+    <meta property="og:image:secure_url" content="https://nextgenerationbusiness.it/assets/og/milano_febbraio_2027.jpg?v=72b1bff630">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="2400">
+    <meta property="og:image:height" content="1260">
+    <meta property="og:image:alt" content="Iscrizione sponsor e relatori, Milano 26 febbraio 2027">
+    <meta property="og:locale" content="it_IT">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Iscrizione sponsor e relatori, Milano 26 febbraio 2027">
+    <meta name="twitter:description" content="Iscrizione riservata a sponsor e relatori di Next Generation Business, Milano, venerdì 26 febbraio 2027, Excelsior Hotel Gallia.">
+    <meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og/milano_febbraio_2027.jpg?v=72b1bff630">
+    <meta name="twitter:image:alt" content="Iscrizione sponsor e relatori, Milano 26 febbraio 2027">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css?v=17">
+    <link rel="stylesheet" href="/assets/testo.css?v=1">
+</head>
+<body data-pagina="Milano 26 Febbraio 2027 - Sponsor e relatori">
+
+    <a class="salta" href="#iscrizioni">Vai al modulo di iscrizione</a>
+
+    <!-- Barra di navigazione: la stessa della pagina dell'evento -->
+    <header class="nav" id="navbar">
+        <div class="wrap nav-wrap">
+            <div class="nav-brand">
+                <a href="../" class="nav-back" aria-label="Vai alla pagina dell'evento di Milano">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <a href="#hero" class="nav-logo" aria-label="Revilaw, inizio pagina">
+                    <img src="../assets/logo-revilaw-bianco.png" alt="Revilaw" width="371" height="115">
+                </a>
+            </div>
+            <button class="nav-toggle" id="navToggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="navMenu">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="nav-menu" id="navMenu" aria-label="Sezioni della pagina">
+                <a href="#evento">La giornata</a>
+                <a href="#iscrizioni">Iscrizione</a>
+                <a href="../">Pagina dell'evento</a>
+                <a href="#iscrizioni" class="nav-cta">Vai all'iscrizione</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Apertura -->
+    <section class="hero" id="hero">
+        <div class="hero-sfondo" aria-hidden="true"></div>
+        <div class="wrap hero-corpo">
+            <span class="hero-occhiello">Riservato a sponsor e relatori</span>
+            <h1 class="hero-titolo">Next Generation <span>Business</span></h1>
+            <p class="hero-tema">Merito creditizio, crescita e competitività delle imprese</p>
+
+            <dl class="hero-dati">
+                <div>
+                    <dt>Data</dt>
+                    <dd>Venerdì 26 febbraio 2027<br>dalle 8.30 alle 18.00</dd>
+                </div>
+                <div>
+                    <dt>Sede</dt>
+                    <dd>Excelsior Hotel Gallia, Milano</dd>
+                </div>
+                <div>
+                    <dt>Iscrizione</dt>
+                    <dd>Per sponsor e relatori, con questo collegamento</dd>
+                </div>
+            </dl>
+
+            <div class="conto" id="countdown" aria-label="Tempo che manca all'evento">
+                <div><span id="days">00</span><small>giorni</small></div>
+                <div><span id="hours">00</span><small>ore</small></div>
+                <div><span id="minutes">00</span><small>minuti</small></div>
+                <div><span id="seconds">00</span><small>secondi</small></div>
+            </div>
+
+            <div class="hero-azioni">
+                <a href="#iscrizioni" class="btn btn-chiaro">Vai all'iscrizione</a>
+                <a href="../" class="btn btn-linea">La pagina dell'evento</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- La giornata, in breve -->
+    <section class="sezione" id="evento">
+        <div class="wrap">
+            <header class="testata">
+                <span class="etichetta">La giornata</span>
+                <h2 class="titolo">Venerdì 26 febbraio 2027, Excelsior Hotel Gallia</h2>
+                <p class="testata-sotto">Al mattino il convegno con banche, professionisti ed esperti; al pomeriggio gli incontri B2B one-to-one fra le imprese. Programma, sede e come arrivare sono nella <a href="../">pagina dell'evento</a>.</p>
+                <p class="testata-sotto"><strong>Questa pagina è per chi la giornata la fa:</strong> sponsor e relatori. Con l'iscrizione il tuo posto in sala è registrato e ricevi l'invito personale in PDF, come gli ospiti.</p>
+            </header>
+        </div>
+    </section>
+
+    <!-- Iscrizione -->
+    <section class="sezione sezione-blu" id="iscrizioni">
+        <div class="wrap iscrizioni">
+            <span class="stato"><span class="stato-punto" aria-hidden="true"></span>Iscrizione riservata</span>
+            <h2 class="titolo">Iscriviti come sponsor o relatore</h2>
+            <p class="iscrizioni-testo">Compila il modulo: verifichi il tuo cellulare con un codice che ti arriva per SMS, poi confermi l'indirizzo email dal pulsante nella mail che ti mandiamo. Dopo la conferma ricevi l'invito in PDF da mostrare all'ingresso. Non serve nessun codice invito.</p>
+
+            <ol class="passi" aria-label="Come ci si iscrive">
+                <li><span class="passi-num">1</span><span>Compili il modulo</span></li>
+                <li><span class="passi-num">2</span><span>Verifichi il cellulare con il codice SMS</span></li>
+                <li><span class="passi-num">3</span><span>Confermi l'email dal pulsante nella mail</span></li>
+            </ol>
+
+            <!-- IL MODULO: lo stesso della pagina dell'evento (../script.js), con la
+                 modalita' fissa su "sponsor" e la scelta sponsor/relatore. I campi
+                 che qui non si chiedono (codice invito, profilo, settore,
+                 fatturato) stanno nel blocco nascosto in fondo al modulo. -->
+            <div class="modulo-involucro">
+                <form id="moduloIscrizione" class="modulo" novalidate>
+                    <input type="hidden" id="modalita" name="modalita" value="sponsor">
+
+                    <fieldset class="modulo-blocco">
+                        <legend>I tuoi dati</legend>
+                        <div class="campo">
+                            <label for="nome">Nome *</label>
+                            <input type="text" id="nome" name="nome" required autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next">
+                            <span class="campo-errore" id="nomeError"></span>
+                        </div>
+                        <div class="campo">
+                            <label for="cognome">Cognome *</label>
+                            <input type="text" id="cognome" name="cognome" required autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next">
+                            <span class="campo-errore" id="cognomeError"></span>
+                        </div>
+                        <div class="campo campo-largo">
+                            <label for="email">Email *</label>
+                            <input type="email" id="email" name="email" required placeholder="nome@azienda.it" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next">
+                            <span class="campo-nota">Una sola iscrizione per indirizzo: qui arriva la mail con il pulsante per confermarlo.</span>
+                            <span class="campo-errore" id="emailError"></span>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="modulo-blocco">
+                        <legend>Il tuo cellulare</legend>
+                        <div class="campo campo-largo">
+                            <label for="telefono">Cellulare *</label>
+                            <div class="campo-riga">
+                                <input type="tel" id="telefono" name="telefono" required placeholder="333 123 4567" autocomplete="tel" inputmode="tel" enterkeyhint="send">
+                                <button type="button" class="btn-modulo" id="smsInvia">Invia il codice</button>
+                            </div>
+                            <span class="campo-nota" id="telefonoNota">Un numero di cellulare italiano: ti mandiamo per SMS un codice di 6 cifre. Una sola iscrizione per numero.</span>
+                            <!-- La casella "non sono un robot" (Cloudflare Turnstile), prima
+                                 dell'SMS: la disegna script.js, e solo se c'e' la chiave. -->
+                            <div class="captcha" id="captcha" hidden></div>
+                            <span class="campo-ok" id="telefonoOk" role="status"></span>
+                            <span class="campo-errore" id="telefonoError"></span>
+                        </div>
+                        <div class="campo campo-largo" id="gruppoSms" hidden>
+                            <label for="codiceSms">Codice ricevuto per SMS *</label>
+                            <div class="campo-riga">
+                                <input type="text" id="codiceSms" name="codiceSms" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="6 cifre" class="campo-codice" enterkeyhint="done" autocorrect="off" spellcheck="false">
+                                <button type="button" class="btn-modulo" id="smsVerifica">Verifica</button>
+                            </div>
+                            <span class="campo-nota" id="smsNota"></span>
+                            <span class="campo-errore" id="codiceSmsError"></span>
+                            <button type="button" class="link-modulo" id="smsDiNuovo" disabled>Invia di nuovo il codice</button>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="modulo-blocco">
+                        <legend>La tua azienda e il tuo ruolo</legend>
+                        <div class="campo">
+                            <label for="azienda">Azienda / Studio / Ente *</label>
+                            <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization" autocapitalize="words" autocorrect="off" enterkeyhint="next">
+                            <span class="campo-nota" id="aziendaNota" hidden>Dal codice invito: è l'azienda invitata e non si può modificare.</span>
+                            <span class="campo-errore" id="aziendaError"></span>
+                        </div>
+                        <!-- Come partecipa alla giornata: e' la ragione di questa pagina.
+                             Il servizio la scrive sulla scheda (ruoloEvento) e l'area
+                             riservata la mostra nella colonna "Sponsor o relatore". -->
+                        <div class="campo">
+                            <label for="ruoloEvento">Partecipo come *</label>
+                            <select id="ruoloEvento" name="ruoloEvento" required>
+                                <option value="">Scegli...</option>
+                                <option value="sponsor">Sponsor</option>
+                                <option value="relatore">Relatore</option>
+                            </select>
+                            <span class="campo-errore" id="ruoloEventoError"></span>
+                        </div>
+                        <div class="campo">
+                            <label for="ruolo">Ruolo in azienda *</label>
+                            <select id="ruolo" name="ruolo" required>
+                                <option value="">Scegli...</option>
+                                <option value="Titolare / Imprenditore">Titolare / Imprenditore</option>
+                                <option value="Amministratore delegato / CEO">Amministratore delegato / CEO</option>
+                                <option value="Presidente / Consigliere di amministrazione">Presidente / Consigliere di amministrazione</option>
+                                <option value="Direttore generale">Direttore generale</option>
+                                <option value="Direttore amministrativo e finanziario / CFO">Direttore amministrativo e finanziario / CFO</option>
+                                <option value="Responsabile amministrazione e contabilit&agrave;">Responsabile amministrazione e contabilit&agrave;</option>
+                                <option value="Controller / Controllo di gestione">Controller / Controllo di gestione</option>
+                                <option value="Responsabile compliance, legale o risk">Responsabile compliance, legale o risk</option>
+                                <option value="Responsabile HR">Responsabile HR</option>
+                                <option value="Responsabile marketing e comunicazione">Responsabile marketing e comunicazione</option>
+                                <option value="Dirigente / Manager">Dirigente / Manager</option>
+                                <option value="Dottore commercialista / Esperto contabile">Dottore commercialista / Esperto contabile</option>
+                                <option value="Revisore legale">Revisore legale</option>
+                                <option value="Avvocato">Avvocato</option>
+                                <option value="Consulente">Consulente</option>
+                                <option value="Docente / Ricercatore">Docente / Ricercatore</option>
+                                <option value="Giornalista">Giornalista</option>
+                                <option value="Sindaco / Organo di controllo / ODV">Sindaco / Organo di controllo / ODV</option>
+                                <option value="Banca, finanza o investimenti">Banca, finanza o investimenti</option>
+                                <option value="Pubblica amministrazione o associazione">Pubblica amministrazione o associazione</option>
+                                <option value="altro">Altro (specifica)</option>
+                            </select>
+                            <span class="campo-errore" id="ruoloError"></span>
+                        </div>
+                        <!-- con "Altro" il ruolo lo scrive la persona -->
+                        <div class="campo campo-largo" id="gruppoRuoloAltro" hidden>
+                            <label for="ruoloAltro">Il tuo ruolo *</label>
+                            <input type="text" id="ruoloAltro" name="ruoloAltro" placeholder="La tua qualifica" autocomplete="organization-title" maxlength="120" autocapitalize="sentences" enterkeyhint="next">
+                            <span class="campo-errore" id="ruoloAltroError"></span>
+                        </div>
+                    </fieldset>
+
+                    <!-- I campi della pagina dell'evento che qui NON si chiedono. Lo
+                         script li cerca per nome (codice invito, profilo, settore,
+                         fatturato): restano nel documento, nascosti e non
+                         obbligatori, e al servizio arrivano vuoti. -->
+                    <div hidden aria-hidden="true">
+                        <input type="text" id="codiceInvito" name="codiceInvito" tabindex="-1" autocomplete="off">
+                        <span id="codiceInvitoNota"></span>
+                        <span id="codiceInvitoOk"></span>
+                        <span id="codiceInvitoError"></span>
+                        <select id="profilo" name="profilo" tabindex="-1"><option value=""></option></select>
+                        <span id="profiloError"></span>
+                        <select id="settore" name="settore" tabindex="-1"><option value=""></option></select>
+                        <span id="settoreError"></span>
+                        <select id="dimensione" name="dimensione" tabindex="-1"><option value=""></option></select>
+                        <span id="dimensioneError"></span>
+                    </div>
+
+                    <div class="modulo-consensi">
+                        <label class="spunta">
+                            <input type="checkbox" id="privacy" name="privacy" required>
+                            <span>Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR), come descritto nella <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">privacy policy</a>. *</span>
+                        </label>
+                        <span class="campo-errore" id="privacyError"></span>
+                        <label class="spunta">
+                            <input type="checkbox" id="marketing" name="marketing" required>
+                            <span>Desidero ricevere aggiornamenti su programma, relatori e future iniziative. *</span>
+                        </label>
+                        <span class="campo-errore" id="marketingError"></span>
+                        <!-- Le riprese: la giornata e' registrata e possono esserci troupe
+                             televisive. Obbligatorio, e lo controlla anche il servizio. -->
+                        <label class="spunta">
+                            <input type="checkbox" id="riprese" name="riprese" required>
+                            <span>Acconsento alle riprese fotografiche e video: la giornata sarà registrata e potranno essere presenti troupe di telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali. *</span>
+                        </label>
+                        <span class="campo-errore" id="ripreseError"></span>
+                    </div>
+
+                    <div class="modulo-invio">
+                        <button type="submit" id="submitBtn" class="btn btn-scuro btn-invio">
+                            <span class="btn-text">Invia l'iscrizione</span>
+                            <span class="btn-loading" hidden>Invio in corso...</span>
+                        </button>
+                        <p class="modulo-errore" id="submitError" role="alert"></p>
+                        <p class="modulo-nota">Dopo l'invio ti mandiamo una email con il pulsante «Conferma il tuo indirizzo email»: l'iscrizione è completa dopo quel clic, e subito dopo arriva l'invito in PDF.</p>
+                    </div>
+                </form>
+
+                <!-- LA CONFERMA A VIDEO, dopo l'invio: la stessa della pagina dell'evento
+                     (la riempie ../script.js), con la partecipazione di sponsor e relatori. -->
+                <div id="formSuccess" class="fatto" hidden tabindex="-1">
+                    <div class="fatto-testa">
+                        <img src="../assets/logo-revilaw.png" alt="Revilaw S.p.A." width="371" height="115" class="fatto-logo">
+                        <span class="fatto-evento">Next Generation Business<br>Milano &middot; 26 febbraio 2027</span>
+                    </div>
+
+                    <span class="etichetta fatto-occhiello" id="fattoOcchiello">Richiesta di iscrizione ricevuta</span>
+                    <h3 class="fatto-titolo" id="fattoTitolo">Grazie<span id="fattoNome"></span>, manca un ultimo passo.</h3>
+                    <p class="fatto-intro" id="fattoIntro" role="status">La tua richiesta è registrata e il numero di cellulare è verificato. Per completare l'iscrizione conferma il tuo indirizzo email dal pulsante nella mail che ti abbiamo appena inviato: subito dopo riceverai l'invito personale in PDF da presentare all'accreditamento.</p>
+
+                    <ol class="fatto-passi">
+                        <li class="fatto-passo fatto-passo--ok">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                            <div><strong>Dati registrati</strong><span>Il modulo è stato ricevuto correttamente.</span></div>
+                        </li>
+                        <li class="fatto-passo fatto-passo--ok">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                            <div><strong>Cellulare verificato</strong><span id="fattoTelefono">Il codice SMS è stato confermato.</span></div>
+                        </li>
+                        <li class="fatto-passo fatto-passo--attesa" id="passoEmail">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+                            <div>
+                                <strong>Conferma l'indirizzo email</strong>
+                                <span id="passoEmailTesto">Ti abbiamo scritto a <b id="fattoEmail">il tuo indirizzo</b>: apri la mail e premi «Conferma il tuo indirizzo email».</span>
+                                <div class="fatto-mail" id="fattoMail">
+                                    <span class="fatto-mail-dove">Non la vedi? Controlla le cartelle <b>Spam</b> o <b>Posta indesiderata</b> e, se usi Gmail, la scheda <b>Promozioni</b>: il mittente è Revilaw S.p.A. (noreply@nextgenerationbusiness.it).<span id="fattoMailSms" hidden> Ti abbiamo mandato anche un SMS con queste indicazioni al cellulare verificato.</span></span>
+                                    <span class="fatto-mail-stato" id="fattoMailStato" role="status" hidden></span>
+                                    <div class="fatto-rimanda">
+                                        <button type="button" class="btn-modulo" id="rimandaMail" disabled hidden>Non è arrivata? Rimandala</button>
+                                        <span class="fatto-rimanda-esito" id="rimandaEsito" role="status"></span>
+                                    </div>
+                                    <a class="fatto-mail-modulo" href="../../contatti/?t=mail">Indirizzo sbagliato o mail ancora assente? Scrivici dal modulo</a>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="fatto-passo" id="passoInvito">
+                            <span class="fatto-segno" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>
+                            <div><strong>Invito personale in PDF</strong><span id="passoInvitoTesto">Arriva per email subito dopo la conferma: mostralo al desk Revilaw, stampato o dal telefono.</span></div>
+                        </li>
+                    </ol>
+
+                    <dl class="fatto-riepilogo">
+                        <div><dt>Intestatario</dt><dd id="fattoChi">&nbsp;</dd></div>
+                        <div><dt>Azienda</dt><dd id="fattoAzienda">&nbsp;</dd></div>
+                        <div><dt>Data</dt><dd>Venerdì 26 febbraio 2027</dd></div>
+                        <div><dt>Orario</dt><dd>Dalle 8.30 alle 18.00</dd></div>
+                        <div><dt>Sede</dt><dd>Excelsior Hotel Gallia, Piazza Duca d'Aosta 9, Milano</dd></div>
+                        <div><dt>Partecipazione</dt><dd>Sponsor e relatori, in presenza</dd></div>
+                    </dl>
+
+                    <div class="fatto-azioni">
+                        <a class="btn btn-scuro" id="fattoGoogle" href="#" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                            Aggiungi a Google Calendar
+                        </a>
+                        <a class="btn btn-tenue" id="fattoIcs" href="#" download="next-generation-business-milano-2027.ics">Outlook / Apple (.ics)</a>
+                    </div>
+                    <div class="fatto-rimanda-fondo" id="rimandaFondo" hidden>
+                        <span class="fatto-rimanda-fondo-domanda">Non hai ricevuto la mail di conferma?</span>
+                        <button type="button" class="btn-modulo" id="rimandaMailFondo" disabled>Rimanda la mail di conferma</button>
+                        <span class="fatto-rimanda-esito" id="rimandaEsitoFondo"></span>
+                    </div>
+                    <p class="fatto-nota">Per modificare i dati o annullare la partecipazione usa il collegamento personale nella mail di iscrizione. Per qualunque informazione scrivici dal <a href="../../contatti/?tema=eventi&amp;evento=milano-2027">modulo delle domande</a> oppure a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</p>
+                </div>
+            </div>
+
+            <!-- Per chi si e' iscritto e non trova la mail di conferma -->
+            <a class="mail-non-ricevuta" href="../../contatti/?t=mail">
+                <span class="mail-non-ricevuta-icona" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                </span>
+                <span class="mail-non-ricevuta-corpo">
+                    <span class="mail-non-ricevuta-titolo">Mail di conferma non ricevuta?</span>
+                    <span class="mail-non-ricevuta-desc">Verifiche consigliate e nuovo invio.</span>
+                </span>
+                <span class="mail-non-ricevuta-freccia" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                </span>
+            </a>
+
+            <div class="iscrizioni-avviso">
+                <span class="iscrizioni-avviso-etichetta">Per informazioni</span>
+                <a class="iscrizioni-avviso-link" href="../../contatti/?tema=eventi&amp;evento=milano-2027">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Modulo delle domande
+                </a>
+                <a class="iscrizioni-avviso-link" href="mailto:info@nextgenerationbusiness.it?subject=Milano%2026%20febbraio%202027%20-%20sponsor%20e%20relatori">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                    info@nextgenerationbusiness.it
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Promotore -->
+    <section class="promotore">
+        <div class="wrap">
+            <span class="etichetta">Una giornata promossa da</span>
+            <a href="https://www.revilaw.it" target="_blank" rel="noopener" aria-label="Revilaw S.p.A.">
+                <img src="../assets/logo-revilaw.png" alt="Revilaw S.p.A., revisione legale" width="371" height="115" loading="lazy">
+            </a>
+        </div>
+    </section>
+
+    <!-- Piè di pagina -->
+    <footer class="footer">
+        <div class="wrap">
+            <div class="footer-alto">
+                <div>
+                    <p class="footer-nome">Next Generation Business</p>
+                    <p class="footer-evento">Milano &middot; 26 febbraio 2027</p>
+                </div>
+                <nav class="footer-link" aria-label="Link utili">
+                    <a href="../">L'evento di Milano</a>
+                    <a href="../../contatti/?tema=eventi&amp;evento=milano-2027">Contatti</a>
+                    <a href="https://www.revilaw.it" target="_blank" rel="noopener">revilaw.it</a>
+                </nav>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Next Generation Business &middot; A cura di Revilaw S.p.A. &middot; <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></p>
+                <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Privacy Policy</a> &middot; <a href="https://www.iubenda.com/privacy-policy/40996386/cookie-policy" target="_blank" rel="noopener">Cookie Policy</a></p>
+                <p class="footer-legal">P.IVA: 04641610235 | REA: VR 437220 | Sede: Via XX Settembre, 9 - 37129 Verona (VR)</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../script.js?v=26"></script>
+</body>
+</html>

@@ -406,6 +406,19 @@ prova('Nel riepilogo di tutti gli eventi non si avvisa nessuno', () => {
         'la raccolta resta vuota');
 });
 
+prova('Fra sponsor e relatori "dal modulo" vale per chi viene dalla loro pagina riservata', () => {
+    /* La pagina riservata a sponsor e relatori (milano_febbraio_2027/sponsor_relatori/)
+       iscrive direttamente in quella sezione; il servizio segna la scheda con
+       `sponsor: true`, e qui si legge da dove viene. */
+    const r = riga({ modalita: 'sponsor', sponsor: true });
+    esigi(r.md === 'sponsor', 'la riga sta fra sponsor e relatori', r.md);
+    esigi(r.html.indexOf('ev-dal-modulo') >= 0 && r.html.indexOf('ev-da-avvisare') < 0, 'con la scritta "dal modulo", e nessuna mail da mandare', r.html);
+    esigi(/pagina riservata a sponsor e relatori/.test(TITOLO_DAL_MODULO.sponsor || ''), 'e il suggerimento dice da dove viene');
+    const spostato = riga({ modalita: 'sponsor', sponsor: true }, { modalita: 'sponsor' });
+    esigi(spostato.html.indexOf('ev-dal-modulo') < 0, 'chi ce l\'ha messo qualcuno di qui non la porta');
+    esigi(sezioneDalModulo(EV, { id: 'i1', modalita: 'sponsor' }, 'sponsor') === false, 'e un "sponsor" dichiarato senza la bandiera del servizio non vale');
+});
+
 console.log('\nLa scritta sotto la modalita\', nella sezione Online\n');
 for (const p of prove) { console.log('\n' + p.titolo); p.fn(); }
 console.log('\n' + ok + ' verdi, ' + ko + ' rossi');

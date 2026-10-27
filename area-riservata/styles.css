@@ -1848,9 +1848,13 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    l'ambra non compare. Non porta il verde-acqua degli aderenti, che in quella
    colonna e' il colore di una SEZIONE: sotto un "Online" blu direbbe la sezione
    sbagliata. */
-.ev-avvisato, .ev-dal-modulo, .ev-da-avvisare, .ev-senza-mail, .ev-in-coda {
+.ev-avvisato, .ev-dal-modulo, .ev-da-avvisare, .ev-senza-mail, .ev-in-coda, .ev-cena {
     margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--grigio-600);
 }
+/* "cena e meeting" / "anche cena e meeting": e' alla cena degli aderenti, e
+   per questo si mostra fra gli aderenti Revilaw. Spenta come "dal modulo":
+   non c'e' niente da fare, e' il perche' di dove sta. */
+.ev-cena { color: var(--grigio-600); font-style: italic; }
 .ev-avvisato { color: #15803d; }
 .ev-da-avvisare { color: #b45309; font-weight: 600; }
 .ev-senza-mail { color: var(--grigio-500); font-style: italic; }

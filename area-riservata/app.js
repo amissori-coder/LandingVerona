@@ -15738,6 +15738,8 @@
     function puoSegnarePresenze() { return puoVedereEventi(); }
 
     let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
+    // le righe della cena e del meeting con cui l'elenco e' stato disegnato (firmaCena): se cambiano, si ridisegna
+    let _evCenaDisegnata = null;
     /* CHI E' STATO CANCELLATO. Arriva insieme alle iscrizioni e vive
        accanto a loro: e' lo stesso elenco guardato dall'altra parte, e
        tenerlo in una lettura sua vorrebbe dire due giri al server per
@@ -16532,6 +16534,24 @@
     function nomeSezioneVista(id) {
         return id === SEZIONE_ATTESA.id ? SEZIONE_ATTESA.nome : sezioneDef(id).nome;
     }
+    /* LA SEZIONE IN CUI UNA RIGA SI MOSTRA nell'elenco: le voci sopra, il
+       filtro, la colonna "Sezione" del CSV. E' quella in cui si guarda
+       (sezioneVista) con un'eccezione sola: chi e' iscritto alla CENA E AL
+       MEETING degli aderenti e viene in sala si mostra fra gli ADERENTI
+       REVILAW, qualunque sia la sezione della sua riga del convegno. E' la
+       regola dei totali (totaliConAderenti): chi e' alla cena e' un aderente
+       e si conta con la cena, una volta sola. L'attesa della conferma viene
+       prima (deve ancora confermare), e l'online resta online: chi segue il
+       convegno da remoto in sala non c'e', e i totali lo contano online.
+       La modalita' della riga NON cambia - la tendina dice ancora "In
+       presenza", e si puo' spostare come sempre - e sotto c'e' scritto
+       perche' (hintCenaHtml). I conteggi dei posti (contiEvento), i
+       promemoria e l'elenco definitivo continuano a leggere sezioneVista,
+       come il servizio: qui si decide solo dove la riga si vede. */
+    function sezioneElenco(ev, r, lista) {
+        const s = sezioneVista(ev, r, lista);
+        return inSala(s) && allaCena(ev, r) ? 'aderenti' : s;
+    }
     /* CHI CERCA UN'AZIENDA CHE NON E' FRA GLI ISCRITTI.
        L'elenco non porta gli invitati ai soli incontri B2B, ed e' giusto:
        non hanno un posto in sala e non si contano. Ma da fuori la differenza
@@ -16614,6 +16634,10 @@
                toglierebbe l'etichetta piu' precisa delle due. */
             const sez = modalitaDi(ev, r);
             if (sez === 'aderenti' || sez === 'sponsor') return;
+            /* Chi e' iscritto alla cena e al meeting gia' si mostra e si conta
+               fra gli aderenti (sezioneElenco, totaliConAderenti): non c'e'
+               niente da riconoscere. */
+            if (allaCena(ev, r)) return;
             /* Chi non ha ancora confermato l'indirizzo si riconosce DOPO: fino
                ad allora sta nella sezione dell'attesa, e spostarlo fra gli
                aderenti non lo farebbe comparire la' - la proposta tornerebbe
@@ -16900,6 +16924,10 @@
         const p = EventiPresenze.di(ev.id, r.id) || {};
         if (p.modalita) return false;
         if (md === 'aderenti') return r.aderente === true;
+        /* fra sponsor e relatori ci si iscrive dalla LORO pagina riservata
+           (milano_febbraio_2027/sponsor_relatori/): lo dice `sponsor`, che
+           scrive solo il servizio, e solo da quella pagina */
+        if (md === 'sponsor') return r.sponsor === true;
         if (md === 'online') return String(r.modalita || '').toLowerCase() === 'online';
         return false;
     }
@@ -16927,6 +16955,7 @@
         + 'gliel\u2019abbiamo promesso per iscritto, e se un posto si libera \u00e8 fra questi che si cerca.';
     const TITOLO_DAL_MODULO = {
         aderenti: 'Si \u00e8 iscritto spuntando \u00abSono un Aderente Revilaw\u00bb: nessuno di qui lo ha spostato.',
+        sponsor: 'Si \u00e8 iscritto dalla pagina riservata a sponsor e relatori: nessuno di qui lo ha spostato.',
         online: 'Si \u00e8 iscritto dal modulo del sito per seguire la diretta online: sa gi\u00e0 che seguir\u00e0 da remoto, non c\u2019\u00e8 nessun passaggio da comunicargli.'
     };
     /* A CHE PUNTO STA LA POSTA, riga per riga. Nella sezione online conta piu'
@@ -17904,17 +17933,21 @@
             : quante;
     }
 
-    /* I DUE TOTALI DELL'EVENTO (Milano), da non confondere fra loro ne' con i
+    /* I TOTALI DELL'EVENTO (Milano), da non confondere fra loro ne' con i
        posti in sala:
          TOTALE AZIENDE            le persone iscritte al convegno, tolti gli
-                                   aderenti e chi aspetta ancora di confermare
-                                   l'email;
-         TOTALE AZIENDE + ADERENTI tutte le persone dell'evento, ognuna una
-                                   volta: le aziende piu' gli aderenti, cioe'
-                                   gli iscritti alla cena e al meeting e chi
-                                   sta nella sezione "Aderenti Revilaw".
+                                   aderenti, sponsor e relatori e chi aspetta
+                                   ancora di confermare l'email;
+         ADERENTI                  gli iscritti alla cena e al meeting e chi
+                                   sta nella sezione "Aderenti Revilaw";
+         SPONSOR E RELATORI        chi sta nella sezione "Sponsor e relatori":
+                                   chi l'evento lo fa, che un posto lo occupa
+                                   ma non e' un'azienda ospite;
+         TOTALE                    tutte le persone dell'evento, ognuna una
+                                   volta: aziende + aderenti + sponsor.
        Chi e' iscritto al convegno E alla cena e al meeting (stesso indirizzo)
-       e' un aderente, e si conta una volta sola, con la cena.
+       e' un aderente, e si conta una volta sola, con la cena - anche se la
+       sua riga del convegno sta fra sponsor e relatori.
        Nell'area riservata i due totali si leggono in DUE RIEPILOGHI, in
        presenza e online (RIEPILOGHI e totaliPerDove, qui sotto): questa e' la
        regola di ciascuno, e la somma dei due e' l'evento intero, il numero
@@ -17926,11 +17959,11 @@
        LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
        totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
        la', e prove/totali-aderenti.prove.js le mette a confronto.
-       `convegno`: [{ email, persone, aderente, gruppo }]; `cena`: [{ email }]. */
+       `convegno`: [{ email, persone, aderente, sponsor, gruppo }]; `cena`: [{ email }]. */
     function totaliConAderenti(convegno, cena) {
         const chiave = e => String(e || '').trim().toLowerCase();
         const dellaCena = new Set((cena || []).map(x => chiave(x && x.email)).filter(Boolean));
-        let aziende = 0, soloConvegno = 0;
+        let aziende = 0, soloConvegno = 0, sponsor = 0;
         const anche = new Set();
         const tolti = new Set();
         (convegno || []).forEach(r => {
@@ -17947,23 +17980,24 @@
                 const g = r && r.gruppo ? k + '\n' + r.gruppo : '';
                 if (!g || !tolti.has(g)) { if (g) tolti.add(g); n = Math.max(0, n - 1); }
             }
-            if (r && r.aderente) soloConvegno += n; else aziende += n;
+            if (r && r.aderente) soloConvegno += n; else if (r && r.sponsor) sponsor += n; else aziende += n;
         });
         const cenaN = (cena || []).length;
         return {
             aziende: aziende,
             aderenti: cenaN + soloConvegno,
+            sponsor: sponsor,
             cena: cenaN,
             soloConvegno: soloConvegno,
             anche: anche.size,
-            tutti: aziende + cenaN + soloConvegno
+            tutti: aziende + cenaN + soloConvegno + sponsor
         };
     }
     /* I DUE RIEPILOGHI: IN PRESENZA E ONLINE.
        Chi organizza prepara due cose diverse - la sala e la diretta - e i
        totali dell'evento messi insieme non dicevano quante persone servono a
        ciascuna. Qui i totali si leggono due volte, con le stesse caselle
-       (aziende + aderenti = tutti, e accanto chi aspetta la conferma mail):
+       (aziende + aderenti + sponsor = tutti, e accanto chi aspetta la conferma mail):
        una per chi viene in sala, una per chi segue online. La somma dei due
        riepiloghi e' l'evento intero, ogni persona una volta: il numero della
        mail di mezzanotte. `dove` e' la coda delle frasi dei suggerimenti. */
@@ -18000,7 +18034,7 @@
             const t = totaliConAderenti(sue, tavola);
             t.cena = quantiCena;
             t.aderenti = t.cena + t.soloConvegno;
-            t.tutti = t.aziende + t.aderenti;
+            t.tutti = t.aziende + t.aderenti + t.sponsor;
             return t;
         };
         const t = {
@@ -18027,7 +18061,7 @@
         if (!quote || quote.some(d => !d || !d.conti || !Array.isArray(d.righe))) return null;
         const riga = r => {
             const m = modalitaDi(ev, r);
-            return { email: r.email, persone: partecipantiDi(r), aderente: m === 'aderenti', gruppo: r.gruppo || r.doc || '', sala: inSala(m) };
+            return { email: r.email, persone: partecipantiDi(r), aderente: m === 'aderenti', sponsor: m === 'sponsor', gruppo: r.gruppo || r.doc || '', sala: inSala(m) };
         };
         const tutte = soloIscritti(ev, _evIscrizioni);
         const inAttesa = tutte.filter(r => sezioneVista(ev, r) === SEZIONE_ATTESA.id).map(riga);
@@ -18057,7 +18091,7 @@
         const att = 'Chi aspetta ancora di confermare l\'email non è contato.';
         if (!t) {
             const msg = 'Si calcola quando sono lette le iscrizioni degli aderenti' + (_aderentiMsg ? ': ' + _aderentiMsg : '.');
-            return { aziende: msg, aderenti: msg, tutti: msg, attesa: msg, conAttesaAziende: msg, conAttesaTutti: msg };
+            return { aziende: msg, aderenti: msg, sponsor: msg, tutti: msg, attesa: msg, conAttesaAziende: msg, conAttesaTutti: msg };
         }
         const sc = t.seConfermano || t;
         const online = !h.sala;
@@ -18071,10 +18105,16 @@
             conAttesaAziende: 'Le aziende ' + h.dove + ' se tutte quelle in attesa confermassero l\'email: ' + t.aziende + ' aziende + ' + t.attesa + ' in attesa'
                 + (nonTorna ? ', tolto chi fra loro è iscritto alla cena e al meeting, già contato fra gli aderenti' : '') + '.',
             conAttesaTutti: 'Tutte le persone dell\'evento ' + h.dove + ' se tutte le aziende in attesa confermassero l\'email, ognuna una volta: '
-                + sc.aziende + ' aziende + ' + sc.aderenti + ' aderenti.',
+                + sc.aziende + ' aziende + ' + sc.aderenti + ' aderenti + ' + sc.sponsor + ' sponsor e relatori.',
             aziende: (online
-                ? 'Le persone iscritte al convegno che lo seguono online, senza gli aderenti. '
-                : 'Le persone iscritte al convegno che vengono in sala (in presenza, sponsor e relatori), senza gli aderenti. ') + att,
+                ? 'Le persone iscritte al convegno che lo seguono online, senza gli aderenti e senza sponsor e relatori. '
+                : 'Le aziende ospiti in sala (sezione In presenza), senza gli aderenti e senza sponsor e relatori. ') + att,
+            /* la sezione di chi l'evento lo fa: a parte dalle aziende, perche'
+               non sono ospiti da invitare, e nel totale perche' un posto lo occupano */
+            sponsor: (online
+                ? 'Le persone della sezione Sponsor e relatori che seguono il convegno online (di norma nessuna: la sezione è in sala). '
+                : 'Le persone della sezione Sponsor e relatori: chi l\'evento lo fa. Occupano un posto in sala ma non sono aziende ospiti, e si contano a parte. '
+                    + 'Chi di loro è iscritto anche alla cena e al meeting è contato fra gli aderenti. ') + att,
             aderenti: online
                 ? (t.cena
                     ? quanti(t.cena, 'iscritto', 'iscritti') + ' alla cena e al meeting che ' + (t.cena === 1 ? 'segue' : 'seguono')
@@ -18084,7 +18124,7 @@
                     + (t.soloConvegno ? ', ' + t.soloConvegno + ' nella sezione Aderenti Revilaw del convegno' : '')
                     + (t.anche ? '. ' + (t.anche === 1 ? 'Uno è iscritto' : t.anche + ' sono iscritti') + ' anche al convegno in sala: si conta una volta sola.' : '.')
                     + (t.cenaAltrove ? ' ' + (t.cenaAltrove === 1 ? 'Un altro segue il convegno online e sta' : 'Altri ' + t.cenaAltrove + ' seguono il convegno online e stanno') + ' nei totali online.' : ''),
-            tutti: 'Tutte le persone dell\'evento ' + h.dove + ', ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti. ' + att
+            tutti: 'Tutte le persone dell\'evento ' + h.dove + ', ognuna una volta: ' + t.aziende + ' aziende + ' + t.aderenti + ' aderenti + ' + t.sponsor + ' sponsor e relatori. ' + att
         };
     }
     /* LO STATO DEL GIRO DELLE CONFERME, accanto a chi aspetta. Il servizio
@@ -18130,8 +18170,8 @@
         document.querySelectorAll('.ev-giro').forEach(el => { el.outerHTML = giroConfermeHtml(); });
     }
     /* I DUE RIEPILOGHI, uno sotto l'altro con le stesse caselle, cosi' si
-       leggono in colonna: aziende + aderenti = tutti, e oltre la riga chi
-       aspetta la conferma mail. Sotto, una volta sola, lo stato del giro delle
+       leggono in colonna: aziende + aderenti + sponsor = tutti, e oltre la
+       riga chi aspetta la conferma mail. Sotto, una volta sola, lo stato del giro delle
        conferme: e' dell'evento, non di una meta'. */
     function totaliHtml(ev, riquadroNum) {
         if (!evHaAderenti(ev)) return '';
@@ -18148,8 +18188,12 @@
                 /* "in tutto": nella fila sopra "aderenti" sono quelli seduti in sala,
                    la sezione del convegno; qui ci sono anche la cena e il meeting */
                 + riquadroNum(v(th && th.aderenti), 'aderenti in tutto', ti.aderenti, '', q('aderenti'))
+                + '<span class="ev-tot-op" aria-hidden="true">+</span>'
+                /* chi l'evento lo fa: un posto lo occupa, ma non e' un'azienda
+                   ospite, e nel totale va contato a parte */
+                + riquadroNum(v(th && th.sponsor), 'sponsor e relatori', ti.sponsor, '', q('sponsor'))
                 + '<span class="ev-tot-op" aria-hidden="true">=</span>'
-                + riquadroNum(v(th && th.tutti), 'totale aziende + aderenti', ti.tutti, 'forte', q('tutti'))
+                + riquadroNum(v(th && th.tutti), 'totale aziende + aderenti + sponsor', ti.tutti, 'forte', q('tutti'))
                 /* fuori dalla somma, oltre una riga: le aziende che devono ancora
                    confermare l'email, nell'ambra della loro sezione. Non sono nei
                    totali; il suggerimento dice quanto sarebbero se confermassero. */
@@ -18160,7 +18204,7 @@
                        sono i numeri che si guardano davvero, su fondo blu pieno */
                     + '<span class="ev-tot-evidenza">'
                     + riquadroNum(v(th && th.conAttesaAziende), 'aziende con le attese', ti.conAttesaAziende, '', q('conAttesaAziende'))
-                    + riquadroNum(v(th && th.conAttesaTutti), 'aziende + aderenti con le attese', ti.conAttesaTutti, 'forte', q('conAttesaTutti'))
+                    + riquadroNum(v(th && th.conAttesaTutti), 'totale con le attese', ti.conAttesaTutti, 'forte', q('conAttesaTutti'))
                     + '</span></span>' : '')
                 + '</div>';
         };
@@ -18210,18 +18254,18 @@
             RIEPILOGHI.forEach(h => {
                 const th = t && t[h.id];
                 const ti = titoliTotali(th, h);
-                ['aziende', 'aderenti', 'tutti', 'attesa', 'conAttesaAziende', 'conAttesaTutti'].forEach(k => {
+                ['aziende', 'aderenti', 'sponsor', 'tutti', 'attesa', 'conAttesaAziende', 'conAttesaTutti'].forEach(k => {
                     const el = num('tot-' + h.id + '-' + k);
                     scriviNumero(el, th ? th[k] : '-');
                     if (el) el.setAttribute('title', ti[k]);
                 });
             });
         }
-        // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota"
-        const tutte = soloIscritti(ev, _evIscrizioni || []);
+        // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota" (con le righe della cena, come l'elenco)
+        const tutte = righeElenco(ev, _evIscrizioni || []);
         vista.querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => {
             const id = b.dataset.sez;
-            const righe = id === 'tutte' ? tutte : tutte.filter(r => sezioneVista(ev, r) === id);
+            const righe = id === 'tutte' ? tutte : tutte.filter(r => sezioneElenco(ev, r) === id);
             const n = righe.reduce((t, r) => t + partecipantiDi(r), 0);
             const v = b.querySelector('.ev-sez-n');
             if (v) v.textContent = n;
@@ -18264,10 +18308,10 @@
            qui e cinque sopra - li mette d'accordo solo chi conosce il codice.
            Quante righe siano lo dice il suggerimento, che e' dove serve: per
            sapere quanto sara' lungo l'elenco che si sta per aprire.
-           Le righe si contano per la sezione in cui si GUARDANO (sezioneVista):
+           Le righe si contano per la sezione in cui si MOSTRANO (sezioneElenco):
            chi aspetta di confermare l'email sta nella sua voce, e nelle altre
-           non c'e'. */
-        const dellaSezione = id => id === 'tutte' ? tutte : tutte.filter(r => sezioneVista(ev, r) === id);
+           non c'e'; chi e' alla cena e al meeting sta fra gli aderenti. */
+        const dellaSezione = id => id === 'tutte' ? tutte : tutte.filter(r => sezioneElenco(ev, r) === id);
         const voce = (id, nome) => {
             const righe = dellaSezione(id);
             const n = righe.reduce((t, r) => t + partecipantiDi(r), 0);
@@ -18455,13 +18499,14 @@
         const nomiFileEsportate = fileEsportate.map(c => usati.indexOf(c.toLowerCase()) >= 0 ? c + ' (file)' : c);
         if (regione) nomiFileEsportate.push(regione.nome);
         const ordine = SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => x.id).concat([SEZIONE_ATTESA.id]);
-        const voci = tutte.map((r, i) => ({ r: r, i: i, s: conSezioni ? sezioneVista(ev, r, lista) : '' }));
+        const voci = tutte.map((r, i) => ({ r: r, i: i, s: conSezioni ? sezioneElenco(ev, r, lista) : '' }));
         if (conSezioni) voci.sort((a, b) => (ordine.indexOf(a.s) - ordine.indexOf(b.s)) || (a.i - b.i));
         const testo = v => v == null ? '' : String(v);
         return [testa.concat(nomiFileEsportate).concat(coda)].concat(voci.map(x => {
             const r = x.r, e = r.extra || {}, p = pres(r.id);
             const c = confermaEmailDi(r, lista);
-            const conferma = !String(r.email || '').trim() ? ''
+            // le righe della cena e del meeting non hanno una mail da confermare: la colonna resta vuota
+            const conferma = (!String(r.email || '').trim() || r.soloCena) ? ''
                 : (c ? 'sì' + (c.quando ? ' il ' + fmtDataOra(c.quando) : '') + (c.come === 'mail' ? '' : ' (d\'ufficio)') : 'no');
             return (conSezioni ? [nomeSezioneVista(x.s)] : [])
                 .concat([testo(r.data), nome(r.nome), nome(r.cognome), azienda(r.azienda),
@@ -18486,7 +18531,7 @@
            (sezioneVista): chi aspetta di confermare l'email sta nella sua. */
         const tutte = lista;
         const sezione = sezioneDi(ev);
-        if (!ev.tutti && sezione !== 'tutte') lista = lista.filter(r => sezioneVista(ev, r) === sezione);
+        if (!ev.tutti && sezione !== 'tutte') lista = lista.filter(r => sezioneElenco(ev, r) === sezione);
         const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
         // gli equity e founding partner non modificano ne' cancellano, ma dalle
@@ -18534,13 +18579,19 @@
             const tm = scrittoDaChiSiIscrive(r) ? 'ev-col-modulo' : '';
             const tmEmail = scrittoDaChiSiIscrive(r, true) ? 'ev-col-modulo' : '';
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
+            /* Le righe della cena e del meeting (righeCena) sono in SOLA
+               LETTURA: non sono iscrizioni al convegno, non hanno una presenza
+               da segnare ne' una sezione da scegliere, e un comando qui
+               scriverebbe su una scheda che non esiste. Niente tendine, niente
+               casella, niente menu: i loro dati si lavorano in "Aderenti". */
+            const segnaR = segna && !r.soloCena;
             // in sola lettura si mostra il valore, senza comandi che non salverebbero
-            const cellaStato = segna
+            const cellaStato = segnaR
                 ? '<td data-label="Stato"><select class="ev-stato" data-id="' + esc(r.id) + '">'
                 + opz('', '-') + opz('confermato', 'Confermato') + opz('presente', 'Presente') + opz('assente', 'Assente')
                 + '</select></td>'
                 : '<td data-label="Stato">' + esc(NOMI_STATO[p.stato || ''] || '-') + '</td>';
-            const cellaNota = segna
+            const cellaNota = segnaR
                 ? '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
                 : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
             /* In sala o online: e' la colonna che dice chi occupa un posto
@@ -18556,16 +18607,18 @@
             const md = modalitaDi(ev, r);
             const attesa = hintAttesaMailHtml(ev, r);
             const hintM = hintModalitaHtml(ev, r, md) || '';
+            // "cena e meeting": e' alla cena degli aderenti, e per questo si mostra fra gli aderenti
+            const hintC = hintCenaHtml(ev, r);
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
-            const cellaModalita = segna
+            const cellaModalita = segnaR
                 ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
                 + SEZIONI_MODALITA.map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
-                + '</select>' + hintM + '</td>'
+                + '</select>' + hintM + hintC + '</td>'
                 : '<td data-label="Modalità"><span class="ev-sez-' + md + '">' + esc(NOMI_MODALITA[md]) + '</span>'
                 /* lo spazio prima del riquadro non e' decorativo: senza, nella
                    ricerca e nel CSV le due parti si attaccano ("Online✓ mail
                    inviata il 12/09"), perche' li' si legge il testo, non l'impaginato */
-                + (hintM ? ' ' + hintM : '') + '</td>';
+                + (hintM ? ' ' + hintM : '') + (hintC ? ' ' + hintC : '') + '</td>';
             /* Le celle di base, per chiave; poi si emettono nell'ordine delle
                colonne scelte (colonneDaMostrare), e le aggiuntive e le calcolate
                prendono il loro valore da valoreColonnaDi. */
@@ -18637,14 +18690,15 @@
                 celle['b:agg'] = '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(aggiornatoDaDi(p, r) || '-') + '</span></td>';
             }
             return '<tr>'
-                + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
-                    + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
+                // le righe della cena non si selezionano: non c'e' niente da spostare o cancellare da qui
+                + (adminEv ? (r.soloCena ? '<td data-label=""></td>' : '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
+                    + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>') : '')
                 + colonne.map(c => celle[c.chiave] !== undefined ? celle[c.chiave]
                     : '<td' + (c.file ? ' class="ev-col-file"' : classe(c.modulo ? tm : '')) + ' data-label="' + esc(c.nome) + '">'
                     + esc(valoreColonnaVisto(c.nome, valoreColonnaDi(r, c))) + '</td>').join('')
                 /* l'ultima colonna, appiccicata a destra: le azioni della riga,
                    o vuota per chi non ne ha; in cima sta il "+" delle colonne */
-                + (azioniEv ? cellaAzioniHtml(ev, r, md) : '<td data-label="" class="ev-azioni ev-piu-td"></td>')
+                + (azioniEv && !r.soloCena ? cellaAzioniHtml(ev, r, md) : '<td data-label="" class="ev-azioni ev-piu-td"></td>')
                 + '</tr>';
         }).join('');
         // barra della selezione multipla: compare solo quando c'e' qualcosa di spuntato
@@ -18918,7 +18972,13 @@
                invitati ai soli incontri B2B non sono iscritti al convegno, e
                da qui in giu' nessuno deve piu' ricordarselo - ricerca,
                esportazione, indirizzi doppi e conteggi lavorano su questo. */
-            : (!soloIscritti(ev, _evIscrizioni).length ? vuoto : tabellaIscrizioni(ev, soloIscritti(ev, _evIscrizioni)));
+            /* E con le righe di chi e' iscritto alla cena e al meeting e non al
+               convegno (righeElenco): si mostrano fra gli aderenti Revilaw, in
+               sola lettura. Si segna con quali si e' disegnato: quando le
+               iscrizioni degli aderenti arrivano o cambiano, l'elenco si rifa'
+               (aggiornaSchedaAderenti). */
+            : (!righeElenco(ev, _evIscrizioni).length ? vuoto : tabellaIscrizioni(ev, righeElenco(ev, _evIscrizioni)));
+        _evCenaDisegnata = _evIscrizioni ? firmaCena(ev) : null;
 
         // un riquadro per evento: si apre uno alla volta, cosi gli elenchi non si mescolano
         const schede = '<div class="ev-schede">' + EVENTI_DEF.map(x =>
@@ -19113,7 +19173,7 @@
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
             const rr = (_evIscrizioni || []).find(x => x.id === id);
-            const sezPrima = rr ? sezioneVista(ev, rr) : '';
+            const sezPrima = rr ? sezioneElenco(ev, rr) : '';
             EventiPresenze.imposta(ev.id, id, { stato: s.value }, () => {
                 if (vistaCorrente !== 'eventi') return;
                 // se il server ha rifiutato, la tendina deve tornare al valore vero
@@ -19127,7 +19187,7 @@
                    rimette): la riga cambia sezione, e con lei la scritta sotto
                    la modalita' e le voci del menu. Qui non si rifa' un pezzo
                    per volta: si ridisegna, appena la pagina e' libera. */
-                if (rr && sezioneVista(ev, rr) !== sezPrima) ridisegnaEventiSeLibero();
+                if (rr && sezioneElenco(ev, rr) !== sezPrima) ridisegnaEventiSeLibero();
             });
             aggiornaFirma(s, id);
             restituisciFuoco(s);
@@ -19196,7 +19256,7 @@
                    modalita' di qualcuno (dove andra' quando conferma) e lui
                    resta li', perche' l'email non l'ha ancora confermata. */
                 const sez = sezioneDi(ev);
-                const dove = rr ? sezioneVista(ev, rr) : vero;
+                const dove = rr ? sezioneElenco(ev, rr) : vero;
                 if (riga && sez !== 'tutte' && dove !== sez) {
                     _evSelezionate.delete(id);
                     const corpo = riga.parentNode;
@@ -19326,7 +19386,7 @@
         {
             const bTrova = document.getElementById('ev-trova-aderenti');
             if (bTrova) bTrova.addEventListener('click', () => {
-                const trovati = righeDaRiconoscere(ev, soloIscritti(ev, _evIscrizioni || []));
+                const trovati = righeDaRiconoscere(ev, righeElenco(ev, _evIscrizioni || []));
                 if (!trovati.length) { toast('Nessuna iscrizione da riconoscere: gli aderenti in elenco sono già nella loro sezione.', 'verde'); return; }
                 modaleRiconosciAderenti(ev, trovati);
             });
@@ -19335,7 +19395,7 @@
         {
             const bDoppi = document.getElementById('ev-doppi');
             if (bDoppi) bDoppi.addEventListener('click', () => {
-                const g = gruppiDoppi(ev, soloIscritti(ev, _evIscrizioni || []));
+                const g = gruppiDoppi(ev, righeElenco(ev, _evIscrizioni || []));
                 if (!g.length) { toast('Nessun indirizzo doppio: ogni iscrizione ha il suo.', 'verde'); return; }
                 modaleIndirizziDoppi(ev, g);
             });
@@ -19422,12 +19482,13 @@
         }
         /* LE COLONNE: il "+" in cima alla colonna delle azioni apre il pannello,
            le frecce sulle intestazioni spostano, la x toglie (agganciaColonneTabella). */
-        agganciaColonneTabella(ev, soloIscritti(ev, _evIscrizioni || []));
+        agganciaColonneTabella(ev, righeElenco(ev, _evIscrizioni || []));
         /* L'esportazione dell'elenco: sempre TUTTO, qualunque sezione si stia
            guardando (vedi righeCsvIscrizioni). La stessa per il pulsante della
            barra della tabella e per quello della sezione vuota. */
         const esportaIscritti = () => {
-            const righe = righeCsvIscrizioni(ev, _evIscrizioni || [], id => EventiPresenze.di(ev.id, id));
+            // con le righe della cena e del meeting, come l'elenco a video
+            const righe = righeCsvIscrizioni(ev, righeElenco(ev, _evIscrizioni || []), id => EventiPresenze.di(ev.id, id));
             const n = righe.length - 1;
             if (n < 1) { toast('Nessuna iscrizione da esportare.', 'rosso'); return; }
             const nomeFile = 'iscrizioni-' + ev.id;
@@ -22662,6 +22723,111 @@
         aggiornaNumeriEventi(ev);
         el.outerHTML = aderentiHtml(ev);
         collegaAderentiBlocco(ev);
+        /* Gli iscritti alla cena e al meeting stanno anche nell'elenco, fra gli
+           aderenti Revilaw (righeElenco): se da quando l'elenco e' stato
+           disegnato sono arrivati, o sono cambiati, l'elenco si rifa' - appena
+           la pagina e' libera, e solo allora: con le stesse righe non si tocca
+           niente (e non si rientra qui in cerchio, perche' il disegno segna
+           con quali righe e' stato fatto). */
+        if (_evIscrizioni && ev.id === _evSel && firmaCena(ev) !== _evCenaDisegnata) ridisegnaEventiSeLibero();
+    }
+
+    /* =========================================================
+       GLI ISCRITTI ALLA CENA E AL MEETING NELL'ELENCO DEL CONVEGNO
+       ---------------------------------------------------------
+       Chi si iscrive alla cena del 26 e al meeting del 27 e' un aderente
+       Revilaw, e nei totali si conta cosi' (totaliConAderenti). Nell'elenco
+       del convegno pero' non c'era: la sezione "Aderenti Revilaw" diceva
+       zero mentre il riquadro degli aderenti ne contava trenta, e chi
+       cercava un nome doveva sapere in quale delle due finestre guardare.
+       Qui gli iscritti alla cena entrano nell'elenco, fra gli aderenti:
+         - chi e' iscritto ANCHE al convegno (stesso indirizzo) ha gia' la
+           sua riga: e' quella che si mostra, nella sezione degli aderenti
+           (sezioneElenco), con sotto "anche cena e meeting";
+         - chi e' iscritto SOLO alla cena ha una riga sua (rigaCena), in
+           sola lettura: dati della scheda della cena, "Cena e meeting" nella
+           colonna Portale, niente da segnare o spostare. Per la fattura e
+           il resto c'e' "Aderenti" > "Apri le iscrizioni".
+       Le righe della cena non entrano in _evIscrizioni: i conteggi dei
+       posti, i promemoria, gli inviti B2B e i totali (che la cena la
+       contano gia' per conto loro) continuano a leggere le sole iscrizioni
+       del convegno. Entrano in quello che si MOSTRA: la tabella, le voci
+       sopra l'elenco, il CSV, gli indirizzi doppi.
+    ========================================================= */
+    const PORTALE_CENA = 'Cena e meeting';
+    // gli indirizzi (minuscoli) di chi e' alla cena; vuoto finche' le loro iscrizioni non sono lette
+    let _cenaIndirizzi = { quote: null, set: new Set() };
+    function indirizziCena(ev) {
+        const quote = aderentiDi(ev);
+        if (quote === _cenaIndirizzi.quote) return _cenaIndirizzi.set;
+        const fuori = new Set();
+        (quote || []).forEach(d => (d && Array.isArray(d.righe) ? d.righe : []).forEach(x => {
+            const k = String((x && x.email) || '').trim().toLowerCase();
+            if (k) fuori.add(k);
+        }));
+        _cenaIndirizzi = { quote: quote, set: fuori };
+        return fuori;
+    }
+    // la riga (del convegno o della cena) e' di qualcuno iscritto alla cena e al meeting?
+    function allaCena(ev, r) {
+        if (!r || !evHaAderenti(ev)) return false;
+        if (r.soloCena) return true;
+        const k = String(r.email || '').trim().toLowerCase();
+        return !!k && indirizziCena(ev).has(k);
+    }
+    /* Una riga dell'elenco fatta da una scheda della cena (lib/iscrizioni-aderenti.js,
+       rigaElenco): quello che l'elenco sa leggere, e niente di piu'. Senza
+       `doc` e con il suo Portale non e' mai "in attesa di conferma"; la data
+       e' quella della prima iscrizione, nella forma delle altre righe. */
+    function rigaCena(ev, x) {
+        const extra = { Portale: PORTALE_CENA, Partecipanti: '1' };
+        if (x.citta) extra['Citt\u00e0'] = String(x.citta);
+        if (x.note) extra['Note cena'] = String(x.note);
+        return {
+            id: 'cena~' + x.id, soloCena: true, doc: '',
+            data: fmtDataOra(Number(x.primaVolta) || Number(x.quando) || Date.now()),
+            pagina: ev.pagina || '',
+            nome: String(x.nome || ''), cognome: String(x.cognome || ''), email: String(x.email || ''),
+            azienda: String(x.studio || ''), ruolo: '', telefono: String(x.telefono || ''),
+            modalita: 'aderenti', extra: extra
+        };
+    }
+    // le righe della cena di chi NON ha una riga del convegno (stesso indirizzo): le altre si mostrano gia'
+    function righeCena(ev, lista) {
+        const quote = aderentiDi(ev);
+        if (!quote || !evHaAderenti(ev)) return [];
+        const noti = new Set((lista || []).map(r => String((r && r.email) || '').trim().toLowerCase()).filter(Boolean));
+        const fuori = [];
+        quote.forEach(d => (d && Array.isArray(d.righe) ? d.righe : []).forEach(x => {
+            const k = String((x && x.email) || '').trim().toLowerCase();
+            if (k && noti.has(k)) return;
+            fuori.push(rigaCena(ev, x));
+        }));
+        return fuori;
+    }
+    /* L'ELENCO COME SI MOSTRA: le iscrizioni del convegno (soloIscritti) piu'
+       le righe della cena di chi al convegno non e' iscritto. Passa di qui
+       chiunque disegni l'elenco, le voci sopra o il CSV. */
+    function righeElenco(ev, lista) {
+        const base = soloIscritti(ev, lista || []);
+        return evHaAderenti(ev) ? base.concat(righeCena(ev, base)) : base;
+    }
+    // con quali righe della cena l'elenco e' disegnato: cambia quando arrivano o cambiano
+    function firmaCena(ev) {
+        return righeCena(ev, soloIscritti(ev, _evIscrizioni || [])).map(r => r.id).sort().join('|');
+    }
+    /* Sotto la modalita': "cena e meeting" sulla riga della cena, "anche cena e
+       meeting" su quella del convegno di chi e' alla cena. Risponde alla
+       domanda che viene guardando un "In presenza" fra gli aderenti: e'
+       qui perche' e' alla cena, e nessuno lo ha spostato. */
+    const TITOLO_CENA = {
+        solo: 'Iscritto alla cena del 26 e al meeting del 27 dalla pagina riservata agli aderenti, non al convegno: la riga viene da l\u00ec e qui si legge soltanto. I dati e la fattura stanno in \u00abAderenti\u00bb \u203a \u00abApri le iscrizioni\u00bb.',
+        anche: 'Iscritto anche alla cena del 26 e al meeting del 27 degli aderenti: \u00e8 un aderente, e si mostra e si conta fra gli aderenti Revilaw, una volta sola, qualunque sia la sezione della sua riga del convegno. La sezione della riga non cambia e si pu\u00f2 spostare come sempre.'
+    };
+    function hintCenaHtml(ev, r) {
+        if (!allaCena(ev, r)) return '';
+        return '<div class="hint ev-cena" title="' + esc(r.soloCena ? TITOLO_CENA.solo : TITOLO_CENA.anche) + '">'
+            + (r.soloCena ? 'cena e meeting' : 'anche cena e meeting') + '</div>';
     }
 
     function modaleAderenti(ev) {

@@ -118,6 +118,15 @@ function mittenteMail() {
    delle pagine dei temi parte solo l'avviso a noi (la richiesta di
    check-up, in fondo), e mai per una pagina che nomina un evento. */
 const RE_PAGINA_EVENTO = /verona|roma|napoli|milano/i;
+/* LA PAGINA RISERVATA A SPONSOR E RELATORI (milano_febbraio_2027/sponsor_relatori/):
+   scrive in `pagina` il nome dell'evento con questa coda, ed e' l'unica da cui
+   si entra nella sezione "sponsor" iscrivendosi (vedi sotto, `modalita`). La
+   pagina si raggiunge solo con il collegamento che si manda a loro; chi
+   chiamasse il servizio a mano con questa coda otterrebbe quello che otterrebbe
+   dalla pagina, cioe' un'iscrizione in quella sezione che chi organizza vede e
+   puo' spostare. Il nome dell'evento resta davanti alla coda, cosi' l'iscrizione
+   e' di Milano per tutto il resto (verifica SMS, conferma email, elenco). */
+const PAGINA_SPONSOR = /\s-\s*sponsor e relatori\s*$/i;
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -1953,16 +1962,31 @@ module.exports = async (req, res) => {
         }
 
         /* Modalita' di partecipazione, quando il modulo la chiede: "presenza"
-           oppure "online", e SOLO queste due. La terza sezione dell'elenco -
-           gli aderenti Revilaw - non si dichiara da se': la decide chi
-           organizza, dall'area riservata, e un "modalita": "aderenti" spedito
-           a questo endpoint pubblico viene ignorato come qualsiasi altro
-           valore inventato.
+           oppure "online", e SOLO queste due dal modulo pubblico dell'evento.
+           La terza sezione dell'elenco - gli aderenti Revilaw - non si
+           dichiara da se': la decide chi organizza, dall'area riservata, e un
+           "modalita": "aderenti" spedito a questo endpoint pubblico viene
+           ignorato come qualsiasi altro valore inventato.
            Si scrive SOLO se arriva: l'assenza del campo vale in presenza,
            com'erano tutte le iscrizioni fino a Napoli, e un campo vuoto su ogni
            iscrizione di ogni altro modulo del sito sarebbe rumore. */
         const modalita = testo(body.modalita, 20).toLowerCase();
         if (modalita === 'presenza' || modalita === 'online') scheda.modalita = modalita;
+        /* SPONSOR E RELATORI, dalla LORO pagina (PAGINA_SPONSOR). E' l'unica
+           strada per entrare in quella sezione iscrivendosi: dal modulo
+           pubblico dell'evento "sponsor" resta ignorato (la riga sopra), e da
+           quella pagina non ci si iscrive in presenza o online. La
+           dichiarazione resta scritta (`sponsor`), distinta dalla sezione, come
+           `aderente`: nell'elenco si legge che e' stata l'iscrizione a metterlo
+           li' ("dal modulo"), e chi organizza puo' spostarlo altrove in un clic.
+           `ruoloEvento` dice, se la persona lo ha detto, se viene come sponsor
+           o come relatore: e' una nota, non una sezione. */
+        if (modalita === 'sponsor' && PAGINA_SPONSOR.test(pagina)) {
+            scheda.modalita = 'sponsor';
+            scheda.sponsor = true;
+            const come = testo(body.ruoloEvento, 20).toLowerCase();
+            if (come === 'sponsor' || come === 'relatore') scheda.ruoloEvento = come;
+        }
 
         /* "Sono un aderente Revilaw", spuntato nel modulo: la persona finisce
            DIRETTAMENTE nella sezione degli aderenti, senza passare da una

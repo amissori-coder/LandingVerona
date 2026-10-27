@@ -304,7 +304,9 @@ function mailDiConferma(idDoc, scheda) {
     const m = MNGB.confermaSito({
         nome: scheda.nome, cognome: scheda.cognome, email: scheda.email, azienda: scheda.azienda,
         pagina: scheda.pagina, data: scheda.data, modalita: scheda.modalita || '',
-        listaAttesa: scheda.listaAttesa === true
+        listaAttesa: scheda.listaAttesa === true,
+        // sponsor o relatore (dalla pagina riservata a loro): la mail dice come partecipa
+        ruoloEvento: String(scheda.ruoloEvento || '')
     }, NL.linkCompleta(idDoc), NL.linkConfermaEmail(idDoc));
     return { to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html };
 }
