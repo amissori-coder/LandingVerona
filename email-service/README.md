@@ -2192,9 +2192,10 @@ di persona e stanno in presenza, salvo chi si e' iscritto al convegno online
 (e non anche in sala): e' un aderente che si conta online, una volta, con la
 cena; il suggerimento del riquadro lo dice. I totali si aggiornano con
 l'elenco e, per le iscrizioni alla cena e al meeting, ogni quattro minuti.
-Dopo le aziende in attesa, oltre un'altra riga, ci sono **i totali con le
-attese dentro** ("aziende con le attese" e "aziende + aderenti con le
-attese"): quanti sarebbero se confermassero tutte, con la stessa regola, per
+Dopo le aziende in attesa ci sono **i totali con le attese dentro**
+("aziende con le attese" e "aziende + aderenti con le attese"), in evidenza
+su tutto il resto, in un riquadro a fondo blu pieno: quanti sarebbero se
+confermassero tutte, con la stessa regola, per
 cui chi aspetta ed e' iscritto alla cena e al meeting e' gia' fra gli
 aderenti e non si aggiunge (il suggerimento lo dice quando la somma non
 torna). `prove/totali-aderenti.prove.js` verifica
