@@ -1102,7 +1102,7 @@ Un'iscrizione sta in **una** sezione sola. Tre sono in sala, e solo l'online no:
 
 | Sezione | Valore | In sala | Cosa vuol dire |
 |---|---|---|---|
-| In presenza | `presenza` (o vuoto) | si | gli **ospiti** in sala |
+| Aziende in presenza | `presenza` (o vuoto) | si | gli **ospiti** in sala, le aziende. Sopra l'elenco questa voce, gli aderenti e sponsor e relatori stanno in un riquadro solo, "tutti in presenza"; nella riga la modalita' si legge ancora "In presenza" |
 | Aderenti Revilaw | `aderenti` | si | gli **aderenti** in sala: occupano un posto come gli altri, ma si contano a parte - sono la rete dello studio, non ospiti da invitare |
 | Sponsor e relatori | `sponsor` | si | chi l'evento lo **fa**: occupa un posto come gli altri e va sempre contato fra quelli in sala, ma a parte dalle aziende (nei totali di Milano e' la casella "sponsor e relatori"). Ci si entra dall'area riservata oppure iscrivendosi dalla **pagina riservata** `/milano_febbraio_2027/sponsor_relatori/` (vedi sotto); per la persona non cambia niente: nessuna mail in piu' parte |
 | Online | `online` | no | chi segue **da remoto**, che in sala non occupa niente |
