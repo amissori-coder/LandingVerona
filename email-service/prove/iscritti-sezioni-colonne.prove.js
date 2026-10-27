@@ -975,6 +975,16 @@ prova('Fra gli aderenti si sposta solo la persona della cena, e per una persona 
     // elenco definitivo: il compagno condivide la presenza con l'intestatario della cena, e non si propone
     const c5 = A.confrontoElencoDefinitivo(MILANO, e.lista, [e.ospite.email]);
     esigi(!c5.fuori.some(x => x.riga === comp) && !c5.fuori.some(x => x.riga === capo), 'elenco definitivo: spostare il compagno sposterebbe l\'aderente (stessa presenza): non si propone');
+    esigi(c5.legati.length === 1 && c5.legati[0].riga === comp, 'ma si dice a parte: e\' un ospite in sala che nell\'elenco non c\'e\'', JSON.stringify(c5.legati.map(x => x.email)));
+    // con la presenza condivisa fra sponsor e relatori il compagno non e' un ospite: il suo indirizzo non e' "trovato"
+    presenze[ID] = { modalita: 'sponsor' };
+    const c7 = A.confrontoElencoDefinitivo(MILANO, e.lista, ['seg@studio.it']);
+    esigi(c7.mancanti.some(x => x.email === 'seg@studio.it' && x.dove) && c7.legati.length === 0, 'se la presenza condivisa non e\' in presenza, l\'indirizzo incollato non si trova fra gli ospiti, e si dice dove sta', JSON.stringify(c7.mancanti));
+    delete presenze[ID];
+    const FIN = APP.slice(APP.indexOf('function modaleConfrontoElenco('), APP.indexOf('function modaleConfrontoElenco(') + 12000);
+    esigi(/const legati = esito\.legati \|\| \[\];/.test(FIN) && /\(nl \? bloccoLegati : '<p class="hint">Tutti gli ospiti in sala sono nell/.test(FIN)
+        && /\(nl \? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala/.test(FIN),
+        'la finestra lo dice, e non scrive che tutti gli ospiti in sala sono nell\'elenco');
     const c6 = A.confrontoElencoDefinitivo(MILANO, e.lista, ['seg@studio.it']);
     esigi(c6.mancanti.every(x => x.email !== 'seg@studio.it'), 'e se il suo indirizzo e\' nell\'elenco incollato, risulta trovato');
     const ME = APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000);

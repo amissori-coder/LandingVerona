@@ -16813,6 +16813,11 @@
            che gli aderenti non si spostano da qui. */
         const idCena = new Set((lista || []).filter(x => x && inSala(modalitaDi(ev, x)) && partecipantiDi(x) === 1
             && rigaDellaCena(ev, x, lista)).map(x => x.id));
+        /* ...ma non si tace: se e' un ospite in sala (o lo sara' confermando)
+           e nell'elenco non c'e', la finestra lo dice a parte - da qui non si
+           sposta, si decide a mano. Senza, la finestra direbbe "tutti gli
+           ospiti in sala sono nell'elenco" con lui ancora in sala. */
+        const legati = [];
         (lista || []).forEach(r => {
             /* dove la riga si MOSTRA: chi e' alla cena e al meeting e si vede fra
                gli aderenti e' un aderente, e la finestra promette che gli
@@ -16820,7 +16825,13 @@
             const sez = sezioneElenco(ev, r, lista);
             const e = String(r.email || '').trim().toLowerCase();
             if (idCena.has(r.id) && !rigaDellaCena(ev, r, lista)) {
-                if (e && dentro.has(e)) trovati.add(e);
+                if (e && dentro.has(e)) {
+                    // trovato solo se e' davvero un ospite in sala; altrimenti si dice dove sta
+                    if (sez === 'presenza') trovati.add(e);
+                    else if (!altrove.has(e)) altrove.set(e, sez);
+                } else if (sez === 'presenza' || (sez === SEZIONE_ATTESA.id && modalitaDi(ev, r) === 'presenza')) {
+                    legati.push({ riga: r, email: e, sezione: sez, motivo: 'stessa presenza della cena' });
+                }
                 return;
             }
             if (sez === SEZIONE_ATTESA.id && e && !dentro.has(e) && ospiteDopoConferma(ev, r, lista)) {
@@ -16840,7 +16851,7 @@
         // nell'ordine in cui sono stati incollati: e' l'ordine del foglio da cui
         // arrivano, ed e' li' che chi guarda andra' a cercarli
         dentro.forEach(e => { if (!trovati.has(e)) mancanti.push({ email: e, dove: altrove.get(e) || '' }); });
-        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, daConfermare: daConfermare, trovati: trovati.size, mancanti: mancanti };
+        return { fuori: fuori, senzaIndirizzo: senzaIndirizzo, daConfermare: daConfermare, legati: legati, trovati: trovati.size, mancanti: mancanti };
     }
     /* =========================================================
        LO STESSO INDIRIZZO SU PIU' ISCRIZIONI
@@ -26555,6 +26566,8 @@
         const muti = esito.senzaIndirizzo || [];
         const daConf = esito.daConfermare || [];
         const mancanti = esito.mancanti || [];
+        // chi non e' nell'elenco ma ha la stessa presenza di un aderente della cena: si dice, non si sposta
+        const legati = esito.legati || [];
         // le caselle: prima gli ospiti in sala, poi - nel loro blocco - chi aspetta la conferma
         const principali = fuori.concat(muti);
         const elenco = principali.concat(daConf);
@@ -26624,6 +26637,21 @@
             + '<p class="hint" style="margin:-4px 0 12px;">Confronto per <b>indirizzo email</b> sui soli <b>ospiti in sala</b>. '
             + 'Aderenti Revilaw, sponsor e relatori non sono stati confrontati e restano dove sono.</p>'
             + conti;
+        /* CHI DA QUI NON SI SPOSTA: un compagno d'ordine con l'indirizzo
+           dell'intestatario ha il suo stesso identificativo, e quindi la sua
+           stessa presenza; se l'intestatario e' iscritto alla cena e al
+           meeting e' un aderente, e spostare il compagno sposterebbe anche
+           lui. Niente casella: si dice chi e', e lo si decide a mano. */
+        const nl = legati.length, unoL = nl === 1;
+        const bloccoLegati = nl
+            ? '<p class="ed-attenzione"><b>' + nl + '</b> ' + (unoL ? 'iscrizione in sala non è' : 'iscrizioni in sala non sono')
+            + ' nell\'elenco ma ' + (unoL ? 'ha' : 'hanno') + ' la stessa scheda di presenza di un aderente iscritto alla cena e al meeting '
+            + '(stesso indirizzo, nello stesso ordine): ' + (unoL ? 'spostarla sposterebbe' : 'spostarle sposterebbe') + ' anche lui, '
+            + 'quindi da qui non ' + (unoL ? 'si sposta' : 'si spostano') + '. ' + (unoL ? 'Decidila' : 'Decidile') + ' a mano dall\'elenco.</p>'
+            + '<ul class="ed-mancanti">' + legati.map(t => '<li><span class="ra-mail">' + esc(t.email || '(senza indirizzo)') + '</span>'
+                + '<span class="ra-dove">' + esc(nomeDi(t.riga)) + (t.riga.azienda ? ' &middot; ' + esc(t.riga.azienda) : '')
+                + (t.sezione === SEZIONE_ATTESA.id ? ' &middot; ' + esc(SEZIONE_ATTESA.breve) : '') + '</span></li>').join('') + '</ul>'
+            : '';
         /* Chi aspetta la conferma, a parte: le frasi e i numeri qui sopra
            parlano degli ospiti in sala, e queste righe in sala oggi non ci
            sono. Si spostano con gli altri, ma solo se le si spunta. */
@@ -26641,7 +26669,7 @@
             : '';
         if (!elenco.length) {
             apriModale(testa
-                + '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>'
+                + (nl ? bloccoLegati : '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>')
                 + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
                 + '<button class="btn btn-primary" id="ed2-chiudi">Chiudi</button></div>', { classe: 'larga' });
             document.getElementById('ed2-indietro').addEventListener('click', () => modaleElencoDefinitivo(ev));
@@ -26662,7 +26690,8 @@
                 + ' Togli la spunta a chi deve restare in sala.</p>'
                 + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
                 + '<ul class="ra-elenco">' + principali.map(voce).join('') + '</ul>'
-                : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala sono nell\'elenco definitivo: fra loro non c\'e\' niente da spostare.</p>')
+                : (nl ? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala sono nell\'elenco definitivo: fra loro non c\'e\' niente da spostare.</p>'))
+            + bloccoLegati
             + bloccoAttesa
             + '<div id="ed2-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
