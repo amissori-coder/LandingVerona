@@ -2191,9 +2191,13 @@ riepilogo della modalita' scelta. Gli iscritti alla cena e al meeting vengono
 di persona e stanno in presenza, salvo chi si e' iscritto al convegno online
 (e non anche in sala): e' un aderente che si conta online, una volta, con la
 cena; il suggerimento del riquadro lo dice. I totali si aggiornano con
-l'elenco e, per le iscrizioni alla cena e al meeting, ogni quattro minuti; nel
-suggerimento delle aziende in attesa ci sono i totali del riepilogo che ci
-sarebbero se confermassero tutte. `prove/totali-aderenti.prove.js` verifica
+l'elenco e, per le iscrizioni alla cena e al meeting, ogni quattro minuti.
+Dopo le aziende in attesa, oltre un'altra riga, ci sono **i totali con le
+attese dentro** ("aziende con le attese" e "aziende + aderenti con le
+attese"): quanti sarebbero se confermassero tutte, con la stessa regola, per
+cui chi aspetta ed e' iscritto alla cena e al meeting e' gia' fra gli
+aderenti e non si aggiunge (il suggerimento lo dice quando la somma non
+torna). `prove/totali-aderenti.prove.js` verifica
 anche la spartizione: riepilogo per riepilogo aziende + aderenti = tutti, e i
 due riepiloghi insieme fanno il totale intero.
 

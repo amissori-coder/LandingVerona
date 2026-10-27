@@ -17917,9 +17917,10 @@
        presenza e online (RIEPILOGHI e totaliPerDove, qui sotto): questa e' la
        regola di ciascuno, e la somma dei due e' l'evento intero, il numero
        della mail di mezzanotte. Accanto a ciascuno, in ambra, LE AZIENDE IN
-       ATTESA DI CONFERMA MAIL: non sono nei totali, e il suggerimento dice
-       quanti sarebbero i totali se confermassero tutte (calcolati con la
-       stessa regola, le righe dell'attesa comprese).
+       ATTESA DI CONFERMA MAIL: non sono nei totali; e poi I TOTALI CON LE
+       ATTESE DENTRO, quanti sarebbero se confermassero tutte (calcolati con
+       la stessa regola, le righe dell'attesa comprese: chi di loro e' alla
+       cena e' gia' fra gli aderenti e non si aggiunge).
        LA STESSA REGOLA sta nel servizio (email-service/lib/riepilogo-iscrizioni.js,
        totaliConAderenti), per le mail di mezzanotte: se cambia qui va cambiata
        la', e prove/totali-aderenti.prove.js le mette a confronto.
@@ -18040,7 +18041,13 @@
         inAttesa.forEach(r => { attesa[r.sala ? 'presenza' : 'online'] += r.persone; });
         // le righe nell'ordine dell'elenco, come le contera' totaliEvento a conferme avvenute
         const se = totaliPerDove(tutte.map(riga), cena);
-        RIEPILOGHI.forEach(h => { t[h.id].attesa = attesa[h.id]; t[h.id].seConfermano = se[h.id]; });
+        RIEPILOGHI.forEach(h => {
+            t[h.id].attesa = attesa[h.id];
+            t[h.id].seConfermano = se[h.id];
+            // i due totali con le attese dentro, a portata dei riquadri e dell'aggiornamento al volo
+            t[h.id].conAttesaAziende = se[h.id].aziende;
+            t[h.id].conAttesaTutti = se[h.id].tutti;
+        });
         return t;
     }
     // i suggerimenti dei riquadri di un riepilogo (`h`, una voce di RIEPILOGHI): che cosa conta ciascun numero
@@ -18048,15 +18055,21 @@
         const att = 'Chi aspetta ancora di confermare l\'email non è contato.';
         if (!t) {
             const msg = 'Si calcola quando sono lette le iscrizioni degli aderenti' + (_aderentiMsg ? ': ' + _aderentiMsg : '.');
-            return { aziende: msg, aderenti: msg, tutti: msg, attesa: msg };
+            return { aziende: msg, aderenti: msg, tutti: msg, attesa: msg, conAttesaAziende: msg, conAttesaTutti: msg };
         }
         const sc = t.seConfermano || t;
         const online = !h.sala;
         const quanti = (q, uno, piu) => q + ' ' + (q === 1 ? uno : piu);
+        /* "26 + 6 = 31": quando la somma non torna, e' perche' chi aspetta ed e'
+           alla cena e al meeting e' gia' contato fra gli aderenti, e lo si dice */
+        const nonTorna = t.aziende + t.attesa !== sc.aziende;
         return {
-            attesa: 'Iscritte dal sito per seguire ' + h.dove + ', non hanno ancora premuto il pulsante di conferma nella mail: non sono nei totali. '
-                + (t.attesa ? 'Se confermassero tutte, le aziende ' + h.dove + ' sarebbero ' + sc.aziende + ' e il totale aziende + aderenti ' + sc.tutti + '. ' : '')
-                + 'Dal menu della riga si può rimandare la mail.',
+            attesa: 'Iscritte dal sito per seguire ' + h.dove + ', non hanno ancora premuto il pulsante di conferma nella mail: non sono nei totali qui a sinistra; '
+                + 'i totali con le attese dentro sono qui a destra. Dal menu della riga si può rimandare la mail.',
+            conAttesaAziende: 'Le aziende ' + h.dove + ' se tutte quelle in attesa confermassero l\'email: ' + t.aziende + ' aziende + ' + t.attesa + ' in attesa'
+                + (nonTorna ? ', tolto chi fra loro è iscritto alla cena e al meeting, già contato fra gli aderenti' : '') + '.',
+            conAttesaTutti: 'Tutte le persone dell\'evento ' + h.dove + ' se tutte le aziende in attesa confermassero l\'email, ognuna una volta: '
+                + sc.aziende + ' aziende + ' + sc.aderenti + ' aderenti.',
             aziende: (online
                 ? 'Le persone iscritte al convegno che lo seguono online, senza gli aderenti. '
                 : 'Le persone iscritte al convegno che vengono in sala (in presenza, sponsor e relatori), senza gli aderenti. ') + att,
@@ -18139,7 +18152,13 @@
                    confermare l'email, nell'ambra della loro sezione. Non sono nei
                    totali; il suggerimento dice quanto sarebbero se confermassero. */
                 + (ev.confermaEmail ? '<span class="ev-tot-fuori"><span class="ev-tot-sep" aria-hidden="true"></span>'
-                    + riquadroNum(v(th && th.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', q('attesa')) + '</span>' : '')
+                    + riquadroNum(v(th && th.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', q('attesa'))
+                    /* e oltre un'altra riga I TOTALI CON LE ATTESE DENTRO: quanti
+                       sarebbero, aziende e tutti, se confermassero tutte */
+                    + '<span class="ev-tot-sep" aria-hidden="true"></span>'
+                    + riquadroNum(v(th && th.conAttesaAziende), 'aziende con le attese', ti.conAttesaAziende, '', q('conAttesaAziende'))
+                    + riquadroNum(v(th && th.conAttesaTutti), 'aziende + aderenti con le attese', ti.conAttesaTutti, 'forte', q('conAttesaTutti'))
+                    + '</span>' : '')
                 + '</div>';
         };
         return '<div class="ev-totali">' + RIEPILOGHI.map(blocco).join('') + (ev.confermaEmail ? giroConfermeHtml() : '') + '</div>';
@@ -18188,7 +18207,7 @@
             RIEPILOGHI.forEach(h => {
                 const th = t && t[h.id];
                 const ti = titoliTotali(th, h);
-                ['aziende', 'aderenti', 'tutti', 'attesa'].forEach(k => {
+                ['aziende', 'aderenti', 'tutti', 'attesa', 'conAttesaAziende', 'conAttesaTutti'].forEach(k => {
                     const el = num('tot-' + h.id + '-' + k);
                     scriviNumero(el, th ? th[k] : '-');
                     if (el) el.setAttribute('title', ti[k]);
