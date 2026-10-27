@@ -26643,8 +26643,13 @@
            meeting e' un aderente, e spostare il compagno sposterebbe anche
            lui. Niente casella: si dice chi e', e lo si decide a mano. */
         const nl = legati.length, unoL = nl === 1;
+        // in sala davvero, o in attesa della conferma (in sala non ancora): le parole lo dicono
+        const nlSala = legati.filter(t => t.sezione !== SEZIONE_ATTESA.id).length;
+        const chiLegati = nlSala === nl ? (unoL ? 'iscrizione in sala non è' : 'iscrizioni in sala non sono')
+            : !nlSala ? (unoL ? 'iscrizione ' + SEZIONE_ATTESA.breve + ' che chiede la sala non è' : 'iscrizioni ' + SEZIONE_ATTESA.breve + ' che chiedono la sala non sono')
+                : 'iscrizioni in sala o ' + SEZIONE_ATTESA.breve + ' non sono';
         const bloccoLegati = nl
-            ? '<p class="ed-attenzione"><b>' + nl + '</b> ' + (unoL ? 'iscrizione in sala non è' : 'iscrizioni in sala non sono')
+            ? '<p class="ed-attenzione"><b>' + nl + '</b> ' + chiLegati
             + ' nell\'elenco ma ' + (unoL ? 'ha' : 'hanno') + ' la stessa scheda di presenza di un aderente iscritto alla cena e al meeting '
             + '(stesso indirizzo, nello stesso ordine): ' + (unoL ? 'spostarla sposterebbe' : 'spostarle sposterebbe') + ' anche lui, '
             + 'quindi da qui non ' + (unoL ? 'si sposta' : 'si spostano') + '. ' + (unoL ? 'Decidila' : 'Decidile') + ' a mano dall\'elenco.</p>'
@@ -26669,7 +26674,8 @@
             : '';
         if (!elenco.length) {
             apriModale(testa
-                + (nl ? bloccoLegati : '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>')
+                + (nlSala ? '' : '<p class="hint">Tutti gli ospiti in sala sono nell\'elenco definitivo: non c\'e\' niente da spostare.</p>')
+                + bloccoLegati
                 + '<div class="modale-azioni"><button class="btn btn-secondary" id="ed2-indietro">Cambia elenco</button>'
                 + '<button class="btn btn-primary" id="ed2-chiudi">Chiudi</button></div>', { classe: 'larga' });
             document.getElementById('ed2-indietro').addEventListener('click', () => modaleElencoDefinitivo(ev));
@@ -26690,7 +26696,7 @@
                 + ' Togli la spunta a chi deve restare in sala.</p>'
                 + '<label class="ra-tutte"><input type="checkbox" id="ed2-tutte"> Tutte</label>'
                 + '<ul class="ra-elenco">' + principali.map(voce).join('') + '</ul>'
-                : (nl ? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala sono nell\'elenco definitivo: fra loro non c\'e\' niente da spostare.</p>'))
+                : (nlSala ? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala sono nell\'elenco definitivo: fra loro non c\'e\' niente da spostare.</p>'))
             + bloccoLegati
             + bloccoAttesa
             + '<div id="ed2-esito" class="ev-imp-esito"></div>'

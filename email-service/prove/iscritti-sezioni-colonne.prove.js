@@ -982,9 +982,10 @@ prova('Fra gli aderenti si sposta solo la persona della cena, e per una persona 
     esigi(c7.mancanti.some(x => x.email === 'seg@studio.it' && x.dove) && c7.legati.length === 0, 'se la presenza condivisa non e\' in presenza, l\'indirizzo incollato non si trova fra gli ospiti, e si dice dove sta', JSON.stringify(c7.mancanti));
     delete presenze[ID];
     const FIN = APP.slice(APP.indexOf('function modaleConfrontoElenco('), APP.indexOf('function modaleConfrontoElenco(') + 12000);
-    esigi(/const legati = esito\.legati \|\| \[\];/.test(FIN) && /\(nl \? bloccoLegati : '<p class="hint">Tutti gli ospiti in sala sono nell/.test(FIN)
-        && /\(nl \? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala/.test(FIN),
-        'la finestra lo dice, e non scrive che tutti gli ospiti in sala sono nell\'elenco');
+    esigi(/const legati = esito\.legati \|\| \[\];/.test(FIN) && /\(nlSala \? '' : '<p class="hint">Tutti gli ospiti in sala sono nell[^\n]*\n\s*\+ bloccoLegati/.test(FIN)
+        && /\(nlSala \? '' : '<p class="hint" style="margin:0 0 8px;">Tutti gli ospiti in sala/.test(FIN)
+        && /const nlSala = legati\.filter\(t => t\.sezione !== SEZIONE_ATTESA\.id\)\.length;/.test(FIN),
+        'la finestra lo dice, e non scrive che tutti gli ospiti in sala sono nell\'elenco (chi aspetta la conferma non e\' "in sala")');
     const c6 = A.confrontoElencoDefinitivo(MILANO, e.lista, ['seg@studio.it']);
     esigi(c6.mancanti.every(x => x.email !== 'seg@studio.it'), 'e se il suo indirizzo e\' nell\'elenco incollato, risulta trovato');
     const ME = APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000);
