@@ -3437,6 +3437,15 @@
         return !q || String(testoCella || '').toLowerCase().includes(q);
     };
 
+    /* Il nome di un'intestazione, senza i comandi che ci stanno dentro: nella
+       tabella degli iscritti ogni intestazione porta le frecce e la x
+       (.ev-th-strumenti) e l'ultima e' il "+" delle colonne, che non e' una
+       colonna da cercare o filtrare. */
+    function nomeIntestazione(th) {
+        if (!th || th.classList.contains('ev-th-piu')) return '';
+        const nome = th.querySelector('.ev-th-nome');
+        return String((nome || th).textContent || '').trim();
+    }
     function attrezzaTabella(elOrScope, opts) {
         opts = opts || {};
         const tabella = (elOrScope && elOrScope.tagName === 'TABLE') ? elOrScope : (elOrScope && elOrScope.querySelector('table.dati'));
@@ -3446,7 +3455,7 @@
         const ths = Array.from(tabella.tHead.rows[0].cells);
         const corpo = tabella.tBodies[0];
         // la ricerca globale guarda solo le colonne con intestazione (esclude la colonna azioni: Apri/Duplica/Elimina)
-        const idxCerca = ths.map((th, i) => (th.textContent.trim() ? i : -1)).filter(i => i >= 0);
+        const idxCerca = ths.map((th, i) => (nomeIntestazione(th) ? i : -1)).filter(i => i >= 0);
         const barra = document.createElement('div');
         barra.className = 'barra-tabella';
 
@@ -3461,7 +3470,7 @@
         }
         if (opts.filtri !== false) {
             ths.forEach((th, i) => {
-                const nome = th.textContent.trim();
+                const nome = nomeIntestazione(th);
                 if (!nome) return; // colonna d'azione
                 const valori = new Set();
                 Array.from(corpo.rows).forEach(tr => { const v = _testoCella(tr.cells[i]); if (v) valori.add(v); });
@@ -16220,6 +16229,8 @@
         if (!a || a === document.body || !a.closest) return false;
         // il contenitore della vista e' <main id="vista">: cercarlo per classe
         // non troverebbe mai niente, e la guardia direbbe sempre "libero"
+        // il pannello delle colonne sta fuori da #vista (nel corpo della pagina), ma e' della vista: chi ci sta dentro sta lavorando
+        if (a.closest('.ev-piu-pannello')) return true;
         if (!a.closest('#vista')) return false;
         return /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable === true;
     }
@@ -17289,19 +17300,218 @@
         if (ev && ev.manuale) extra = extra.filter(c => COLONNE_FISSE_MANUALE.indexOf(c) < 0);
         return { extra: extra, file: colonneFileDisponibili(lista) };
     }
+    /* LE REGIONI DALLE PROVINCE. Il file delle aziende invitate porta la
+       provincia della sede operativa, non la regione: la colonna "Regione
+       (sede operativa)" si ricava da qui quando il file non ce l'ha. Nomi e
+       sigle, con le varianti d'uso ("Monza e Brianza", "Reggio nell'Emilia",
+       "Forlì Cesena", "Bozen") e le vecchie province sarde. */
+    const PROVINCE_REGIONE = {
+        'Abruzzo': ['L\'Aquila|Aquila|AQ', 'Chieti|CH', 'Pescara|PE', 'Teramo|TE'],
+        'Basilicata': ['Potenza|PZ', 'Matera|MT'],
+        'Calabria': ['Catanzaro|CZ', 'Cosenza|CS', 'Crotone|KR', 'Reggio Calabria|Reggio di Calabria|RC', 'Vibo Valentia|VV'],
+        'Campania': ['Napoli|NA', 'Avellino|AV', 'Benevento|BN', 'Caserta|CE', 'Salerno|SA'],
+        'Emilia-Romagna': ['Bologna|BO', 'Ferrara|FE', 'Forlì-Cesena|Forlì Cesena|Forlì|FC', 'Modena|MO', 'Parma|PR', 'Piacenza|PC', 'Ravenna|RA', 'Reggio Emilia|Reggio nell\'Emilia|RE', 'Rimini|RN'],
+        'Friuli-Venezia Giulia': ['Trieste|TS', 'Gorizia|GO', 'Pordenone|PN', 'Udine|UD'],
+        'Lazio': ['Roma|RM', 'Frosinone|FR', 'Latina|LT', 'Rieti|RI', 'Viterbo|VT'],
+        'Liguria': ['Genova|GE', 'Imperia|IM', 'La Spezia|Spezia|SP', 'Savona|SV'],
+        'Lombardia': ['Milano|MI', 'Bergamo|BG', 'Brescia|BS', 'Como|CO', 'Cremona|CR', 'Lecco|LC', 'Lodi|LO', 'Mantova|MN', 'Monza e della Brianza|Monza e Brianza|Monza-Brianza|Monza Brianza|Monza|MB', 'Pavia|PV', 'Sondrio|SO', 'Varese|VA'],
+        'Marche': ['Ancona|AN', 'Ascoli Piceno|AP', 'Fermo|FM', 'Macerata|MC', 'Pesaro e Urbino|Pesaro-Urbino|Pesaro Urbino|PU'],
+        'Molise': ['Campobasso|CB', 'Isernia|IS'],
+        'Piemonte': ['Torino|TO', 'Alessandria|AL', 'Asti|AT', 'Biella|BI', 'Cuneo|CN', 'Novara|NO', 'Verbano-Cusio-Ossola|Verbania|VB', 'Vercelli|VC'],
+        'Puglia': ['Bari|BA', 'Barletta-Andria-Trani|Barletta Andria Trani|BT', 'Brindisi|BR', 'Foggia|FG', 'Lecce|LE', 'Taranto|TA'],
+        'Sardegna': ['Cagliari|CA', 'Nuoro|NU', 'Oristano|OR', 'Sassari|SS', 'Sud Sardegna|SU', 'Carbonia-Iglesias|CI', 'Medio Campidano|VS', 'Ogliastra|OG', 'Olbia-Tempio|OT'],
+        'Sicilia': ['Palermo|PA', 'Agrigento|AG', 'Caltanissetta|CL', 'Catania|CT', 'Enna|EN', 'Messina|ME', 'Ragusa|RG', 'Siracusa|SR', 'Trapani|TP'],
+        'Toscana': ['Firenze|FI', 'Arezzo|AR', 'Grosseto|GR', 'Livorno|LI', 'Lucca|LU', 'Massa-Carrara|Massa Carrara|Massa|MS', 'Pisa|PI', 'Pistoia|PT', 'Prato|PO', 'Siena|SI'],
+        'Trentino-Alto Adige': ['Trento|TN', 'Bolzano|Bozen|Bolzano-Bozen|BZ'],
+        'Umbria': ['Perugia|PG', 'Terni|TR'],
+        'Valle d\'Aosta': ['Aosta|Aoste|Valle d\'Aosta|AO'],
+        'Veneto': ['Venezia|VE', 'Belluno|BL', 'Padova|PD', 'Rovigo|RO', 'Treviso|TV', 'Verona|VR', 'Vicenza|VI']
+    };
+    // "Monza e della Brianza", "MONZA E DELLA BRIANZA", "monza-e-della-brianza": la stessa chiave
+    function chiaveProvincia(s) {
+        return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+    const REGIONE_DI_PROVINCIA = (() => {
+        const m = {};
+        Object.keys(PROVINCE_REGIONE).forEach(reg => PROVINCE_REGIONE[reg].forEach(voce => voce.split('|').forEach(n => { m[chiaveProvincia(n)] = reg; })));
+        return m;
+    })();
+    /* La regione di una provincia, da nome o sigla; '' se non si riconosce.
+       Accetta anche "Milano (MI)" e "Provincia di Milano". */
+    function regioneDaProvincia(p) {
+        let k = chiaveProvincia(p);
+        if (!k) return '';
+        if (REGIONE_DI_PROVINCIA[k]) return REGIONE_DI_PROVINCIA[k];
+        k = k.replace(/^(provincia|citta metropolitana|prov) (di |del |della |dell )?/, '');
+        if (REGIONE_DI_PROVINCIA[k]) return REGIONE_DI_PROVINCIA[k];
+        // "dell'Aquila" -> "l aquila": l'articolo si e' portato via la elle
+        if (REGIONE_DI_PROVINCIA['l ' + k]) return REGIONE_DI_PROVINCIA['l ' + k];
+        const sigla = (String(p || '').match(/\(([A-Za-z]{2})\)\s*$/) || [])[1];
+        if (sigla && REGIONE_DI_PROVINCIA[sigla.toLowerCase()]) return REGIONE_DI_PROVINCIA[sigla.toLowerCase()];
+        return '';
+    }
+
+    /* IL CATALOGO DELLE COLONNE. Ogni colonna della tabella degli iscritti ha
+       una chiave, con un prefisso che dice da dove viene:
+         b:   le colonne di base della tabella (data, nome, azienda, ruolo, email,
+              telefono; per gli eventi con inserimento manuale portale,
+              partecipanti, B2B prenotati, preferenze; modalita', stato, nota,
+              aggiornato da; nel riepilogo l'evento);
+         x:   le colonne di `extra` (il modulo, gli altri portali, i file importati);
+         file: le colonne del file delle aziende invitate (PREFISSO_COL_FILE);
+         d:   le colonne CALCOLATE da quelle del file: la regione della sede
+              operativa (dalla provincia, quando il file non la porta) e
+              "Revisore e data nomina" in una colonna sola.
+       Quali si vedono e in che ordine lo decide chi guarda (colonneScelteDi):
+       senza una scelta valgono COLONNE_DI_BASE. Le colonne di `extra` e del
+       file si cercano per nome SENZA badare a maiuscole e accenti
+       (chiaveNomeColonna): "Ricavi (EUR)" e "RICAVI (eur)" sono la stessa. */
+    const PREFISSO_COL_BASE = 'b:';
+    const PREFISSO_COL_EXTRA = 'x:';
+    const PREFISSO_COL_CALC = 'd:';
+    const COL_FILE_RICAVI = 'Ricavi (EUR)';
+    const COL_FILE_PROVINCIA_OP = 'Provincia (sede operativa)';
+    const COL_FILE_COMUNE_OP = 'Comune (sede operativa)';
+    const COL_FILE_REGIONE_OP = 'Regione (sede operativa)';
+    const COL_FILE_REVISORE = 'Revisore o societa di revisione';
+    const COL_FILE_DATA_NOMINA = 'Data nomina revisore';
+    const COL_CALC_REGIONE = PREFISSO_COL_CALC + 'regione';
+    const COL_CALC_REVISORE = PREFISSO_COL_CALC + 'revisore';
+    /* Le colonne che si vedono senza una scelta, nel loro ordine. Quelle che
+       l'evento non ha (le preferenze fuori dagli eventi manuali, il file dove
+       non c'e') si saltano. Nel riepilogo di tutti gli eventi, l'evento al
+       posto di modalita'. */
+    const COLONNE_DI_BASE = ['b:data', 'b:nome', 'b:azienda', 'b:ruolo', 'b:email', 'b:telefono', 'b:pref',
+        PREFISSO_COL_FILE + COL_FILE_RICAVI, COL_CALC_REGIONE, PREFISSO_COL_FILE + COL_FILE_COMUNE_OP, COL_CALC_REVISORE, 'b:modalita'];
+    const COLONNE_DI_BASE_TUTTI = ['b:data', 'b:nome', 'b:azienda', 'b:ruolo', 'b:email', 'b:telefono', 'b:evento'];
+    function chiaveNomeColonna(s) {
+        return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    // il nome VERO di una colonna del file, cercato senza badare a maiuscole e accenti; '' se non c'e'
+    function nomeColonnaFile(file, nome) {
+        const k = chiaveNomeColonna(nome);
+        return (file || []).find(c => chiaveNomeColonna(c) === k) || '';
+    }
+    function colonneCalcolateDi(file) {
+        const out = [];
+        /* la regione calcolata esiste solo con la provincia nel file; se il file
+           ha anche la sua colonna della regione, la calcolata la sostituisce
+           (prende la sua dove c'e', e riempie i vuoti dalla provincia) e la
+           colonna nuda del file non si offre (catalogoColonne) */
+        const prov = nomeColonnaFile(file, COL_FILE_PROVINCIA_OP), reg = nomeColonnaFile(file, COL_FILE_REGIONE_OP) || nomeColonnaFile(file, 'Regione');
+        if (prov) out.push({ chiave: COL_CALC_REGIONE, nome: COL_FILE_REGIONE_OP, gruppo: 'calcolata', col: 'c-extra', tinta: 'ev-col-file', file: true,
+            titolo: 'Dal file delle aziende invitate; quando il file non la indica, ricavata dalla provincia della sede operativa', fonte: { provincia: prov, regione: reg } });
+        const rev = nomeColonnaFile(file, COL_FILE_REVISORE), nomina = nomeColonnaFile(file, COL_FILE_DATA_NOMINA);
+        if (rev) out.push({ chiave: COL_CALC_REVISORE, nome: 'Revisore e data nomina', gruppo: 'calcolata', col: 'c-extra', tinta: 'ev-col-file', file: true,
+            titolo: 'Dal file delle aziende invitate: il revisore o la società di revisione, e la data della nomina', fonte: { revisore: rev, nomina: nomina } });
+        return out;
+    }
+    function catalogoColonne(ev, tutte) {
+        const base = [];
+        const b = (id, nome, col, tinta, titolo) => base.push({ chiave: PREFISSO_COL_BASE + id, id: id, nome: nome, col: col, gruppo: 'base', tinta: tinta || '', titolo: titolo || '' });
+        b('data', 'Data', 'c-data');
+        b('nome', 'Nome', 'c-nome', 'ev-col-modulo');
+        b('azienda', 'Azienda', 'c-azienda');
+        b('ruolo', 'Ruolo', 'c-ruolo', 'ev-col-modulo');
+        b('email', 'Email', 'c-email', 'ev-col-modulo');
+        b('telefono', 'Telefono', 'c-tel', 'ev-col-modulo');
+        if (ev && ev.manuale) {
+            b('portale', 'Portale', 'c-portale');
+            b('partecipanti', 'Partecipanti', 'c-part');
+            b('b2b', COL_B2B_PRENOTATI, 'c-b2b', '', 'I tavoli scelti rispondendo all\'invito B2B');
+            b('pref', 'Preferenze iscrizione', 'c-pref', 'ev-col-modulo', 'I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni');
+        }
+        if (ev && ev.tutti) b('evento', 'Evento', 'c-evento');
+        else {
+            b('modalita', 'Modalità', 'c-modalita', '', 'In sala oppure online: quando i posti in presenza finiscono, chi resta fuori si sposta all\'online');
+            b('stato', 'Stato', 'c-stato');
+            b('nota', 'Nota', 'c-nota');
+            b('agg', 'Aggiornato da', 'c-agg');
+        }
+        const disp = colonneAggiuntiveDi(ev, tutte);
+        const extra = disp.extra.map(c => ({ chiave: PREFISSO_COL_EXTRA + c, nome: c, gruppo: 'extra', col: 'c-extra',
+            tinta: COLONNE_DAL_MODULO.indexOf(c) >= 0 ? 'ev-col-modulo' : '', modulo: COLONNE_DAL_MODULO.indexOf(c) >= 0, file: false }));
+        const calcolate = colonneCalcolateDi(disp.file);
+        const regioneCalc = calcolate.find(c => c.chiave === COL_CALC_REGIONE);
+        const sostituita = regioneCalc && regioneCalc.fonte.regione ? regioneCalc.fonte.regione : '';
+        const file = disp.file.filter(c => c !== sostituita).map(c => ({ chiave: PREFISSO_COL_FILE + c, nome: c, gruppo: 'file', col: 'c-extra', tinta: 'ev-col-file', file: true, modulo: false,
+            titolo: 'Dal file delle aziende invitate' }));
+        return base.concat(extra, file, calcolate);
+    }
+    // la colonna del catalogo con quella chiave, cercata anche senza badare a maiuscole e accenti (le colonne del file)
+    function colonnaDelCatalogo(catalogo, chiave) {
+        let c = catalogo.find(x => x.chiave === chiave);
+        if (c) return c;
+        const k = chiaveNomeColonna(chiave);
+        c = catalogo.find(x => chiaveNomeColonna(x.chiave) === k);
+        if (c) return c;
+        /* la regione: la calcolata e la colonna del file si sostituiscono a
+           vicenda (colonneCalcolateDi), e una chiave vale per l'altra */
+        const kReg = chiaveNomeColonna(PREFISSO_COL_FILE + COL_FILE_REGIONE_OP);
+        if (chiave === COL_CALC_REGIONE) return catalogo.find(x => x.gruppo === 'file' && chiaveNomeColonna(x.chiave) === kReg) || null;
+        if (k === kReg) return catalogo.find(x => x.chiave === COL_CALC_REGIONE) || null;
+        return null;
+    }
+    function colonneDiBaseDi(ev) { return ev && ev.tutti ? COLONNE_DI_BASE_TUTTI : COLONNE_DI_BASE; }
+    /* Le colonne da MOSTRARE, nell'ordine scelto: le scelte che oggi non
+       esistono (un file reimportato senza quella colonna) si saltano senza
+       dire niente; senza scelte, le colonne di base. Mai una tabella senza
+       colonne: con una scelta che non ne lascia nessuna tornano quelle di base. */
+    function colonneDaMostrare(ev, lista) {
+        const catalogo = catalogoColonne(ev, lista);
+        const scelte = colonneScelteDi(ev);
+        const chiavi = scelte && scelte.length ? scelte : colonneDiBaseDi(ev);
+        const viste = [];
+        chiavi.forEach(k => { const c = colonnaDelCatalogo(catalogo, k); if (c && viste.indexOf(c) < 0) viste.push(c); });
+        if (viste.length) return viste;
+        const base = [];
+        colonneDiBaseDi(ev).forEach(k => { const c = colonnaDelCatalogo(catalogo, k); if (c && base.indexOf(c) < 0) base.push(c); });
+        return base;
+    }
+    /* Il valore di una colonna aggiuntiva o calcolata, per una riga. */
+    function valoreColonnaDi(r, c) {
+        if (!c) return '';
+        if (c.gruppo === 'extra') return (r.extra || {})[c.nome];
+        if (c.gruppo === 'file') return valoreFileDi(r, c.nome);
+        if (c.chiave === COL_CALC_REGIONE) {
+            const f = c.fonte || {};
+            const sua = f.regione ? String(valoreFileDi(r, f.regione) || '').trim() : '';
+            if (sua) return sua;
+            return f.provincia ? regioneDaProvincia(valoreFileDi(r, f.provincia)) : '';
+        }
+        if (c.chiave === COL_CALC_REVISORE) {
+            const f = c.fonte || {};
+            const rev = String(valoreFileDi(r, f.revisore) || '').trim();
+            const data = f.nomina ? String(valoreFileDi(r, f.nomina) || '').trim() : '';
+            return rev ? rev + (data ? ' · ' + data : '') : (data ? 'nomina ' + data : '');
+        }
+        return '';
+    }
     /* LA SCELTA DELLE COLONNE RESTA FRA UNA SESSIONE E L'ALTRA, per evento e
-       per browser. Non e' un dato personale - sono nomi di colonne, non
-       persone - ed e' proprio il genere di cosa che si rifa' ogni mattina:
-       diciotto spunte per ritrovare la tabella di ieri. Se lo spazio del
-       browser non c'e' (finestra anonima, archivio pieno) si ricomincia da
-       zero, senza errori. */
+       per browser: le chiavi, nell'ordine in cui si vedono. Non e' un dato
+       personale - sono nomi di colonne, non persone. Una scelta salvata dalla
+       versione di prima (solo nomi di `extra` e "file:", senza le colonne di
+       base) si legge ancora: le colonne di base davanti, le sue in coda. Se lo
+       spazio del browser non c'e' (finestra anonima, archivio pieno) si
+       ricomincia dalle colonne di base, senza errori. */
     const CHIAVE_COLONNE_EVENTO = 'rvArea.evColonne.';
+    /* Nello spazio del browser sta { v: 2, chiavi: [...] }. La versione di
+       prima salvava un elenco nudo (i nomi di `extra` e "file:..."): un
+       elenco e' quindi una scelta vecchia, qualunque cosa contenga, e si
+       legge con le colonne di base davanti e le sue in coda. */
     function colonneScelteDi(ev) {
         if (!Array.isArray(_evColonne[ev.id])) {
             let salvate = [];
             try {
                 const a = JSON.parse(localStorage.getItem(CHIAVE_COLONNE_EVENTO + ev.id) || '[]');
-                if (Array.isArray(a)) salvate = a.filter(x => typeof x === 'string');
+                const pulisci = l => (Array.isArray(l) ? l : []).filter(x => typeof x === 'string');
+                if (Array.isArray(a)) {
+                    const vecchie = pulisci(a);
+                    salvate = vecchie.length ? colonneDiBaseDi(ev).concat(vecchie.map(k => k.indexOf(PREFISSO_COL_FILE) === 0 ? k : PREFISSO_COL_EXTRA + k)) : [];
+                } else if (a && typeof a === 'object') {
+                    salvate = pulisci(a.chiavi);
+                }
             } catch (e) { salvate = []; }
             _evColonne[ev.id] = salvate;
         }
@@ -17309,20 +17519,19 @@
     }
     function salvaColonneScelte(ev, scelte) {
         _evColonne[ev.id] = (scelte || []).filter(x => typeof x === 'string');
-        try { localStorage.setItem(CHIAVE_COLONNE_EVENTO + ev.id, JSON.stringify(_evColonne[ev.id])); } catch (e) { }
+        try { localStorage.setItem(CHIAVE_COLONNE_EVENTO + ev.id, JSON.stringify({ v: 2, chiavi: _evColonne[ev.id] })); } catch (e) { }
     }
-    /* Le colonne da MOSTRARE, nell'ordine del pannello - prima quelle di
-       `extra`, poi quelle del file, ciascun gruppo nel suo ordine - e non in
-       quello in cui sono state spuntate. Le scelte rimaste in memoria che oggi
-       non esistono piu' (un file reimportato senza quella colonna) si
-       ignorano senza dire niente. */
-    function colonneDaMostrare(ev, lista) {
-        const scelte = colonneScelteDi(ev);
-        const disp = colonneAggiuntiveDi(ev, lista);
-        return disp.extra.filter(c => scelte.indexOf(c) >= 0)
-            .map(c => ({ chiave: c, nome: c, file: false, modulo: COLONNE_DAL_MODULO.indexOf(c) >= 0 }))
-            .concat(disp.file.filter(c => scelte.indexOf(PREFISSO_COL_FILE + c) >= 0)
-                .map(c => ({ chiave: PREFISSO_COL_FILE + c, nome: c, file: true, modulo: false })));
+    /* Le chiavi di quello che si vede adesso: la scelta, o le colonne di base
+       risolte sul catalogo (cosi' spostare una colonna parte da un ordine vero). */
+    function chiaviColonneViste(ev, lista) { return colonneDaMostrare(ev, lista).map(c => c.chiave); }
+    // una colonna un posto piu' a sinistra (verso -1) o a destra (+1): le chiavi nuove, o null se non si muove
+    function spostaColonna(chiavi, chiave, verso) {
+        const i = chiavi.indexOf(chiave);
+        const j = i + (verso < 0 ? -1 : 1);
+        if (i < 0 || j < 0 || j >= chiavi.length) return null;
+        const n = chiavi.slice();
+        n[i] = chiavi[j]; n[j] = chiavi[i];
+        return n;
     }
     /* Il pannello resta aperto fra un ridisegno e l'altro: ogni spunta
        ridisegna la tabella, e prima ogni spunta lo richiudeva - diciotto
@@ -17336,57 +17545,191 @@
         const e = EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0);
         return e ? e.titolo + ' ' + e.quando : (pagina || '-');
     }
-    /* IL PANNELLO DELLE COLONNE AGGIUNTIVE, in due gruppi per provenienza:
-       quello che arriva con l'iscrizione (il modulo, gli altri portali, gli
-       incontri B2B) e quello che arriva dal file delle aziende invitate. Ogni
-       gruppo ha i suoi "Aggiungi tutte" e "Togli tutte", e quando i gruppi sono
-       due ci sono anche quelli per tutto il pannello: chi prepara un estratto
-       per la segreteria vuole tutte le colonne del file, non diciotto spunte. */
-    function sceltaColonneHtml(ev, lista) {
-        const disp = colonneAggiuntiveDi(ev, lista);
-        const tutte = disp.extra.concat(disp.file.map(c => PREFISSO_COL_FILE + c));
-        // il pannello si mostra SEMPRE: se non c'e' niente da aggiungere lo dice, invece
-        // di sparire e lasciare il dubbio che la funzione non esista
-        if (!tutte.length) {
-            return '<details class="ev-colonne"><summary>Colonne aggiuntive (nessuna disponibile)</summary>'
-                + '<div class="hint" style="margin-top:8px;">Questo elenco non ha colonne oltre a quelle standard. '
-                + 'Compaiono qui quando il file importato ne contiene altre (città, partita IVA, fatturato...), '
-                + 'e per chi si iscrive con il codice dell\'invito PEC tutte le colonne del file delle aziende invitate: '
-                + 'se le attendevi, reimporta il file dopo l\'ultimo aggiornamento del servizio.</div></details>';
-        }
-        const scelte = colonneScelteDi(ev).filter(k => tutte.indexOf(k) >= 0);
-        const voce = (chiave, nome, cl) => '<label' + (cl ? ' class="' + cl + '"' : '') + '>'
-            + '<input type="checkbox" class="ev-col" value="' + esc(chiave) + '"'
-            + (scelte.indexOf(chiave) >= 0 ? ' checked' : '') + '> ' + esc(nome) + '</label>';
+    /* IL PANNELLO DELLE COLONNE, dal pulsante "+" in cima alla colonna delle
+       azioni (appiccicata a destra, sempre in vista). Una finestrella sopra la
+       pagina, ancorata al pulsante: tutte le colonne del catalogo, divise per
+       provenienza, con le spunte di quelle che si vedono. Una spunta aggiunge
+       la colonna in coda (poi la si sposta con le frecce sull'intestazione) o
+       la toglie; "Colonne di base" rimette quelle di partenza nel loro ordine.
+       Ogni gruppo ha "Aggiungi tutte" e "Togli tutte". Il pannello resta
+       aperto fra un ridisegno e l'altro (_evColonneAperte). */
+    function pannelloColonneHtml(ev, tutte) {
+        const catalogo = catalogoColonne(ev, tutte);
+        const viste = chiaviColonneViste(ev, tutte);
+        const voce = c => '<label' + (c.tinta ? ' class="' + c.tinta + '"' : '') + (c.titolo ? ' title="' + esc(c.titolo) + '"' : '') + '>'
+            + '<input type="checkbox" class="ev-col" value="' + esc(c.chiave) + '"' + (viste.indexOf(c.chiave) >= 0 ? ' checked' : '') + '> ' + esc(c.nome) + '</label>';
         /* I due comandi si spengono quando non hanno niente da fare: "Aggiungi
            tutte" con tutte gia' spuntate non e' un comando, e' un dubbio. */
         const comandi = (gruppo, chiavi) => {
-            const dentro = chiavi.filter(k => scelte.indexOf(k) >= 0).length;
+            const dentro = chiavi.filter(k => viste.indexOf(k) >= 0).length;
             return '<span class="ev-colonne-comandi">'
                 + '<button type="button" class="btn btn-sm btn-ghost ev-col-tutte" data-gruppo="' + gruppo + '"'
                 + (dentro === chiavi.length ? ' disabled' : '') + '>Aggiungi tutte</button>'
                 + '<button type="button" class="btn btn-sm btn-ghost ev-col-nessuna" data-gruppo="' + gruppo + '"'
                 + (dentro === 0 ? ' disabled' : '') + '>Togli tutte</button></span>';
         };
-        const gruppo = (id, titolo, spiega, chiavi, voci) => !chiavi.length ? ''
+        const gruppo = (id, titolo, spiega, cols) => !cols.length ? ''
             : '<div class="ev-colonne-gruppo" data-gruppo="' + id + '">'
             + '<div class="ev-colonne-titolo"><b>' + esc(titolo) + '</b>'
-            + ' <span class="hint">' + esc(spiega) + '</span>' + comandi(id, chiavi) + '</div>'
-            + '<div class="ev-colonne-elenco">' + voci.join('') + '</div></div>';
-        const chiaviFile = disp.file.map(c => PREFISSO_COL_FILE + c);
-        return '<details class="ev-colonne"' + (_evColonneAperte[ev.id] ? ' open' : '') + '><summary>Colonne aggiuntive ('
-            + scelte.length + ' di ' + tutte.length + ')</summary>'
-            + (disp.extra.length && disp.file.length
-                ? '<div class="ev-colonne-titolo ev-colonne-tutto"><b>Tutte le colonne</b>' + comandi('tutte', tutte) + '</div>' : '')
+            + (spiega ? ' <span class="hint">' + esc(spiega) + '</span>' : '') + comandi(id, cols.map(c => c.chiave)) + '</div>'
+            + '<div class="ev-colonne-elenco">' + cols.map(voce).join('') + '</div></div>';
+        const extra = catalogo.filter(c => c.gruppo === 'extra');
+        const file = catalogo.filter(c => c.gruppo === 'file' || c.gruppo === 'calcolata');
+        return '<div class="ev-piu-testa"><b>Colonne</b> <span class="hint">' + viste.length + ' di ' + catalogo.length
+            + ' · spunta per aggiungere o togliere; l\'ordine si cambia con le frecce sulle intestazioni</span>'
+            + '<button type="button" class="btn btn-sm btn-ghost ev-col-base" title="Torna alle colonne di partenza, nel loro ordine">Colonne di base</button>'
+            + '<button type="button" class="ev-piu-chiudi" aria-label="Chiudi">&times;</button></div>'
+            + gruppo('base', 'Colonne della tabella', '', catalogo.filter(c => c.gruppo === 'base'))
             + gruppo('extra', 'Dal modulo e dagli altri portali',
-                (disp.extra.some(c => COLONNE_DAL_MODULO.indexOf(c) >= 0)
+                (extra.some(c => c.modulo)
                     ? 'quelle in azzurro le scrive chi si iscrive; le altre arrivano dai portali, dai file importati e dagli incontri B2B'
-                    : 'arrivano con le iscrizioni: dai portali, dai file importati e dagli incontri B2B'),
-                disp.extra, disp.extra.map(c => voce(c, c, COLONNE_DAL_MODULO.indexOf(c) >= 0 ? 'ev-col-modulo' : '')))
+                    : 'arrivano con le iscrizioni: dai portali, dai file importati e dagli incontri B2B'), extra)
             + gruppo('file', 'Dal file delle aziende invitate',
-                'la riga dell\'azienda nel file degli inviti PEC, per chi si è iscritto con il suo codice, nell\'ordine del file',
-                chiaviFile, disp.file.map(c => voce(PREFISSO_COL_FILE + c, c, 'ev-col-file')))
-            + '</details>';
+                'la riga dell\'azienda nel file degli inviti PEC, per chi si è iscritto con il suo codice; la regione, quando il file non la indica, è ricavata dalla provincia'
+                + (file.length ? '' : ' (questo elenco non ne ha: compaiono per chi si iscrive con il codice dell\'invito)'), file);
+    }
+    let _evPannelloColonne = null;
+    function chiudiPannelloColonne(ev) {
+        if (_evPannelloColonne) { try { _evPannelloColonne.stacca(); } catch (e) { } _evPannelloColonne = null; }
+        if (ev) _evColonneAperte[ev.id] = false;
+    }
+    /* Il pannello sta nel corpo della pagina, a posizione fissa sotto il
+       pulsante: dentro il riquadro che scorre verrebbe tagliato. Si chiude
+       con la sua x, con Esc, o cliccando fuori. */
+    function apriPannelloColonne(ev, tutte, opz) {
+        if (_evPannelloColonne) { try { _evPannelloColonne.stacca(); } catch (e) { } _evPannelloColonne = null; }
+        // il "+" che si vede: quello in cima alla tabella, o quello sopra la legenda quando l'intestazione e' nascosta
+        const bottoni = Array.from($vista().querySelectorAll('.ev-piu'));
+        if (!bottoni.length) return;
+        const bottoneVisibile = () => bottonePiuVisibile() || bottoni[0];
+        let bottone = bottoneVisibile();
+        const box = document.createElement('div');
+        box.className = 'ev-piu-pannello';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-label', 'Colonne della tabella');
+        box.innerHTML = pannelloColonneHtml(ev, tutte);
+        document.body.appendChild(box);
+        /* sotto il pulsante se c'e' posto, altrimenti sopra: mai fuori dalla
+           finestra, perche' a posizione fissa quello che esce non si raggiunge.
+           Con il pulsante fuori dalla finestra (la pagina scorsa, la finestra
+           stretta) il pannello sta in alto a destra, alto quanto la finestra. */
+        const posiziona = () => {
+            bottone = bottoneVisibile();
+            const r = bottone.getBoundingClientRect();
+            const vh = window.innerHeight, vw = window.innerWidth;
+            const larg = Math.min(560, vw - 24);
+            const inVista = r.width > 0 && r.bottom > 0 && r.top < vh;
+            let sinistra = inVista ? Math.min(r.right - larg, vw - larg - 12) : vw - larg - 12;
+            if (sinistra < 12) sinistra = 12;
+            box.style.left = sinistra + 'px';
+            box.style.width = larg + 'px';
+            if (!inVista) { box.style.maxHeight = (vh - 24) + 'px'; box.style.top = '12px'; return; }
+            const sotto = vh - r.bottom - 18, sopra = r.top - 18;
+            if (sotto >= 240 || sotto >= sopra) {
+                box.style.maxHeight = Math.max(120, Math.min(sotto, vh - 24)) + 'px';
+                box.style.top = Math.max(12, Math.min(r.bottom + 6, vh - 132)) + 'px';
+            } else {
+                box.style.maxHeight = Math.max(120, Math.min(sopra, vh - 24)) + 'px';
+                box.style.top = Math.max(12, r.top - 6 - box.offsetHeight) + 'px';
+            }
+        };
+        posiziona();
+        _evColonneAperte[ev.id] = true;
+        bottoni.forEach(b => b.setAttribute('aria-expanded', 'true'));
+        const fuori = e => { if (box.contains(e.target) || (e.target.closest && e.target.closest('.ev-piu'))) return; chiudiPannelloColonne(ev); };
+        const tasto = e => { if (e.key === 'Escape') { const b = bottoneVisibile(); chiudiPannelloColonne(ev); try { b.focus({ preventScroll: true }); } catch (x) { } } };
+        document.addEventListener('pointerdown', fuori, true);
+        document.addEventListener('keydown', tasto);
+        window.addEventListener('resize', posiziona);
+        _evPannelloColonne = { box: box, stacca: () => {
+            document.removeEventListener('pointerdown', fuori, true);
+            document.removeEventListener('keydown', tasto);
+            window.removeEventListener('resize', posiziona);
+            if (box.parentNode) box.parentNode.removeChild(box);
+            bottoni.forEach(b => { if (b.isConnected) b.setAttribute('aria-expanded', 'false'); });
+        } };
+        /* Le spunte: la tabella si ridisegna con le colonne nuove e il pannello
+           si riapre com'era; il fuoco torna sulla casella appena usata se si
+           lavora da tastiera (come restituisciFuoco), altrimenti resta libero. */
+        const cambia = (chiavi, ritrova) => {
+            salvaColonneScelte(ev, chiavi);
+            _evColonneAperte[ev.id] = true;
+            if (vistaCorrente !== 'eventi') return;
+            vistaEventiMantenendoPosto();
+            const el = ritrova && _evPannelloColonne ? ritrova(_evPannelloColonne.box) : null;
+            if (el && !el.disabled) { try { el.focus({ preventScroll: true }); } catch (e) { } }
+        };
+        const spuntate = () => {
+            const viste = chiaviColonneViste(ev, tutte);
+            const su = Array.from(box.querySelectorAll('.ev-col')).filter(c => c.checked).map(c => c.value);
+            // quelle gia' in tabella restano al loro posto; le nuove in coda, nell'ordine del catalogo
+            return viste.filter(k => su.indexOf(k) >= 0).concat(su.filter(k => viste.indexOf(k) < 0));
+        };
+        box.querySelectorAll('.ev-col').forEach(c => {
+            (c.closest('label') || c).addEventListener('pointerdown', () => { c.dataset.conMouse = '1'; });
+            c.addEventListener('change', () => {
+                const v = c.value, daTastiera = c.dataset.conMouse !== '1';
+                cambia(spuntate(), b => daTastiera ? Array.from(b.querySelectorAll('.ev-col')).find(x => x.value === v) : null);
+            });
+        });
+        box.querySelectorAll('.ev-col-tutte, .ev-col-nessuna').forEach(b => b.addEventListener('click', () => {
+            const g = b.dataset.gruppo, metti = b.classList.contains('ev-col-tutte');
+            box.querySelectorAll('.ev-colonne-gruppo[data-gruppo="' + g + '"] .ev-col').forEach(c => { c.checked = metti; });
+            cambia(spuntate(), bx => {
+                const q = cl => bx.querySelector(cl + '[data-gruppo="' + g + '"]');
+                const stesso = q(metti ? '.ev-col-tutte' : '.ev-col-nessuna');
+                if (stesso && !stesso.disabled) return stesso;
+                return q(metti ? '.ev-col-nessuna' : '.ev-col-tutte');
+            });
+        }));
+        const base = box.querySelector('.ev-col-base');
+        if (base) base.addEventListener('click', () => cambia([], bx => bx.querySelector('.ev-col-base')));
+        const chiudi = box.querySelector('.ev-piu-chiudi');
+        if (chiudi) chiudi.addEventListener('click', () => { const b = bottoneVisibile(); chiudiPannelloColonne(ev); try { b.focus({ preventScroll: true }); } catch (e) { } });
+        /* da tastiera il fuoco entra nel pannello (la prima casella): sta in fondo
+           alla pagina, e il tabulatore dal "+" finirebbe nelle righe della tabella */
+        if (opz && opz.fuoco) { const prima = box.querySelector('.ev-col, button'); if (prima) { try { prima.focus({ preventScroll: true }); } catch (e) { } } }
+    }
+    // il "+" che si vede adesso: quello in cima alla tabella, o "+ Colonne" sopra la legenda quando l'intestazione e' nascosta
+    function bottonePiuVisibile() {
+        return Array.from($vista().querySelectorAll('.ev-piu')).find(b => b.offsetWidth > 0 && b.offsetHeight > 0) || null;
+    }
+    /* Le frecce sulle intestazioni: una colonna un posto a sinistra o a destra,
+       con un clic; la x la toglie. Si ridisegna tenendo il posto, e il fuoco
+       torna sulla stessa freccia della stessa colonna. */
+    function agganciaColonneTabella(ev, tutte) {
+        $vista().querySelectorAll('.ev-piu').forEach(bottone => {
+            // e.detail = 0: attivato da tastiera (Invio, spazio); allora il fuoco entra nel pannello
+            bottone.addEventListener('click', e => {
+                if (_evPannelloColonne) chiudiPannelloColonne(ev); else apriPannelloColonne(ev, tutte, { fuoco: !e.detail });
+            });
+            // il tabulatore dal "+" con il pannello aperto va nel pannello, non nelle righe
+            bottone.addEventListener('keydown', e => {
+                if (e.key !== 'Tab' || e.shiftKey || !_evPannelloColonne) return;
+                const prima = _evPannelloColonne.box.querySelector('.ev-col, button');
+                if (prima) { e.preventDefault(); try { prima.focus({ preventScroll: true }); } catch (x) { } }
+            });
+        });
+        const muovi = (chiavi, ritrova) => {
+            if (!chiavi) return;
+            salvaColonneScelte(ev, chiavi);
+            if (vistaCorrente !== 'eventi') return;
+            vistaEventiMantenendoPosto();
+            const el = ritrova ? ritrova() : null;
+            if (el) { try { el.focus({ preventScroll: true }); } catch (e) { } }
+        };
+        $vista().querySelectorAll('.ev-th-sposta').forEach(b => b.addEventListener('click', () => {
+            const k = b.dataset.chiave, verso = Number(b.dataset.verso) || 1;
+            muovi(spostaColonna(chiaviColonneViste(ev, tutte), k, verso),
+                () => $vista().querySelector('.ev-th-sposta[data-chiave="' + CSS.escape(k) + '"][data-verso="' + verso + '"]')
+                    || $vista().querySelector('th[data-chiave="' + CSS.escape(k) + '"]'));
+        }));
+        $vista().querySelectorAll('.ev-th-togli').forEach(b => b.addEventListener('click', () => {
+            const k = b.dataset.chiave;
+            const resto = chiaviColonneViste(ev, tutte).filter(x => x !== k);
+            muovi(resto.length ? resto : null, () => bottonePiuVisibile());
+        }));
+        if (_evColonneAperte[ev.id]) apriPannelloColonne(ev, tutte);
     }
 
     /* Partecipanti di una riga: le iscrizioni dai form valgono 1, quelle
@@ -17993,6 +18336,9 @@
         const conFile = !!ev.iscrizioniPerCodice || colonneFileDisponibili(tutte).length > 0
             || (tutte || []).some(r => r && r.invito && r.invito.codice);
         return '<div class="ev-legenda">'
+            /* il "+" delle colonne sta in cima alla tabella; sotto i 1200px
+               l'intestazione non c'e' (le righe sono schede) e lo si trova qui */
+            + '<button type="button" class="ev-piu ev-piu-fuori" title="Colonne: aggiungi, togli, torna a quelle di base" aria-label="Colonne della tabella" aria-haspopup="dialog" aria-expanded="false">+ Colonne</button>'
             + '<span class="ev-legenda-voce ev-col-modulo">Scritto da chi si iscrive, nel modulo</span>'
             + (conFile ? '<span class="ev-legenda-voce ev-col-file">Dal file delle aziende invitate'
                 + ' <span class="hint">(anche la ragione sociale di chi è arrivato con il codice)</span></span>' : '')
@@ -18101,12 +18447,18 @@
             .concat(ev.tutti ? ['Evento'] : [])
             .concat(extra);
         const usati = testa.concat(coda).map(x => x.toLowerCase());
-        const nomiFile = file.map(c => usati.indexOf(c.toLowerCase()) >= 0 ? c + ' (file)' : c);
+        /* la regione della sede operativa come in tabella: quella calcolata
+           (la sua dove c'e', dalla provincia dove manca) al posto della colonna
+           nuda del file, dopo le altre colonne del file */
+        const regione = colonneCalcolateDi(file).find(c => c.chiave === COL_CALC_REGIONE) || null;
+        const fileEsportate = regione && regione.fonte.regione ? file.filter(c => c !== regione.fonte.regione) : file;
+        const nomiFileEsportate = fileEsportate.map(c => usati.indexOf(c.toLowerCase()) >= 0 ? c + ' (file)' : c);
+        if (regione) nomiFileEsportate.push(regione.nome);
         const ordine = SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => x.id).concat([SEZIONE_ATTESA.id]);
         const voci = tutte.map((r, i) => ({ r: r, i: i, s: conSezioni ? sezioneVista(ev, r, lista) : '' }));
         if (conSezioni) voci.sort((a, b) => (ordine.indexOf(a.s) - ordine.indexOf(b.s)) || (a.i - b.i));
         const testo = v => v == null ? '' : String(v);
-        return [testa.concat(nomiFile).concat(coda)].concat(voci.map(x => {
+        return [testa.concat(nomiFileEsportate).concat(coda)].concat(voci.map(x => {
             const r = x.r, e = r.extra || {}, p = pres(r.id);
             const c = confermaEmailDi(r, lista);
             const conferma = !String(r.email || '').trim() ? ''
@@ -18117,7 +18469,8 @@
                 .concat(fisse ? [testo(e.Portale) || 'Sito NGB', String(partecipantiDi(r)), testo(e[COL_B2B_PRENOTATI]), testo(e[COL_PREF_ISCRIZIONE])] : [])
                 .concat(ev.tutti ? [nomeEventoDa(r.pagina)] : [])
                 .concat(extra.map(k => testo(e[k])))
-                .concat(file.map(k => valoreFileDi(r, k)))
+                .concat(fileEsportate.map(k => valoreFileDi(r, k)))
+                .concat(regione ? [valoreColonnaDi(r, regione)] : [])
                 .concat(conSezioni ? [NOMI_MODALITA[modalitaDi(ev, r)] || '', p.stato ? (NOMI_STATO[p.stato] || p.stato) : '',
                     testo(p.nota), aggiornatoDaDi(p, r)] : []);
         }));
@@ -18161,10 +18514,8 @@
            `tinta` e' quella dell'INTESTAZIONE; nelle celle l'azzurro c'e' solo
            se quella riga l'ha scritta davvero chi si e' iscritto
            (scrittoDaChiSiIscrive): il verde del file invece e' sempre del file. */
-        const extra = colonneDaMostrare(ev, tutte);
-        const tinta = c => c.file ? ' class="ev-col-file"' : (c.modulo ? ' class="ev-col-modulo"' : '');
+        const colonne = colonneDaMostrare(ev, tutte);
         const classe = c => c ? ' class="' + c + '"' : '';
-        const valoreExtra = (r, c) => c.file ? valoreFileDi(r, c.nome) : ((r.extra || {})[c.nome]);
         /* LA TABELLA LARGA, appena c'e' UNA colonna aggiuntiva: da li' la
            tabella smette di stare tutta nella pagina e scorre in orizzontale
            dentro il suo riquadro (vedi .ev-larga nel foglio di stile). Prima
@@ -18174,7 +18525,9 @@
            scendevano a una trentina di pixel, con quattro a sedici, e il
            testo andava a capo lettera per lettera - proprio nel caso piu'
            comune, "aggiungo un paio di colonne del file". */
-        const larga = extra.length > 0;
+        /* la tabella e' "larga" (scorre nel suo riquadro, con le misure per
+           colonna) appena ha una colonna oltre quelle di base, o piu' di undici */
+        const larga = colonne.some(c => c.gruppo !== 'base') || colonne.length > 11;
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
             // l'azzurro "dal modulo" di questa riga: per i dati, e per l'email
@@ -18210,71 +18563,84 @@
                    ricerca e nel CSV le due parti si attaccano ("Online✓ mail
                    inviata il 12/09"), perche' li' si legge il testo, non l'impaginato */
                 + (hintM ? ' ' + hintM : '') + '</td>';
-            return '<tr>'
-                + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
-                    + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
-                + cellaDataOra(r.data)
-                + '<td class="cliente-cella' + (tm ? ' ' + tm : '') + '" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>'
-                /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
-                   spostarla d'azienda e' una decisione di chi organizza, non un
-                   dato dell'iscritto, e chi legge la tabella deve poterlo sapere
-                   senza aprire nulla. */
-                /* Chi e' arrivato col codice riservato alla sua azienda: e'
-                   l'unico segno, in questa tabella, che la campagna PEC ha
-                   prodotto una presenza. Sta sulla STESSA riga del nome e
-                   contiene il solo codice: prima era un blocco sotto, con
-                   scritto "Azienda selezionata" per esteso, e su un elenco di
-                   trenta righe rubava un rigo a testa a chi lo aveva e a chi
-                   no, sfalsando tutta la tabella. Il verde basta a dire cosa
-                   e', e il resto sta nel suggerimento, ragione sociale
-                   dell'invito compresa quando non coincide con quella digitata
-                   (l'unica che combacia con l'altro elenco).
-                   La tinta della cella dice da dove viene la ragione sociale:
-                   dove il codice la impone (aziendaDalFileDi: Milano 2027) la
-                   scrive il file delle aziende invitate e il modulo la blocca;
-                   altrove, e senza codice, e' quella della riga - la persona,
-                   se la riga l'ha scritta lei. */
-                + ((t, inv) => '<td' + classe(aziendaDalFileDi(ev, r) ? 'ev-col-file' : tm) + ' data-label="Azienda">'
-                    + esc(aziendaVista(r.azienda))
-                    + (inv && inv.codice
-                        ? ' <span class="ev-sel" title="Azienda selezionata: registrata con il codice '
-                        + esc(inv.codice) + ' riservato all\'invito'
-                        + (inv.azienda && chiaveAzienda(inv.azienda) !== chiaveAzienda(r.azienda)
-                            ? ', intestato a ' + esc(inv.azienda) : '')
-                        + '">' + esc(inv.codice) + '</span>'
-                        : '')
-                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
-                    + '</td>')
-                    ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
-                + '<td' + classe(tm) + ' data-label="Ruolo">' + esc(r.ruolo) + '</td>'
-                /* Accanto all'indirizzo nessun segno di conferma (vedi
-                   indirizziConfermati): resta solo "mail non inviata", che non
-                   e' uno stato ma un errore da sistemare. */
-                + '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + '</td>'
-                + '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>'
+            /* Le celle di base, per chiave; poi si emettono nell'ordine delle
+               colonne scelte (colonneDaMostrare), e le aggiuntive e le calcolate
+               prendono il loro valore da valoreColonnaDi. */
+            const celle = {};
+            celle['b:data'] = cellaDataOra(r.data);
+            celle['b:nome'] = '<td class="cliente-cella' + (tm ? ' ' + tm : '') + '" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>';
+            /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
+               spostarla d'azienda e' una decisione di chi organizza, non un
+               dato dell'iscritto, e chi legge la tabella deve poterlo sapere
+               senza aprire nulla. */
+            /* Chi e' arrivato col codice riservato alla sua azienda: e'
+               l'unico segno, in questa tabella, che la campagna PEC ha
+               prodotto una presenza. Sta sulla STESSA riga del nome e
+               contiene il solo codice: prima era un blocco sotto, con
+               scritto "Azienda selezionata" per esteso, e su un elenco di
+               trenta righe rubava un rigo a testa a chi lo aveva e a chi
+               no, sfalsando tutta la tabella. Il verde basta a dire cosa
+               e', e il resto sta nel suggerimento, ragione sociale
+               dell'invito compresa quando non coincide con quella digitata
+               (l'unica che combacia con l'altro elenco).
+               La tinta della cella dice da dove viene la ragione sociale:
+               dove il codice la impone (aziendaDalFileDi: Milano 2027) la
+               scrive il file delle aziende invitate e il modulo la blocca;
+               altrove, e senza codice, e' quella della riga - la persona,
+               se la riga l'ha scritta lei. */
+            celle['b:azienda'] = ((t, inv) => '<td' + classe(aziendaDalFileDi(ev, r) ? 'ev-col-file' : tm) + ' data-label="Azienda">'
+                + esc(aziendaVista(r.azienda))
+                + (inv && inv.codice
+                    ? ' <span class="ev-sel" title="Azienda selezionata: registrata con il codice '
+                    + esc(inv.codice) + ' riservato all\'invito'
+                    + (inv.azienda && chiaveAzienda(inv.azienda) !== chiaveAzienda(r.azienda)
+                        ? ', intestato a ' + esc(inv.azienda) : '')
+                    + '">' + esc(inv.codice) + '</span>'
+                    : '')
+                + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
+                + '</td>')
+                ((r.extra || {})[COL_SPOSTATO] || '', r.invito);
+            celle['b:ruolo'] = '<td' + classe(tm) + ' data-label="Ruolo">' + esc(r.ruolo) + '</td>';
+            /* Accanto all'indirizzo nessun segno di conferma (vedi
+               indirizziConfermati): resta solo "mail non inviata", che non
+               e' uno stato ma un errore da sistemare. */
+            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + '</td>';
+            celle['b:telefono'] = '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>';
+            if (fisse) {
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive
                    "Sito NGB", perche' e' da li' che e' passata. Il trattino
                    resterebbe ambiguo proprio nella colonna fatta per capire
                    da dove arriva ogni riga. */
-                + (fisse ? '<td data-label="Portale">' + esc((r.extra && r.extra.Portale) || 'Sito NGB') + '</td>'
-                    + '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>'
-                    + (v => '<td data-label="B2B prenotati">'
-                        + (v ? '<span class="ev-b2b-si">' + v + '</span>' : '<span class="hint">non prenotato</span>')
-                        + '</td>')(elencoVoci((r.extra || {})[COL_B2B_PRENOTATI]))
-                    + '<td' + classe(tm) + ' data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
-                    + (elencoVoci((r.extra || {})[COL_PREF_ISCRIZIONE]) || '-') + '</span></td>' : '')
-                + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
-                + extra.map(c => '<td' + (c.file ? ' class="ev-col-file"' : classe(c.modulo ? tm : '')) + ' data-label="' + esc(c.nome) + '">'
-                    + esc(valoreColonnaVisto(c.nome, valoreExtra(r, c))) + '</td>').join('')
+                celle['b:portale'] = '<td data-label="Portale">' + esc((r.extra && r.extra.Portale) || 'Sito NGB') + '</td>';
+                celle['b:partecipanti'] = '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>';
+                celle['b:b2b'] = (v => '<td data-label="B2B prenotati">'
+                    + (v ? '<span class="ev-b2b-si">' + v + '</span>' : '<span class="hint">non prenotato</span>')
+                    + '</td>')(elencoVoci((r.extra || {})[COL_B2B_PRENOTATI]));
+                celle['b:pref'] = '<td' + classe(tm) + ' data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
+                    + (elencoVoci((r.extra || {})[COL_PREF_ISCRIZIONE]) || '-') + '</span></td>';
+            }
+            if (ev.tutti) celle['b:evento'] = '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>';
+            else {
+                celle['b:modalita'] = cellaModalita;
+                celle['b:stato'] = cellaStato;
+                celle['b:nota'] = cellaNota;
                 /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
                    presenza o nota c'e' quella firma; poi viene chi ha COMPILATO il
                    modulo "completa i dati" (l'intestatario, marcato "dal modulo");
                    per ultima la firma di chi ha inserito la scheda a mano. Tutte
                    hanno la forma di una presenza, quindi si scrivono uguali. */
-                + (ev.tutti ? '' : cellaModalita + cellaStato + cellaNota
-                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(aggiornatoDaDi(p, r) || '-') + '</span></td>')
-                + cellaAzioniHtml(ev, r, md)
+                celle['b:agg'] = '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(aggiornatoDaDi(p, r) || '-') + '</span></td>';
+            }
+            return '<tr>'
+                + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
+                    + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
+                + colonne.map(c => celle[c.chiave] !== undefined ? celle[c.chiave]
+                    : '<td' + (c.file ? ' class="ev-col-file"' : classe(c.modulo ? tm : '')) + ' data-label="' + esc(c.nome) + '">'
+                    + esc(valoreColonnaVisto(c.nome, valoreColonnaDi(r, c))) + '</td>').join('')
+                /* l'ultima colonna, appiccicata a destra: le azioni della riga,
+                   o vuota per chi non ne ha; in cima sta il "+" delle colonne */
+                + (azioniEv ? cellaAzioniHtml(ev, r, md) : '<td data-label="" class="ev-azioni ev-piu-td"></td>')
                 + '</tr>';
         }).join('');
         // barra della selezione multipla: compare solo quando c'e' qualcosa di spuntato
@@ -18313,7 +18679,7 @@
            aperta: altrimenti guardando gli aderenti sparirebbero dall'elenco le
            colonne che solo gli ospiti hanno, e chi le cerca penserebbe di averle
            perse. */
-        return filtro + barra + sceltaColonneHtml(ev, tutte) + legendaColonneHtml(ev, tutte)
+        return filtro + barra + legendaColonneHtml(ev, tutte)
             // su schermo piccolo l'intestazione della tabella e nascosta (le righe
             // diventano schede), quindi la casella "tutte" che sta li dentro sparirebbe:
             // questa la ripropone sopra l'elenco. A video largo resta nascosta.
@@ -18346,29 +18712,28 @@
                stile (classi c-*), che le adatta anche agli schermi piu' stretti. */
             + '<colgroup>'
             + (adminEv ? '<col class="c-sel">' : '')
-            + '<col class="c-data"><col class="c-nome"><col class="c-azienda"><col class="c-ruolo"><col class="c-email"><col class="c-tel">'
-            + (fisse ? '<col class="c-portale"><col class="c-part"><col class="c-b2b"><col class="c-pref">' : '')
-            /* Le colonne senza misura propria hanno comunque una classe (c-evento,
-               c-extra, c-nota): a tabella normale non hanno regole e si dividono
-               lo spazio che resta, come prima; a tabella larga ricevono la loro
-               misura. Su carta valgono il 7% come ogni colonna senza misura. */
-            + (ev.tutti ? '<col class="c-evento">' : '')
-            + extra.map(() => '<col class="c-extra">').join('')
-            + (ev.tutti ? '' : '<col class="c-modalita"><col class="c-stato"><col class="c-nota"><col class="c-agg">')
-            + (azioniEv ? '<col class="c-azioni">' : '')
+            /* Ogni colonna del catalogo porta la sua classe di misura (c-data,
+               c-email...; c-extra per le aggiuntive e le calcolate): a tabella
+               normale le colonne senza misura si dividono lo spazio che resta,
+               a tabella larga ricevono la loro misura. Su carta valgono il 7%
+               come ogni colonna senza misura. */
+            + colonne.map(c => '<col class="' + c.col + '">').join('')
+            + '<col class="c-azioni">'
             + '</colgroup>'
             + '<thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
-            + '<th>Data</th><th class="ev-col-modulo">Nome</th><th>Azienda</th><th class="ev-col-modulo">Ruolo</th>'
-            + '<th class="ev-col-modulo">Email</th><th class="ev-col-modulo">Telefono</th>'
-            + (fisse ? '<th>Portale</th><th>Partecipanti</th>'
-                + '<th title="I tavoli scelti rispondendo all\'invito B2B">B2B prenotati</th>'
-                + '<th class="ev-col-modulo" title="I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni">Preferenze iscrizione</th>' : '')
-            + (ev.tutti ? '<th>Evento</th>' : '')
-            + extra.map(c => '<th' + tinta(c) + (c.file ? ' title="Dal file delle aziende invitate"' : '') + '>' + esc(c.nome) + '</th>').join('')
-            + (ev.tutti ? '' : '<th title="In sala oppure online: quando i posti in presenza finiscono, chi resta fuori si sposta all\'online">Modalità</th>'
-                + '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
-            + (azioniEv ? '<th></th>' : '')
+            /* Le intestazioni, nell'ordine scelto, con le frecce per spostare la
+               colonna di un posto e la x per toglierla (si vedono passandoci
+               sopra); l'ultima e' il "+" che apre il pannello delle colonne. */
+            + colonne.map((c, i) => '<th' + (c.tinta ? ' class="' + c.tinta + '"' : '') + (c.titolo ? ' title="' + esc(c.titolo) + '"' : '')
+                + ' data-chiave="' + esc(c.chiave) + '">'
+                + '<span class="ev-th-nome">' + esc(c.nome) + '</span>'
+                + '<span class="ev-th-strumenti">'
+                + (i > 0 ? '<button type="button" class="ev-th-sposta ev-th-sx" data-chiave="' + esc(c.chiave) + '" data-verso="-1" title="Sposta a sinistra" aria-label="Sposta la colonna ' + esc(c.nome) + ' a sinistra">&#8249;</button>' : '')
+                + '<button type="button" class="ev-th-togli" data-chiave="' + esc(c.chiave) + '" title="Togli la colonna" aria-label="Togli la colonna ' + esc(c.nome) + '">&times;</button>'
+                + (i < colonne.length - 1 ? '<button type="button" class="ev-th-sposta ev-th-dx" data-chiave="' + esc(c.chiave) + '" data-verso="1" title="Sposta a destra" aria-label="Sposta la colonna ' + esc(c.nome) + ' a destra">&#8250;</button>' : '')
+                + '</span></th>').join('')
+            + '<th class="ev-th-piu"><button type="button" class="ev-piu" title="Colonne: aggiungi, togli, torna a quelle di base" aria-label="Colonne della tabella" aria-haspopup="dialog" aria-expanded="false">+</button></th>'
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>'
             /* la barra orizzontale che segue, sotto il riquadro: la aggancia
                agganciaScorriX dopo il disegno, e si vede solo se serve */
@@ -18422,6 +18787,8 @@
 
     function vistaEventi() {
         if (!puoVedereEventi()) { naviga('dashboard'); return; }
+        // il pannello delle colonne, se e' aperto, si rifa' dopo il disegno (agganciaColonneTabella)
+        if (_evPannelloColonne) { try { _evPannelloColonne.stacca(); } catch (e) { } _evPannelloColonne = null; }
         const admin = Auth.eAdmin() || Auth.eProprietario();
         const ev = eventoCorrente();
         const cfg = EventiConfig.leggi();
@@ -18855,6 +19222,7 @@
                 const b = l.previousElementSibling;
                 if (b) b.setAttribute('aria-expanded', 'false');
             });
+            $vista().querySelectorAll('td.ev-menu-aperto').forEach(td => td.classList.remove('ev-menu-aperto'));
             menuEvFuoriDalRiquadro();
         };
         /* I COMANDI DEL MENU DELLA RIGA, collegati su una RADICE qualunque:
@@ -18936,7 +19304,14 @@
                 const lista = b.nextElementSibling;
                 const eraChiuso = lista.classList.contains('hidden');
                 chiudiMenuEv();
-                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); menuEvNelRiquadro(lista); }
+                if (eraChiuso) {
+                    lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true');
+                    /* la cella delle azioni e' appiccicata a destra (un livello suo):
+                       finche' il menu e' aperto la sua cella sale sopra quelle delle
+                       righe sotto, altrimenti il menu ci finirebbe dietro */
+                    const td = b.closest('td'); if (td) td.classList.add('ev-menu-aperto');
+                    menuEvNelRiquadro(lista);
+                }
             }));
             radice.querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
         };
@@ -19041,58 +19416,9 @@
                 menuEvFuoriDalRiquadro();
             });
         }
-        /* COLONNE AGGIUNTIVE: si spuntano e la tabella si ridisegna con quelle
-           in piu'. Il pannello resta aperto (_evColonneAperte), la pagina resta
-           dov'era e il fuoco torna sul comando appena usato: chi spunta da
-           tastiera continua dalla casella dopo, invece di ripartire da capo. */
-        {
-            const pannello = $vista().querySelector('details.ev-colonne');
-            if (pannello) pannello.addEventListener('toggle', () => { _evColonneAperte[ev.id] = pannello.open; });
-            const cambiaColonne = (scelte, ritrova) => {
-                salvaColonneScelte(ev, scelte);
-                _evColonneAperte[ev.id] = true;
-                if (vistaCorrente !== 'eventi') return;
-                vistaEventiMantenendoPosto();
-                const el = ritrova();
-                if (el && !el.disabled) { try { el.focus({ preventScroll: true }); } catch (e) { } }
-            };
-            const spuntate = () => Array.from($vista().querySelectorAll('.ev-col:checked')).map(x => x.value);
-            /* Sulla casella il fuoco torna solo a chi spunta da TASTIERA: una
-               casella con il fuoco vale "qualcuno sta scrivendo" e trattiene i
-               ridisegni automatici (evQualcunoStaUsando), e a chi usa il mouse
-               non serve - e' la stessa ragione di restituisciFuoco. */
-            $vista().querySelectorAll('.ev-col').forEach(c => {
-                // sulla scritta accanto, non solo sulla casella: anche li' e' un clic
-                (c.closest('label') || c).addEventListener('pointerdown', () => { c.dataset.conMouse = '1'; });
-                c.addEventListener('change', () => {
-                    const v = c.value;
-                    const daTastiera = c.dataset.conMouse !== '1';
-                    cambiaColonne(spuntate(), () => daTastiera
-                        ? Array.from($vista().querySelectorAll('.ev-col')).find(x => x.value === v) : null);
-                });
-            });
-            // "Aggiungi tutte" e "Togli tutte": di un gruppo, o di tutto il pannello
-            $vista().querySelectorAll('.ev-col-tutte, .ev-col-nessuna').forEach(b => b.addEventListener('click', () => {
-                const g = b.dataset.gruppo;
-                const metti = b.classList.contains('ev-col-tutte');
-                const caselle = g === 'tutte' ? $vista().querySelectorAll('.ev-col')
-                    : $vista().querySelectorAll('.ev-colonne-gruppo[data-gruppo="' + g + '"] .ev-col');
-                const scelte = spuntate();
-                Array.prototype.forEach.call(caselle, c => {
-                    const i = scelte.indexOf(c.value);
-                    if (metti && i < 0) scelte.push(c.value);
-                    if (!metti && i >= 0) scelte.splice(i, 1);
-                });
-                // il fuoco torna sul pulsante premuto; se ora e' spento (non ha
-                // piu' niente da fare), sul suo compagno, che invece si e' acceso
-                cambiaColonne(scelte, () => {
-                    const q = cl => $vista().querySelector(cl + '[data-gruppo="' + g + '"]');
-                    const stesso = q(metti ? '.ev-col-tutte' : '.ev-col-nessuna');
-                    if (stesso && !stesso.disabled) return stesso;
-                    return q(metti ? '.ev-col-nessuna' : '.ev-col-tutte') || $vista().querySelector('details.ev-colonne summary');
-                });
-            }));
-        }
+        /* LE COLONNE: il "+" in cima alla colonna delle azioni apre il pannello,
+           le frecce sulle intestazioni spostano, la x toglie (agganciaColonneTabella). */
+        agganciaColonneTabella(ev, soloIscritti(ev, _evIscrizioni || []));
         /* L'esportazione dell'elenco: sempre TUTTO, qualunque sezione si stia
            guardando (vedi righeCsvIscrizioni). La stessa per il pulsante della
            barra della tabella e per quello della sezione vuota. */

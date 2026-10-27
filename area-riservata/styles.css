@@ -2546,10 +2546,48 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    fondo della finestra finche' il fondo del riquadro, con la barra vera, non
    e' in vista. Un filo piu' marcata di quella del riquadro: e' l'unica cosa
    che si vede di lei. */
-.ev-scorri-x { display: none; position: sticky; bottom: 0; z-index: 6; overflow-x: auto; overflow-y: hidden; height: 14px; background: #fff; border-top: 1px solid var(--grigio-200); scrollbar-width: thin; scrollbar-color: rgba(10, 40, 68, 0.45) transparent; }
+.ev-scorri-x { display: none; position: sticky; bottom: 0; z-index: 6; overflow-x: auto; overflow-y: hidden; height: 22px; background: var(--grigio-100); border-top: 1px solid var(--grigio-300, #cbd5e1); box-shadow: 0 -2px 6px rgba(10, 40, 68, 0.10); scrollbar-width: auto; scrollbar-color: var(--blu-700) var(--grigio-100); }
 .ev-scorri-x.visibile { display: block; }
 .ev-scorri-x-dentro { height: 1px; }
 @media print { .ev-scorri-x { display: none !important; } }
+/* LE COLONNE SI SPOSTANO E SI TOLGONO DALL'INTESTAZIONE (app.js,
+   agganciaColonneTabella): le frecce e la x compaiono in basso a destra
+   dell'intestazione passandoci sopra, o con il fuoco da tastiera. */
+/* invisibili ma presenti (opacity, non display): cosi' la freccia appena
+   premuta riprende il fuoco anche dopo il ridisegno, e con il fuoco si vede */
+.ev-wrap table.dati th .ev-th-strumenti { position: absolute; right: 1px; bottom: 1px; display: inline-flex; gap: 2px; z-index: 1; opacity: 0; pointer-events: none; }
+.ev-wrap table.dati th:hover .ev-th-strumenti,
+.ev-wrap table.dati th:focus-within .ev-th-strumenti { opacity: 1; pointer-events: auto; }
+.ev-wrap table.dati th .ev-th-sposta,
+.ev-wrap table.dati th .ev-th-togli {
+    width: 17px; height: 17px; padding: 0; border: 1px solid var(--grigio-300, #cbd5e1); border-radius: 3px;
+    background: #fff; color: var(--blu-700); font-size: 13px; line-height: 1; font-weight: 700; cursor: pointer; text-transform: none; letter-spacing: 0;
+}
+.ev-wrap table.dati th .ev-th-togli { color: var(--rosso); font-size: 12px; }
+.ev-wrap table.dati th .ev-th-sposta:hover { background: var(--blu-700); color: #fff; border-color: var(--blu-700); }
+.ev-wrap table.dati th .ev-th-togli:hover { background: var(--rosso); color: #fff; border-color: var(--rosso); }
+/* L'ULTIMA COLONNA E' APPICCICATA A DESTRA: le azioni della riga e, in cima,
+   il "+" delle colonne restano in vista anche quando la tabella larga scorre. */
+.ev-wrap table.dati td.ev-azioni,
+.ev-wrap table.dati th.ev-th-piu { position: sticky; right: 0; z-index: 2; background: #fff; box-shadow: -1px 0 0 var(--grigio-200); }
+.ev-wrap table.dati thead th.ev-th-piu { z-index: 4; top: 0; text-align: center; padding: 2px; vertical-align: middle; }
+.ev-wrap table.dati tbody tr:hover td.ev-azioni { background: var(--blu-100); }
+/* con il menu della riga aperto la sua cella sale sopra quelle delle righe
+   sotto (ognuna e' un livello suo, perche' appiccicata): altrimenti il menu
+   ci finirebbe dietro, coperto dai pulsanti delle righe seguenti */
+.ev-wrap table.dati td.ev-azioni.ev-menu-aperto { z-index: 8; }   /* sopra anche la barra che segue (6) */
+/* il "+" sopra la legenda: solo dove l'intestazione della tabella e' nascosta (le schede, fino a 1200px) */
+.ev-piu.ev-piu-fuori { display: none; width: auto; height: 26px; border-radius: 13px; padding: 0 10px; font-size: 0.82rem; font-weight: 600; align-items: center; }
+@media screen and (max-width: 1200px) { .ev-piu.ev-piu-fuori { display: inline-flex; } }
+.ev-piu { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--blu-700); background: #fff; color: var(--blu-700); font-size: 17px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0; font-family: inherit; }
+.ev-piu:hover, .ev-piu[aria-expanded="true"] { background: var(--blu-700); color: #fff; }
+/* Il pannello delle colonne, sopra la pagina, ancorato al "+" (apriPannelloColonne) */
+.ev-piu-pannello { position: fixed; z-index: 70; overflow: auto; background: #fff; border: 1px solid var(--grigio-200); border-radius: 8px; box-shadow: var(--ombra-lg); padding: 10px 14px 12px; font-size: 0.88rem; }
+.ev-piu-testa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--grigio-100); }
+.ev-piu-testa .hint { flex: 1 1 220px; font-size: 0.78rem; }
+.ev-piu-chiudi { margin-left: auto; border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--grigio-600); padding: 0 4px; }
+.ev-piu-chiudi:hover { color: var(--grigio-900); }
+@media print { .ev-piu-pannello, .ev-piu, .ev-th-strumenti { display: none !important; } }
 .ev-wrap:focus { outline: none; }
 .ev-wrap:focus-visible { outline: 2px solid var(--blu-700); outline-offset: 2px; }
 /* Il corpo del testo cresce e cala con lo spazio davvero disponibile, che non e'
