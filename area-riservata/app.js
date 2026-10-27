@@ -18421,19 +18421,23 @@
         /* LE TRE SEZIONI IN SALA STANNO INSIEME, in un riquadro che lo dice:
            aziende, aderenti Revilaw, sponsor e relatori sono tutti in presenza,
            e lette una accanto all'altra con l'online sembravano tre modi di
-           partecipare diversi. L'online, e l'attesa della conferma, restano fuori. */
+           partecipare diversi. L'online resta fuori.
+           Nel riquadro, in fondo, anche l'attesa della conferma: chi la aspetta
+           si e' iscritto dal sito, e il modulo iscrive in presenza. Viene DOPO
+           le sezioni vere, ed e' una voce come loro (data-sez): si apre, si
+           conta, si svuota da sola quando le persone confermano; finche' non
+           confermano il posto non lo occupano, e lo dice il suo suggerimento.
+           Solo dove la conferma e' chiesta. */
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
             + '<span class="ev-sez-gruppo" role="group" aria-label="Tutti in presenza" '
-            + 'title="Aziende, aderenti Revilaw, sponsor e relatori: sono tutti in presenza, in sala">'
+            + 'title="Aziende, aderenti Revilaw, sponsor e relatori: sono tutti in presenza, in sala'
+            + (ev.confermaEmail ? '. Chi aspetta di confermare la mail si è iscritto in presenza, ma il posto lo occupa solo dopo la conferma' : '') + '">'
             + '<span class="ev-sez-gruppo-tit" aria-hidden="true">tutti in presenza</span>'
             + SEZIONI_MODALITA.filter(x => x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nelRiquadro || x.nome)).join('')
+            + (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nome) : '')
             + '</span>'
             + SEZIONI_MODALITA.filter(x => !x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
-            /* L'attesa della conferma viene DOPO le sezioni vere, ed e' una voce
-               come loro (data-sez): si apre, si conta, si svuota da sola quando
-               le persone confermano. Solo dove la conferma e' chiesta. */
-            + (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nome) : '')
             + (daRiconoscere
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
                 + 'title="Mostra le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le spunta se confermi, e le sposti poi con il pulsante della barra">'
