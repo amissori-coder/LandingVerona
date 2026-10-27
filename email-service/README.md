@@ -2144,8 +2144,8 @@ Se a qualcuno la mail con quota e dati di fatturazione **non e' partita**
 (`mail: false` sulla scheda), il riepilogo lo scrive sotto il suo nome.
 
 **I due totali, nella mail** (e negli stessi termini nell'area riservata,
-sotto i riquadri di Milano, dove pero' si leggono in due riepiloghi, "Totali
-in presenza" e "Totali online": vedi sotto):
+in testa all'elenco di Milano, dove pero' si leggono in due riepiloghi,
+"Totali in presenza" e "Totali online": vedi sotto):
 - **Totale aziende**: le persone iscritte al convegno, in sala e online, senza
   gli aderenti e senza chi aspetta ancora di confermare l'email. Si contano le
   STESSE righe dell'elenco dell'area riservata: la pagina che contiene
@@ -2181,7 +2181,10 @@ uno sotto l'altro con le stesse caselle della mail (totale aziende + aderenti
 in tutto = totale aziende + aderenti, e accanto, in ambra e fuori dalla
 somma, le aziende in attesa di conferma mail): la sala e la diretta si
 preparano separatamente, e la somma dei due riepiloghi e' l'evento intero,
-cioe' i totali della mail. Le righe del convegno vanno dove dice la loro
+cioe' i totali della mail. Sono gli unici numeri in testa all'elenco di
+Milano: i riquadri dei conteggi degli altri eventi (iscrizioni, indirizzi,
+sezioni in sala, il riquadro dei posti) li' non ci sono; i conteggi per
+sezione restano nelle voci sopra l'elenco. Le righe del convegno vanno dove dice la loro
 modalita' - in presenza, aderenti Revilaw e sponsor e relatori in presenza,
 online online - anche quelle in attesa di conferma, che aspettano nel
 riepilogo della modalita' scelta. Gli iscritti alla cena e al meeting vengono

@@ -18536,6 +18536,14 @@
             + '<span class="ev-scheda-nome">' + esc(x.titolo) + '</span>'
             + '<span class="ev-scheda-data">' + esc(x.quando) + '</span></button>').join('') + '</div>';
 
+        /* DOVE CI SONO I DUE RIEPILOGHI (Milano) I CONTEGGI IN TESTA NON CI
+           SONO: niente iscrizioni, indirizzi, sezioni in sala, niente riquadro
+           dei posti. Chi organizza guarda due numeri - quanti in presenza,
+           quanti online - e tredici riquadri intorno glieli nascondevano. I
+           conteggi per sezione restano nelle voci sopra l'elenco, con il loro
+           numero; negli altri eventi, senza riepiloghi, la testata e' quella
+           di sempre. */
+        const soloRiepiloghi = evHaAderenti(ev);
         $vista().innerHTML = '<header><div><h1>Iscrizioni Eventi NGB</h1>'
             + '<p class="descrizione">Le iscrizioni raccolte dai form del sito. Sezione riservata agli utenti abilitati.</p></div>'
             + '<div class="header-azioni"><span class="ev-live">' + (_evInFlight ? 'aggiornamento...' : (_evAggiornato ? 'aggiornato alle ' + esc(new Date(_evAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) + (_evAscoltoOk ? ' · in tempo reale' : '') : 'in attesa')) + '</span>'
@@ -18558,18 +18566,21 @@
                La meta' di sinistra sta in una fila sua: con le sezioni diventate
                quattro la testata va a capo su schermi normali, e senza la fila
                i numeri di sinistra si spargerebbero per tutta la larghezza
-               (e' "spazio fra le due meta'", e le due meta' devono essere due). */
+               (e' "spazio fra le due meta'", e le due meta' devono essere due).
+               Dove ci sono i due riepiloghi (soloRiepiloghi) delle due meta'
+               resta solo il nome dell'evento: i numeri sono quelli dei
+               riepiloghi, sotto. */
             + '<div class="card ev-testa"><div class="ev-num-fila">'
             + '<div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
-            + '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
-            + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
-            + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
-            + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi confermati dal pulsante nella mail di iscrizione, oppure iscritti prima che la mail lo avesse (pregresso)', 'verde', 'confmail')
-            + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
-                .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join(''))
+            + (soloRiepiloghi ? '' : '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
+                + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
+                + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
+                + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi confermati dal pulsante nella mail di iscrizione, oppure iscritti prima che la mail lo avesse (pregresso)', 'verde', 'confmail')
+                + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
+                    .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join('')))
             + '</div>'
-            + (ev.tutti ? '' : '<div class="ev-num-gruppo">'
+            + ((ev.tutti || soloRiepiloghi) ? '' : '<div class="ev-num-gruppo">'
                 + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala')
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id) && !x.fuoriElenco)
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
@@ -18584,9 +18595,9 @@
                 + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
                 + '</div>')
             /* I DUE RIEPILOGHI CON GLI ADERENTI della cena e del meeting, in
-               presenza e online: due file loro, sotto, perche' non si
-               confondano con i posti in sala e fra loro ("aziende" +
-               "aderenti" = il totale di tutti, in ciascuno). */
+               presenza e online: gli unici numeri della testata, due file
+               sotto il nome dell'evento ("aziende" + "aderenti" = il totale
+               di tutti, in ciascuno). */
             + (ev.tutti ? '' : totaliHtml(ev, riquadroNum))
             + '</div>'
             + cruscotto + avviso + corpo;
