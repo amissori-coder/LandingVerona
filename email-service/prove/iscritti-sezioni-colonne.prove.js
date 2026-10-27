@@ -1071,6 +1071,9 @@ prova('Sopra l\'elenco: "Aziende in presenza", e le tre sezioni in sala insieme,
         && /SEZIONI_MODALITA\.filter\(x => x\.sala && !x\.fuoriElenco\)/.test(FS) && /SEZIONI_MODALITA\.filter\(x => !x\.sala && !x\.fuoriElenco\)/.test(FS),
         'le sezioni in sala in un riquadro "tutti in presenza", l\'online fuori');
     esigi(A.SEZIONI_MODALITA.filter(x => x.sala).map(x => x.id).join('|') === 'presenza|aderenti|sponsor', 'nel riquadro: aziende, aderenti, sponsor e relatori');
+    esigi(/SEZIONI_MODALITA\.filter\(x => x\.sala && !x\.fuoriElenco\)\.map\(x => voce\(x\.id, x\.nelRiquadro \|\| x\.nome\)\)/.test(FS)
+        && A.SEZIONI_MODALITA.filter(x => x.sala).map(x => x.nelRiquadro || x.nome).join('|') === 'Aziende|Aderenti Revilaw|Sponsor e relatori',
+        'dentro il riquadro "tutti in presenza" la voce delle aziende dice solo "Aziende", senza ripetere "in presenza"');
     const CSS = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'styles.css'), 'utf8');
     esigi(/\.ev-sez-gruppo \{/.test(CSS) && /\.ev-sez-gruppo-tit \{/.test(CSS), 'con la sua veste');
 });
