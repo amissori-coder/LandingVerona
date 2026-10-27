@@ -1114,8 +1114,10 @@ tre sezioni in sala: nessuno dei tre numeri, da solo, dice quanti posti servono.
 
 **Gli incontri B2B si fanno in sala, e sono per gli ospiti.** Nell'elenco la
 voce "Invita agli incontri B2B" compare solo sulle righe `presenza` e
-`sponsor`: chi segue online a un tavolo non ci si siede, e un aderente Revilaw
-non e un'azienda da abbinare a un'altra. Il menu della riga si rifa a ogni
+`sponsor` (non su chi si mostra fra gli aderenti perche' e' iscritto alla cena
+e al meeting: la regola e' la stessa dell'invito a tutte): chi segue online a
+un tavolo non ci si siede, e un aderente Revilaw non e un'azienda da abbinare a
+un'altra. Il menu della riga si rifa a ogni
 cambio di sezione, quindi la voce sparisce nel momento in cui si sposta
 qualcuno, non al ridisegno successivo.
 

@@ -17171,8 +17171,12 @@
                si puo' onorare e' peggio di un invito mancato. Sponsor e
                relatori invece in sala ci sono, e agli incontri ci tengono piu'
                di tutti: per loro resta. Non resta per chi ha l'email ancora da
-               confermare: in sala non c'e' ancora (iscrittiPerInvitoB2B). */
-            + (puoRichiedere && ev.manuale && r.email && daInvitareB2B(md) && !inAttesaConfermaMail(ev, r)
+               confermare: in sala non c'e' ancora (iscrittiPerInvitoB2B). E
+               non resta per chi si mostra fra gli aderenti perche' e' iscritto
+               alla cena e al meeting: la regola e' quella dell'invito a tutte
+               (iscrittiPerInvitoB2B), la sezione in cui la riga si MOSTRA -
+               che tiene gia' l'attesa della conferma. */
+            + (puoRichiedere && ev.manuale && r.email && daInvitareB2B(sezioneElenco(ev, r))
                 ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
                 : ''),
             /* Una persona alla volta: le sezioni in cui NON e' gia', piu' -
@@ -22905,7 +22909,10 @@
             && String(x.email || '').trim().toLowerCase() === k && String(x.gruppo || x.doc || '') === g);
         if (stessi.length < 2) return true;
         const capo = stessi.find(x => !/~p\d+$/.test(String(x.doc || ''))) || stessi[0];
-        return capo.id === r.id;
+        /* la SCHEDA, non l'identificativo: l'id e' indirizzo|data, e un posto
+           ~pN prende la data dell'intestatario, quindi con lo stesso indirizzo
+           ha lo stesso id. Il documento invece e' uno per scheda. */
+        return capo === r || (!!capo.doc && String(capo.doc) === String(r.doc || ''));
     }
     /* Sotto la modalita': "cena e meeting" sulla riga della cena, "anche cena e
        meeting" su quella del convegno di chi e' alla cena. Risponde alla

@@ -954,8 +954,11 @@ prova('La firma con cui l\'elenco si ridisegna cambia quando la cena cambia davv
 prova('Fra gli aderenti si sposta solo la persona della cena, e per una persona sola', () => {
     const e = elencoMilano();
     // un ordine con piu' posti: l'intestatario e un compagno con lo stesso indirizzo
-    const capo = riga({ doc: 'ord|1', emailConfermata: CONFERMATA, email: 'seg@studio.it' });
-    const comp = riga({ doc: 'ord|1~p2', gruppo: 'ord|1', emailConfermata: CONFERMATA, email: 'seg@studio.it' });
+    /* come li manda il servizio: l'id e' indirizzo|data, e il posto ~p2 prende la
+       data dell'intestatario - con lo stesso indirizzo, lo stesso id */
+    const ID = 'seg@studio.it|12/01/2027 09:00:00';
+    const capo = riga({ id: ID, doc: 'ord|1', data: '12/01/2027 09:00:00', emailConfermata: CONFERMATA, email: 'seg@studio.it' });
+    const comp = riga({ id: ID, doc: 'ord|1~p2', gruppo: 'ord|1', data: '12/01/2027 09:00:00', emailConfermata: CONFERMATA, email: 'seg@studio.it' });
     e.lista.push(comp, capo);
     conCena(e, [e.aMano.email, e.online.email, e.attesa.email, 'seg@studio.it', e.ospite.email]);
     // la riga da Eventbrite per tre: l'intestatario e' alla cena, gli altri due no
@@ -964,6 +967,11 @@ prova('Fra gli aderenti si sposta solo la persona della cena, e per una persona 
     // l'ordine: si sposta l'intestatario, il compagno con lo stesso indirizzo e' un'altra persona
     esigi(A.sezioneElenco(MILANO, capo, e.lista) === 'aderenti' && A.sezioneElenco(MILANO, comp, e.lista) === 'presenza', 'nell\'ordine si sposta l\'intestatario, non il compagno');
     esigi(A.hintCenaHtml(MILANO, comp) === '' && /anche cena e meeting/.test(A.hintCenaHtml(MILANO, capo)), 'e la scritta la porta solo lui');
+    // anche quando la riga arriva come copia (stesso documento): e' lei
+    esigi(A.rigaDellaCena(MILANO, Object.assign({}, capo), e.lista) === true && A.rigaDellaCena(MILANO, Object.assign({}, comp), e.lista) === false, 'si riconosce la scheda dal documento, non dall\'identificativo');
+    // la voce del menu "Invita agli incontri B2B" segue la stessa regola dell'invito a tutte
+    esigi(/daInvitareB2B\(sezioneElenco\(ev, r\)\)/.test(APP.slice(APP.indexOf('function cellaAzioniHtml('), APP.indexOf('function cellaAzioniHtml(') + 20000)),
+        'la voce "Invita agli incontri B2B" del menu guarda la sezione in cui la riga si mostra');
     // online e attesa: restano dove sono, e la scritta dice il vero
     esigi(A.hintCenaHtml(MILANO, e.online).indexOf(A.esc(A.TITOLO_CENA.online)) >= 0, 'online: "anche cena e meeting" con il suggerimento dell\'online');
     esigi(A.hintCenaHtml(MILANO, e.attesa).indexOf(A.esc(A.TITOLO_CENA.attesa)) >= 0, 'in attesa: con il suggerimento dell\'attesa');
