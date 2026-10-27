@@ -18153,12 +18153,13 @@
                    totali; il suggerimento dice quanto sarebbero se confermassero. */
                 + (ev.confermaEmail ? '<span class="ev-tot-fuori"><span class="ev-tot-sep" aria-hidden="true"></span>'
                     + riquadroNum(v(th && th.attesa), 'aziende in attesa di conferma mail', ti.attesa, 'ambra', q('attesa'))
-                    /* e oltre un'altra riga I TOTALI CON LE ATTESE DENTRO: quanti
-                       sarebbero, aziende e tutti, se confermassero tutte */
-                    + '<span class="ev-tot-sep" aria-hidden="true"></span>'
+                    /* e I TOTALI CON LE ATTESE DENTRO - quanti sarebbero, aziende e
+                       tutti, se confermassero tutte - in evidenza su tutto il resto:
+                       sono i numeri che si guardano davvero, su fondo blu pieno */
+                    + '<span class="ev-tot-evidenza">'
                     + riquadroNum(v(th && th.conAttesaAziende), 'aziende con le attese', ti.conAttesaAziende, '', q('conAttesaAziende'))
                     + riquadroNum(v(th && th.conAttesaTutti), 'aziende + aderenti con le attese', ti.conAttesaTutti, 'forte', q('conAttesaTutti'))
-                    + '</span>' : '')
+                    + '</span></span>' : '')
                 + '</div>';
         };
         return '<div class="ev-totali">' + RIEPILOGHI.map(blocco).join('') + (ev.confermaEmail ? giroConfermeHtml() : '') + '</div>';
