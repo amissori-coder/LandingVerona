@@ -93,6 +93,22 @@ const inAttesaConfermaMail = daAppJs('inAttesaConfermaMail');
 const sezioneVista = daAppJs('sezioneVista');
 const SEZIONE_ATTESA = eval('(' + ritaglia('const SEZIONE_ATTESA = {', '{', '}')
     .slice('const SEZIONE_ATTESA = '.length) + ')');
+/* La sezione in cui una riga si MOSTRA (sezioneElenco): fra gli aderenti chi
+   e' iscritto alla cena e al meeting degli aderenti (solo Milano, quando le
+   loro iscrizioni sono lette). Vere, dall'app; qui la cena non c'e', quindi
+   decide la sezione in cui la riga si guarda, come prima. */
+let _aderenti = null, _aderentiEv = '', _cenaIndirizzi = { quote: null, set: new Set() };
+const EVENTI_CON_ADERENTI = eval('(' + ritaglia('const EVENTI_CON_ADERENTI = [', '[', ']').slice('const EVENTI_CON_ADERENTI = '.length) + ')');
+const inSala = daAppJs('inSala');
+const partecipantiDi = daAppJs('partecipantiDi');
+const fuoriElenco = daAppJs('fuoriElenco');
+const soloIscritti = daAppJs('soloIscritti');
+const evHaAderenti = daAppJs('evHaAderenti');
+const aderentiDi = daAppJs('aderentiDi');
+const indirizziCena = daAppJs('indirizziCena');
+const allaCena = daAppJs('allaCena');
+const rigaDellaCena = daAppJs('rigaDellaCena');
+const sezioneElenco = daAppJs('sezioneElenco');
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {

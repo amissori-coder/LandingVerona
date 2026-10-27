@@ -1931,6 +1931,9 @@ module.exports = async (req, res) => {
                assente resta assente, com'era prima. */
             if (attuale.modalita !== undefined) nuovo.modalita = attuale.modalita;
             if (attuale.aderente !== undefined) nuovo.aderente = attuale.aderente;
+            // dalla pagina riservata a sponsor e relatori: la dichiarazione e come partecipa
+            if (attuale.sponsor !== undefined) nuovo.sponsor = attuale.sponsor;
+            if (attuale.ruoloEvento !== undefined) nuovo.ruoloEvento = attuale.ruoloEvento;
             if (attuale.listaAttesa !== undefined) nuovo.listaAttesa = attuale.listaAttesa;
             if (nuovo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(nuovo.email)) {
                 res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return;

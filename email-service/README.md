@@ -1157,16 +1157,25 @@ aderenti e' un aderente, e i totali lo contano cosi'; nell'elenco del convegno
 pero' non c'era. Ora la sezione "Aderenti Revilaw" li mostra (`righeElenco`,
 `sezioneElenco` in `area-riservata/app.js`): chi e' iscritto **anche** al
 convegno (stesso indirizzo email) si mostra con la sua riga del convegno fra
-gli aderenti, con sotto "anche cena e meeting", qualunque sia la sezione della
-riga (la tendina non cambia e si puo' spostare come sempre; l'attesa della
-conferma e l'online restano dove sono); chi e' iscritto **solo** alla cena ha
+gli aderenti, con sotto "anche cena e meeting", qualunque sia la sua sezione in
+sala (la tendina non cambia e si puo' spostare come sempre). Restano dove sono,
+con la stessa scritta e un suggerimento che dice perche', l'attesa della
+conferma, l'online e la riga che vale per piu' persone (gli altri non sono
+aderenti: i totali ne tolgono uno solo); in un ordine con piu' posti, un
+compagno con l'indirizzo dell'intestatario e' un'altra persona e non si sposta.
+Chi si mostra fra gli aderenti e' un aderente anche per l'elenco definitivo,
+gli inviti B2B e i relatori della giornata (non e' un ospite in sala); i
+conteggi dei posti e i promemoria restano sulla sezione della riga, come il
+servizio. Chi e' iscritto **solo** alla cena ha
 una riga in sola lettura, con "Cena e meeting" nella colonna Portale e i dati
 della scheda della cena - niente casella, tendine o menu: per fattura e dati c'e'
 "Aderenti" > "Apri le iscrizioni". Queste righe stanno nelle voci sopra
 l'elenco, nella tabella e nel CSV (con la sezione "Aderenti Revilaw"), non nei
 conteggi dei posti, nei promemoria o negli inviti B2B, che leggono le sole
-iscrizioni del convegno come il servizio. Quando le iscrizioni alla cena
-arrivano o cambiano, l'elenco si ridisegna da solo (appena la pagina e' libera).
+iscrizioni del convegno come il servizio; nell'elenco stanno al loro posto per
+data, dalla piu' recente. Quando le iscrizioni alla cena arrivano o cambiano
+(una nuova, una tolta, un dato corretto), l'elenco si ridisegna da solo (appena
+la pagina e' libera).
 
 **La casella "Sono un aderente Revilaw"** del modulo di Napoli fa due cose:
 spuntandola l'iscrizione chiede **solo nome, cognome ed email** - la scheda
@@ -2217,7 +2226,7 @@ confermate delle aziende ("Aziende: iscrizioni confermate in tutto").
 **Nell'area riservata i totali sono due riepiloghi**, "Totali in presenza" e
 "Totali online" (`RIEPILOGHI` e `totaliPerDove` in `area-riservata/app.js`),
 uno sotto l'altro con le stesse caselle della mail (totale aziende + aderenti
-in tutto + sponsor e relatori = totale aziende + aderenti + sponsor, e accanto,
+in tutto + sponsor e relatori = totale, e accanto,
 in ambra e fuori dalla somma, le aziende in attesa di conferma mail e i totali
 con le attese dentro): la sala e la diretta si
 preparano separatamente, e la somma dei due riepiloghi e' l'evento intero,
@@ -2243,7 +2252,8 @@ torna). `prove/totali-aderenti.prove.js` verifica
 anche la spartizione: riepilogo per riepilogo aziende + aderenti + sponsor =
 tutti, e i due riepiloghi insieme fanno il totale intero. Chi aspetta fra
 sponsor e relatori sta nel riquadro dell'attesa, ma non fra le "aziende con le
-attese": confermando va fra sponsor e relatori, e il suggerimento lo dice.
+attese": confermando va fra sponsor e relatori (salvo chi e' iscritto alla cena
+e al meeting, gia' contato fra gli aderenti), e il suggerimento lo dice.
 
 **Le due parti tengono ognuna il suo modo di non spedire due volte.** Le
 aziende si prenotano su `meta/riepilogoIscrizioni-<evento>` solo quando hanno

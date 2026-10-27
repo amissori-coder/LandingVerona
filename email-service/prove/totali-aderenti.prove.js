@@ -173,11 +173,17 @@ esigi(/3 aziende \+ 0 aderenti \+ 1 sponsor e relatori/.test(z.ti.conAttesaTutti
 z = conAttese([{ email: 'a@x.it', m: 'presenza' }, { email: 'cena@x.it', m: 'presenza', attesa: true }, { email: 'b@x.it', m: 'presenza', attesa: true }], [{ email: 'cena@x.it' }]);
 esigi(z.t.attesaAziende === 2 && z.t.conAttesaAziende === 2 && /1 aziende \+ 2 in attesa, tolto chi fra loro è iscritto alla cena/.test(z.ti.conAttesaAziende) && !/sponsor/.test(z.ti.conAttesaAziende),
     'chi aspetta ed e\' alla cena: il suggerimento lo dice come prima', z.ti.conAttesaAziende);
+z = conAttese([{ email: 'a@x.it', m: 'presenza' }, { email: 'rel@x.it', m: 'sponsor', attesa: true }], [{ email: 'rel@x.it' }]);
+esigi(z.t.attesa === 1 && z.t.attesaSponsor === 0 && z.t.conAttesaTutti === 2 && !/si conta lì/.test(z.ti.attesa),
+    'un relatore in attesa che e\' anche alla cena: confermando non va fra gli sponsor (e\' gia\' fra gli aderenti), e il suggerimento non lo dice', JSON.stringify({ t: z.t, ti: z.ti.attesa }));
 z = conAttese([{ email: 'a@x.it', m: 'presenza' }, { email: 'b@x.it', m: 'presenza', attesa: true }]);
 esigi(!/cena|sponsor/.test(z.ti.conAttesaAziende) && !/sponsor/.test(z.ti.attesa), 'e senza cena ne\' sponsor nessuna spiegazione in piu\'', z.ti.conAttesaAziende);
 
 console.log('\nNelle due parti ci sono le stesse parole');
-esigi(/'totale aziende'/.test(APP) && /'sponsor e relatori'/.test(APP) && /'totale aziende \+ aderenti \+ sponsor'/.test(APP), 'l\'area riservata dice "totale aziende", "sponsor e relatori" e "totale aziende + aderenti + sponsor"');
+const TOT_HTML = ritaglia('function totaliHtml(ev, riquadroNum)');
+esigi(/'totale aziende'/.test(TOT_HTML) && /'aderenti in tutto'/.test(TOT_HTML) && /'sponsor e relatori'/.test(TOT_HTML) && /'totale', ti\.tutti, 'forte'/.test(TOT_HTML),
+    'l\'area riservata dice "totale aziende" + "aderenti in tutto" + "sponsor e relatori" = "totale"');
+esigi(/aziende \+ ' \+ t\.aderenti \+ ' aderenti \+ ' \+ t\.sponsor \+ ' sponsor e relatori/.test(ritaglia('function titoliTotali(t, h)')), 'e il suggerimento del totale scrive la somma per esteso');
 const MNGB = fs.readFileSync(path.join(__dirname, '..', 'lib', 'mail-ngb.js'), 'utf8');
 esigi(/'Totale aziende'/.test(MNGB) && /'Sponsor e relatori'/.test(MNGB) && /'Totale aziende \+ aderenti \+ sponsor'/.test(MNGB), 'e le mail di mezzanotte lo stesso');
 

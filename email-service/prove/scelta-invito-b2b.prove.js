@@ -129,6 +129,24 @@ const modalitaDi = (ev, r) => String(r.modalita || 'presenza');
    conferma, quindi decide la sola modalita' - come prima. */
 const inAttesaConfermaMail = daAppJs('inAttesaConfermaMail');
 const sezioneVista = daAppJs('sezioneVista');
+/* La sezione in cui una riga si MOSTRA (sezioneElenco): fra gli aderenti chi
+   e' iscritto alla cena e al meeting degli aderenti (solo Milano, quando le
+   loro iscrizioni sono lette). Vere, dall'app; qui la cena non c'e', quindi
+   decide la sezione in cui la riga si guarda, come prima. */
+let _aderenti = null, _aderentiEv = '', _cenaIndirizzi = { quote: null, set: new Set() };
+const EVENTI_CON_ADERENTI = eval('(' + ritaglia('const EVENTI_CON_ADERENTI = [', '[', ']').slice('const EVENTI_CON_ADERENTI = '.length) + ')');
+let _evIscrizioni = null;
+const SEZIONI_MODALITA = eval('(' + ritaglia('const SEZIONI_MODALITA = [', '[', ']').slice('const SEZIONI_MODALITA = '.length) + ')');
+const inSala = daAppJs('inSala');
+const partecipantiDi = daAppJs('partecipantiDi');
+const fuoriElenco = daAppJs('fuoriElenco');
+const soloIscritti = daAppJs('soloIscritti');
+const evHaAderenti = daAppJs('evHaAderenti');
+const aderentiDi = daAppJs('aderentiDi');
+const indirizziCena = daAppJs('indirizziCena');
+const allaCena = daAppJs('allaCena');
+const rigaDellaCena = daAppJs('rigaDellaCena');
+const sezioneElenco = daAppJs('sezioneElenco');
 
 // ---------- utilita' ----------
 let ok = 0, ko = 0;
