@@ -3160,8 +3160,8 @@ riconoscono senza badare a maiuscole e accenti.
 
 **Le colonne di base**, senza una scelta: data, nome, azienda, ruolo, email,
 telefono, preferenze iscrizione, ricavi, regione e comune della sede
-operativa, revisore e data nomina, modalita' (`COLONNE_DI_BASE`); quelle che
-l'evento non ha si saltano. **Il "+"** in cima all'ultima colonna - appiccicata
+operativa, revisore e data nomina, settore di attivita', modalita'
+(`COLONNE_DI_BASE`); quelle che l'evento non ha si saltano. **Il "+"** in cima all'ultima colonna - appiccicata
 a destra con le azioni della riga, sempre in vista - apre il pannello con
 tutto il catalogo: una spunta aggiunge la colonna in coda o la toglie,
 "Colonne di base" rimette quelle di partenza. **Le frecce** sulle

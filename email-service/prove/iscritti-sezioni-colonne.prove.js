@@ -88,6 +88,7 @@ const COSTANTI = [
     rigaDaAppJs('const COL_FILE_REGIONE_OP ='),
     rigaDaAppJs('const COL_FILE_REVISORE ='),
     rigaDaAppJs('const COL_FILE_DATA_NOMINA ='),
+    rigaDaAppJs('const COL_FILE_SETTORE ='),
     rigaDaAppJs('const COL_CALC_REGIONE ='),
     rigaDaAppJs('const COL_CALC_REVISORE ='),
     ritaglia('const COLONNE_DI_BASE = [', '[', ']') + ';',
@@ -345,6 +346,11 @@ prova('Le colonne di base: quelle richieste, nel loro ordine, e solo se l\'event
     esigi(m.every(x => x.col) && m.find(x => x.chiave === 'file:Ricavi (EUR)').col === 'c-extra' && m[0].col === 'c-data', 'ognuna con la sua classe di misura');
     esigi(A.valoreColonnaDi(conFile, m[8]) === 'Lombardia', 'la regione ricavata dalla provincia della sede operativa', A.valoreColonnaDi(conFile, m[8]));
     esigi(A.valoreColonnaDi(conFile, m[10]) === 'Dott. Mario Rossi · 30/06/2026', 'revisore e data nomina in una colonna', A.valoreColonnaDi(conFile, m[10]));
+    // con il settore nel file, sta dopo revisore e data nomina e prima della modalita'
+    const conSettore = riga({ datiInvito: conFile.datiInvito.concat([{ c: 'Settore di attività', v: 'FABBRICAZIONE DI MACCHINARI' }]) });
+    const ms = A.colonneDaMostrare(MILANO, [conSettore]);
+    esigi(ms.map(x => x.nome).slice(10).join('|') === 'Revisore e data nomina|Settore di attività|Modalità' && A.valoreColonnaDi(conSettore, ms[11]) === 'FABBRICAZIONE DI MACCHINARI',
+        'il settore di attivita\' del file (anche con l\'accento) dopo revisore e data nomina', ms.map(x => x.nome));
     // senza il file (Napoli, o chi si e' iscritto senza codice) restano le colonne della tabella
     const n = A.colonneDaMostrare(NAPOLI, [riga()]);
     esigi(n.map(x => x.nome).join('|') === 'Data|Nome|Azienda|Ruolo|Email|Telefono' + (NAPOLI.manuale ? '|Preferenze iscrizione' : '') + '|Modalità', 'Napoli: senza le colonne del file (e le preferenze solo se l\'evento e\' manuale)', n.map(x => x.nome));

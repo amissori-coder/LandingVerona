@@ -17376,14 +17376,16 @@
     const COL_FILE_REGIONE_OP = 'Regione (sede operativa)';
     const COL_FILE_REVISORE = 'Revisore o societa di revisione';
     const COL_FILE_DATA_NOMINA = 'Data nomina revisore';
+    const COL_FILE_SETTORE = 'Settore di attivita';
     const COL_CALC_REGIONE = PREFISSO_COL_CALC + 'regione';
     const COL_CALC_REVISORE = PREFISSO_COL_CALC + 'revisore';
-    /* Le colonne che si vedono senza una scelta, nel loro ordine. Quelle che
+    /* Le colonne che si vedono senza una scelta, nel loro ordine: ..., revisore
+       e data nomina, settore di attivita' (dal file), modalita'. Quelle che
        l'evento non ha (le preferenze fuori dagli eventi manuali, il file dove
        non c'e') si saltano. Nel riepilogo di tutti gli eventi, l'evento al
        posto di modalita'. */
     const COLONNE_DI_BASE = ['b:data', 'b:nome', 'b:azienda', 'b:ruolo', 'b:email', 'b:telefono', 'b:pref',
-        PREFISSO_COL_FILE + COL_FILE_RICAVI, COL_CALC_REGIONE, PREFISSO_COL_FILE + COL_FILE_COMUNE_OP, COL_CALC_REVISORE, 'b:modalita'];
+        PREFISSO_COL_FILE + COL_FILE_RICAVI, COL_CALC_REGIONE, PREFISSO_COL_FILE + COL_FILE_COMUNE_OP, COL_CALC_REVISORE, PREFISSO_COL_FILE + COL_FILE_SETTORE, 'b:modalita'];
     const COLONNE_DI_BASE_TUTTI = ['b:data', 'b:nome', 'b:azienda', 'b:ruolo', 'b:email', 'b:telefono', 'b:evento'];
     function chiaveNomeColonna(s) {
         return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
