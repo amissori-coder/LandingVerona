@@ -16409,8 +16409,10 @@
     const SEZIONI_MODALITA = [
         /* "Aziende in presenza": le aziende ospiti, per distinguerle dalle altre
            due sezioni in sala (aderenti, sponsor e relatori), che in presenza ci
-           sono anche loro. Il nome corto della riga resta "In presenza". */
-        { id: 'presenza', nome: 'Aziende in presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
+           sono anche loro. Il nome corto della riga resta "In presenza", e sopra
+           l'elenco, dentro il riquadro "tutti in presenza", basta "Aziende"
+           (nelRiquadro): ripeterlo li' accanto sarebbe dirlo due volte. */
+        { id: 'presenza', nome: 'Aziende in presenza', nelRiquadro: 'Aziende', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
         { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti', sala: true, dove: 'fra gli aderenti Revilaw', vai: 'Sposta fra gli aderenti Revilaw' },
         { id: 'sponsor', nome: 'Sponsor e relatori', breve: 'sponsor e relatori', sala: true, dove: 'fra sponsor e relatori', vai: 'Sposta fra sponsor e relatori' },
         { id: 'online', nome: 'Online', breve: 'online', sala: false, dove: 'all\'online', vai: 'Sposta online e avvisa' },
@@ -18425,7 +18427,7 @@
             + '<span class="ev-sez-gruppo" role="group" aria-label="Tutti in presenza" '
             + 'title="Aziende, aderenti Revilaw, sponsor e relatori: sono tutti in presenza, in sala">'
             + '<span class="ev-sez-gruppo-tit" aria-hidden="true">tutti in presenza</span>'
-            + SEZIONI_MODALITA.filter(x => x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
+            + SEZIONI_MODALITA.filter(x => x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nelRiquadro || x.nome)).join('')
             + '</span>'
             + SEZIONI_MODALITA.filter(x => !x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
             /* L'attesa della conferma viene DOPO le sezioni vere, ed e' una voce
