@@ -819,8 +819,10 @@ prova('Chi e\' in attesa: che cosa e\' gia\' partito per fargli arrivare la mail
     /* "email da confermare" con i solleciti sta sotto il nome dell'azienda, non nella cella della modalita' */
     const tab = APP.slice(APP.indexOf('function tabellaIscrizioni('), APP.indexOf('function agganciaScorriX('));
     esigi(/const attesa = hintAttesaMailHtml\(ev, r\);/.test(tab) && /const hintM = hintModalitaHtml\(ev, r, md\) \|\| '';/.test(tab), 'l\'attesa e il suggerimento della modalita\' sono due cose');
+    const email = tab.slice(tab.indexOf("celle['b:email']"), tab.indexOf("celle['b:telefono']"));
+    esigi(/emailInterrompibile\(r\.email\) \+ esitoMailDi\(r\) \+ attesa \+ '<\/td>'/.test(email), 'e l\'attesa sta nella cella dell\'email, sotto l\'indirizzo');
     const azienda = tab.slice(tab.indexOf("celle['b:azienda']"), tab.indexOf("celle['b:ruolo']"));
-    esigi(/\+ attesa\s*\n\s*\+ \(t \? '<div class="hint ev-spostato">/.test(azienda), 'e l\'attesa sta nella cella dell\'azienda, sotto il nome, prima dello spostamento');
+    esigi(azienda.indexOf('attesa') < 0, 'e non in quella dell\'azienda');
     const modalita = tab.slice(tab.indexOf('const cellaModalita = segna'), tab.indexOf("celle['b:data']"));
     esigi(modalita.indexOf('hintAttesaMailHtml') < 0 && modalita.indexOf('attesa') < 0, 'e non piu\' in quella della modalita\'');
     /* i solleciti sulla riga, a vista: ogni invio tentato con data e ora, in rosso quello che non e' andato */

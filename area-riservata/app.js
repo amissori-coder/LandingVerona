@@ -18550,9 +18550,9 @@
                partire, oppure - per chi quella sezione se l'e' scelta
                iscrivendosi - da dove viene, che e' anche il motivo per cui non
                c'e' nessun avviso da mandargli. "Email da confermare", con i
-               solleciti (lettera e PEC) e le loro date, sta invece sotto il
-               nome dell'azienda (hintAttesaMailHtml): e' dell'iscrizione, non
-               della modalita', e li' si legge con il nome. */
+               solleciti (lettera e PEC) e le loro date, sta invece sotto
+               l'indirizzo email (hintAttesaMailHtml): e' dell'indirizzo, non
+               della modalita'. */
             const md = modalitaDi(ev, r);
             const attesa = hintAttesaMailHtml(ev, r);
             const hintM = hintModalitaHtml(ev, r, md) || '';
@@ -18600,8 +18600,6 @@
                         ? ', intestato a ' + esc(inv.azienda) : '')
                     + '">' + esc(inv.codice) + '</span>'
                     : '')
-                // sotto il nome: "email da confermare" con i solleciti, poi l'eventuale spostamento d'azienda
-                + attesa
                 + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
                 + '</td>')
                 ((r.extra || {})[COL_SPOSTATO] || '', r.invito);
@@ -18609,7 +18607,8 @@
             /* Accanto all'indirizzo nessun segno di conferma (vedi
                indirizziConfermati): resta solo "mail non inviata", che non
                e' uno stato ma un errore da sistemare. */
-            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + '</td>';
+            // sotto l'indirizzo: "email da confermare" con i solleciti (lettera e PEC) e le loro date
+            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + '</td>';
             celle['b:telefono'] = '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>';
             if (fisse) {
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
