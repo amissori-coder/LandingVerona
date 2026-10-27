@@ -1881,7 +1881,7 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    spenta: "nessun aderente" e' un'informazione, una voce che sparisce e' un
    dubbio. Su schermo stretto scorrono in orizzontale invece di andare a capo:
    restano una riga sola, che e' cio' che le fa leggere come un indice. */
-.ev-sezioni { display: flex; gap: 6px; margin: 0 0 10px; overflow-x: auto; padding-bottom: 2px; }
+.ev-sezioni { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; overflow-x: auto; padding-bottom: 2px; }
 .ev-sez-btn {
     display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap;
     padding: 6px 12px; border: 1px solid var(--grigio-200); border-radius: 999px;
@@ -1890,6 +1890,18 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-sez-btn:hover { border-color: var(--blu-700); color: var(--blu-900); }
 .ev-sez-btn.attiva { background: var(--blu-050); border-color: var(--blu-700); color: var(--blu-900); font-weight: 600; }
 .ev-sez-btn.vuota { opacity: 0.55; }
+/* Le tre sezioni in sala (aziende, aderenti, sponsor e relatori) in un
+   riquadro solo, con la scritta "tutti in presenza": sono tutte in sala, e
+   l'online sta fuori. */
+.ev-sez-gruppo {
+    display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+    padding: 3px 4px 3px 12px; border: 1px solid #c9d8e8; border-radius: 999px;
+    background: var(--blu-100);
+}
+.ev-sez-gruppo-tit {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--blu-700); white-space: nowrap;
+}
 /* "In attesa di conferma mail" e' una voce come le sezioni (si apre e si
    conta, e sta con loro prima dei comandi), ma non e' un posto in sala:
    l'ambra lo dice prima ancora del nome. Accesa resta ambra - nel blu della

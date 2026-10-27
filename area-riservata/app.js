@@ -16407,7 +16407,10 @@
        e qui si conta. Cambiarla da una parte sola vuol dire un contatore a zero. */
     const PORTALE_DESK = 'Desk (QR)';
     const SEZIONI_MODALITA = [
-        { id: 'presenza', nome: 'In presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
+        /* "Aziende in presenza": le aziende ospiti, per distinguerle dalle altre
+           due sezioni in sala (aderenti, sponsor e relatori), che in presenza ci
+           sono anche loro. Il nome corto della riga resta "In presenza". */
+        { id: 'presenza', nome: 'Aziende in presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
         { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti', sala: true, dove: 'fra gli aderenti Revilaw', vai: 'Sposta fra gli aderenti Revilaw' },
         { id: 'sponsor', nome: 'Sponsor e relatori', breve: 'sponsor e relatori', sala: true, dove: 'fra sponsor e relatori', vai: 'Sposta fra sponsor e relatori' },
         { id: 'online', nome: 'Online', breve: 'online', sala: false, dove: 'all\'online', vai: 'Sposta online e avvisa' },
@@ -18413,9 +18416,18 @@
            dire "hai finito" - un conteggio a zero fermo li' si guarda ogni
            volta chiedendosi se manca qualcosa. */
         const daAvvisare = puoAggiungereIscrizioni() ? righeDaAvvisare(ev, tutte).length : 0;
+        /* LE TRE SEZIONI IN SALA STANNO INSIEME, in un riquadro che lo dice:
+           aziende, aderenti Revilaw, sponsor e relatori sono tutti in presenza,
+           e lette una accanto all'altra con l'online sembravano tre modi di
+           partecipare diversi. L'online, e l'attesa della conferma, restano fuori. */
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
-            + SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
+            + '<span class="ev-sez-gruppo" role="group" aria-label="Tutti in presenza" '
+            + 'title="Aziende, aderenti Revilaw, sponsor e relatori: sono tutti in presenza, in sala">'
+            + '<span class="ev-sez-gruppo-tit" aria-hidden="true">tutti in presenza</span>'
+            + SEZIONI_MODALITA.filter(x => x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
+            + '</span>'
+            + SEZIONI_MODALITA.filter(x => !x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
             /* L'attesa della conferma viene DOPO le sezioni vere, ed e' una voce
                come loro (data-sez): si apre, si conta, si svuota da sola quando
                le persone confermano. Solo dove la conferma e' chiesta. */

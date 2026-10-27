@@ -665,7 +665,7 @@ prova('Tutte le sezioni, con la sezione in prima colonna', () => {
     esigi(testa[0] === 'Sezione', 'la prima colonna e\' "Sezione"', testa[0]);
     esigi(righe.length === 6, 'cinque iscrizioni piu\' l\'intestazione: il solo B2B resta fuori', righe.length);
     const sez = righe.slice(1).map(r => r[0]);
-    esigi(sez.join('|') === 'In presenza|In presenza|Aderenti Revilaw|Online|In attesa di conferma mail',
+    esigi(sez.join('|') === 'Aziende in presenza|Aziende in presenza|Aderenti Revilaw|Online|In attesa di conferma mail',
         'nell\'ordine delle voci sopra l\'elenco, l\'attesa per ultima', sez);
     const iEmail = testa.indexOf('Email');
     esigi(!righe.slice(1).some(r => r[iEmail] === e.soloB2B.email), 'nessuna riga dell\'invitato ai soli incontri B2B');
@@ -1058,10 +1058,21 @@ prova('Il CSV legge la conferma dell\'email sull\'elenco intero, come la tabella
     const b = riga({ email: 'mario@azienda.it', emailConfermata: CONFERMATA, modalita: 'b2b', soloB2B: true });
     const righe = A.righeCsvIscrizioni(MILANO, [a, b], id => presenze[id] || null);
     const testa = righe[0], iConf = testa.indexOf('Email confermata');
-    esigi(righe.length === 2 && righe[1][0] === 'In presenza' && righe[1][iConf].indexOf('s\u00ec') === 0,
+    esigi(righe.length === 2 && righe[1][0] === 'Aziende in presenza' && righe[1][iConf].indexOf('s\u00ec') === 0,
         'una riga confermata fra i soli incontri B2B conferma l\'indirizzo anche nel CSV (la riga B2B non si esporta)', JSON.stringify(righe));
     const vista = APP.slice(APP.indexOf('function vistaEventi('), APP.indexOf('function vistaEventi(') + 40000);
     esigi(/const righe = righeCsvIscrizioni\(ev, _evIscrizioni \|\| \[\], id => EventiPresenze\.di\(ev\.id, id\)\);/.test(APP), 'l\'esportazione passa l\'elenco intero');
+});
+
+prova('Sopra l\'elenco: "Aziende in presenza", e le tre sezioni in sala insieme, "tutti in presenza"', () => {
+    esigi(A.SEZIONI_MODALITA.find(x => x.id === 'presenza').nome === 'Aziende in presenza', 'la sezione si chiama "Aziende in presenza"');
+    const FS = APP.slice(APP.indexOf('function filtroSezioniHtml('), APP.indexOf('function righeCsvIscrizioni('));
+    esigi(/<span class="ev-sez-gruppo" role="group" aria-label="Tutti in presenza"/.test(FS) && /tutti in presenza<\/span>'/.test(FS)
+        && /SEZIONI_MODALITA\.filter\(x => x\.sala && !x\.fuoriElenco\)/.test(FS) && /SEZIONI_MODALITA\.filter\(x => !x\.sala && !x\.fuoriElenco\)/.test(FS),
+        'le sezioni in sala in un riquadro "tutti in presenza", l\'online fuori');
+    esigi(A.SEZIONI_MODALITA.filter(x => x.sala).map(x => x.id).join('|') === 'presenza|aderenti|sponsor', 'nel riquadro: aziende, aderenti, sponsor e relatori');
+    const CSS = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'styles.css'), 'utf8');
+    esigi(/\.ev-sez-gruppo \{/.test(CSS) && /\.ev-sez-gruppo-tit \{/.test(CSS), 'con la sua veste');
 });
 
 prova('Le righe della cena si leggono soltanto: niente casella, tendine o menu', () => {
