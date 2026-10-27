@@ -109,6 +109,7 @@ const indirizziCena = daAppJs('indirizziCena');
 const allaCena = daAppJs('allaCena');
 const rigaDellaCena = daAppJs('rigaDellaCena');
 const sezioneElenco = daAppJs('sezioneElenco');
+const ospiteDopoConferma = daAppJs('ospiteDopoConferma');
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {

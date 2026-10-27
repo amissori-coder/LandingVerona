@@ -16790,6 +16790,14 @@
                          nessuno se ne accorga. Non e' fra i "fuori" (non
                          libera nessun posto): si mostra a parte, e si
                          sposta solo se lo si spunta. */
+    /* Chi aspetta la conferma dell'email: confermando, entra in sala come
+       OSPITE? Si', se ha chiesto la presenza e non e' la persona della cena
+       (rigaDellaCena, una riga per una persona): quello, confermando, si
+       mostra fra gli aderenti, e la finestra promette che gli aderenti non
+       si spostano da qui. La stessa regola di sezioneElenco, vista in avanti. */
+    function ospiteDopoConferma(ev, r, lista) {
+        return modalitaDi(ev, r) === 'presenza' && !(partecipantiDi(r) === 1 && rigaDellaCena(ev, r, lista));
+    }
     function confrontoElencoDefinitivo(ev, lista, indirizzi) {
         const dentro = new Set(indirizzi || []);
         const fuori = [];
@@ -16803,7 +16811,7 @@
                aderenti non entrano nel confronto e non si spostano da qui */
             const sez = sezioneElenco(ev, r, lista);
             const e = String(r.email || '').trim().toLowerCase();
-            if (sez === SEZIONE_ATTESA.id && e && !dentro.has(e) && modalitaDi(ev, r) === 'presenza') {
+            if (sez === SEZIONE_ATTESA.id && e && !dentro.has(e) && ospiteDopoConferma(ev, r, lista)) {
                 daConfermare.push({ riga: r, email: e, sezione: sez, motivo: 'email da confermare' });
                 return;
             }
@@ -26447,7 +26455,7 @@
         if (!inSala.length) { toast('Nessun ospite in sala: non c\'e\' niente da confrontare.', 'verde'); return; }
         const posti = inSala.reduce((t, r) => t + partecipantiDi(r), 0);
         // e quanti aspettano la conferma chiedendo la sala: il confronto li guarda a parte
-        const inAttesa = tutte.filter(r => sezioneElenco(ev, r) === SEZIONE_ATTESA.id && modalitaDi(ev, r) === 'presenza').length;
+        const inAttesa = tutte.filter(r => sezioneElenco(ev, r) === SEZIONE_ATTESA.id && ospiteDopoConferma(ev, r)).length;
         apriModale('<h2>Elenco definitivo di chi resta in sala</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">Incolla qui l\'elenco di chi <b>resta in presenza</b>. '
             + 'Il confronto e\' per <b>indirizzo email</b> - l\'unico dato che combacia fra un foglio e un modulo compilato a mano - '

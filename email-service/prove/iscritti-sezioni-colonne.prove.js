@@ -123,7 +123,7 @@ const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalMod
     'righeCsvIscrizioni', 'testoCsv', 'esc', 'dataIscrizioneMs', 'invioConfermaTesto', 'hintAttesaMailHtml',
     // gli iscritti alla cena e al meeting nell'elenco del convegno
     'inSala', 'evHaAderenti', 'aderentiDi', 'indirizziCena', 'allaCena', 'rigaCena', 'righeCena', 'righeElenco', 'firmaCena', 'sezioneElenco', 'hintCenaHtml',
-    'rigaDellaCena', 'emailAderenti', 'righeDaRiconoscere', 'confrontoElencoDefinitivo', 'segnatoInvitoB2B', 'daInvitareB2B', 'iscrittiPerInvitoB2B', 'relatoriEAderenti'];
+    'rigaDellaCena', 'emailAderenti', 'righeDaRiconoscere', 'ospiteDopoConferma', 'confrontoElencoDefinitivo', 'segnatoInvitoB2B', 'daInvitareB2B', 'iscrittiPerInvitoB2B', 'relatoriEAderenti'];
 const sorgente = NOMI.map(n => ritaglia('function ' + n + '(', '{', '}')).join('\n');
 
 /* Le finzioni. Le presenze sono una tabella che ogni scenario riempie;
@@ -988,6 +988,15 @@ prova('Chi si mostra fra gli aderenti e\' un aderente anche per l\'elenco defini
     esigi(!c.fuori.some(x => x.riga === e.ospite) && c.fuori.some(x => x.riga === e.aMano), 'elenco definitivo: l\'ospite alla cena non e\' fra gli ospiti da spostare online, gli altri si');
     const c2 = A.confrontoElencoDefinitivo(MILANO, e.lista, [e.ospite.email]);
     esigi(c2.mancanti.length === 1 && c2.mancanti[0].dove === 'aderenti', 'e se e\' nell\'elenco incollato, si dice che sta fra gli aderenti', JSON.stringify(c2.mancanti));
+    // chi aspetta la conferma ed e' alla cena: confermando va fra gli aderenti, quindi non si propone per l'online
+    const e2 = elencoMilano();
+    conCena(e2, [e2.attesa.email]);
+    const c3 = A.confrontoElencoDefinitivo(MILANO, e2.lista, [e2.ospite.email]);
+    esigi(!c3.daConfermare.some(x => x.riga === e2.attesa), 'elenco definitivo: chi aspetta la conferma ed e\' alla cena non e\' fra quelli da confermare in sala', JSON.stringify(c3.daConfermare.map(x => x.email)));
+    conCena(e2, []);
+    const c4 = A.confrontoElencoDefinitivo(MILANO, e2.lista, [e2.ospite.email]);
+    esigi(c4.daConfermare.some(x => x.riga === e2.attesa), 'senza la cena invece si propone, come prima');
+    conCena(e, [e.ospite.email]);
     const inv = A.iscrittiPerInvitoB2B(MILANO, e.lista);
     esigi(!inv.includes(e.ospite) && inv.includes(e.aMano), 'inviti B2B: l\'aderente della cena non e\' un\'impresa da abbinare');
     esigi(A.relatoriEAderenti(MILANO).some(x => x.email === e.ospite.email && x.sezione === 'aderenti'), 'e fra relatori e aderenti della giornata c\'e\'');
