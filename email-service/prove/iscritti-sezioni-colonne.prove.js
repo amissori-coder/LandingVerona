@@ -387,7 +387,7 @@ prova('Le regioni dalle province: nomi, sigle, varianti', () => {
     esigi(r('Reggio Calabria') === 'Calabria' && r('Reggio di Calabria') === 'Calabria' && r('Bolzano') === 'Trentino-Alto Adige' && r('Bozen') === 'Trentino-Alto Adige' && r('Aosta') === 'Valle d\'Aosta' && r('Aoste') === 'Valle d\'Aosta', 'Reggio Calabria, Bolzano, Aosta');
     esigi(r('Massa-Carrara') === 'Toscana' && r('Massa Carrara') === 'Toscana' && r('Pesaro e Urbino') === 'Marche' && r('Barletta-Andria-Trani') === 'Puglia' && r('Verbano-Cusio-Ossola') === 'Piemonte' && r('Sud Sardegna') === 'Sardegna' && r('Olbia-Tempio') === 'Sardegna', 'le province composte e quelle sarde vecchie');
     esigi(r('Provincia di Torino') === 'Piemonte' && r('Città metropolitana di Napoli') === 'Campania' && r('Roma (RM)') === 'Lazio' && r('Milano (MI)') === 'Lombardia', '"Provincia di", "Città metropolitana di", il nome con la sigla');
-    esigi(r("Provincia dell'Aquila") === 'Abruzzo' && r("L'AQUILA") === 'Abruzzo' && r('Aquila') === 'Abruzzo' && r('Provincia della Spezia') === 'Liguria' && r('Provincia del Verbano-Cusio-Ossola') === 'Piemonte', "\"dell'Aquila\", \"della Spezia\", \"del Verbano\"");
+    esigi(r("Provincia dell'Aquila") === 'Abruzzo' && r("L'AQUILA") === 'Abruzzo' && r('Aquila') === 'Abruzzo' && r('Provincia della Spezia') === 'Liguria' && r('Provincia del Verbano-Cusio-Ossola') === 'Piemonte' && r("Provincia dell'Ogliastra") === 'Sardegna' && r('Prov. di Bergamo') === 'Lombardia', "\"dell'Aquila\", \"della Spezia\", \"del Verbano\", \"dell'Ogliastra\", \"Prov. di\"");
     esigi(r('') === '' && r(null) === '' && r('Atlantide') === '' && r('Lombardia') === '', 'vuoto, sconosciuto o una regione: niente');
     const regioni = {};
     A.EVENTI_DEF.length; // (le costanti ci sono)
@@ -395,6 +395,21 @@ prova('Le regioni dalle province: nomi, sigle, varianti', () => {
     const senza = tutte.filter(sg => !r(sg));
     tutte.forEach(sg => { regioni[r(sg)] = true; });
     esigi(senza.length === 0 && Object.keys(regioni).length === 20, 'tutte le 107 sigle hanno una regione, e le regioni sono venti', senza.join(',') + ' / ' + Object.keys(regioni).length);
+});
+
+prova('Il CSV porta la regione come la tabella', () => {
+    const r1 = riga({ doc: 'c1', datiInvito: [{ c: 'Provincia (sede operativa)', v: 'Milano' }, { c: 'Regione (sede operativa)', v: '' }] });
+    const r2 = riga({ doc: 'c2', datiInvito: [{ c: 'Provincia (sede operativa)', v: 'Torino' }, { c: 'Regione (sede operativa)', v: 'Piemonte' }] });
+    A.metti([r1, r2]);
+    const righe = A.righeCsvIscrizioni(MILANO, [r1, r2], () => null);
+    const testa = righe[0];
+    esigi(testa.filter(x => x === 'Regione (sede operativa)').length === 1, 'la regione nel CSV c\'e\' una volta sola', testa);
+    const i = testa.indexOf('Regione (sede operativa)');
+    esigi(righe[1][i] === 'Lombardia' && righe[2][i] === 'Piemonte', 'il vuoto del file si riempie dalla provincia, come in tabella', [righe[1][i], righe[2][i]]);
+    const r3 = riga({ doc: 'c3', datiInvito: [{ c: 'Provincia (sede operativa)', v: 'BG' }] });
+    A.metti([r3]);
+    const righe3 = A.righeCsvIscrizioni(MILANO, [r3], () => null);
+    esigi(righe3[0].indexOf('Regione (sede operativa)') >= 0 && righe3[1][righe3[0].indexOf('Regione (sede operativa)')] === 'Lombardia', 'senza la colonna nel file, la regione ricavata si aggiunge');
 });
 
 prova('Il nome di un\'intestazione, senza i comandi dentro', () => {
@@ -419,25 +434,31 @@ prova('Spostare una colonna di un posto, e togliere', () => {
 prova('La scelta delle colonne resta fra una sessione e l\'altra', () => {
     archivio.dati = {}; archivio.rotto = false; A.azzeraColonne();
     A.salvaColonneScelte(MILANO, ['b:nome', 'x:Profilo', A.PREFISSO_COL_FILE + 'PEC']);
-    esigi(archivio.dati[A.CHIAVE_COLONNE_EVENTO + MILANO.id] === JSON.stringify(['b:nome', 'x:Profilo', 'file:PEC']),
-        'scritta nello spazio del browser, per evento', archivio.dati);
+    esigi(archivio.dati[A.CHIAVE_COLONNE_EVENTO + MILANO.id] === JSON.stringify({ v: 2, chiavi: ['b:nome', 'x:Profilo', 'file:PEC'] }),
+        'scritta nello spazio del browser, per evento, con il numero di versione', archivio.dati);
     A.azzeraColonne();   // una pagina nuova: la memoria si e' svuotata
     esigi(A.colonneScelteDi(MILANO).join('|') === 'b:nome|x:Profilo|file:PEC', 'e riletta alla prima occhiata');
     esigi(A.colonneScelteDi(NAPOLI).length === 0, 'un altro evento ha la sua (vuota)');
     archivio.dati[A.CHIAVE_COLONNE_EVENTO + 'roma-2026-04-29'] = '{non e\' json';
     esigi(A.colonneScelteDi({ id: 'roma-2026-04-29' }).length === 0, 'un valore rovinato vale "nessuna"');
-    /* una scelta NUOVA senza colonne di base (tolte tutte dal pannello) resta com'e' */
-    archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify(['file:Ricavi (EUR)', 'd:regione', 'x:Profilo']);
+    /* una scelta NUOVA senza colonne di base (tolte tutte dal pannello) resta com'e', anche di sole colonne del file */
+    archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify({ v: 2, chiavi: ['file:Ricavi (EUR)', 'd:regione', 'x:Profilo'] });
     A.azzeraColonne();
     esigi(A.colonneScelteDi(NAPOLI).join('|') === 'file:Ricavi (EUR)|d:regione|x:Profilo', 'una scelta nuova senza colonne di base si rilegge com\'e\'', A.colonneScelteDi(NAPOLI));
-    archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify(['x:Profilo']);
+    archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify({ v: 2, chiavi: ['file:Ricavi (EUR)', 'file:Comune (sede operativa)'] });
     A.azzeraColonne();
-    esigi(A.colonneScelteDi(NAPOLI).join('|') === 'x:Profilo', 'anche con una sola colonna di extra');
-    /* una scelta della versione di prima (solo aggiuntive, senza le colonne di
-       base): le colonne di base davanti, le sue in coda */
+    esigi(A.colonneScelteDi(NAPOLI).join('|') === 'file:Ricavi (EUR)|file:Comune (sede operativa)', 'anche di sole colonne del file (che la versione di prima scriveva uguali: le distingue la forma, non il contenuto)');
+    archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify({ v: 2, chiavi: [] });
+    A.azzeraColonne();
+    esigi(A.colonneScelteDi(NAPOLI).length === 0, '"Colonne di base" salva una scelta vuota, che vale le colonne di base');
+    /* una scelta della versione di prima (un elenco nudo: nomi di extra e "file:"):
+       le colonne di base davanti, le sue in coda */
     archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify(['Profilo', 'file:PEC']);
     A.azzeraColonne();
     esigi(A.colonneScelteDi(NAPOLI).join('|') === A.COLONNE_DI_BASE.join('|') + '|x:Profilo|file:PEC', 'una scelta vecchia si legge ancora: base davanti, le sue in coda', A.colonneScelteDi(NAPOLI));
+    archivio.dati[A.CHIAVE_COLONNE_EVENTO + NAPOLI.id] = JSON.stringify(['file:PEC']);
+    A.azzeraColonne();
+    esigi(A.colonneScelteDi(NAPOLI).join('|') === A.COLONNE_DI_BASE.join('|') + '|file:PEC', 'anche una vecchia di sole colonne del file');
     archivio.rotto = true; A.azzeraColonne();
     let errore = null;
     try { A.salvaColonneScelte(MILANO, ['b:nome', 'x:Profilo']); } catch (e) { errore = e; }

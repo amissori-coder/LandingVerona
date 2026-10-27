@@ -16229,8 +16229,9 @@
         if (!a || a === document.body || !a.closest) return false;
         // il contenitore della vista e' <main id="vista">: cercarlo per classe
         // non troverebbe mai niente, e la guardia direbbe sempre "libero"
-        // il pannello delle colonne sta fuori da #vista (nel corpo della pagina), ma e' della vista
-        if (!a.closest('#vista') && !a.closest('.ev-piu-pannello')) return false;
+        // il pannello delle colonne sta fuori da #vista (nel corpo della pagina), ma e' della vista: chi ci sta dentro sta lavorando
+        if (a.closest('.ev-piu-pannello')) return true;
+        if (!a.closest('#vista')) return false;
         return /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable === true;
     }
     function vistaEventiMantenendoPosto() {
@@ -17342,9 +17343,10 @@
         let k = chiaveProvincia(p);
         if (!k) return '';
         if (REGIONE_DI_PROVINCIA[k]) return REGIONE_DI_PROVINCIA[k];
-        k = k.replace(/^provincia (di |del |della )/, '').replace(/^provincia dell /, 'l ').replace(/^provincia /, '')
-            .replace(/^citta metropolitana (di |del |dell )?/, '');
+        k = k.replace(/^(provincia|citta metropolitana|prov) (di |del |della |dell )?/, '');
         if (REGIONE_DI_PROVINCIA[k]) return REGIONE_DI_PROVINCIA[k];
+        // "dell'Aquila" -> "l aquila": l'articolo si e' portato via la elle
+        if (REGIONE_DI_PROVINCIA['l ' + k]) return REGIONE_DI_PROVINCIA['l ' + k];
         const sigla = (String(p || '').match(/\(([A-Za-z]{2})\)\s*$/) || [])[1];
         if (sigla && REGIONE_DI_PROVINCIA[sigla.toLowerCase()]) return REGIONE_DI_PROVINCIA[sigla.toLowerCase()];
         return '';
@@ -17494,25 +17496,30 @@
        spazio del browser non c'e' (finestra anonima, archivio pieno) si
        ricomincia dalle colonne di base, senza errori. */
     const CHIAVE_COLONNE_EVENTO = 'rvArea.evColonne.';
+    /* Nello spazio del browser sta { v: 2, chiavi: [...] }. La versione di
+       prima salvava un elenco nudo (i nomi di `extra` e "file:..."): un
+       elenco e' quindi una scelta vecchia, qualunque cosa contenga, e si
+       legge con le colonne di base davanti e le sue in coda. */
     function colonneScelteDi(ev) {
         if (!Array.isArray(_evColonne[ev.id])) {
             let salvate = [];
             try {
                 const a = JSON.parse(localStorage.getItem(CHIAVE_COLONNE_EVENTO + ev.id) || '[]');
-                if (Array.isArray(a)) salvate = a.filter(x => typeof x === 'string');
+                const pulisci = l => (Array.isArray(l) ? l : []).filter(x => typeof x === 'string');
+                if (Array.isArray(a)) {
+                    const vecchie = pulisci(a);
+                    salvate = vecchie.length ? colonneDiBaseDi(ev).concat(vecchie.map(k => k.indexOf(PREFISSO_COL_FILE) === 0 ? k : PREFISSO_COL_EXTRA + k)) : [];
+                } else if (a && typeof a === 'object') {
+                    salvate = pulisci(a.chiavi);
+                }
             } catch (e) { salvate = []; }
-            // la versione di prima salvava i nomi di `extra` nudi e "file:...": nessuna chiave con b:, x: o d:
-            const conPrefisso = k => [PREFISSO_COL_BASE, PREFISSO_COL_EXTRA, PREFISSO_COL_CALC].some(pr => k.indexOf(pr) === 0);
-            if (salvate.length && !salvate.some(conPrefisso)) {
-                salvate = colonneDiBaseDi(ev).concat(salvate.map(k => k.indexOf(PREFISSO_COL_FILE) === 0 ? k : PREFISSO_COL_EXTRA + k));
-            }
             _evColonne[ev.id] = salvate;
         }
         return _evColonne[ev.id];
     }
     function salvaColonneScelte(ev, scelte) {
         _evColonne[ev.id] = (scelte || []).filter(x => typeof x === 'string');
-        try { localStorage.setItem(CHIAVE_COLONNE_EVENTO + ev.id, JSON.stringify(_evColonne[ev.id])); } catch (e) { }
+        try { localStorage.setItem(CHIAVE_COLONNE_EVENTO + ev.id, JSON.stringify({ v: 2, chiavi: _evColonne[ev.id] })); } catch (e) { }
     }
     /* Le chiavi di quello che si vede adesso: la scelta, o le colonne di base
        risolte sul catalogo (cosi' spostare una colonna parte da un ordine vero). */
@@ -17589,12 +17596,13 @@
     /* Il pannello sta nel corpo della pagina, a posizione fissa sotto il
        pulsante: dentro il riquadro che scorre verrebbe tagliato. Si chiude
        con la sua x, con Esc, o cliccando fuori. */
-    function apriPannelloColonne(ev, tutte) {
+    function apriPannelloColonne(ev, tutte, opz) {
         if (_evPannelloColonne) { try { _evPannelloColonne.stacca(); } catch (e) { } _evPannelloColonne = null; }
         // il "+" che si vede: quello in cima alla tabella, o quello sopra la legenda quando l'intestazione e' nascosta
         const bottoni = Array.from($vista().querySelectorAll('.ev-piu'));
-        const bottone = bottoni.find(b => b.offsetWidth > 0 && b.offsetHeight > 0) || bottoni[0];
-        if (!bottone) return;
+        if (!bottoni.length) return;
+        const bottoneVisibile = () => bottonePiuVisibile() || bottoni[0];
+        let bottone = bottoneVisibile();
         const box = document.createElement('div');
         box.className = 'ev-piu-pannello';
         box.setAttribute('role', 'dialog');
@@ -17602,20 +17610,26 @@
         box.innerHTML = pannelloColonneHtml(ev, tutte);
         document.body.appendChild(box);
         /* sotto il pulsante se c'e' posto, altrimenti sopra: mai fuori dalla
-           finestra, perche' a posizione fissa quello che esce non si raggiunge */
+           finestra, perche' a posizione fissa quello che esce non si raggiunge.
+           Con il pulsante fuori dalla finestra (la pagina scorsa, la finestra
+           stretta) il pannello sta in alto a destra, alto quanto la finestra. */
         const posiziona = () => {
+            bottone = bottoneVisibile();
             const r = bottone.getBoundingClientRect();
-            const larg = Math.min(560, window.innerWidth - 24);
-            let sinistra = Math.min(r.right - larg, window.innerWidth - larg - 12);
+            const vh = window.innerHeight, vw = window.innerWidth;
+            const larg = Math.min(560, vw - 24);
+            const inVista = r.width > 0 && r.bottom > 0 && r.top < vh;
+            let sinistra = inVista ? Math.min(r.right - larg, vw - larg - 12) : vw - larg - 12;
             if (sinistra < 12) sinistra = 12;
             box.style.left = sinistra + 'px';
             box.style.width = larg + 'px';
-            const sotto = window.innerHeight - r.bottom - 18, sopra = r.top - 18;
+            if (!inVista) { box.style.maxHeight = (vh - 24) + 'px'; box.style.top = '12px'; return; }
+            const sotto = vh - r.bottom - 18, sopra = r.top - 18;
             if (sotto >= 240 || sotto >= sopra) {
-                box.style.maxHeight = Math.max(120, sotto) + 'px';
-                box.style.top = Math.max(12, Math.min(r.bottom + 6, window.innerHeight - 132)) + 'px';
+                box.style.maxHeight = Math.max(120, Math.min(sotto, vh - 24)) + 'px';
+                box.style.top = Math.max(12, Math.min(r.bottom + 6, vh - 132)) + 'px';
             } else {
-                box.style.maxHeight = Math.max(120, sopra) + 'px';
+                box.style.maxHeight = Math.max(120, Math.min(sopra, vh - 24)) + 'px';
                 box.style.top = Math.max(12, r.top - 6 - box.offsetHeight) + 'px';
             }
         };
@@ -17623,7 +17637,7 @@
         _evColonneAperte[ev.id] = true;
         bottoni.forEach(b => b.setAttribute('aria-expanded', 'true'));
         const fuori = e => { if (box.contains(e.target) || (e.target.closest && e.target.closest('.ev-piu'))) return; chiudiPannelloColonne(ev); };
-        const tasto = e => { if (e.key === 'Escape') { chiudiPannelloColonne(ev); try { bottone.focus(); } catch (x) { } } };
+        const tasto = e => { if (e.key === 'Escape') { const b = bottoneVisibile(); chiudiPannelloColonne(ev); try { b.focus({ preventScroll: true }); } catch (x) { } } };
         document.addEventListener('pointerdown', fuori, true);
         document.addEventListener('keydown', tasto);
         window.addEventListener('resize', posiziona);
@@ -17671,15 +17685,31 @@
         const base = box.querySelector('.ev-col-base');
         if (base) base.addEventListener('click', () => cambia([], bx => bx.querySelector('.ev-col-base')));
         const chiudi = box.querySelector('.ev-piu-chiudi');
-        if (chiudi) chiudi.addEventListener('click', () => { chiudiPannelloColonne(ev); try { bottone.focus(); } catch (e) { } });
+        if (chiudi) chiudi.addEventListener('click', () => { const b = bottoneVisibile(); chiudiPannelloColonne(ev); try { b.focus({ preventScroll: true }); } catch (e) { } });
+        /* da tastiera il fuoco entra nel pannello (la prima casella): sta in fondo
+           alla pagina, e il tabulatore dal "+" finirebbe nelle righe della tabella */
+        if (opz && opz.fuoco) { const prima = box.querySelector('.ev-col, button'); if (prima) { try { prima.focus({ preventScroll: true }); } catch (e) { } } }
+    }
+    // il "+" che si vede adesso: quello in cima alla tabella, o "+ Colonne" sopra la legenda quando l'intestazione e' nascosta
+    function bottonePiuVisibile() {
+        return Array.from($vista().querySelectorAll('.ev-piu')).find(b => b.offsetWidth > 0 && b.offsetHeight > 0) || null;
     }
     /* Le frecce sulle intestazioni: una colonna un posto a sinistra o a destra,
        con un clic; la x la toglie. Si ridisegna tenendo il posto, e il fuoco
        torna sulla stessa freccia della stessa colonna. */
     function agganciaColonneTabella(ev, tutte) {
-        $vista().querySelectorAll('.ev-piu').forEach(bottone => bottone.addEventListener('click', () => {
-            if (_evPannelloColonne) chiudiPannelloColonne(ev); else apriPannelloColonne(ev, tutte);
-        }));
+        $vista().querySelectorAll('.ev-piu').forEach(bottone => {
+            // e.detail = 0: attivato da tastiera (Invio, spazio); allora il fuoco entra nel pannello
+            bottone.addEventListener('click', e => {
+                if (_evPannelloColonne) chiudiPannelloColonne(ev); else apriPannelloColonne(ev, tutte, { fuoco: !e.detail });
+            });
+            // il tabulatore dal "+" con il pannello aperto va nel pannello, non nelle righe
+            bottone.addEventListener('keydown', e => {
+                if (e.key !== 'Tab' || e.shiftKey || !_evPannelloColonne) return;
+                const prima = _evPannelloColonne.box.querySelector('.ev-col, button');
+                if (prima) { e.preventDefault(); try { prima.focus({ preventScroll: true }); } catch (x) { } }
+            });
+        });
         const muovi = (chiavi, ritrova) => {
             if (!chiavi) return;
             salvaColonneScelte(ev, chiavi);
@@ -17697,7 +17727,7 @@
         $vista().querySelectorAll('.ev-th-togli').forEach(b => b.addEventListener('click', () => {
             const k = b.dataset.chiave;
             const resto = chiaviColonneViste(ev, tutte).filter(x => x !== k);
-            muovi(resto.length ? resto : null, () => $vista().querySelector('.ev-piu'));
+            muovi(resto.length ? resto : null, () => bottonePiuVisibile());
         }));
         if (_evColonneAperte[ev.id]) apriPannelloColonne(ev, tutte);
     }
@@ -18310,15 +18340,18 @@
             .concat(ev.tutti ? ['Evento'] : [])
             .concat(extra);
         const usati = testa.concat(coda).map(x => x.toLowerCase());
-        const nomiFile = file.map(c => usati.indexOf(c.toLowerCase()) >= 0 ? c + ' (file)' : c);
-        // la regione della sede operativa ricavata dalla provincia: anche nel CSV, dopo le colonne del file
-        const regione = colonneCalcolateDi(file).find(c => c.chiave === COL_CALC_REGIONE && !c.fonte.regione) || null;
-        if (regione) nomiFile.push(regione.nome);
+        /* la regione della sede operativa come in tabella: quella calcolata
+           (la sua dove c'e', dalla provincia dove manca) al posto della colonna
+           nuda del file, dopo le altre colonne del file */
+        const regione = colonneCalcolateDi(file).find(c => c.chiave === COL_CALC_REGIONE) || null;
+        const fileEsportate = regione && regione.fonte.regione ? file.filter(c => c !== regione.fonte.regione) : file;
+        const nomiFileEsportate = fileEsportate.map(c => usati.indexOf(c.toLowerCase()) >= 0 ? c + ' (file)' : c);
+        if (regione) nomiFileEsportate.push(regione.nome);
         const ordine = SEZIONI_MODALITA.filter(x => !x.fuoriElenco).map(x => x.id).concat([SEZIONE_ATTESA.id]);
         const voci = tutte.map((r, i) => ({ r: r, i: i, s: conSezioni ? sezioneVista(ev, r, lista) : '' }));
         if (conSezioni) voci.sort((a, b) => (ordine.indexOf(a.s) - ordine.indexOf(b.s)) || (a.i - b.i));
         const testo = v => v == null ? '' : String(v);
-        return [testa.concat(nomiFile).concat(coda)].concat(voci.map(x => {
+        return [testa.concat(nomiFileEsportate).concat(coda)].concat(voci.map(x => {
             const r = x.r, e = r.extra || {}, p = pres(r.id);
             const c = confermaEmailDi(r, lista);
             const conferma = !String(r.email || '').trim() ? ''
@@ -18329,7 +18362,7 @@
                 .concat(fisse ? [testo(e.Portale) || 'Sito NGB', String(partecipantiDi(r)), testo(e[COL_B2B_PRENOTATI]), testo(e[COL_PREF_ISCRIZIONE])] : [])
                 .concat(ev.tutti ? [nomeEventoDa(r.pagina)] : [])
                 .concat(extra.map(k => testo(e[k])))
-                .concat(file.map(k => valoreFileDi(r, k)))
+                .concat(fileEsportate.map(k => valoreFileDi(r, k)))
                 .concat(regione ? [valoreColonnaDi(r, regione)] : [])
                 .concat(conSezioni ? [NOMI_MODALITA[modalitaDi(ev, r)] || '', p.stato ? (NOMI_STATO[p.stato] || p.stato) : '',
                     testo(p.nota), aggiornatoDaDi(p, r)] : []);

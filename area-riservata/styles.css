@@ -2564,7 +2564,7 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 /* con il menu della riga aperto la sua cella sale sopra quelle delle righe
    sotto (ognuna e' un livello suo, perche' appiccicata): altrimenti il menu
    ci finirebbe dietro, coperto dai pulsanti delle righe seguenti */
-.ev-wrap table.dati td.ev-azioni.ev-menu-aperto { z-index: 5; }
+.ev-wrap table.dati td.ev-azioni.ev-menu-aperto { z-index: 8; }   /* sopra anche la barra che segue (6) */
 /* il "+" sopra la legenda: solo dove l'intestazione della tabella e' nascosta (le schede, fino a 1200px) */
 .ev-piu.ev-piu-fuori { display: none; width: auto; height: 26px; border-radius: 13px; padding: 0 10px; font-size: 0.82rem; font-weight: 600; align-items: center; }
 @media screen and (max-width: 1200px) { .ev-piu.ev-piu-fuori { display: inline-flex; } }
