@@ -116,7 +116,7 @@ function finestra(righe, verso, attese, opz) {
         quotaCenaMeeting: () => (opz.cena === false || opz.cenaNonLetta) ? null : CENA,
         allaCena: (ev, r) => (opz.giaCena || []).indexOf(r.id) >= 0,
         cenaDaSpostamento: (ev, r) => (opz.cenaSpostati || []).indexOf(r.id) >= 0 ? {} : null,
-        caricaAderenti: () => { },
+        caricaAderenti: () => { }, _evIscrizioni: righe,
         SITO_PUBBLICO: 'https://nextgenerationbusiness.it'
     };
     const COSTANTI = ritaglia('const SEZIONI_MODALITA = [', '[', ']') + ';\n' + ritaglia('const SEZIONE_ATTESA = {', '{', '}') + ';\n';

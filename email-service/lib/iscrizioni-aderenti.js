@@ -505,14 +505,29 @@ async function iscriviDaSpostamento(db, evento, persone, opz) {
     const visti = new Set();
     for (const p of persone || []) {
         const email = testo(p.email, 200).toLowerCase();
-        if (!indirizzoValido(email) || visti.has(email)) continue;
+        if (!indirizzoValido(email)) continue;
+        // la seconda riga con lo stesso indirizzo non e' un'altra persona da contare: si segna e basta
+        const ripetuto = visti.has(email);
         visti.add(email);
         const rif = db.collection(COLLEZIONE).doc(idScheda(q.id, email));
         const ora = Date.now();
         try {
             const nuova = await db.runTransaction(async t => {
                 const s = await t.get(rif);
-                if (s.exists) return false;
+                if (s.exists) {
+                    /* Gia' iscritta. Se la scheda e' nata da uno spostamento, si
+                       segna anche questa riga del convegno (stesso indirizzo, un
+                       altro posto dello stesso ordine o un doppione): la scheda
+                       si toglie solo quando escono dagli aderenti tutte. */
+                    const v = s.data() || {};
+                    const ds = v.daSpostamento;
+                    const id = testo(p.idIscritto, 300);
+                    if (ds && id) {
+                        const righe = righeDelloSpostamento(ds);
+                        if (righe.indexOf(id) < 0) t.update(rif, { 'daSpostamento.righe': righe.concat([id]) });
+                    }
+                    return false;
+                }
                 t.set(rif, {
                     nome: testo(p.nome, 80), cognome: testo(p.cognome, 80), email: email,
                     telefono: testo(p.telefono, 40), studio: testo(p.azienda, 160), citta: '',
@@ -526,12 +541,13 @@ async function iscriviDaSpostamento(db, evento, persone, opz) {
                     origine: 'spostamento',
                     daSpostamento: {
                         quando: ora, da: testo((opz || {}).da, 200),
-                        idIscritto: testo(p.idIscritto, 300), doc: testo(p.doc, 400)
+                        idIscritto: testo(p.idIscritto, 300), doc: testo(p.doc, 400),
+                        righe: [testo(p.idIscritto, 300)].filter(Boolean)
                     }
                 });
                 return true;
             });
-            if (nuova) out.iscritti++; else out.gia++;
+            if (nuova) out.iscritti++; else if (!ripetuto) out.gia++;
         } catch (e) {
             out.falliti++;
             console.error('Iscrizione a cena e meeting dallo spostamento non scritta:', String((e && e.message) || e).slice(0, 150));
@@ -539,25 +555,45 @@ async function iscriviDaSpostamento(db, evento, persone, opz) {
     }
     return out;
 }
+// le righe del convegno che tengono in piedi la scheda (le schede di prima ne avevano una sola)
+function righeDelloSpostamento(ds) {
+    if (Array.isArray(ds.righe)) return ds.righe.map(x => String(x || '')).filter(Boolean);
+    return ds.idIscritto ? [String(ds.idIscritto)] : [];
+}
 /* Chi esce dagli aderenti esce anche da cena e meeting, ma solo se ci era
    entrato con lo spostamento e la fattura non e' ancora emessa: chi si e'
    iscritto da se' dalla pagina lo ha chiesto lui, e una fattura emessa non
-   si cancella togliendo una riga. */
-async function togliDaSpostamento(db, evento, emails) {
+   si cancella togliendo una riga. E solo quando escono TUTTE le righe del
+   convegno con quell'indirizzo che ce lo avevano messo: due posti dello
+   stesso ordine con la stessa email sono una scheda sola, e se ne esce uno
+   l'altro resta iscritto.
+   `persone`: [{ email, idIscritto }] (o, come prima, solo gli indirizzi). */
+async function togliDaSpostamento(db, evento, persone) {
     const q = quotaDellEvento(evento);
     const out = { tolti: 0, tenuti: 0 };
     if (!q) return null;
-    const visti = new Set();
-    for (const e of emails || []) {
-        const email = testo(e, 200).toLowerCase();
-        if (!email || visti.has(email)) continue;
-        visti.add(email);
+    const escono = {};
+    for (const x of persone || []) {
+        const email = testo(typeof x === 'string' ? x : (x && x.email), 200).toLowerCase();
+        if (!email) continue;
+        (escono[email] = escono[email] || []);
+        const id = typeof x === 'string' ? '' : testo(x.idIscritto, 300);
+        if (id) escono[email].push(id);
+    }
+    for (const email of Object.keys(escono)) {
         const rif = db.collection(COLLEZIONE).doc(idScheda(q.id, email));
         try {
             const s = await rif.get();
             if (!s.exists) continue;
             const v = s.data() || {};
             if (!v.daSpostamento || (v.fattura && v.fattura.emessa)) { out.tenuti++; continue; }
+            const ids = escono[email];
+            const restano = ids.length ? righeDelloSpostamento(v.daSpostamento).filter(r => ids.indexOf(r) < 0) : [];
+            if (restano.length) {
+                await rif.update({ 'daSpostamento.righe': restano });
+                out.tenuti++;
+                continue;
+            }
             await rif.delete();
             out.tolti++;
         } catch (err) {
