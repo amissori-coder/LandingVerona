@@ -384,6 +384,33 @@ async function confermeDaSpostamento(db, dest, primaDi, opz) {
     }
     return { confermate: confermate, daInvitare: daInvitare, nonConfermate: nonConfermate, restanti: restanti };
 }
+/* Le schede del convegno degli spostati, lette insieme: i dati della persona
+   per l'iscrizione a cena e meeting (lib/iscrizioni-aderenti.js,
+   iscriviDaSpostamento). Le righe senza scheda e le annullate restano fuori. */
+async function personeSpostate(db, dest) {
+    const voci = [];
+    const visti = new Set();
+    for (const d of dest) {
+        const docId = d.doc || idIscrizione(d.id);
+        if (!docId || visti.has(docId)) continue;
+        visti.add(docId);
+        voci.push({ id: d.id, docId: docId });
+    }
+    const out = [];
+    for (let i = 0; i < voci.length; i += 300) {
+        const fetta = voci.slice(i, i + 300);
+        const letti = await db.getAll.apply(db, fetta.map(v => db.collection('iscrizioni').doc(v.docId)));
+        letti.forEach((s, k) => {
+            const v = (s && s.exists) ? (s.data() || {}) : null;
+            if (!v || v.annullato || !emailValida(String(v.email || '').trim().toLowerCase())) return;
+            out.push({
+                email: String(v.email).trim().toLowerCase(), nome: v.nome || '', cognome: v.cognome || '',
+                telefono: v.telefono || '', azienda: v.azienda || '', idIscritto: fetta[k].id, doc: fetta[k].docId
+            });
+        });
+    }
+    return out;
+}
 /* Gli inviti in PDF di chi e' confermato dallo spostamento, uno per scheda,
    dentro il tempo della funzione: chi resta fuori si conta, e "Rimanda
    l'invito in PDF" dal menu della riga (che rifa' lo spostamento nella stessa
@@ -1649,6 +1676,23 @@ module.exports = async (req, res) => {
                 if (invitiEsito.inviati || invitiEsito.falliti.length) await segnaCambiamento(db);
             }
 
+            /* CENA E MEETING DEGLI ADERENTI (Milano 2027). Chi entra fra gli
+               aderenti e' iscritto anche alla cena e al meeting della quota del
+               suo evento, con la fattura da emettere; chi ne esce ne esce, se
+               ci era entrato con lo spostamento e la fattura non e' emessa
+               (lib/iscrizioni-aderenti.js). Prima degli avvisi: l'avviso agli
+               aderenti lo dice, e deve essere vero quando arriva. */
+            let cena = null;
+            const AD = moduloAderenti();
+            if (AD.quotaDellEvento(evento)) {
+                if (nuova === 'aderenti') {
+                    cena = await AD.iscriviDaSpostamento(db, evento, await personeSpostate(db, dest), { da: email });
+                } else {
+                    const usciti = dest.filter(d => (primaDi[d.id] || {}).modalita === 'aderenti');
+                    if (usciti.length) cena = await AD.togliDaSpostamento(db, evento, (await personeSpostate(db, usciti)).map(p => p.email));
+                }
+            }
+
             let mailEsito = null;
             if (m) {
                 const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
@@ -1726,7 +1770,7 @@ module.exports = async (req, res) => {
                 };
             }
             res.status(200).json({
-                ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito,
+                ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito, cena: cena,
                 conferme: conferme ? {
                     confermate: conferme.confermate.length, righe: conferme.confermate.slice(0, 300),
                     nonConfermate: conferme.nonConfermate + conferme.restanti,

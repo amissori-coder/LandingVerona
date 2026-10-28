@@ -83,6 +83,7 @@ const db = {
                         };
                     },
                     async set(patch) { fondi(coll, id, patch); },
+                    async delete() { delete dati[chiave(coll, id)]; ordine.push({ tipo: 'cancellazione', coll: coll, id: id }); },
                     // come Firestore: update su un documento che non c'e' e' un errore
                     async update(patch) {
                         if (!Object.prototype.hasOwnProperty.call(dati, chiave(coll, id))) throw new Error('documento inesistente: ' + id);
@@ -993,6 +994,55 @@ prova('Milano: l\'invito partito a un indirizzo vecchio non vale per quello nuov
     spedite = [];
     await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
     esigi(spedite.length === 0, 'un invito senza indirizzo vale per quello della scheda: non riparte');
+});
+
+/* ---------- CENA E MEETING: CHI ENTRA FRA GLI ADERENTI CI VIENE ISCRITTO ----------
+   A Milano gli aderenti hanno la cena del 26 e il meeting del 27, a
+   pagamento (lib/iscrizioni-aderenti.js). Lo spostamento fra gli aderenti
+   iscrive anche li', con la fattura da emettere e i dati per la fattura da
+   chiedere; uscendo, l'iscrizione nata dallo spostamento si toglie se la
+   fattura non e' emessa. */
+const CENA_DI = email => dati[chiave('iscrizioniAderenti', ('milano-2027-aderenti~' + email).replace(/[\/\\.#$\[\]]/g, '-'))] || null;
+
+prova('Milano: fra gli aderenti si e\' iscritti anche a cena e meeting', async () => {
+    scenarioMilano();
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, MI_CLIC] });
+    esigi(r.corpo.ok === true && r.corpo.cena && r.corpo.cena.iscritti === 2, 'due iscrizioni a cena e meeting', JSON.stringify(r.corpo.cena));
+    const c = CENA_DI('alda@attesa.it') || {};
+    esigi(c.quota === 'milano-2027-aderenti' && c.origine === 'spostamento' && c.nome === 'Alda' && c.cognome === 'Attesa' && c.studio === 'Alfa S.p.A.',
+        'con i dati della persona e l\'azienda', JSON.stringify(c).slice(0, 200));
+    esigi((c.importi || {}).totale === 244 && !(c.fatturazione || {}).intestatario && c.daSpostamento && c.daSpostamento.da === 'milano@esempio.it',
+        'la quota, la fattura da emettere, i dati per la fattura da chiedere, e chi l\'ha fatto');
+    esigi(!spedite.some(m => /Iscrizione registrata/.test(m.subject || '')), 'nessuna mail di "iscrizione registrata": lo dice l\'avviso dello spostamento');
+    const r2 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r2.corpo.cena.iscritti === 0 && r2.corpo.cena.gia === 1, 'spostando di nuovo non nasce una seconda iscrizione');
+});
+
+prova('Milano: chi a cena e meeting si era iscritto da se\' non si tocca', async () => {
+    scenarioMilano();
+    const k = chiave('iscrizioniAderenti', 'milano-2027-aderenti~alda@attesa-it');
+    dati[k] = { quota: 'milano-2027-aderenti', email: 'alda@attesa.it', nome: 'Alda', origine: '', fatturazione: { intestatario: 'Studio Alda' } };
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r.corpo.cena.gia === 1 && dati[k].fatturazione.intestatario === 'Studio Alda' && !dati[k].daSpostamento, 'la sua iscrizione resta com\'era');
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA] });
+    esigi(!!dati[k], 'e uscendo dagli aderenti non si toglie: l\'aveva chiesta lui');
+});
+
+prova('Milano: uscendo dagli aderenti l\'iscrizione dello spostamento si toglie, se non fatturata', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, MI_CLIC] });
+    // a Carlo la fattura e' gia' stata emessa
+    const kc = chiave('iscrizioniAderenti', 'milano-2027-aderenti~carlo@clic-it');
+    dati[kc] = Object.assign({}, dati[kc], { fattura: { emessa: true, numero: '12' } });
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA, MI_CLIC] });
+    esigi(r.corpo.cena && r.corpo.cena.tolti === 1 && r.corpo.cena.tenuti === 1, 'una tolta, una tenuta', JSON.stringify(r.corpo.cena));
+    esigi(!CENA_DI('alda@attesa.it') && !!CENA_DI('carlo@clic.it'), 'si toglie quella non fatturata; una fattura emessa non si cancella con uno spostamento');
+});
+
+prova('Fuori da Milano non c\'e\' nessuna cena', async () => {
+    scenarioMilano();
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'aderenti', destinatari: [NA_ATTESA] });
+    esigi(r.corpo.ok === true && r.corpo.cena === null, 'l\'evento senza quota non iscrive a niente');
 });
 
 (async () => {

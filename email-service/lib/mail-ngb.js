@@ -1053,6 +1053,8 @@ function euroIt(n) {
 }
 const ET_NOTE_CENA = 'Note (allergie, intolleranze, altre indicazioni)';
 const MAIL_KO_ADERENTE = 'La mail all\'iscritto con quota e dati di fatturazione NON è partita: scrivigli tu.';
+// iscritto a cena e meeting spostandolo fra gli aderenti dall'area riservata: i dati li manda lui, dalla pagina
+const DATI_DA_CHIEDERE = 'Dati di fatturazione non ancora inviati: iscritto spostandolo fra gli aderenti, li completa dalla pagina riservata.';
 function fatturaRighe(f) {
     f = f || {};
     return [
@@ -1107,6 +1109,7 @@ function bloccoAderente(p, nota, cambiati) {
         + (cambiati ? '<br><span style="color:' + C.accento + ';">' + esc(cambiati) + '</span>' : '')
         + (p.mailNonPartita ? '<br><b style="color:#B42318;">' + esc(MAIL_KO_ADERENTE) + '</b>' : '')
         + '<br><br><span style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:' + C.accento + ';font-weight:bold;">Dati per la fattura</span>'
+        + (p.datiFatturaMancanti ? '<br><b style="color:#B42318;">' + esc(DATI_DA_CHIEDERE) + '</b>' : '')
         + fatturaRighe(p.fatturazione).map(x => '<br>' + et(x[0]) + '<b>' + esc(x[1]) + '</b>').join('')
         + '<br>' + et('Quota') + '<b>' + esc(euroIt(p.totale)) + ' IVA inclusa</b>' + (p.fatturaEmessa ? ' &middot; fattura già emessa' : '')
         + '<br>' + et(ET_NOTE_CENA) + (p.note ? '<b>' + esc(p.note) + '</b>' : '<span style="color:' + C.tenue + ';">nessuna</span>')
@@ -1118,7 +1121,7 @@ function testoAderente(p, nota, cambiati) {
         + '\n  ' + [p.email, p.telefono].filter(Boolean).join(' - ')
         + (cambiati ? '\n  ' + cambiati : '')
         + (p.mailNonPartita ? '\n  ' + MAIL_KO_ADERENTE : '')
-        + '\n  Fattura: ' + fatturaRighe(p.fatturazione).map(x => x[0] + ' ' + x[1]).join('; ')
+        + '\n  Fattura: ' + (p.datiFatturaMancanti ? DATI_DA_CHIEDERE + ' ' : '') + fatturaRighe(p.fatturazione).map(x => x[0] + ' ' + x[1]).join('; ')
         + '\n  Quota: ' + euroIt(p.totale) + ' IVA inclusa' + (p.fatturaEmessa ? ' (fattura già emessa)' : '')
         + '\n  ' + ET_NOTE_CENA + ': ' + (p.note || 'nessuna');
 }

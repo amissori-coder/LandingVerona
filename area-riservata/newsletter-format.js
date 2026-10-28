@@ -2841,9 +2841,15 @@
        Non promette l'invito in PDF: lo ricevono a parte, subito, solo
        quelli confermati d'ufficio (gli altri lo hanno gia', o non l'hanno
        mai avuto perche' iscritti a mano o da un altro portale).
-       Niente cena e meeting, niente quota: la sezione "aderenti" del
-       convegno non e' l'iscrizione a pagamento degli aderenti. Niente
-       lista d'attesa: chi entra qui sta in sala.
+       CENA E MEETING (solo aderenti, `dati.cenaMeeting`): lo spostamento
+       fra gli aderenti iscrive anche alla cena e al meeting della quota
+       dell'evento, a pagamento (lib/iscrizioni-aderenti.js,
+       iscriviDaSpostamento). La mail lo dice, con le date e la quota, e
+       chiede i dati per la fattura dalla pagina riservata - dove, con lo
+       stesso indirizzo, l'iscrizione si aggiorna. Detto per tutti: chi li
+       aveva gia' mandati lo legge come un "se non l'ha gia' fatto".
+       `dati.cenaMeeting`: { voci: [{cosa, quando}], importi: {imponibile,
+       totale}, url }. Niente lista d'attesa: chi entra qui sta in sala.
        Registro formale, come l'avviso del passaggio online; testata,
        fascia e piede sono quelli degli inviti B2B, con la riga del perche'
        al Lei dei promemoria.
@@ -2862,10 +2868,14 @@
         const s = SEZIONI_AVVISO[dati.verso];
         if (!s) return null;
         const ev = dati.evento || {};
+        const cm = dati.verso === 'aderenti' && dati.cenaMeeting && Array.isArray(dati.cenaMeeting.voci) ? dati.cenaMeeting : null;
+        const euroIt = n => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        const quotaCm = cm && cm.importi ? euroIt(cm.importi.imponibile) + ' + IVA (' + euroIt(cm.importi.totale) + ' IVA inclusa)' : '';
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'La Sua iscrizione: ' + s.oggetto + ' - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'La Sua iscrizione è registrata ' + s.dove + ': ha un posto riservato in sala e non deve fare nulla.';
+        const anteprima = 'La Sua iscrizione è registrata ' + s.dove + ': ha un posto riservato in sala'
+            + (cm ? ', e comprende anche cena e meeting degli aderenti.' : ' e non deve fare nulla.');
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + '. La Sua iscrizione è stata registrata ' + s.dove + '.';
         const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(', ');
@@ -2874,18 +2884,23 @@
             ['Data', ev.quando],
             ['Sede', dove],
             ['Partecipazione', s.partecipazione],
-            ['Iscrizione', 'Confermata, nessuna azione richiesta']
-        ].filter(v => v[1]);
+            ['Iscrizione', cm ? 'Confermata' : 'Confermata, nessuna azione richiesta']
+        ].concat(cm ? cm.voci.map(v => [v.cosa, v.quando]).concat([['Quota', quotaCm]]) : []).filter(v => v[1]);
         const riga = (et, val) => '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
             + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>';
         const box = '<table role="presentation" class="bx" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:16px 22px;">' + tabellaInterna(voci.map(v => riga(v[0], v[1])).join('')) + '</td></tr></table>';
 
+        // con cena e meeting una cosa da fare c'e' (i dati per la fattura): "nient'altro" non si dice
         const P1 = 'Parteciperà ai lavori in sala ' + s.dove + ': il Suo posto in sala è riservato. '
-            + 'Non deve iscriversi di nuovo né segnalarci altro.';
+            + (cm ? 'Non deve iscriversi di nuovo.' : 'Non deve iscriversi di nuovo né segnalarci altro.');
         const P2 = 'La Sua iscrizione è confermata. Se in precedenza ha ricevuto una mail che Le chiedeva di confermare il Suo indirizzo email, '
             + 'non è più necessario: può ignorarla.';
+        const P_CENA = cm ? 'Come aderente Revilaw, la Sua iscrizione comprende anche la cena e il meeting degli aderenti indicati qui sopra'
+            + (quotaCm ? ', con la quota di partecipazione di ' + quotaCm : '') + ': per questi riceverà la fattura.' : '';
+        const P_FATT = cm && cm.url ? 'Se non ci ha già comunicato i dati per la fattura, La preghiamo di indicarli dalla pagina riservata agli aderenti, '
+            + 'con questo stesso indirizzo email: la Sua iscrizione si aggiorna da sola.' : '';
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
@@ -2894,6 +2909,9 @@
             + '<tr><td>' + box + '</td></tr>'
             + spazio(26)
             + par(P2)
+            + (P_CENA ? spazio(22) + par(P_CENA) : '')
+            + (P_FATT ? spazio(22) + par(P_FATT) + spazio(18)
+                + '<tr><td>' + pulsante('Completa i dati per la fattura', cm.url) + '</td></tr>' : '')
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
             + 'Se i Suoi dati sono da correggere, o se preferisce rinunciare, può farlo dal '
@@ -2905,7 +2923,7 @@
 
         const testo = ['ISCRIZIONE AGGIORNATA', sommario, P1,
             voci.map(v => v[0] + ': ' + v[1]).join('\n'),
-            P2,
+            P2, P_CENA, P_FATT ? P_FATT + '\n' + cm.url : '',
             'Per correggere i Suoi dati o rinunciare: ' + SEGNAPOSTO_COMPLETA,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA,

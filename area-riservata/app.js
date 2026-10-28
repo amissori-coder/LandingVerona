@@ -22879,6 +22879,27 @@
     function euroAd(n) {
         return Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
     }
+    /* CENA E MEETING NELLO SPOSTAMENTO FRA GLI ADERENTI. Chi entra fra gli
+       aderenti e' iscritto anche alla cena e al meeting della quota del suo
+       evento (il servizio: sposta-modalita, iscriviDaSpostamento); l'avviso lo
+       dice con le date, la quota e il collegamento per i dati della fattura.
+       Le parole vengono dalla quota letta dal servizio: qui non si ricopiano. */
+    function quotaCenaMeeting(ev) {
+        if (!evHaAderenti(ev)) return null;
+        const d = (aderentiDi(ev) || [])[0];
+        const q = d && d.quota;
+        return q ? { voci: q.voci || [], importi: q.importi || null, url: indirizzoAderenti(q) } : null;
+    }
+    // la sua iscrizione a cena e meeting, se e' nata dallo spostamento e la fattura non e' emessa
+    function cenaDaSpostamento(ev, r) {
+        const e = String((r && r.email) || '').trim().toLowerCase();
+        if (!e) return null;
+        for (const d of (aderentiDi(ev) || [])) {
+            const x = (d.righe || []).find(y => String(y.email || '').toLowerCase() === e);
+            if (x) return (x.daSpostamento && !(x.fattura && x.fattura.emessa)) ? x : null;
+        }
+        return null;
+    }
     function indirizzoAderenti(q) {
         if (!q || !q.pagina) return '';
         const base = /nextgenerationbusiness\.it$/.test(location.hostname)
@@ -22908,6 +22929,9 @@
                             ? ' &middot; <b>' + k.daFatturare + '</b> da emettere (' + euroAd(k.totaleDaFatturare) + ')'
                             : ' &middot; <span class="hint">tutte emesse</span>')
                     : '<span class="hint">nessuna da emettere</span>'));
+                // chi e' stato iscritto con lo spostamento e non ha ancora mandato i dati per la fattura
+                const senzaDati = (d.righe || []).filter(x => x.datiFatturaMancanti && !(x.fattura && x.fattura.emessa)).length;
+                if (senzaDati) righe.push(rigaBl('Dati fattura', '<span class="ev-ko"><b>' + senzaDati + '</b> da ricevere</span>'));
             });
         }
         return gruppoEv({
@@ -23195,7 +23219,12 @@
                 + (r.studio ? '<br><span class="hint">' + esc(r.studio) + '</span>' : '')
                 + (r.cambiata ? ' <span class="hint">(dati corretti)</span>' : '') + '</td>'
             + '<td data-label="Contatti">' + contattiCellaHtml(r) + '</td>'
-            + '<td data-label="Intestatario">' + esc(f.intestatario || '') + '</td>'
+            /* Iscritto spostandolo fra gli aderenti: i dati per la fattura li
+               manda lui, dalla pagina riservata (l'avviso glielo chiede). */
+            + '<td data-label="Intestatario">' + (r.datiFatturaMancanti
+                ? '<span class="ev-ko">dati da ricevere</span>'
+                    + (r.daSpostamento ? '<br><span class="hint">iscritto con lo spostamento fra gli aderenti</span>' : '')
+                : esc(f.intestatario || '')) + '</td>'
             + '<td data-label="P.IVA / C.F.">' + fiscale + '</td>'
             + '<td data-label="Sede">' + sede + '</td>'
             + '<td data-label="SDI / PEC">' + sdi + '</td>'
@@ -26263,7 +26292,7 @@
            mail per 45 secondi e il freno agli invii e' per utente. Due lotti
            insieme se lo prenderebbero in faccia a vicenda. */
         const mosse = [];        // le righe che il servizio ha davvero preso
-        const somma = { spostate: 0, mail: null, conferme: null };
+        const somma = { spostate: 0, mail: null, conferme: null, cena: null };
         let ko = null;
         const unLotto = k => {
             if (k >= lotti.length) return Promise.resolve();
@@ -26282,6 +26311,11 @@
                     ['inviate', 'senzaScheda', 'senzaEmail', 'doppie', 'giaAvvisati', 'restanti']
                         .forEach(c => { somma.mail[c] += (Number(res.mail[c]) || 0); });
                     somma.mail.falliti = somma.mail.falliti.concat(res.mail.falliti || []);
+                }
+                // cena e meeting degli aderenti: chi c'e' entrato con lo spostamento, o ne e' uscito
+                if (res.cena) {
+                    if (!somma.cena) somma.cena = { iscritti: 0, gia: 0, falliti: 0, tolti: 0 };
+                    ['iscritti', 'gia', 'falliti', 'tolti'].forEach(c => { somma.cena[c] += Number(res.cena[c]) || 0; });
                 }
                 // chi e' stato confermato dallo spostamento (aderenti, sponsor) e i suoi inviti in PDF
                 if (res.conferme) {
@@ -26365,6 +26399,16 @@
                     + ': dal menu della riga, «Rimanda l\'invito in PDF»');
                 if (opz.soloInvito && !esConf.inviti && !nonPartiti) parti.push('nessun invito da mandare: risulta già partito');
             }
+            const esCena = somma.cena;
+            if (esCena && !opz.soloInvito) {
+                if (esCena.iscritti) parti.push(esCena.iscritti + (esCena.iscritti === 1 ? ' iscritto' : ' iscritti') + ' anche a cena e meeting, fattura da emettere');
+                if (esCena.tolti) parti.push(esCena.tolti + (esCena.tolti === 1 ? ' iscrizione' : ' iscrizioni') + ' a cena e meeting tolta' + (esCena.tolti === 1 ? '' : 'e'));
+                if (esCena.falliti) parti.push(esCena.falliti + ' non iscritt' + (esCena.falliti === 1 ? 'o' : 'i') + ' a cena e meeting: ripeti lo spostamento');
+            }
+            // il riquadro "Aderenti" e le righe della cena nell'elenco: si rileggono
+            if (esCena && (esCena.iscritti || esCena.tolti) && evHaAderenti(ev)) {
+                caricaAderenti(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAderenti(ev); }, true);
+            }
             /* Un lotto si e' rotto a meta' strada: quelli prima sono spostati
                davvero, e il numero qui sopra e' loro. Le righe che restano si
                ritrovano nella sezione di partenza - basta rispuntarle e
@@ -26375,7 +26419,8 @@
                     + ': ' + (ko.msg || 'lo spostamento si è interrotto') + '. Rispuntale e ripremi');
             }
             const rosso = !!ko || !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti))
-                || !!(esConf && (esConf.invitiFalliti.length || esConf.invitiRestanti || esConf.nonConfermate));
+                || !!(esConf && (esConf.invitiFalliti.length || esConf.invitiRestanti || esConf.nonConfermate))
+                || !!(somma.cena && somma.cena.falliti);
             toast(parti.join(' · ') + '.', rosso ? 'rosso' : 'verde');
             try {
                 Audit.registra(Auth.utenteCorrente, (opz.soloInvito ? 'Evento: invito in PDF rimandato' : 'Evento: iscrizioni spostate') + dove,
@@ -26576,7 +26621,8 @@
             + 'Sotto ognuna c\'è scritto quale delle due. '
             + (indirizzi.length !== elenco.length
                 ? 'Sono <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'persona' : 'persone diverse') + '. ' : '')
-            + 'Togli la spunta a chi non deve passare fra gli aderenti. Nessuna mail parte.</p>'
+            + 'Togli la spunta a chi non deve passare fra gli aderenti. Spostandoli, vengono iscritti anche a cena e meeting: '
+            + 'il passo dopo è la finestra dello spostamento, con l\'avviso da mandare e i numeri.</p>'
             + (uno ? '' : '<label class="ra-tutte"><input type="checkbox" id="ra-tutte" checked> Tutte</label>')
             + '<ul class="ra-elenco">' + elenco.map(voce).join('') + '</ul>'
             + '<div id="ra-esito" class="ev-imp-esito"></div>'
@@ -26622,21 +26668,13 @@
             toast(s.length + (s.length === 1 ? ' riga spuntata' : ' righe spuntate')
                 + ': controllale e premi "Sposta fra gli aderenti".', 'verde');
         });
-        // la via breve: si spostano da qui, senza passare dall'elenco
+        /* La via breve: la finestra dello spostamento, come per l'elenco
+           definitivo. Entrare fra gli aderenti iscrive anche a cena e meeting
+           (a pagamento) e ha il suo avviso: si vede tutto prima di premere. */
         bSi.addEventListener('click', () => {
             const s = scelte();
             if (!s.length) return;
-            bSi.disabled = true; bSpunta.disabled = true;
-            bSi.textContent = 'Sposto...';
-            eseguiSpostaModalita(ev, s.map(t => t.riga), 'aderenti', {}).then(res => {
-                if (!res.ok) {
-                    bSi.disabled = false; bSpunta.disabled = false;
-                    aggiornaPulsanti();
-                    esito(res.msg || 'Spostamento non riuscito.', true);
-                    return;
-                }
-                chiudiModale();
-            });
+            modaleSpostaModalita(ev, s.map(t => t.riga), 'aderenti', {});
         });
     }
 
@@ -27013,9 +27051,34 @@
             titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
             luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
         };
+        const conCena = verso === 'aderenti' && evHaAderenti(ev);
         const mailDi = () => !window.RV_NEWSLETTER ? null
             : online ? RV_NEWSLETTER.passaggioOnline({ evento: datiEvento })
-                : (RV_NEWSLETTER.passaggioSezione ? RV_NEWSLETTER.passaggioSezione({ verso: verso, evento: datiEvento }) : null);
+                : (RV_NEWSLETTER.passaggioSezione
+                    ? RV_NEWSLETTER.passaggioSezione({ verso: verso, evento: datiEvento, cenaMeeting: conCena ? quotaCenaMeeting(ev) : null })
+                    : null);
+        /* CENA E MEETING: chi entra fra gli aderenti ci viene iscritto (chi c'e'
+           gia' resta com'e'); chi ne esce ne esce, se ci era entrato con uno
+           spostamento e la fattura non e' emessa. Si dice prima, con i numeri. */
+        const cm = conCena ? quotaCenaMeeting(ev) : null;
+        const nuoviCena = conCena ? elenco.filter(r => String(r.email || '').trim() && !allaCena(ev, r)).length : 0;
+        const giaCena = conCena ? elenco.filter(r => allaCena(ev, r)).length : 0;
+        const esconoCena = (!conCena && evHaAderenti(ev)) ? elenco.filter(r => modalitaDi(ev, r) === 'aderenti' && cenaDaSpostamento(ev, r)).length : 0;
+        const euroCm = n => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        const NOTA_CENA = (nuoviCena
+            ? '<p class="hint" style="margin:-4px 0 12px;"><b>' + nuoviCena + '</b> '
+            + (nuoviCena === 1 ? 'viene iscritto' : 'vengono iscritti') + ' anche alla <b>cena del 26 e al meeting del 27</b>'
+            + (cm && cm.importi ? ' (' + euroCm(cm.importi.totale) + ' IVA inclusa' + (nuoviCena === 1 ? '' : ' a testa') + ')' : '')
+            + ': ' + (nuoviCena === 1 ? 'compare' : 'compaiono') + ' nel riquadro «Aderenti», con la fattura da emettere. '
+            + 'I dati per la fattura li ' + (nuoviCena === 1 ? 'completa' : 'completano') + ' dalla pagina riservata: l\'avviso lo chiede, con il collegamento.'
+            + (giaCena ? ' <b>' + giaCena + '</b> ' + (giaCena === 1 ? 'è già iscritto: la sua iscrizione resta' : 'sono già iscritti: le loro iscrizioni restano') + ' com\'è.' : '')
+            + '</p>'
+            : '')
+            + (esconoCena
+                ? '<p class="hint" style="margin:-4px 0 12px;"><b>' + esconoCena + '</b> '
+                + (esconoCena === 1 ? 'era iscritto' : 'erano iscritti') + ' a cena e meeting con lo spostamento fra gli aderenti, '
+                + 'fattura non ancora emessa: ' + (esconoCena === 1 ? 'quell\'iscrizione si toglie' : 'quelle iscrizioni si tolgono') + '.</p>'
+                : '');
         /* CHI ASPETTA ANCORA DI CONFERMARE L'EMAIL (Milano): entrando fra gli
            aderenti o fra sponsor e relatori la conferma non gli si chiede piu'
            - la scrive il servizio, d'ufficio (sposta-modalita) - e l'invito in
@@ -27091,7 +27154,7 @@
                     + (uno ? 'aveva' : 'avevano') + ' già ricevuto l\'avviso del passaggio online, va detto a voce.';
         const testa = '<h2>' + titolo + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">' + spiega + NOTA_GIA_LI + '</p>'
-            + NOTA_ATTESA;
+            + NOTA_ATTESA + NOTA_CENA;
         const scelteMail = conAvviso
             ? '<label class="ev-imp-passo" style="display:block;">'
             + '<input type="checkbox" id="sm-avvisa" checked> <strong>Invia anche l\'avviso</strong>'
@@ -27147,7 +27210,7 @@
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
         document.getElementById('sm-no').addEventListener('click', chiudiModale);
-        if (conAvviso) anteprimaMail('sm', () => {
+        const ant = !conAvviso ? null : anteprimaMail('sm', () => {
             const m = mailDi();
             if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             /* Nell'anteprima i segnaposti diventano un nome di esempio e
@@ -27157,8 +27220,12 @@
                 .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeDi(elenco[0])))
                 .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
+        // la quota di cena e meeting si legge dal servizio: se non e' ancora arrivata, l'anteprima si rifa' quando arriva
+        if (conCena && !cm) caricaAderenti(ev, () => { if (ant) ant.aggiorna(); });
         document.getElementById('sm-si').addEventListener('click', () => {
             const avvisa = conAvviso && !!(document.getElementById('sm-avvisa') || {}).checked && indirizzi.length > 0;
+            // l'avviso agli aderenti deve dire cena, meeting e quota: senza la quota letta non parte
+            if (avvisa && conCena && !quotaCenaMeeting(ev)) { esito('Cena e meeting non ancora letti: riprova fra un attimo.', true); return; }
             const m = avvisa ? mailDi() : null;
             if (avvisa && !m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
             const b = document.getElementById('sm-si');

@@ -1097,7 +1097,22 @@ collaboratore, quello del suo utente di riferimento): un
   o sponsor (la pagina di sponsor e relatori, la tendina) trova nel menu anche
   la sua sezione: e' lo spostamento a togliere la conferma. `conferme`:
   `{ confermate, righe: [{ id, doc }], nonConfermate, inviti, invitiFalliti,
-  invitiRestanti }`, `null` per le altre sezioni. Il riepilogo serale non
+  invitiRestanti }`, `null` per le altre sezioni.
+  **Cena e meeting degli aderenti (Milano 2027).** Entrare fra gli aderenti
+  iscrive anche alla cena del 26 e al meeting del 27 della quota dell'evento
+  (`iscriviDaSpostamento` in `lib/iscrizioni-aderenti.js`): una scheda in
+  `iscrizioniAderenti` con i dati della persona, la quota, la fattura da
+  emettere e i dati per la fattura VUOTI, `origine: 'spostamento'` e
+  `daSpostamento: { quando, da, idIscritto, doc }`. Chi era gia' iscritto
+  (dalla pagina o da uno spostamento di prima) non si tocca. L'avviso agli
+  aderenti dice date e quota e chiede i dati per la fattura dalla pagina
+  riservata, dove con lo stesso indirizzo il modulo aggiorna la stessa
+  scheda. Uscendo dagli aderenti, la scheda nata dallo spostamento si toglie
+  se la fattura non e' emessa (`togliDaSpostamento`). Risposta: `cena`,
+  `{ iscritti, gia, falliti }` o `{ tolti, tenuti }`, `null` fuori da un
+  evento con la quota. Nel riquadro "Aderenti" e nel riepilogo di mezzanotte
+  chi non ha ancora mandato i dati e' segnato "dati da ricevere".
+  "Riconosci aderenti" passa dalla finestra dello spostamento. Il riepilogo serale non
   conta queste conferme fra quelle del giorno (non le ha date la persona), ma
   nel totale si'. Provato in
   `prove/sposta-modalita.prove.js` e, per la finestra e la mail,

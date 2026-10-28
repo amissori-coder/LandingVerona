@@ -71,8 +71,17 @@ prova('La mail: dove, cosa resta, e che la conferma non serve piu\'', () => {
         esigi(/Sede: Excelsior Hotel Gallia, Piazza Duca d'Aosta 9, Milano/.test(m.testo), verso + ': con la sede, perche\' in sala ci viene');
         esigi(m.html.indexOf('{{NOME}}') >= 0 && m.html.indexOf('{{COMPLETA}}') >= 0, verso + ': i due segnaposti che il servizio sostituisce');
         esigi(!/\{\{(?!NOME\}\}|COMPLETA\}\})[A-Z_]+\}\}/.test(m.html + m.testo), verso + ': e nessun altro (il servizio lo spedirebbe tale e quale)');
-        esigi(!/cena|meeting|quota|200|lista d'attesa|In attesa/i.test(m.testo), verso + ': niente cena, quota o lista d\'attesa', m.testo);
+        esigi(!/cena|meeting|quota|200|lista d'attesa|In attesa/i.test(m.testo), verso + ': senza la quota, niente cena, quota o lista d\'attesa', m.testo);
     });
+    const ad = RV_NEWSLETTER.passaggioSezione({ verso: 'aderenti', evento: EVENTO, cenaMeeting: CENA });
+    esigi(/Cena: venerdì 26 febbraio 2027/.test(ad.testo) && /Meeting degli aderenti: sabato 27 febbraio 2027/.test(ad.testo)
+        && /Quota: 200,00 € \+ IVA \(244,00 € IVA inclusa\)/.test(ad.testo), 'aderenti: la cena del 26, il meeting del 27 e la quota', ad.testo);
+    esigi(/comprende anche la cena e il meeting degli aderenti/.test(ad.testo) && /riceverà la fattura/.test(ad.testo), 'aderenti: sono compresi, e arriva la fattura');
+    esigi(/dati per la fattura/.test(ad.testo) && ad.testo.indexOf(CENA.url) >= 0 && ad.html.indexOf(CENA.url) >= 0
+        && /Completa i dati per la fattura/.test(ad.html), 'aderenti: il collegamento per i dati della fattura, con il pulsante');
+    esigi(!/nessuna azione richiesta|né segnalarci altro/.test(ad.testo), 'aderenti: una cosa da fare c\'e\', e non si dice il contrario');
+    const sp = RV_NEWSLETTER.passaggioSezione({ verso: 'sponsor', evento: EVENTO, cenaMeeting: CENA });
+    esigi(!/cena|meeting|Quota/.test(sp.testo), 'sponsor: la cena degli aderenti non c\'entra, anche se arriva');
     esigi(RV_NEWSLETTER.passaggioSezione({ verso: 'online', evento: EVENTO }) === null
         && RV_NEWSLETTER.passaggioSezione({ verso: 'presenza', evento: EVENTO }) === null, 'per le altre sezioni non c\'e\'');
 });
@@ -101,6 +110,12 @@ function finestra(righe, verso, attese, opz) {
         // la regola per scheda (schedaDaConfermare) ha le sue prove nel servizio: qui decide lo scenario
         schedaDaConfermare: (ev, r) => (attese || []).indexOf(r.id) >= 0,
         eventoPassato: () => !!opz.passato,
+        // cena e meeting: la quota come la legge il servizio, chi e' gia' iscritto, chi lo e' per spostamento
+        evHaAderenti: () => opz.cena !== false,
+        quotaCenaMeeting: () => (opz.cena === false || opz.cenaNonLetta) ? null : CENA,
+        allaCena: (ev, r) => (opz.giaCena || []).indexOf(r.id) >= 0,
+        cenaDaSpostamento: (ev, r) => (opz.cenaSpostati || []).indexOf(r.id) >= 0 ? {} : null,
+        caricaAderenti: () => { },
         SITO_PUBBLICO: 'https://nextgenerationbusiness.it'
     };
     const COSTANTI = ritaglia('const SEZIONI_MODALITA = [', '[', ']') + ';\n' + ritaglia('const SEZIONE_ATTESA = {', '{', '}') + ';\n';
@@ -113,6 +128,11 @@ function finestra(righe, verso, attese, opz) {
         righe, verso, {});
     return { html: () => html, el: elemento, chiamate: chiamate, ambiente: ambiente };
 }
+const CENA = {
+    voci: [{ cosa: 'Cena', quando: 'venerdì 26 febbraio 2027' }, { cosa: 'Meeting degli aderenti', quando: 'sabato 27 febbraio 2027' }],
+    importi: { imponibile: 200, totale: 244 },
+    url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/aderenti/'
+};
 const R = [
     { id: 'a', nome: 'Alda', cognome: 'Attesa', email: 'alda@attesa.it', doc: 'a' },
     { id: 'b', nome: 'Bruno', cognome: 'Bianchi', email: 'bruno@b.it', doc: 'b' }
@@ -132,6 +152,27 @@ prova('Fra gli aderenti: avviso spuntato, anteprima, e la mail parte con lo spos
     const c = f.chiamate[0] || {};
     esigi(c.verso === 'aderenti' && c.opz && c.opz.mail && /aderenti Revilaw/.test(c.opz.mail.oggetto),
         'premendo, lo spostamento porta la mail degli aderenti', JSON.stringify(c.opz && c.opz.mail && c.opz.mail.oggetto));
+});
+
+prova('Fra gli aderenti: cena e meeting si annunciano prima, e l\'avviso li porta', async () => {
+    const f = finestra(R, 'aderenti', [], { giaCena: ['b'] });
+    const h = f.html();
+    esigi(/<b>1<\/b> viene iscritto anche alla <b>cena del 26 e al meeting del 27<\/b> \(244,00 € IVA inclusa\)/.test(h), 'quanti vengono iscritti, e la quota', h);
+    esigi(/riquadro «Aderenti», con la fattura da emettere/.test(h) && /completa dalla pagina riservata/.test(h), 'dove si vedono, e i dati della fattura');
+    esigi(/<b>1<\/b> è già iscritto: la sua iscrizione resta com'è/.test(h), 'chi c\'e\' gia\' resta com\'e\'');
+    esigi(/Quota: 200,00 €/.test(f.ambiente.anteprima || '') || /200,00/.test(f.ambiente.anteprima || ''), 'e l\'anteprima ha la quota');
+    f.el('sm-si').ascolti.click();
+    await Promise.resolve();
+    esigi(f.chiamate[0] && /Completa i dati per la fattura/.test(f.chiamate[0].opz.mail.html), 'la mail che parte e\' quella con cena e meeting');
+    const nl = finestra([R[0]], 'aderenti', [], { cenaNonLetta: true });
+    nl.el('sm-si').ascolti.click();
+    await Promise.resolve();
+    esigi(nl.chiamate.length === 0 && /non ancora letti/.test(nl.el('sm-esito').innerHTML), 'senza la quota letta l\'avviso non parte monco');
+    const esce = finestra([{ id: 'x', nome: 'X', cognome: 'Y', email: 'x@y.it', doc: 'x', md: 'aderenti' }], 'presenza', [], { cenaSpostati: ['x'] }).html();
+    esigi(/<b>1<\/b> era iscritto a cena e meeting con lo spostamento fra gli aderenti, fattura non ancora emessa: quell'iscrizione si toglie/.test(esce),
+        'uscendo dagli aderenti si dice che l\'iscrizione a cena e meeting si toglie', esce);
+    const sponsor = finestra(R, 'sponsor', []).html();
+    esigi(!/cena del 26/.test(sponsor), 'fra sponsor e relatori la cena non c\'entra');
 });
 
 prova('Fra sponsor e relatori, senza la spunta: si sposta e basta', async () => {
