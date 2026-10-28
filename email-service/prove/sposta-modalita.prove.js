@@ -107,19 +107,29 @@ const db = {
             commit: async () => { ops.forEach(o => fondi(o.rif._coll, o.rif.id, o.patch)); }
         };
     },
-    // una transazione alla buona: si legge, e le scritture si applicano alla fine
-    async runTransaction(fn) {
-        const ops = [];
-        const t = {
-            get: rif => rif.get(),
-            update(rif, patch) { ops.push(() => rif.update(patch)); },
-            set(rif, patch) { ops.push(() => rif.set(patch)); }
-        };
-        const r = await fn(t);
-        for (const op of ops) await op();
-        return r;
+    /* Una transazione alla buona: si legge, e le scritture si applicano alla
+       fine. Una alla volta, in fila: e' l'effetto che Firestore ottiene
+       ritentando quelle in conflitto, ed e' quello che serve alle prove di due
+       spostamenti insieme. `rompiTransazione` fa fallire la prossima. */
+    runTransaction(fn) {
+        const giro = codaTransazioni.then(async () => {
+            if (rompiTransazione) { rompiTransazione = false; throw new Error('10 ABORTED: Too much contention'); }
+            const ops = [];
+            const t = {
+                get: rif => rif.get(),
+                update(rif, patch) { ops.push(() => rif.update(patch)); },
+                set(rif, patch) { ops.push(() => rif.set(patch)); }
+            };
+            const r = await fn(t);
+            for (const op of ops) await op();
+            return r;
+        });
+        codaTransazioni = giro.catch(() => { });
+        return giro;
     }
 };
+let codaTransazioni = Promise.resolve();
+let rompiTransazione = false;
 /* Il batch riceve il riferimento, non il nome della collezione: glielo si
    attacca al riferimento, come fa Firestore per davvero. */
 const collezioneVera = db.collection;
@@ -133,6 +143,7 @@ db.collection = function (coll) {
 // ---------- server di posta finto ----------
 let spedite = [];
 let cadeLaPosta = false;
+let lentezzaPosta = 0;   // millisecondi per mail: per far sovrapporre due spostamenti
 
 // ---------- intercetta i require ----------
 const veroRequire = Module.prototype.require;
@@ -142,6 +153,7 @@ Module.prototype.require = function (nome) {
         return {
             createTransport: () => ({
                 sendMail: async m => {
+                    if (lentezzaPosta) await new Promise(r => setTimeout(r, lentezzaPosta));
                     if (cadeLaPosta) throw new Error('server di posta non raggiungibile');
                     spedite.push(m);
                     ordine.push({ tipo: 'mail', a: m.to });
@@ -212,7 +224,7 @@ function scenario() {
     dati[chiave('iscrizioni', idScheda('lucia@beta.it|03/09/2026 09:00'))] = { nome: 'Lucia', cognome: 'Bianchi', email: 'lucia@beta.it' };
     dati[chiave('iscrizioni', idScheda('nino.senzamail|04/09/2026 09:00'))] = { nome: 'Nino', cognome: 'Senzamail', email: '' };
     dati[chiave('iscrizioni', idScheda('rinuncia@gamma.it|05/09/2026 09:00'))] = { nome: 'Ruggero', cognome: 'Rinuncia', email: 'rinuncia@gamma.it', annullato: true };
-    spedite = []; ordine.length = 0; cadeLaPosta = false; sessione = 'admin@esempio.it';
+    spedite = []; ordine.length = 0; cadeLaPosta = false; lentezzaPosta = 0; rompiTransazione = false; sessione = 'admin@esempio.it';
 }
 const TUTTI = [
     { id: 'mario@alfa.it|01/09/2026 10:00' },
@@ -805,7 +817,9 @@ prova('Milano: chi aspetta la conferma ed entra fra gli aderenti e confermato d\
     const inv = invitiA('alda@attesa.it');
     esigi(inv.length === 1 && r.corpo.conferme.inviti === 1, 'parte l\'invito in PDF, come dopo il clic', spedite.map(m => m.to + ' ' + m.subject).join(' | '));
     esigi(inv.length === 1 && /Il tuo invito/.test(inv[0].subject) && /In sala/.test(inv[0].text), 'e dice "in sala"', inv[0] && inv[0].subject);
-    esigi((s.mailInvito || {}).ok === true && s.mailInvito.da === 'spostamento', 'l\'invito resta segnato sulla scheda', JSON.stringify(s.mailInvito));
+    esigi((s.mailInvito || {}).ok === true && s.mailInvito.da === 'spostamento' && s.mailInvito.a === 'alda@attesa.it' && !s.mailInvito.inCorsoFino,
+        'l\'invito resta segnato sulla scheda, con l\'indirizzo', JSON.stringify(s.mailInvito));
+    esigi(String(inv[0] && inv[0].bcc) === 'milano@esempio.it', 'e torna in copia nascosta a chi ha spostato', JSON.stringify(inv[0] && inv[0].bcc));
     esigi(spedite.length === 1 && !(presenzaDi(MI, MI_ATTESA.id) || {}).avvisoModalita, 'senza avviso richiesto parte solo l\'invito');
     esigi((presenzaDi(MI, MI_ATTESA.id) || {}).modalita === 'aderenti', 'e la sezione e\' quella nuova');
 });
@@ -913,6 +927,72 @@ prova('Milano: un clic arrivato prima vince sullo spostamento', async () => {
         esigi(r.corpo.ok === true && c.come === 'mail' && c.quando === 222, 'resta la conferma del clic', JSON.stringify(c));
         esigi(r.corpo.conferme.confermate === 0 && invitiA('alda@attesa.it').length === 0, 'e l\'invito non parte da qui: lo manda il clic');
     } finally { db.getAll = veroGetAll; }
+});
+
+prova('Milano: due spostamenti insieme sulle stesse righe, un invito a testa', async () => {
+    /* Due persone che lavorano sull'evento, o una finestra chiusa e
+       ripremuta mentre la prima chiamata spedisce ancora: l'invito si prenota
+       in transazione prima di partire, e chi lo trova prenotato salta. */
+    scenarioMilano();
+    const altre = [];
+    for (let k = 0; k < 4; k++) {
+        const id = 'persona' + k + '@m.it|11/01/2027 10:0' + k;
+        dati[chiave('iscrizioni', idScheda(id))] = { nome: 'P' + k, cognome: 'Rossi', email: 'persona' + k + '@m.it', pagina: PAGINA_MI, confermaInAttesa: true, mailConferma: { quando: 1, ok: true } };
+        altre.push({ id: id });
+    }
+    dati['utenti/milano2@esempio.it'] = { nome: 'Mila Due', ruolo: 'admin', attivo: true, eventi: true };
+    lentezzaPosta = 30;
+    const primo = chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: altre });
+    await new Promise(r => setTimeout(r, 45));
+    sessione = 'milano2@esempio.it';
+    const secondo = chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: altre });
+    const [r1, r2] = await Promise.all([primo, secondo]);
+    lentezzaPosta = 0;
+    const perIndirizzo = altre.map((x, k) => invitiA('persona' + k + '@m.it').length);
+    esigi(perIndirizzo.every(n => n === 1), 'ognuno riceve un invito solo', perIndirizzo.join(','));
+    esigi(r1.corpo.conferme.inviti + r2.corpo.conferme.inviti === 4 && r1.corpo.conferme.confermate + r2.corpo.conferme.confermate === 4,
+        'quattro conferme e quattro inviti in tutto', JSON.stringify([r1.corpo.conferme, r2.corpo.conferme]));
+});
+
+prova('Milano: una conferma che non riesce non ferma il resto', async () => {
+    scenarioMilano();
+    const altra = { id: 'bea@m.it|11/01/2027 11:00' };
+    dati[chiave('iscrizioni', idScheda(altra.id))] = { nome: 'Bea', cognome: 'Bianchi', email: 'bea@m.it', pagina: PAGINA_MI, confermaInAttesa: true, mailConferma: { quando: 1, ok: true } };
+    rompiTransazione = true;   // la prima conferma trova la contesa
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, altra], mail: MAIL });
+    esigi(r.stato === 200 && r.corpo.ok === true, 'la risposta e\' quella di uno spostamento riuscito', JSON.stringify(r.corpo).slice(0, 200));
+    esigi(r.corpo.conferme.nonConfermate === 1 && r.corpo.conferme.confermate === 1, 'una conferma non registrata si conta', JSON.stringify(r.corpo.conferme));
+    esigi(schedaDi(MI_ATTESA.id).confermaInAttesa === true && !schedaDi(MI_ATTESA.id).emailConfermata, 'quella scheda resta in attesa');
+    esigi((schedaDi(altra.id).emailConfermata || {}).come === 'spostamento' && invitiA('bea@m.it').length === 1, 'l\'altra e\' confermata e ha il suo invito');
+    esigi((r.corpo.mail || {}).inviate === 2, 'e gli avvisi partono a tutti e due', JSON.stringify(r.corpo.mail));
+    esigi(ordine.some(o => o.tipo === 'scrittura' && o.coll === 'meta'), 'e l\'elenco sa che qualcosa e\' cambiato');
+    const r2 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r2.corpo.conferme.confermate === 1 && (schedaDi(MI_ATTESA.id).emailConfermata || {}).come === 'spostamento', 'ripetendo lo spostamento, la conferma si registra');
+});
+
+prova('Milano: a evento finito la conferma si', async () => {
+    /* La conferma toglie la riga dall'attesa, e serve anche dopo; l'invito e'
+       "da esibire all'ingresso": a evento finito non parte. */
+    scenarioMilano();
+    const veroNow = Date.now;
+    Date.now = () => Date.parse('2027-02-27T10:00:00+01:00');
+    try {
+        const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+        esigi(r.corpo.conferme.confermate === 1 && r.corpo.conferme.inviti === 0 && spedite.length === 0, 'confermata, ma nessun invito', JSON.stringify(r.corpo.conferme));
+    } finally { Date.now = veroNow; }
+});
+
+prova('Milano: l\'invito partito a un indirizzo vecchio non vale per quello nuovo', async () => {
+    scenarioMilano();
+    const k = chiave('iscrizioni', idScheda(MI_ATTESA.id));
+    dati[k] = Object.assign({}, dati[k], { email: 'nuovo@attesa.it', mailInvito: { quando: 5, ok: true, a: 'alda@attesa.it' } });
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA] });
+    esigi(invitiA('nuovo@attesa.it').length === 1, 'l\'invito parte al nuovo indirizzo');
+    const prima = { quando: 5, ok: true };   // scritto prima che ci fosse `a`: vale per l'indirizzo della scheda
+    dati[k] = Object.assign({}, dati[k], { emailConfermata: { quando: 9, come: 'spostamento' }, mailInvito: prima });
+    spedite = [];
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(spedite.length === 0, 'un invito senza indirizzo vale per quello della scheda: non riparte');
 });
 
 (async () => {

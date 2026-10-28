@@ -118,7 +118,11 @@ function conti(schede, ev, giorno, presenze) {
         iscritto: quando,
         invito: s.selezionata ? String(s.invitoAzienda || s.azienda || '') : ''
     });
-    const nuove = attive.filter(x => quandoConfermata(x.dati) && giornoRoma(quandoConfermata(x.dati)) === giorno)
+    /* Le conferme d'ufficio di chi e' stato spostato fra aderenti o sponsor
+       (come: 'spostamento') non sono persone che hanno confermato: le ha
+       spostate chi riceve questo riepilogo. Contano nel totale, non qui. */
+    const daSpostamento = x => ((x.dati || {}).emailConfermata || {}).come === 'spostamento';
+    const nuove = attive.filter(x => quandoConfermata(x.dati) && giornoRoma(quandoConfermata(x.dati)) === giorno && !daSpostamento(x))
         .sort((a, b) => quandoConfermata(a.dati) - quandoConfermata(b.dati))
         .map(x => persona(x.dati, oraRomaDi(quandoConfermata(x.dati)), ''));
     /* La conferma vale per l'INDIRIZZO, come nei totali e nell'elenco (app.js,

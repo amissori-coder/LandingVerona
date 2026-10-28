@@ -1077,16 +1077,29 @@ collaboratore, quello del suo utente di riferimento): un
   `emailConfermata: { quando, come: 'spostamento', da, verso }` e via la
   bandiera `confermaInAttesa`, una transazione per scheda
   (`confermaPerSpostamento` in `lib/conferma-email.js`), che non riscrive un
-  clic arrivato prima. Poi parte l'invito in PDF, come dopo il clic
-  (`invitoDopoSpostamento`, `mailInvito` con `da: 'spostamento'`): prima gli
-  inviti, poi gli avvisi, dentro lo stesso tetto di 45 secondi. Un invito non
-  partito si rimanda ripetendo lo spostamento sulle stesse righe (parte a chi
-  e' confermato dallo spostamento e non ha `mailInvito.ok`). Succede con o
-  senza `mail`; verso l'online e fra gli ospiti la conferma resta da dare.
-  Non si toccano le righe senza scheda, le annullate, le inserite a mano o da
-  altri portali, quelle gia' confermate e gli eventi che la conferma non la
-  chiedono. `conferme`: `{ confermate, righe: [{ id, doc }], inviti,
-  invitiFalliti, invitiRestanti }`, `null` per le altre sezioni. Provato in
+  clic arrivato prima. Una conferma che non riesce (contesa, rete) non ferma
+  le altre ne' gli avvisi: si conta in `nonConfermate`, e ripetere lo
+  spostamento la riprova. Poi parte l'invito in PDF, come dopo il clic
+  (`invitoDopoSpostamento`, `mailInvito` con `da: 'spostamento'` e `a`,
+  l'indirizzo a cui e' andato), in copia nascosta a chi sposta: prima gli
+  inviti, poi gli avvisi, dentro lo stesso tetto di 45 secondi. L'invito si
+  PRENOTA in transazione prima di partire (`mailInvito.inCorsoFino`, 90
+  secondi): due spostamenti insieme sulle stesse righe non lo mandano due
+  volte. A evento finito l'invito non parte (la conferma si'). Un invito non
+  partito si rimanda dal menu della riga, **"Rimanda l'invito in PDF"**, che
+  ripete lo spostamento nella stessa sezione: parte a chi e' confermato dallo
+  spostamento e non ha l'invito a quell'indirizzo (`invitoPartito`; la
+  Modifica che cambia l'indirizzo segna quello vecchio su `mailInvito.a`).
+  Succede con o senza `mail`; verso l'online e fra gli ospiti la conferma
+  resta da dare. Non si toccano le righe senza scheda, le annullate, le
+  inserite a mano o da altri portali, quelle gia' confermate e gli eventi che
+  la conferma non la chiedono. Chi aspetta la conferma ed e' GIA' fra aderenti
+  o sponsor (la pagina di sponsor e relatori, la tendina) trova nel menu anche
+  la sua sezione: e' lo spostamento a togliere la conferma. `conferme`:
+  `{ confermate, righe: [{ id, doc }], nonConfermate, inviti, invitiFalliti,
+  invitiRestanti }`, `null` per le altre sezioni. Il riepilogo serale non
+  conta queste conferme fra quelle del giorno (non le ha date la persona), ma
+  nel totale si'. Provato in
   `prove/sposta-modalita.prove.js` e, per la finestra e la mail,
   `prove/avviso-sezione.prove.js`.
 - **Ogni mail che parte da un comando dell'area riservata torna in copia
@@ -1232,7 +1245,7 @@ separatamente, con il filtro sopra l'elenco per guardarne una alla volta.
 Il PASSAGGIO all'online toglie qualcosa a chi lo riceve (il posto in sala) e va
 spiegato (`passaggioOnline`). L'INGRESSO fra gli aderenti Revilaw o fra sponsor
 e relatori (`passaggioSezione` in `area-riservata/newsletter-format.js`) dice
-dove e' registrata l'iscrizione, che il posto in sala resta riservato, che non
+dove e' registrata l'iscrizione, che ha un posto riservato in sala, che non
 c'e' niente da fare e che la conferma dell'indirizzo email non serve piu'. In
 tutti e due i casi la casella parte spuntata e si puo' togliere; il ritorno fra
 gli ospiti non si annuncia. A Milano chi entra fra aderenti o sponsor mentre

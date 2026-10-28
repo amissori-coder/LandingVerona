@@ -2828,7 +2828,10 @@
        gli aderenti Revilaw o fra sponsor e relatori dall'area riservata.
        Dice, nell'ordine:
          1. dove e' stata registrata l'iscrizione (la sezione nuova);
-         2. che il posto in sala resta riservato e che non deve fare nulla;
+         2. che ha un posto riservato in sala e che non deve fare nulla -
+            detto senza "resta" ne' "non cambia nulla": la mail e' la stessa
+            per chi era gia' in sala, per chi aspettava la conferma e per chi
+            arriva dall'online, e per gli ultimi due qualcosa cambia;
          3. che la conferma dell'indirizzo email non serve piu': chi era
             ancora in attesa viene confermato d'ufficio dallo spostamento
             (api/presenze.js, sposta-modalita), e una mail di conferma
@@ -2842,7 +2845,8 @@
        convegno non e' l'iscrizione a pagamento degli aderenti. Niente
        lista d'attesa: chi entra qui sta in sala.
        Registro formale, come l'avviso del passaggio online; testata,
-       fascia e piede sono quelli degli inviti B2B.
+       fascia e piede sono quelli degli inviti B2B, con la riga del perche'
+       al Lei dei promemoria.
        Due segnaposti, sostituiti dal servizio PER DESTINATARIO:
          {{NOME}}     - nome e cognome dell'iscritto;
          {{COMPLETA}} - il suo collegamento personale firmato.
@@ -2861,7 +2865,7 @@
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'La Sua iscrizione: ' + s.oggetto + ' - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'La Sua iscrizione è registrata ' + s.dove + ': il posto in sala resta riservato e non deve fare nulla.';
+        const anteprima = 'La Sua iscrizione è registrata ' + s.dove + ': ha un posto riservato in sala e non deve fare nulla.';
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + '. La Sua iscrizione è stata registrata ' + s.dove + '.';
         const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(', ');
@@ -2878,8 +2882,8 @@
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:16px 22px;">' + tabellaInterna(voci.map(v => riga(v[0], v[1])).join('')) + '</td></tr></table>';
 
-        const P1 = 'Parteciperà ai lavori in sala ' + s.dove + '. '
-            + 'Il Suo posto resta riservato e per Lei non cambia nulla: non deve iscriversi di nuovo né segnalarci altro.';
+        const P1 = 'Parteciperà ai lavori in sala ' + s.dove + ': il Suo posto in sala è riservato. '
+            + 'Non deve iscriversi di nuovo né segnalarci altro.';
         const P2 = 'La Sua iscrizione è confermata. Se in precedenza ha ricevuto una mail che Le chiedeva di confermare il Suo indirizzo email, '
             + 'non è più necessario: può ignorarla.';
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
@@ -2897,14 +2901,14 @@
             + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
 
-        const html = involucro(oggetto, anteprima, testaB2B('Iscrizione aggiornata', sommario) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO_ONLINE));
+        const html = involucro(oggetto, anteprima, testaB2B('Iscrizione aggiornata', sommario) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO_PROMEMORIA));
 
         const testo = ['ISCRIZIONE AGGIORNATA', sommario, P1,
             voci.map(v => v[0] + ': ' + v[1]).join('\n'),
             P2,
             'Per correggere i Suoi dati o rinunciare: ' + SEGNAPOSTO_COMPLETA,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
-            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_ONLINE,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };

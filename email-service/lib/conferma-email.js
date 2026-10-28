@@ -134,8 +134,10 @@ function adessoInItalia() {
     return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute;
 }
 /* Compone e spedisce l'invito. Restituisce { ok, errore }: se non parte, la
-   conferma dell'indirizzo resta valida e l'area riservata puo' rimandarla. */
-async function spedisciInvito(idDoc, scheda) {
+   conferma dell'indirizzo resta valida e l'area riservata puo' rimandarla.
+   `opz.bcc`: la copia nascosta a chi lo ha fatto partire dall'area riservata
+   (lo spostamento fra aderenti o sponsor); il clic e il desk non la passano. */
+async function spedisciInvito(idDoc, scheda, opz) {
     const online = String(scheda.modalita || '').toLowerCase() === 'online';
     const evento = dettagliEvento(scheda.pagina);
     const dati = {
@@ -155,6 +157,7 @@ async function spedisciInvito(idDoc, scheda) {
     const agenda = CAL.valido(perAgenda) ? { google: CAL.linkGoogle(perAgenda), outlook: CAL.linkOutlook(perAgenda) } : null;
     const m = MNGB.invitoIngresso(Object.assign({}, dati, { agenda: agenda }), NL.linkCompleta(idDoc));
     const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html, attachments: [] };
+    if (opz && opz.bcc) messaggio.bcc = opz.bcc;
     if (!online) {
         const nomeCompleto = (dati.nome + ' ' + dati.cognome).trim();
         messaggio.attachments.push({
@@ -264,7 +267,7 @@ async function conferma(db, body, opz) {
     // la seconda mail, con l'invito: parte una volta, alla prima conferma
     const invito = await spedisciInvito(idDoc, scheda);
     try {
-        await rif.set({ mailInvito: { quando: Date.now(), ok: invito.ok === true, errore: testo(invito.errore, 200) } }, { merge: true });
+        await rif.set({ mailInvito: { quando: Date.now(), ok: invito.ok === true, errore: testo(invito.errore, 200), a: String(scheda.email || '').trim().toLowerCase() } }, { merge: true });
     } catch (e) { /* informazione, non condizione */ }
     return { stato: 200, corpo: { ok: true, gia: false, quando: quando, nome: nome, evento: evento, invito: invito.ok === true, online: online } };
 }
@@ -338,12 +341,50 @@ async function confermaPerSpostamento(db, idDoc, opz) {
    lib/accredito-desk.js). `mailInvito` resta scritto com'e' andata, con
    da: 'spostamento': e' cio' che dice a un secondo spostamento se l'invito
    va ancora mandato. */
-async function invitoDopoSpostamento(db, idDoc, scheda) {
-    const esito = await spedisciInvito(idDoc, Object.assign({}, scheda, { modalita: 'presenza' }));
+/* L'invito e' gia' partito A QUESTO INDIRIZZO? `mailInvito.a` e' l'indirizzo
+   a cui e' andato; quelli scritti prima che ci fosse non lo hanno, e valgono
+   per l'indirizzo della scheda (la Modifica che lo cambia lo aggiunge, con
+   quello vecchio: api/presenze.js, 'modifica'). */
+function invitoPartito(scheda) {
+    const m = scheda && scheda.mailInvito;
+    if (!m || typeof m !== 'object' || m.ok !== true) return false;
+    return !m.a || String(m.a).toLowerCase() === String(scheda.email || '').trim().toLowerCase();
+}
+const INVITO_IN_CORSO_MS = 90 * 1000;
+/* UNA VOLTA SOLA anche con due spostamenti insieme sulle stesse righe (due
+   persone che lavorano sull'evento, una finestra chiusa e ripremuta mentre la
+   prima chiamata spedisce ancora): prima di spedire l'invito si PRENOTA, in
+   transazione, rileggendo la scheda - come invioInCorsoFino per la mail di
+   conferma. Chi trova la prenotazione di un altro salta; una prenotazione
+   scaduta (funzione interrotta) si riprende. Si spedisce con la scheda riletta:
+   l'indirizzo e' quello di adesso, e una scheda annullata o cancellata nel
+   frattempo non riceve niente. L'esito si scrive con update: una scheda
+   cancellata non rinasce. Restituisce { ok, errore } o { saltato: true }. */
+async function invitoDopoSpostamento(db, idDoc, opz) {
+    opz = opz || {};
+    const rif = db.collection('iscrizioni').doc(idDoc);
+    const ora = Date.now();
+    const scheda = await db.runTransaction(async t => {
+        const snap = await t.get(rif);
+        if (!snap.exists) return null;
+        const s = snap.data() || {};
+        const c = s.emailConfermata;
+        const a = String(s.email || '').trim().toLowerCase();
+        if (s.annullato || !a || !c || c.come !== 'spostamento' || invitoPartito(s)) return null;
+        const m = s.mailInvito;
+        if (m && typeof m === 'object' && Number(m.inCorsoFino) > ora && (!m.a || m.a === a)) return null;
+        t.update(rif, { mailInvito: { inCorsoFino: ora + INVITO_IN_CORSO_MS, da: 'spostamento', a: a } });
+        return s;
+    });
+    if (!scheda) return { saltato: true };
+    const esito = await spedisciInvito(idDoc, Object.assign({}, scheda, { modalita: 'presenza' }), { bcc: opz.bcc });
     try {
-        await db.collection('iscrizioni').doc(idDoc).set({
-            mailInvito: { quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200), da: 'spostamento' }
-        }, { merge: true });
+        await rif.update({
+            mailInvito: {
+                quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200), da: 'spostamento',
+                a: String(scheda.email || '').trim().toLowerCase()
+            }
+        });
     } catch (e) { /* informazione, non condizione */ }
     return esito;
 }
@@ -621,7 +662,7 @@ async function rimandaConferma(db, idDoc, opz) {
 }
 
 module.exports = {
-    conferma, pregresso, confermaPerSpostamento, invitoDopoSpostamento,
+    conferma, pregresso, confermaPerSpostamento, invitoDopoSpostamento, invitoPartito,
     mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
     trasporto, mittente, rispondiA,
     spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio, segnaCambiamento,

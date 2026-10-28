@@ -620,6 +620,15 @@ module.exports = async (req, res) => {
                         quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
                         come: String(v.emailConfermata.come || 'mail')
                     } : null,
+                    /* L'invito in PDF: se e' partito, e a quale indirizzo. Serve
+                       alla voce "Rimanda l'invito in PDF" di chi e' confermato
+                       con lo spostamento fra aderenti o sponsor (invitoPartito
+                       in lib/conferma-email.js, la stessa regola). */
+                    mailInvito: (v.mailInvito && typeof v.mailInvito === 'object') ? {
+                        ok: v.mailInvito.ok === true,
+                        quando: typeof v.mailInvito.quando === 'number' ? v.mailInvito.quando : 0,
+                        a: String(v.mailInvito.a || '').toLowerCase()
+                    } : null,
                     /* chi ha compilato il modulo "completa i dati" (l'intestatario):
                        l'area riservata lo mostra come "Nome (dal modulo)" */
                     compilato: (v.compilato && typeof v.compilato === 'object') ? {

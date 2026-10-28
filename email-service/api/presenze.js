@@ -331,8 +331,13 @@ async function segnaCambiamento(db) {
    inserite a mano o da altri portali e quelle gia' confermate non si
    toccano: per loro non c'e' niente da confermare.
    Restituisce chi e' stato confermato e a chi va l'invito in PDF: chi e'
-   confermato DALLO SPOSTAMENTO e non l'ha ancora ricevuto - adesso, o in
-   uno spostamento di prima che non era riuscito a spedirlo. */
+   confermato DALLO SPOSTAMENTO e non l'ha ancora ricevuto a quell'indirizzo
+   - adesso, o in uno spostamento di prima che non era riuscito a spedirlo.
+   Mai a evento finito: l'invito e' "da esibire all'ingresso".
+   Una conferma che non riesce (contesa, rete) non ferma le altre, ne' gli
+   inviti e gli avvisi: si conta in `nonConfermate`, e ripetere lo
+   spostamento la riprova. Dentro il tempo della funzione (`opz.scadenza`):
+   quelle che restano fuori si contano in `restanti`. */
 async function confermeDaSpostamento(db, dest, primaDi, opz) {
     const CONF = moduloConferma();
     const V = moduloVerificata();
@@ -351,35 +356,54 @@ async function confermeDaSpostamento(db, dest, primaDi, opz) {
         letti.forEach((s, k) => { schede[fetta[k].docId] = (s && s.exists) ? (s.data() || {}) : null; });
     }
     const confermate = [], daInvitare = [];
+    let nonConfermate = 0, restanti = 0;
     for (const v of voci) {
         let scheda = schede[v.docId];
-        if (!scheda || scheda.annullato || !V.eventoDi(scheda.pagina)) continue;
+        const ev = scheda ? V.eventoDi(scheda.pagina) : null;
+        if (!scheda || scheda.annullato || !ev) continue;
         const presenza = primaDi[v.id] || {};
         if (CONF.inAttesaDiConferma(scheda, presenza)) {
-            const c = await CONF.confermaPerSpostamento(db, v.docId, { da: opz.da, verso: opz.verso, presenza: presenza });
+            if (Date.now() > opz.scadenza) { restanti++; continue; }
+            let c = null;
+            try {
+                c = await CONF.confermaPerSpostamento(db, v.docId, { da: opz.da, verso: opz.verso, presenza: presenza });
+            } catch (e) {
+                nonConfermate++;
+                console.error('Conferma d\'ufficio non scritta:', String((e && e.message) || e).slice(0, 150));
+                continue;
+            }
             if (!c) continue;   // nel frattempo ha confermato da se', o non e' piu' in attesa
             scheda = c;
             confermate.push({ id: v.id, doc: v.docId });
         }
         const c = scheda.emailConfermata;
-        const invito = scheda.mailInvito;
-        if (c && c.come === 'spostamento' && !(invito && invito.ok === true) && emailValida(String(scheda.email || '').toLowerCase())) {
-            daInvitare.push({ docId: v.docId, scheda: scheda });
+        const finito = !!(ev.fine && Date.now() >= ev.fine);
+        if (!finito && c && c.come === 'spostamento' && !CONF.invitoPartito(scheda) && emailValida(String(scheda.email || '').toLowerCase())) {
+            daInvitare.push({ docId: v.docId, email: String(scheda.email || '').trim().toLowerCase() });
         }
     }
-    return { confermate: confermate, daInvitare: daInvitare };
+    return { confermate: confermate, daInvitare: daInvitare, nonConfermate: nonConfermate, restanti: restanti };
 }
 /* Gli inviti in PDF di chi e' confermato dallo spostamento, uno per scheda,
-   dentro il tempo della funzione: chi resta fuori si conta, e un secondo
-   spostamento sulle stesse righe lo completa (mailInvito non e' ok). */
-async function invitiDaSpostamento(db, daInvitare, scadenza) {
+   dentro il tempo della funzione: chi resta fuori si conta, e "Rimanda
+   l'invito in PDF" dal menu della riga (che rifa' lo spostamento nella stessa
+   sezione) lo completa. Ognuno torna in copia nascosta a chi sposta, come
+   ogni mail che parte da un comando dell'area riservata. Chi trova l'invito
+   gia' prenotato da un altro spostamento in corso si salta (`saltati`). */
+async function invitiDaSpostamento(db, daInvitare, scadenza, chi) {
     const CONF = moduloConferma();
-    const out = { inviati: 0, falliti: [], restanti: 0 };
+    const out = { inviati: 0, falliti: [], restanti: 0, saltati: 0 };
     for (const x of daInvitare) {
         if (Date.now() > scadenza) { out.restanti++; continue; }
-        const e = await CONF.invitoDopoSpostamento(db, x.docId, x.scheda);
-        if (e.ok) out.inviati++;
-        else out.falliti.push({ email: String(x.scheda.email || '').toLowerCase(), motivo: String(e.errore || 'errore del server di posta').slice(0, 150) });
+        let e;
+        try {
+            e = await CONF.invitoDopoSpostamento(db, x.docId, { bcc: ccnOperatore(chi.email, chi.emailSessione, x.email) });
+        } catch (err) {
+            e = { ok: false, errore: String((err && err.message) || err) };
+        }
+        if (e.saltato) out.saltati++;
+        else if (e.ok) out.inviati++;
+        else out.falliti.push({ email: x.email, motivo: String(e.errore || 'errore del server di posta').slice(0, 150) });
     }
     return out;
 }
@@ -1609,17 +1633,19 @@ module.exports = async (req, res) => {
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
-            /* Il tempo per la posta, da qui: gli inviti in PDF di chi e'
-               confermato dallo spostamento e poi gli avvisi. Un tetto solo,
-               perche' la funzione ne ha uno solo (60 s in vercel.json). */
+            await segnaCambiamento(db);
+            /* Il tempo per la posta, da qui: le conferme d'ufficio, gli inviti
+               in PDF di chi e' confermato dallo spostamento e poi gli avvisi.
+               Un tetto solo, perche' la funzione ne ha uno solo (60 s in
+               vercel.json). */
             const scadenza = Date.now() + 45 * 1000;
             const conferme = SEZIONI_SENZA_CONFERMA.indexOf(nuova) >= 0
-                ? await confermeDaSpostamento(db, dest, primaDi, { da: email, verso: nuova })
+                ? await confermeDaSpostamento(db, dest, primaDi, { da: email, verso: nuova, scadenza: scadenza })
                 : null;
-            await segnaCambiamento(db);
             let invitiEsito = null;
             if (conferme) {
-                invitiEsito = await invitiDaSpostamento(db, conferme.daInvitare, scadenza);
+                if (conferme.confermate.length) await segnaCambiamento(db);
+                invitiEsito = await invitiDaSpostamento(db, conferme.daInvitare, scadenza, { email: email, emailSessione: emailSessione });
                 if (invitiEsito.inviati || invitiEsito.falliti.length) await segnaCambiamento(db);
             }
 
@@ -1703,6 +1729,7 @@ module.exports = async (req, res) => {
                 ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito,
                 conferme: conferme ? {
                     confermate: conferme.confermate.length, righe: conferme.confermate.slice(0, 300),
+                    nonConfermate: conferme.nonConfermate + conferme.restanti,
                     inviti: invitiEsito.inviati, invitiFalliti: invitiEsito.falliti.slice(0, 50), invitiRestanti: invitiEsito.restanti
                 } : null
             });
@@ -2084,6 +2111,10 @@ module.exports = async (req, res) => {
                        solo, entro dieci minuti. */
                     if (nuovo.mailConferma && typeof nuovo.mailConferma === 'object' && !nuovo.mailConferma.a) {
                         nuovo.mailConferma = Object.assign({}, nuovo.mailConferma, { a: String(attuale.email || '').trim().toLowerCase() });
+                    }
+                    // anche l'invito in PDF era andato a quello vecchio (lib/conferma-email.js, invitoPartito)
+                    if (nuovo.mailInvito && typeof nuovo.mailInvito === 'object' && !nuovo.mailInvito.a) {
+                        nuovo.mailInvito = Object.assign({}, nuovo.mailInvito, { a: String(attuale.email || '').trim().toLowerCase() });
                     }
                     // solo per una scheda che c'era davvero (non una riga del vecchio foglio)
                     if (snap.exists && moduloVerificata().eventoDi(nuovo.pagina) && moduloConferma().inAttesaDiConferma(nuovo)) nuovo.confermaInAttesa = true;
