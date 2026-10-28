@@ -2013,7 +2013,8 @@
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>';
     }
-    function piedeB2B() {
+    // `motivo`: la riga del perche' si riceve la mail; senza, quella degli inviti B2B
+    function piedeB2B(motivo) {
         const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
         const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
         return '<tr><td class="px bd" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
@@ -2025,7 +2026,7 @@
                     '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
                     + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
                 + spazio(8)
-                + rigaPiede('color:' + C.tenue + ';', esc(MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+                + rigaPiede('color:' + C.tenue + ';', esc(motivo || MOTIVO_B2B) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
             )
             + '</td></tr>';
     }
@@ -2820,6 +2821,95 @@
         return { oggetto: oggetto, html: html, testo: testo };
     }
 
+    /* =========================================================
+       MAIL "LA SUA ISCRIZIONE E' FRA GLI ADERENTI / FRA SPONSOR E RELATORI"
+       ---------------------------------------------------------
+       Parte, se chi sposta lo lascia spuntato, a chi viene spostato fra
+       gli aderenti Revilaw o fra sponsor e relatori dall'area riservata.
+       Dice, nell'ordine:
+         1. dove e' stata registrata l'iscrizione (la sezione nuova);
+         2. che il posto in sala resta riservato e che non deve fare nulla;
+         3. che la conferma dell'indirizzo email non serve piu': chi era
+            ancora in attesa viene confermato d'ufficio dallo spostamento
+            (api/presenze.js, sposta-modalita), e una mail di conferma
+            arrivata prima puo' ignorarla. Per chi aveva gia' confermato la
+            frase non dice niente di falso: e' la stessa mail per tutti, il
+            servizio cambia solo nome e collegamento.
+       Non promette l'invito in PDF: lo ricevono a parte, subito, solo
+       quelli confermati d'ufficio (gli altri lo hanno gia', o non l'hanno
+       mai avuto perche' iscritti a mano o da un altro portale).
+       Niente cena e meeting, niente quota: la sezione "aderenti" del
+       convegno non e' l'iscrizione a pagamento degli aderenti. Niente
+       lista d'attesa: chi entra qui sta in sala.
+       Registro formale, come l'avviso del passaggio online; testata,
+       fascia e piede sono quelli degli inviti B2B.
+       Due segnaposti, sostituiti dal servizio PER DESTINATARIO:
+         {{NOME}}     - nome e cognome dell'iscritto;
+         {{COMPLETA}} - il suo collegamento personale firmato.
+       `dati.verso`: 'aderenti' o 'sponsor'.
+       `dati.evento`: titolo, quando, sottotitolo, luogo, indirizzo.
+    ========================================================= */
+    const SEZIONI_AVVISO = {
+        aderenti: { dove: 'fra gli aderenti Revilaw', partecipazione: 'In sala, fra gli aderenti Revilaw', oggetto: 'aderenti Revilaw' },
+        sponsor: { dove: 'fra sponsor e relatori', partecipazione: 'In sala, fra sponsor e relatori', oggetto: 'sponsor e relatori' }
+    };
+    function passaggioSezione(dati) {
+        dati = dati || {};
+        const s = SEZIONI_AVVISO[dati.verso];
+        if (!s) return null;
+        const ev = dati.evento || {};
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        const oggetto = 'La Sua iscrizione: ' + s.oggetto + ' - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = 'La Sua iscrizione è registrata ' + s.dove + ': il posto in sala resta riservato e non deve fare nulla.';
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
+            + (quandoEv ? ' di ' + quandoEv : '') + '. La Sua iscrizione è stata registrata ' + s.dove + '.';
+        const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(', ');
+        const voci = [
+            ['Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'],
+            ['Data', ev.quando],
+            ['Sede', dove],
+            ['Partecipazione', s.partecipazione],
+            ['Iscrizione', 'Confermata, nessuna azione richiesta']
+        ].filter(v => v[1]);
+        const riga = (et, val) => '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>';
+        const box = '<table role="presentation" class="bx" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(voci.map(v => riga(v[0], v[1])).join('')) + '</td></tr></table>';
+
+        const P1 = 'Parteciperà ai lavori in sala ' + s.dove + '. '
+            + 'Il Suo posto resta riservato e per Lei non cambia nulla: non deve iscriversi di nuovo né segnalarci altro.';
+        const P2 = 'La Sua iscrizione è confermata. Se in precedenza ha ricevuto una mail che Le chiedeva di confermare il Suo indirizzo email, '
+            + 'non è più necessario: può ignorarla.';
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par(P1)
+            + spazio(22)
+            + '<tr><td>' + box + '</td></tr>'
+            + spazio(26)
+            + par(P2)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
+            + 'Se i Suoi dati sono da correggere, o se preferisce rinunciare, può farlo dal '
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
+            + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+        ));
+
+        const html = involucro(oggetto, anteprima, testaB2B('Iscrizione aggiornata', sommario) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO_ONLINE));
+
+        const testo = ['ISCRIZIONE AGGIORNATA', sommario, P1,
+            voci.map(v => v[0] + ': ' + v[1]).join('\n'),
+            P2,
+            'Per correggere i Suoi dati o rinunciare: ' + SEGNAPOSTO_COMPLETA,
+            'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_ONLINE,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
 
     /* =========================================================
        DOPO IL CONVEGNO: PROGRAMMIAMO UN NUOVO INCONTRO
@@ -3359,7 +3449,7 @@
         SEGNAPOSTO_NUOVO_INCONTRO: SEGNAPOSTO_NUOVO_INCONTRO, invitoNuovoIncontro: invitoNuovoIncontro,
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
-        passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
+        passaggioOnline: passaggioOnline, passaggioSezione: passaggioSezione, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
         invitoB2BAzienda: invitoB2BAzienda, invitoB2BAziendaBreve: invitoB2BAziendaBreve,
         regoleB2B: regoleB2B,
         areaInternaB2B: areaInternaB2B, capofilaB2B: capofilaB2B,

@@ -219,6 +219,19 @@ prova('Nelle altre sezioni non si annuncia niente, come sempre', () => {
     esigi(riga({}, { modalita: 'sponsor' }).html === '', 'fra sponsor e relatori pure');
 });
 
+prova('Fra aderenti e sponsor l\'avviso, se e\' partito, si legge in verde', () => {
+    /* L'avviso dello spostamento fra le sezioni in sala e' facoltativo: chi
+       sposta lo lascia spuntato o no. Se e' partito la riga lo dice come per
+       l'online; se non e' partito tace - non e' una cosa rimasta da fare. */
+    const av = m => ({ modalita: m, avvisoModalita: { modalita: m, quando: Date.parse('2026-10-28T10:00:00+01:00'), da: 'admin@esempio.it', daNome: 'Anna' } });
+    ['aderenti', 'sponsor'].forEach(m => {
+        const r = riga({}, av(m));
+        esigi(r.html.indexOf('ev-avvisato') >= 0 && r.html.indexOf('ev-da-avvisare') < 0, m + ': "mail inviata" in verde, niente arancio', r.html);
+    });
+    esigi(riga({}, { modalita: 'sponsor', avvisoModalita: { modalita: 'online', quando: 1 } }).html === '',
+        'un avviso di un\'altra sezione non vale');
+});
+
 prova('"dal modulo" non si puo dichiarare per le sezioni che non si scelgono', () => {
     /* Il confine: il modulo pubblico puo' dichiarare solo "presenza" e
        "online" (lo fa rispettare il servizio). Se un valore inventato

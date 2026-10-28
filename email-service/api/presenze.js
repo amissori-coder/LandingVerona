@@ -187,6 +187,11 @@ const MODALITA = ['', 'presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
 // le sezioni in cui si puo' SPOSTARE qualcuno (il vuoto non e' una scelta:
 // e' solo com'e' scritta un'iscrizione che nessuno ha ancora toccato)
 const MODALITA_SCELTE = ['presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
+/* Le sezioni in cui ENTRARE vuol dire non dover piu' confermare l'email:
+   aderenti Revilaw e sponsor e relatori, persone che chi organizza conosce.
+   Non l'online, non il ritorno fra gli ospiti: li' la conferma resta la
+   regola (sposta-modalita, confermeDaSpostamento). */
+const SEZIONI_SENZA_CONFERMA = ['aderenti', 'sponsor'];
 /* Portali da cui puo' arrivare un'iscrizione inserita a mano. Per le voci
    fisse l'etichetta la decide il servizio, non chi chiama: cosi' la colonna
    "Portale" resta confrontabile. Con "altro" il nome della piattaforma lo
@@ -315,6 +320,68 @@ async function segnaCambiamento(db) {
     } catch (e) {
         console.error('Revisione non aggiornata:', String((e && e.message) || e).slice(0, 120));
     }
+}
+
+/* LA CONFERMA DELL'EMAIL DI CHI ENTRA FRA ADERENTI O SPONSOR (sposta-modalita).
+   Le schede degli spostati, lette insieme; per ognuna che e' di un evento
+   che chiede la conferma (Milano 2027) e aspetta ancora di confermare, la
+   conferma d'ufficio (lib/conferma-email.js, confermaPerSpostamento: una
+   transazione per scheda, che non riscrive un clic arrivato prima).
+   Le righe senza scheda (il vecchio foglio), le schede annullate, quelle
+   inserite a mano o da altri portali e quelle gia' confermate non si
+   toccano: per loro non c'e' niente da confermare.
+   Restituisce chi e' stato confermato e a chi va l'invito in PDF: chi e'
+   confermato DALLO SPOSTAMENTO e non l'ha ancora ricevuto - adesso, o in
+   uno spostamento di prima che non era riuscito a spedirlo. */
+async function confermeDaSpostamento(db, dest, primaDi, opz) {
+    const CONF = moduloConferma();
+    const V = moduloVerificata();
+    const voci = [];
+    const visti = new Set();
+    for (const d of dest) {
+        const docId = d.doc || idIscrizione(d.id);
+        if (!docId || visti.has(docId)) continue;
+        visti.add(docId);
+        voci.push({ id: d.id, docId: docId });
+    }
+    const schede = {};
+    for (let i = 0; i < voci.length; i += 300) {
+        const fetta = voci.slice(i, i + 300);
+        const letti = await db.getAll.apply(db, fetta.map(v => db.collection('iscrizioni').doc(v.docId)));
+        letti.forEach((s, k) => { schede[fetta[k].docId] = (s && s.exists) ? (s.data() || {}) : null; });
+    }
+    const confermate = [], daInvitare = [];
+    for (const v of voci) {
+        let scheda = schede[v.docId];
+        if (!scheda || scheda.annullato || !V.eventoDi(scheda.pagina)) continue;
+        const presenza = primaDi[v.id] || {};
+        if (CONF.inAttesaDiConferma(scheda, presenza)) {
+            const c = await CONF.confermaPerSpostamento(db, v.docId, { da: opz.da, verso: opz.verso, presenza: presenza });
+            if (!c) continue;   // nel frattempo ha confermato da se', o non e' piu' in attesa
+            scheda = c;
+            confermate.push({ id: v.id, doc: v.docId });
+        }
+        const c = scheda.emailConfermata;
+        const invito = scheda.mailInvito;
+        if (c && c.come === 'spostamento' && !(invito && invito.ok === true) && emailValida(String(scheda.email || '').toLowerCase())) {
+            daInvitare.push({ docId: v.docId, scheda: scheda });
+        }
+    }
+    return { confermate: confermate, daInvitare: daInvitare };
+}
+/* Gli inviti in PDF di chi e' confermato dallo spostamento, uno per scheda,
+   dentro il tempo della funzione: chi resta fuori si conta, e un secondo
+   spostamento sulle stesse righe lo completa (mailInvito non e' ok). */
+async function invitiDaSpostamento(db, daInvitare, scadenza) {
+    const CONF = moduloConferma();
+    const out = { inviati: 0, falliti: [], restanti: 0 };
+    for (const x of daInvitare) {
+        if (Date.now() > scadenza) { out.restanti++; continue; }
+        const e = await CONF.invitoDopoSpostamento(db, x.docId, x.scheda);
+        if (e.ok) out.inviati++;
+        else out.falliti.push({ email: String(x.scheda.email || '').toLowerCase(), motivo: String(e.errore || 'errore del server di posta').slice(0, 150) });
+    }
+    return out;
 }
 
 /* Freno agli invii per utente: serve a contenere i danni se qualcuno usasse il
@@ -1424,10 +1491,17 @@ module.exports = async (req, res) => {
         }
 
         /* Spostare le iscrizioni FRA LE SEZIONI (ospiti in sala, aderenti
-           Revilaw in sala, online), e avvisare chi e' stato spostato.
+           Revilaw in sala, sponsor e relatori in sala, online), e avvisare
+           chi e' stato spostato.
            Serve quando i posti in presenza finiscono - chi resta fuori non va
            cancellato, va spostato all'online e deve saperlo - e serve a tenere
-           gli aderenti Revilaw contati a parte da chi e' ospite.
+           aderenti Revilaw e sponsor e relatori contati a parte da chi e' ospite.
+
+           Chi entra fra gli ADERENTI o fra SPONSOR E RELATORI mentre aspetta
+           ancora di confermare l'email (Milano 2027) non la deve piu'
+           confermare: la scheda si conferma d'ufficio (`come: 'spostamento'`)
+           e l'invito in PDF parte subito, come dopo il clic
+           (confermeDaSpostamento, qui sotto). Succede con o senza avviso.
 
            La modalita' si scrive dove stanno stato e nota (collezione
            "presenze"): cosi' funziona anche per le iscrizioni che su Firestore
@@ -1452,7 +1526,7 @@ module.exports = async (req, res) => {
             }
             const nuova = testo(body.modalita, 20).toLowerCase();
             if (MODALITA_SCELTE.indexOf(nuova) < 0) {
-                res.status(400).json({ ok: false, msg: 'Indica la sezione: "presenza", "aderenti" oppure "online".' }); return;
+                res.status(400).json({ ok: false, msg: 'Indica la sezione: "presenza", "aderenti", "sponsor" oppure "online".' }); return;
             }
             /* Il riepilogo non e' un evento: le presenze - e con loro la sezione -
                sono per evento, e scriverle sotto 'tutti' creerebbe documenti che
@@ -1476,7 +1550,7 @@ module.exports = async (req, res) => {
             const m = body.mail && typeof body.mail === 'object' ? body.mail : null;
             // reinvio esplicito: riscrive anche a chi l'avviso l'ha gia' avuto
             const forzaAvviso = body.forza === true;
-            const oggettoBase = m ? (testo(m.oggetto, 250) || 'Partecipazione online - Next Generation Business').replace(/[\r\n]/g, ' ') : '';
+            const oggettoBase = m ? (testo(m.oggetto, 250) || (nuova === 'online' ? 'Partecipazione online - Next Generation Business' : 'La Sua iscrizione - Next Generation Business')).replace(/[\r\n]/g, ' ') : '';
             const htmlBase = m ? String(m.html || '').slice(0, 300000) : '';
             const testoBase = m ? String(m.testo || '').slice(0, 20000) : '';
             if (m && !htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
@@ -1535,7 +1609,19 @@ module.exports = async (req, res) => {
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
+            /* Il tempo per la posta, da qui: gli inviti in PDF di chi e'
+               confermato dallo spostamento e poi gli avvisi. Un tetto solo,
+               perche' la funzione ne ha uno solo (60 s in vercel.json). */
+            const scadenza = Date.now() + 45 * 1000;
+            const conferme = SEZIONI_SENZA_CONFERMA.indexOf(nuova) >= 0
+                ? await confermeDaSpostamento(db, dest, primaDi, { da: email, verso: nuova })
+                : null;
             await segnaCambiamento(db);
+            let invitiEsito = null;
+            if (conferme) {
+                invitiEsito = await invitiDaSpostamento(db, conferme.daInvitare, scadenza);
+                if (invitiEsito.inviati || invitiEsito.falliti.length) await segnaCambiamento(db);
+            }
 
             let mailEsito = null;
             if (m) {
@@ -1555,7 +1641,6 @@ module.exports = async (req, res) => {
                    Se il secondo giro rispedisse a tutti, completare un invio
                    interrotto costerebbe una mail doppia a chi era gia' a posto.
                    Cosi' invece basta ripremere sullo stesso elenco. */
-                const scadenza = Date.now() + 45 * 1000;
                 for (const d of dest) {
                     /* Tempo finito: il resto non si prova nemmeno. Meglio dirlo
                        - "ne restano N" - che essere interrotti a meta' di una
@@ -1614,7 +1699,13 @@ module.exports = async (req, res) => {
                     giaAvvisati: giaAvvisati, restanti: restanti, falliti: falliti.slice(0, 50)
                 };
             }
-            res.status(200).json({ ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito });
+            res.status(200).json({
+                ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito,
+                conferme: conferme ? {
+                    confermate: conferme.confermate.length, righe: conferme.confermate.slice(0, 300),
+                    inviti: invitiEsito.inviati, invitiFalliti: invitiEsito.falliti.slice(0, 50), invitiRestanti: invitiEsito.restanti
+                } : null
+            });
             return;
         }
 
