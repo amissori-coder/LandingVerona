@@ -70,7 +70,10 @@ prova('La mail: dove, cosa resta, e che la conferma non serve piu\'', () => {
         esigi(/confermare il Suo indirizzo email, non è più necessario/.test(m.testo), verso + ': la conferma dell\'indirizzo non serve piu\'');
         esigi(/Sede: Excelsior Hotel Gallia, Piazza Duca d'Aosta 9, Milano/.test(m.testo), verso + ': con la sede, perche\' in sala ci viene');
         esigi(m.html.indexOf('{{NOME}}') >= 0 && m.html.indexOf('{{COMPLETA}}') >= 0, verso + ': i due segnaposti che il servizio sostituisce');
-        esigi(!/\{\{(?!NOME\}\}|COMPLETA\}\})[A-Z_]+\}\}/.test(m.html + m.testo), verso + ': e nessun altro (il servizio lo spedirebbe tale e quale)');
+        // {{SE_INVITO}}...{{/SE_INVITO}}: il blocco dell'invito allegato, che il servizio tiene o toglie
+        esigi(!/\{\{(?!NOME\}\}|COMPLETA\}\}|SE_INVITO\}\}|\/SE_INVITO\}\})[A-Z_\/]+\}\}/.test(m.html + m.testo), verso + ': e nessun altro (il servizio lo spedirebbe tale e quale)');
+        esigi(/\{\{SE_INVITO\}\}[\s\S]*In allegato trova il Suo invito in PDF[\s\S]*\{\{\/SE_INVITO\}\}/.test(m.testo)
+            && /\{\{SE_INVITO\}\}[\s\S]*In allegato trova il Suo invito in PDF[\s\S]*\{\{\/SE_INVITO\}\}/.test(m.html), verso + ': l\'invito allegato sta nel suo blocco');
         esigi(!/cena|meeting|quota|200|lista d'attesa|In attesa/i.test(m.testo), verso + ': senza la quota, niente cena, quota o lista d\'attesa', m.testo);
     });
     const ad = RV_NEWSLETTER.passaggioSezione({ verso: 'aderenti', evento: EVENTO, cenaMeeting: CENA });
@@ -192,7 +195,7 @@ prova('Chi aspetta di confermare l\'email: la finestra lo dice prima', () => {
         'uno: la conferma non serve piu\'', uno);
     esigi(/Esce dall'attesa ed entra nei conteggi della sala, e riceve subito l'invito in PDF da esibire all'ingresso/.test(uno),
         'esce dall\'attesa e riceve l\'invito in PDF');
-    esigi(/questa mail parte anche senza l'avviso, e torna in copia nascosta anche a te/.test(uno), 'e quella mail parte comunque, in copia a chi sposta');
+    esigi(/allegato all'avviso, oppure in una mail a parte se l'avviso non parte\. Torna in copia nascosta anche a te/.test(uno), 'allegato all\'avviso, o da solo se l\'avviso non parte');
     const due = finestra(R, 'sponsor', ['a', 'b']).html();
     esigi(/<b>2<\/b> non avevano ancora/.test(due) && /Escono dall'attesa ed entrano/.test(due) && /ricevono subito/.test(due), 'due: al plurale');
     const dopo = finestra(R, 'aderenti', ['a'], { passato: true }).html();
