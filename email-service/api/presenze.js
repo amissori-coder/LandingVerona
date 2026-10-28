@@ -387,7 +387,7 @@ async function confermeDaSpostamento(db, dest, primaDi, opz) {
 /* Le schede del convegno degli spostati, lette insieme: i dati della persona
    per l'iscrizione a cena e meeting (lib/iscrizioni-aderenti.js,
    iscriviDaSpostamento). Le righe senza scheda e le annullate restano fuori. */
-async function personeSpostate(db, dest) {
+async function personeSpostate(db, dest, conAnnullati) {
     const voci = [];
     const visti = new Set();
     for (const d of dest) {
@@ -402,8 +402,9 @@ async function personeSpostate(db, dest) {
         const letti = await db.getAll.apply(db, fetta.map(v => db.collection('iscrizioni').doc(v.docId)));
         letti.forEach((s, k) => {
             const v = (s && s.exists) ? (s.data() || {}) : null;
-            if (!v || v.annullato || !emailValida(String(v.email || '').trim().toLowerCase())) return;
+            if (!v || (v.annullato && !conAnnullati) || !emailValida(String(v.email || '').trim().toLowerCase())) return;
             out.push({
+                modalita: String(v.modalita || ''),
                 email: String(v.email).trim().toLowerCase(), nome: v.nome || '', cognome: v.cognome || '',
                 telefono: v.telefono || '', azienda: v.azienda || '', idIscritto: fetta[k].id, doc: fetta[k].docId
             });
@@ -1684,12 +1685,19 @@ module.exports = async (req, res) => {
                aderenti lo dice, e deve essere vero quando arriva. */
             let cena = null;
             const AD = moduloAderenti();
-            if (AD.quotaDellEvento(evento)) {
+            /* Si iscrive solo chi ENTRA fra gli aderenti: chi c'era gia' (la
+               sezione di prima, o la scheda del modulo) non si iscrive di nuovo
+               - la sua iscrizione alla cena, se c'era, l'ha gia', e se e' stata
+               tolta a mano non deve rinascere da sola. E mai con "Rimanda
+               l'invito in PDF" (`soloInvito`), che non e' uno spostamento. */
+            if (AD.quotaDellEvento(evento) && body.soloInvito !== true) {
                 if (nuova === 'aderenti') {
-                    cena = await AD.iscriviDaSpostamento(db, evento, await personeSpostate(db, dest), { da: email });
+                    const entrano = (await personeSpostate(db, dest)).filter(p => ((primaDi[p.idIscritto] || {}).modalita || p.modalita) !== 'aderenti');
+                    cena = await AD.iscriviDaSpostamento(db, evento, entrano, { da: email });
                 } else {
                     const usciti = dest.filter(d => (primaDi[d.id] || {}).modalita === 'aderenti');
-                    if (usciti.length) cena = await AD.togliDaSpostamento(db, evento, (await personeSpostate(db, usciti)).map(p => p.email));
+                    // anche chi ha annullato il convegno: per togliere basta l'indirizzo
+                    if (usciti.length) cena = await AD.togliDaSpostamento(db, evento, (await personeSpostate(db, usciti, true)).map(p => p.email));
                 }
             }
 

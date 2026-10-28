@@ -220,7 +220,7 @@ function contiAderenti(schede, q, giorno, dal) {
             fatturaEmessa: !!(s.fattura && s.fattura.emessa),
             /* iscritto dallo spostamento fra gli aderenti dell'area riservata:
                i dati per la fattura li deve ancora mandare lui, dalla pagina */
-            daSpostamento: s.origine === 'spostamento',
+            daSpostamento: !!s.daSpostamento,
             datiFatturaMancanti: !f.intestatario,
             /* la mail all'iscritto (quota e dati di fatturazione) e' partita?
                Senza l'avviso interno di una volta, e' qui che lo si scopre */

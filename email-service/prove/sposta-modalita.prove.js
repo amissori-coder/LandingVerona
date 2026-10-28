@@ -1015,7 +1015,50 @@ prova('Milano: fra gli aderenti si e\' iscritti anche a cena e meeting', async (
         'la quota, la fattura da emettere, i dati per la fattura da chiedere, e chi l\'ha fatto');
     esigi(!spedite.some(m => /Iscrizione registrata/.test(m.subject || '')), 'nessuna mail di "iscrizione registrata": lo dice l\'avviso dello spostamento');
     const r2 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
-    esigi(r2.corpo.cena.iscritti === 0 && r2.corpo.cena.gia === 1, 'spostando di nuovo non nasce una seconda iscrizione');
+    esigi(r2.corpo.cena.iscritti === 0, 'spostando di nuovo non nasce una seconda iscrizione', JSON.stringify(r2.corpo.cena));
+});
+
+prova('Milano: chi e\' gia\' fra gli aderenti non si iscrive di nuovo, e "rimanda l\'invito" non iscrive', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    const k = chiave('iscrizioniAderenti', 'milano-2027-aderenti~alda@attesa-it');
+    delete dati[k];   // tolta a mano dal riquadro Aderenti: alla cena non viene
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA], soloInvito: true });
+    esigi(!dati[k], '"Rimanda l\'invito in PDF" non la reiscrive');
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(!dati[k], 'e nemmeno rispostarla nella stessa sezione');
+    // chi e' aderente dal modulo (casella "sono un aderente"): la cena se la sceglie dalla sua pagina
+    const ka = chiave('iscrizioni', idScheda(MI_CLIC.id));
+    dati[ka] = Object.assign({}, dati[ka], { modalita: 'aderenti', aderente: true });
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_CLIC] });
+    esigi(r.corpo.cena.iscritti === 0 && !CENA_DI('carlo@clic.it'), 'l\'aderente dal modulo non viene iscritto d\'ufficio');
+});
+
+prova('Milano: i dati per la fattura arrivano dalla pagina, e la scheda resta "dello spostamento"', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    const AD = require(path.join(RADICE, 'lib/iscrizioni-aderenti.js'));
+    const r = await AD.ricevi(db, {
+        quota: 'milano-2027-aderenti', nome: 'Alda', cognome: 'Attesa', email: 'alda@attesa.it', telefono: '3331234567',
+        studio: 'Alfa', privacy: true, accettaQuota: true, origine: '/milano_febbraio_2027/aderenti/',
+        fatturazione: { intestatario: 'Alfa S.p.A.', partitaIva: '01234567897', codiceFiscale: '01234567897', indirizzo: 'Via Roma 1',
+            cap: '20100', comune: 'Milano', provincia: 'MI', codiceDestinatario: 'ABC1234', emailFatture: 'fatture@alfa.it' }
+    });
+    const c = CENA_DI('alda@attesa.it') || {};
+    esigi(r.corpo.ok === true && r.corpo.aggiornata === false, 'e\' il primo invio dei dati, non una correzione', JSON.stringify(r.corpo));
+    esigi(c.fatturazione.intestatario === 'Alfa S.p.A.' && c.daSpostamento && c.origine === 'spostamento' && (c.storia || []).length === 0,
+        'i dati ci sono, e la scheda resta segnata come nata dallo spostamento', JSON.stringify(c).slice(0, 300));
+    const via = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'presenza', destinatari: [MI_ATTESA] });
+    esigi(via.corpo.cena.tolti === 1 && !CENA_DI('alda@attesa.it'), 'uscendo dagli aderenti, non fatturata, si toglie lo stesso');
+});
+
+prova('Milano: chi ha annullato il convegno, uscendo dagli aderenti, perde anche la cena', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    const ks = chiave('iscrizioni', idScheda(MI_ATTESA.id));
+    dati[ks] = Object.assign({}, dati[ks], { annullato: { quando: 1, da: 'intestatario' } });
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'presenza', destinatari: [MI_ATTESA] });
+    esigi(r.corpo.cena.tolti === 1 && !CENA_DI('alda@attesa.it'), 'la scheda di cena e meeting si toglie');
 });
 
 prova('Milano: chi a cena e meeting si era iscritto da se\' non si tocca', async () => {

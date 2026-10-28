@@ -26298,6 +26298,8 @@
             if (k >= lotti.length) return Promise.resolve();
             return Cloud.operaPresenza({
                 azione: 'sposta-modalita', evento: ev.id, modalita: verso, forza: !!opz.rinvia,
+                // "Rimanda l'invito in PDF": non e' uno spostamento, e non iscrive a cena e meeting
+                soloInvito: !!opz.soloInvito,
                 destinatari: lotti[k].map(r => ({ id: r.id, doc: r.doc || '' })),
                 mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
             }).then(res => {
@@ -27061,11 +27063,25 @@
            gia' resta com'e'); chi ne esce ne esce, se ci era entrato con uno
            spostamento e la fattura non e' emessa. Si dice prima, con i numeri. */
         const cm = conCena ? quotaCenaMeeting(ev) : null;
-        const nuoviCena = conCena ? elenco.filter(r => String(r.email || '').trim() && !allaCena(ev, r)).length : 0;
-        const giaCena = conCena ? elenco.filter(r => allaCena(ev, r)).length : 0;
-        const esconoCena = (!conCena && evHaAderenti(ev)) ? elenco.filter(r => modalitaDi(ev, r) === 'aderenti' && cenaDaSpostamento(ev, r)).length : 0;
+        /* Si contano PERSONE, cioe' indirizzi (la scheda di cena e meeting e'
+           una per indirizzo), e solo fra chi ENTRA fra gli aderenti: chi c'e'
+           gia' non viene iscritto di nuovo (il servizio fa lo stesso). Se le
+           iscrizioni a cena e meeting non sono lette, niente numeri. */
+        const dAd = evHaAderenti(ev) ? (aderentiDi(ev) || [])[0] : null;
+        const cenaLetta = !!(dAd && !dAd.errore && dAd.conti);
+        const indirizziDi = rr => Array.from(new Set(rr.map(r => String(r.email || '').trim().toLowerCase())
+            .filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e))));
+        const entrano = conCena ? elenco.filter(r => modalitaDi(ev, r) !== 'aderenti') : [];
+        const nuoviCena = cenaLetta ? indirizziDi(entrano.filter(r => !allaCena(ev, r))).length : 0;
+        const giaCena = cenaLetta ? indirizziDi(entrano.filter(r => allaCena(ev, r))).length : 0;
+        const esconoCena = (!conCena && cenaLetta)
+            ? indirizziDi(elenco.filter(r => modalitaDi(ev, r) === 'aderenti' && cenaDaSpostamento(ev, r))).length : 0;
         const euroCm = n => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-        const NOTA_CENA = (nuoviCena
+        const NOTA_CENA = (conCena && entrano.length && !cenaLetta
+            ? '<p class="hint" style="margin:-4px 0 12px;">Chi entra fra gli aderenti viene iscritto anche alla <b>cena del 26 e al meeting del 27</b>, '
+            + 'con la fattura da emettere. Le iscrizioni a cena e meeting non sono ancora lette: i numeri non sono disponibili.</p>'
+            : '')
+            + (nuoviCena
             ? '<p class="hint" style="margin:-4px 0 12px;"><b>' + nuoviCena + '</b> '
             + (nuoviCena === 1 ? 'viene iscritto' : 'vengono iscritti') + ' anche alla <b>cena del 26 e al meeting del 27</b>'
             + (cm && cm.importi ? ' (' + euroCm(cm.importi.totale) + ' IVA inclusa' + (nuoviCena === 1 ? '' : ' a testa') + ')' : '')
@@ -27148,7 +27164,8 @@
                     + ' dalla lista d\'attesa. '
                     : '')
                 + 'L\'avviso dice che l\'iscrizione è registrata ' + sezioneDef(verso).dove
-                + ', che ha un posto riservato in sala e che non c\'è niente da fare.'
+                + ', che ha un posto riservato in sala'
+                + (conCena ? ', la cena del 26 e il meeting del 27 con la quota, e chiede i dati per la fattura.' : ' e che non c\'è niente da fare.')
                     : chi + ' ' + (uno ? 'torna' : 'tornano')
                     + ' fra gli ospiti in sala. Nessuna mail parte: se '
                     + (uno ? 'aveva' : 'avevano') + ' già ricevuto l\'avviso del passaggio online, va detto a voce.';

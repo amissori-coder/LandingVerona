@@ -112,6 +112,7 @@ function finestra(righe, verso, attese, opz) {
         eventoPassato: () => !!opz.passato,
         // cena e meeting: la quota come la legge il servizio, chi e' gia' iscritto, chi lo e' per spostamento
         evHaAderenti: () => opz.cena !== false,
+        aderentiDi: () => opz.cenaNonLetta ? null : [{ conti: {}, righe: [] }],
         quotaCenaMeeting: () => (opz.cena === false || opz.cenaNonLetta) ? null : CENA,
         allaCena: (ev, r) => (opz.giaCena || []).indexOf(r.id) >= 0,
         cenaDaSpostamento: (ev, r) => (opz.cenaSpostati || []).indexOf(r.id) >= 0 ? {} : null,

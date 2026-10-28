@@ -1480,6 +1480,21 @@ async function completaIscrizione(azione, body, res, ip) {
     await batch.commit();
     await segnaCambiamento(db);
 
+    /* CENA E MEETING DEGLI ADERENTI. Chi era stato iscritto spostandolo fra
+       gli aderenti (lib/iscrizioni-aderenti.js, iscriviDaSpostamento) e qui
+       rinuncia al convegno - dal collegamento che l'avviso stesso gli ha
+       dato - rinuncia anche a quella: la scheda nata dallo spostamento si
+       toglie, se la fattura non e' emessa. Chi si e' iscritto da se' alla
+       cena resta com'e'. Mai al posto del resto. */
+    if (scheda.email && !scheda.annullato && posto1Annullato) {
+        try {
+            const ev = VERIFICATA.eventoDi(scheda.pagina);
+            if (ev) await require('../lib/iscrizioni-aderenti').togliDaSpostamento(db, ev.chiave, [String(scheda.email)]);
+        } catch (e) {
+            console.error('Cena e meeting non tolta con la rinuncia:', String((e && e.message) || e).slice(0, 150));
+        }
+    }
+
     /* La diretta degli eventi (progetto Firebase SEPARATO, tutto in
        lib/diretta-iscrizione.js, dalSito). Un posto ONLINE annullato da
        qui esce da solo dall'evento della diretta (niente piu' accesso,
