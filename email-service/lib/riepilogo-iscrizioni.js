@@ -218,6 +218,10 @@ function contiAderenti(schede, q, giorno, dal) {
             note: String(s.note || ''),
             totale: Number((s.importi || {}).totale) || 0,
             fatturaEmessa: !!(s.fattura && s.fattura.emessa),
+            /* iscritto dallo spostamento fra gli aderenti dell'area riservata:
+               i dati per la fattura li deve ancora mandare lui, dalla pagina */
+            daSpostamento: s.origine === 'spostamento',
+            datiFatturaMancanti: !f.intestatario,
             /* la mail all'iscritto (quota e dati di fatturazione) e' partita?
                Senza l'avviso interno di una volta, e' qui che lo si scopre */
             mailNonPartita: s.mail === false

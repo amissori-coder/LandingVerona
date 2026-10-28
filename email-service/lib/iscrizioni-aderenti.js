@@ -360,7 +360,10 @@ function rigaElenco(id, v) {
             numero: fat.numero || '',
             quando: Number(fat.quando) || 0,
             da: fat.da || ''
-        }
+        },
+        // iscritta dallo spostamento fra gli aderenti: i dati per la fattura vanno ancora chiesti
+        daSpostamento: v.origine === 'spostamento',
+        datiFatturaMancanti: !f.intestatario
     };
 }
 
@@ -465,8 +468,99 @@ async function esegui(ctx) {
 }
 function gestisce(body) { return !!(body && String(body.sezione || '') === 'aderenti'); }
 
+/* =========================================================
+   L'ISCRIZIONE CHE NASCE DALLO SPOSTAMENTO
+   ---------------------------------------------------------
+   Chi organizza sposta un iscritto al convegno fra gli aderenti
+   Revilaw (api/presenze.js, sposta-modalita): da li' e' iscritto
+   anche alla cena e al meeting della quota del suo evento, con la
+   fattura da emettere. Il modulo del convegno non ha i dati di
+   fatturazione: la scheda nasce con quelli vuoti, e l'avviso dello
+   spostamento chiede di completarli dalla pagina riservata - dove,
+   con lo stesso indirizzo, il modulo aggiorna questa stessa scheda
+   (ricevi: un indirizzo, una scheda).
+   Chi e' gia' iscritto (dalla pagina, o da uno spostamento di prima)
+   non si tocca. La scheda porta `daSpostamento`: e' cio' che permette
+   di toglierla se la persona esce dagli aderenti prima che la fattura
+   sia emessa (togliDaSpostamento), e all'area riservata e al
+   riepilogo di dire che i dati per la fattura vanno ancora chiesti.
+   `persone`: [{ email, nome, cognome, telefono, azienda, idIscritto,
+   doc }], gia' lette dalle schede del convegno da chi chiama. */
+function quotaDellEvento(evento) {
+    return QUOTE.find(q => q.evento === String(evento || '')) || null;
+}
+async function iscriviDaSpostamento(db, evento, persone, opz) {
+    const q = quotaDellEvento(evento);
+    const out = { iscritti: 0, gia: 0, falliti: 0 };
+    if (!q) return null;
+    const visti = new Set();
+    for (const p of persone || []) {
+        const email = testo(p.email, 200).toLowerCase();
+        if (!indirizzoValido(email) || visti.has(email)) continue;
+        visti.add(email);
+        const rif = db.collection(COLLEZIONE).doc(idScheda(q.id, email));
+        const ora = Date.now();
+        try {
+            const nuova = await db.runTransaction(async t => {
+                const s = await t.get(rif);
+                if (s.exists) return false;
+                t.set(rif, {
+                    nome: testo(p.nome, 80), cognome: testo(p.cognome, 80), email: email,
+                    telefono: testo(p.telefono, 40), studio: testo(p.azienda, 160), citta: '',
+                    quota: q.id, evento: q.evento,
+                    fatturazione: {
+                        intestatario: '', partitaIva: '', codiceFiscale: '', indirizzo: '', cap: '', comune: '',
+                        provincia: '', codiceDestinatario: '', pec: '', emailFatture: ''
+                    },
+                    importi: importi(q), note: '',
+                    quando: ora, primaVolta: ora, storia: [],
+                    origine: 'spostamento',
+                    daSpostamento: {
+                        quando: ora, da: testo((opz || {}).da, 200),
+                        idIscritto: testo(p.idIscritto, 300), doc: testo(p.doc, 400)
+                    }
+                });
+                return true;
+            });
+            if (nuova) out.iscritti++; else out.gia++;
+        } catch (e) {
+            out.falliti++;
+            console.error('Iscrizione a cena e meeting dallo spostamento non scritta:', String((e && e.message) || e).slice(0, 150));
+        }
+    }
+    return out;
+}
+/* Chi esce dagli aderenti esce anche da cena e meeting, ma solo se ci era
+   entrato con lo spostamento e la fattura non e' ancora emessa: chi si e'
+   iscritto da se' dalla pagina lo ha chiesto lui, e una fattura emessa non
+   si cancella togliendo una riga. */
+async function togliDaSpostamento(db, evento, emails) {
+    const q = quotaDellEvento(evento);
+    const out = { tolti: 0, tenuti: 0 };
+    if (!q) return null;
+    const visti = new Set();
+    for (const e of emails || []) {
+        const email = testo(e, 200).toLowerCase();
+        if (!email || visti.has(email)) continue;
+        visti.add(email);
+        const rif = db.collection(COLLEZIONE).doc(idScheda(q.id, email));
+        try {
+            const s = await rif.get();
+            if (!s.exists) continue;
+            const v = s.data() || {};
+            if (v.origine !== 'spostamento' || (v.fattura && v.fattura.emessa)) { out.tenuti++; continue; }
+            await rif.delete();
+            out.tolti++;
+        } catch (err) {
+            console.error('Iscrizione a cena e meeting non tolta:', String((err && err.message) || err).slice(0, 150));
+        }
+    }
+    return out;
+}
+
 module.exports = {
     QUOTE, COLLEZIONE, definizione, perLaPagina, importi, ricevi,
+    quotaDellEvento, iscriviDaSpostamento, togliDaSpostamento,
     elenco, segnaFattura, elimina, esegui, gestisce,
     partitaIvaValida, codiceFiscaleValido, indirizzoValido, configurato
 };
