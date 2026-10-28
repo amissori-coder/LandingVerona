@@ -17001,6 +17001,8 @@
        Il perno e' `!p.modalita`: appena chi organizza tocca la sezione la
        decisione diventa sua, e da quel momento vale quello che ha deciso lui -
        compresa la posta che ne consegue. */
+    // la sezione decisa da chi organizza (fra le presenze), non quella del modulo
+    function p0Modalita(ev, r) { return String((EventiPresenze.di(ev.id, r.id) || {}).modalita || ''); }
     function sezioneDalModulo(ev, r, md) {
         /* Nel riepilogo di TUTTI gli eventi le presenze non si caricano, quindi
            "nessuno lo ha spostato" non si puo' ne' affermare ne' smentire: si
@@ -17295,6 +17297,17 @@
                     ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
                     + '" data-verso="online" data-rinvia="1">'
                     + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
+                    : '')
+                /* L'avviso fra aderenti e sponsor, mandato (o rimandato) a chi e'
+                   gia' nella sezione: dove dice l'iscrizione e, fra gli
+                   aderenti, cena, meeting e i dati per la fattura. Non sposta e
+                   non iscrive di nuovo a niente: rifa' lo spostamento nella
+                   stessa sezione con l'avviso, e chi l'aveva gia' lo riceve
+                   di nuovo (rinvia). */
+                + ((md === 'aderenti' || md === 'sponsor') && r.email && p0Modalita(ev, r) === md
+                    ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
+                    + '" data-verso="' + md + '" data-rinvia="1">'
+                    + (avvisoModalitaDi(ev, r) && avvisoModalitaDi(ev, r).modalita === md ? 'Invia di nuovo l\'avviso' : 'Manda l\'avviso dello spostamento') + '</button>'
                     : '')
                 + ((md === 'aderenti' || md === 'sponsor') && invitoDaRimandare(ev, r)
                     ? '<button type="button" class="ev-menu-voce ev-invito-pdf" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
@@ -27136,8 +27149,8 @@
             + (daConfermare === 1 ? 'Esce dall\'attesa ed entra nei conteggi della sala' : 'Escono dall\'attesa ed entrano nei conteggi della sala')
             + (eventoPassato(ev) ? '.'
                 : (daConfermare === 1 ? ', e riceve subito' : ', e ricevono subito')
-                + ' l\'invito in PDF da esibire all\'ingresso, come dopo la conferma: questa mail parte anche senza l\'avviso, '
-                + 'e torna in copia nascosta anche a te.')
+                + ' l\'invito in PDF da esibire all\'ingresso, come dopo la conferma: allegato all\'avviso, '
+                + 'oppure in una mail a parte se l\'avviso non parte. Torna in copia nascosta anche a te.')
             + '</p>'
             : '';
         /* Il titolo: lo stesso comando del menu della riga ("Sposta fra sponsor
@@ -27238,7 +27251,9 @@
             /* Nell'anteprima i segnaposti diventano un nome di esempio e
                l'indirizzo della pagina senza firma: i valori veri li mette il
                servizio, uno per destinatario. */
-            return m.html
+            /* Il paragrafo dell'invito in PDF allegato: nell'anteprima si vede
+               se almeno uno lo ricevera' (chi non aveva confermato l'email) */
+            return m.html.replace(/\{\{SE_INVITO\}\}([\s\S]*?)\{\{\/SE_INVITO\}\}/g, (x, dentro) => daConfermare && !eventoPassato(ev) ? dentro : '')
                 .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeDi(elenco[0])))
                 .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });

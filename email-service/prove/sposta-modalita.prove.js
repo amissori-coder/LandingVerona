@@ -842,9 +842,13 @@ prova('Milano: fra sponsor e relatori, con l\'avviso, partono invito e avviso', 
     const avvisi = spedite.filter(m => /i posti sono esauriti/.test(m.html || ''));
     esigi(avvisi.length === 2 && avvisi.every(m => m.bcc), 'l\'avviso parte a tutti e due, con la copia nascosta', String(avvisi.length));
     esigi((presenzaDi(MI, MI_ATTESA.id) || {}).avvisoModalita.modalita === 'sponsor', 'e resta scritto per la sezione nuova');
-    const ia = ordine.findIndex(o => o.tipo === 'mail' && o.a === 'alda@attesa.it');
-    const primaAvviso = spedite.findIndex(m => m.to === 'alda@attesa.it');
-    esigi(ia >= 0 && invitiA('alda@attesa.it')[0] === spedite[primaAvviso], 'prima l\'invito, poi l\'avviso');
+    // una mail sola a chi aspettava la conferma: l'avviso, con l'invito allegato
+    const adAlda = spedite.filter(m => m.to === 'alda@attesa.it');
+    esigi(adAlda.length === 1 && /i posti sono esauriti/.test(adAlda[0].html) && (adAlda[0].attachments || []).some(x => /\.pdf$/.test(x.filename)),
+        'una mail sola: l\'avviso con l\'invito in PDF allegato', adAlda.map(m => m.subject).join(' | '));
+    const adCarlo = spedite.filter(m => m.to === 'carlo@clic.it');
+    esigi(adCarlo.length === 1 && !adCarlo[0].attachments, 'chi aveva gia\' confermato riceve l\'avviso senza allegati');
+    esigi((schedaDi(MI_ATTESA.id).mailInvito || {}).ok === true && schedaDi(MI_ATTESA.id).mailInvito.con === 'avviso', 'e l\'invito risulta partito, dentro l\'avviso');
 });
 
 prova('Milano: chi ha gia\' confermato con il clic non si tocca', async () => {
@@ -1088,6 +1092,21 @@ prova('Milano: uscendo dagli aderenti l\'iscrizione dello spostamento si toglie,
     const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA, MI_CLIC] });
     esigi(r.corpo.cena && r.corpo.cena.tolti === 1 && r.corpo.cena.tenuti === 1, 'una tolta, una tenuta', JSON.stringify(r.corpo.cena));
     esigi(!CENA_DI('alda@attesa.it') && !!CENA_DI('carlo@clic.it'), 'si toglie quella non fatturata; una fattura emessa non si cancella con uno spostamento');
+});
+
+prova('Milano: il paragrafo dell\'invito allegato resta solo a chi ha l\'allegato', async () => {
+    scenarioMilano();
+    const conBlocco = { oggetto: 'Avviso', html: '<p>Ciao {{NOME}}{{SE_INVITO}}<b>ALLEGATO</b>{{/SE_INVITO}} fine</p>', testo: 'Ciao {{NOME}}{{SE_INVITO}} ALLEGATO{{/SE_INVITO}} fine' };
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, MI_CLIC], mail: conBlocco });
+    const a = spedite.find(m => m.to === 'alda@attesa.it') || {}, c = spedite.find(m => m.to === 'carlo@clic.it') || {};
+    esigi(/<b>ALLEGATO<\/b>/.test(a.html) && / ALLEGATO fine/.test(a.text) && !/SE_INVITO/.test(a.html + a.text), 'chi ha l\'invito legge il paragrafo, senza i segni');
+    esigi(!/ALLEGATO|SE_INVITO/.test(c.html + c.text) && /Ciao Carlo Clic fine/.test(c.text), 'chi non ce l\'ha non lo legge');
+});
+
+prova('Milano: senza avviso, l\'invito parte da solo; se l\'avviso non parte, anche', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(invitiA('alda@attesa.it').length === 1 && /Il tuo invito/.test(invitiA('alda@attesa.it')[0].subject), 'senza avviso chiesto: la mail dell\'invito');
 });
 
 prova('Milano: due righe con la stessa email, ne esce una: la cena resta all\'altra', async () => {

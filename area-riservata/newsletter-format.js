@@ -2841,9 +2841,11 @@
             arrivata prima puo' ignorarla. Per chi aveva gia' confermato la
             frase non dice niente di falso: e' la stessa mail per tutti, il
             servizio cambia solo nome e collegamento.
-       Non promette l'invito in PDF: lo ricevono a parte, subito, solo
-       quelli confermati d'ufficio (gli altri lo hanno gia', o non l'hanno
-       mai avuto perche' iscritti a mano o da un altro portale).
+       L'INVITO IN PDF: chi e' confermato d'ufficio dallo spostamento lo
+       riceve ALLEGATO a questa mail (non in una mail a parte). Il paragrafo
+       che lo dice sta fra {{SE_INVITO}} e {{/SE_INVITO}}: il servizio lo
+       lascia a chi ha l'allegato e lo toglie agli altri (gli altri l'invito
+       l'hanno gia', o non l'hanno mai avuto perche' iscritti a mano).
        CENA E MEETING (solo aderenti, `dati.cenaMeeting`): lo spostamento
        fra gli aderenti iscrive anche alla cena e al meeting della quota
        dell'evento, a pagamento (lib/iscrizioni-aderenti.js,
@@ -2869,6 +2871,7 @@
     /* Senza a capo con il trattino: il testo va a bandiera, senza sillabe
        invisibili (le parole spezzate a fine riga, in questa mail, si leggevano male). */
     const SENZA_TRATTINI = 'text-align:left;-webkit-hyphens:manual;-moz-hyphens:manual;-ms-hyphens:manual;hyphens:manual;';
+    const SE_INVITO = '{{SE_INVITO}}', FINE_INVITO = '{{/SE_INVITO}}';
     function passaggioSezione(dati) {
         dati = dati || {};
         const s = SEZIONI_AVVISO[dati.verso];
@@ -2903,6 +2906,8 @@
             + (cm ? 'Non deve iscriversi di nuovo.' : 'Non deve iscriversi di nuovo né segnalarci altro.');
         const P2 = 'La Sua iscrizione è confermata. Se in precedenza ha ricevuto una mail che Le chiedeva di confermare il Suo indirizzo email, '
             + 'non è più necessario: può ignorarla.';
+        const P_INVITO = 'In allegato trova il Suo invito in PDF da esibire all\'ingresso: lo mostri al desk, anche dal telefono, '
+            + 'e Le consegniamo il badge. C\'è anche il file per aggiungere la giornata al calendario.';
         const P_CENA = cm ? 'Come aderente Revilaw, la Sua iscrizione comprende anche la cena e il meeting degli aderenti indicati qui sopra'
             + (quotaCm ? ', con la quota di partecipazione di ' + quotaCm : '') + ': per questi riceverà la fattura.' : '';
         const P_FATT = cm && cm.url ? 'Se non ci ha già comunicato i dati per la fattura, La preghiamo di indicarli dalla pagina riservata agli aderenti, '
@@ -2915,6 +2920,7 @@
             + '<tr><td>' + box + '</td></tr>'
             + spazio(26)
             + par(P2)
+            + SE_INVITO + spazio(22) + par(P_INVITO) + FINE_INVITO
             + (P_CENA ? spazio(22) + par(P_CENA) : '')
             + (P_FATT ? spazio(22) + par(P_FATT) + spazio(18)
                 + '<tr><td align="center" style="text-align:center;"><table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td>'
@@ -2930,7 +2936,7 @@
 
         const testo = ['ISCRIZIONE AGGIORNATA', sommario, P1,
             voci.map(v => v[0] + ': ' + v[1]).join('\n'),
-            P2, P_CENA, P_FATT ? P_FATT + '\n' + cm.url : '',
+            P2, SE_INVITO + P_INVITO + FINE_INVITO, P_CENA, P_FATT ? P_FATT + '\n' + cm.url : '',
             'Per correggere i Suoi dati o rinunciare: ' + SEGNAPOSTO_COMPLETA,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA,

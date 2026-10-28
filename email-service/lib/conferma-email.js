@@ -133,6 +133,38 @@ function adessoInItalia() {
     f.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
     return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute;
 }
+/* GLI ALLEGATI DELL'INVITO: il PDF da esibire all'ingresso (in sala) e il
+   file .ics della giornata. Li usa la mail dell'invito qui sotto, e l'avviso
+   dello spostamento fra aderenti o sponsor, che li porta con se' al posto di
+   una seconda mail (api/presenze.js, sposta-modalita). */
+function allegatiInvito(idDoc, scheda) {
+    const online = String(scheda.modalita || '').toLowerCase() === 'online';
+    const evento = dettagliEvento(scheda.pagina);
+    const titolo = MNGB.nomeEvento(scheda.pagina);
+    const ev = Object.assign({ titolo: titolo }, evento);
+    const perAgenda = {
+        titolo: 'Next Generation Business - ' + ev.titolo.split(' ')[0],
+        luogo: evento.luogo, indirizzo: evento.indirizzo, inizio: evento.inizio, fine: evento.fine, url: evento.url,
+        descrizione: [evento.tema, evento.programma].filter(Boolean).join('. ')
+    };
+    const fuori = [];
+    if (!online) {
+        const nomeCompleto = (testo(scheda.nome, 120) + ' ' + testo(scheda.cognome, 120)).trim();
+        fuori.push({
+            filename: INVITO.nomeFileInvito(nomeCompleto),
+            content: INVITO.pdfInvito({ nome: nomeCompleto, azienda: testo(scheda.azienda, 200), ruolo: testo(scheda.ruolo, 200), evento: ev, online: false, emessoIl: adessoInItalia() }),
+            contentType: 'application/pdf'
+        });
+    }
+    if (CAL.valido(perAgenda)) {
+        fuori.push({
+            filename: 'Next-Generation-Business-' + ev.titolo.split(' ')[0] + '.ics',
+            content: CAL.ics(perAgenda, 'ngb-' + String(idDoc).replace(/[^A-Za-z0-9-]/g, '').slice(0, 60)),
+            contentType: 'text/calendar; charset=utf-8; method=PUBLISH'
+        });
+    }
+    return fuori;
+}
 /* Compone e spedisce l'invito. Restituisce { ok, errore }: se non parte, la
    conferma dell'indirizzo resta valida e l'area riservata puo' rimandarla.
    `opz.bcc`: la copia nascosta a chi lo ha fatto partire dall'area riservata
@@ -156,23 +188,8 @@ async function spedisciInvito(idDoc, scheda, opz) {
     };
     const agenda = CAL.valido(perAgenda) ? { google: CAL.linkGoogle(perAgenda), outlook: CAL.linkOutlook(perAgenda) } : null;
     const m = MNGB.invitoIngresso(Object.assign({}, dati, { agenda: agenda }), NL.linkCompleta(idDoc));
-    const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html, attachments: [] };
+    const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html, attachments: allegatiInvito(idDoc, scheda) };
     if (opz && opz.bcc) messaggio.bcc = opz.bcc;
-    if (!online) {
-        const nomeCompleto = (dati.nome + ' ' + dati.cognome).trim();
-        messaggio.attachments.push({
-            filename: INVITO.nomeFileInvito(nomeCompleto),
-            content: INVITO.pdfInvito({ nome: nomeCompleto, azienda: dati.azienda, ruolo: dati.ruolo, evento: dati.evento, online: false, emessoIl: adessoInItalia() }),
-            contentType: 'application/pdf'
-        });
-    }
-    if (agenda) {
-        messaggio.attachments.push({
-            filename: 'Next-Generation-Business-' + dati.evento.titolo.split(' ')[0] + '.ics',
-            content: CAL.ics(perAgenda, 'ngb-' + String(idDoc).replace(/[^A-Za-z0-9-]/g, '').slice(0, 60)),
-            contentType: 'text/calendar; charset=utf-8; method=PUBLISH'
-        });
-    }
     if (!messaggio.attachments.length) delete messaggio.attachments;
     try {
         await trasporto().sendMail(messaggio);
@@ -360,11 +377,10 @@ const INVITO_IN_CORSO_MS = 90 * 1000;
    l'indirizzo e' quello di adesso, e una scheda annullata o cancellata nel
    frattempo non riceve niente. L'esito si scrive con update: una scheda
    cancellata non rinasce. Restituisce { ok, errore } o { saltato: true }. */
-async function invitoDopoSpostamento(db, idDoc, opz) {
-    opz = opz || {};
+async function prenotaInvito(db, idDoc) {
     const rif = db.collection('iscrizioni').doc(idDoc);
     const ora = Date.now();
-    const scheda = await db.runTransaction(async t => {
+    return db.runTransaction(async t => {
         const snap = await t.get(rif);
         if (!snap.exists) return null;
         const s = snap.data() || {};
@@ -376,16 +392,24 @@ async function invitoDopoSpostamento(db, idDoc, opz) {
         t.update(rif, { mailInvito: { inCorsoFino: ora + INVITO_IN_CORSO_MS, da: 'spostamento', a: a } });
         return s;
     });
-    if (!scheda) return { saltato: true };
-    const esito = await spedisciInvito(idDoc, Object.assign({}, scheda, { modalita: 'presenza' }), { bcc: opz.bcc });
+}
+// com'e' andata, con update: una scheda cancellata nel frattempo non rinasce
+async function segnaInvito(db, idDoc, scheda, esito, come) {
     try {
-        await rif.update({
+        await db.collection('iscrizioni').doc(idDoc).update({
             mailInvito: {
                 quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200), da: 'spostamento',
-                a: String(scheda.email || '').trim().toLowerCase()
+                a: String(scheda.email || '').trim().toLowerCase(), con: come || 'invito'
             }
         });
     } catch (e) { /* informazione, non condizione */ }
+}
+async function invitoDopoSpostamento(db, idDoc, opz) {
+    opz = opz || {};
+    const scheda = await prenotaInvito(db, idDoc);
+    if (!scheda) return { saltato: true };
+    const esito = await spedisciInvito(idDoc, Object.assign({}, scheda, { modalita: 'presenza' }), { bcc: opz.bcc });
+    await segnaInvito(db, idDoc, scheda, esito, 'invito');
     return esito;
 }
 
@@ -663,6 +687,7 @@ async function rimandaConferma(db, idDoc, opz) {
 
 module.exports = {
     conferma, pregresso, confermaPerSpostamento, invitoDopoSpostamento, invitoPartito,
+    allegatiInvito, prenotaInvito, segnaInvito,
     mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
     trasporto, mittente, rispondiA,
     spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio, segnaCambiamento,

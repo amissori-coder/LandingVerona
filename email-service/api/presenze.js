@@ -387,6 +387,12 @@ async function confermeDaSpostamento(db, dest, primaDi, opz) {
 /* Le schede del convegno degli spostati, lette insieme: i dati della persona
    per l'iscrizione a cena e meeting (lib/iscrizioni-aderenti.js,
    iscriviDaSpostamento). Le righe senza scheda e le annullate restano fuori. */
+/* {{SE_INVITO}}...{{/SE_INVITO}} nel modello dell'avviso: il pezzo che parla
+   dell'invito in PDF allegato. Resta (senza i segni) a chi ce l'ha, sparisce
+   per gli altri. */
+function conBloccoInvito(s, tieni) {
+    return String(s || '').replace(/\{\{SE_INVITO\}\}([\s\S]*?)\{\{\/SE_INVITO\}\}/g, (x, dentro) => tieni ? dentro : '');
+}
 async function personeSpostate(db, dest, conAnnullati) {
     const voci = [];
     const visti = new Set();
@@ -1671,11 +1677,16 @@ module.exports = async (req, res) => {
                 ? await confermeDaSpostamento(db, dest, primaDi, { da: email, verso: nuova, scadenza: scadenza })
                 : null;
             let invitiEsito = null;
-            if (conferme) {
-                if (conferme.confermate.length) await segnaCambiamento(db);
-                invitiEsito = await invitiDaSpostamento(db, conferme.daInvitare, scadenza, { email: email, emailSessione: emailSessione });
-                if (invitiEsito.inviati || invitiEsito.falliti.length) await segnaCambiamento(db);
-            }
+            if (conferme && conferme.confermate.length) await segnaCambiamento(db);
+            /* L'INVITO IN PDF VA DENTRO L'AVVISO, quando l'avviso parte: una mail
+               sola, quella che dice dov'e' l'iscrizione (e, fra gli aderenti,
+               cena, meeting e fattura), con l'invito allegato. La mail
+               dell'invito da sola - "il tuo invito, in sala" - parte solo a chi
+               l'avviso non lo riceve (niente avviso chiesto, gia' avvisato,
+               avviso non partito): dopo gli avvisi, qui sotto. */
+            const invitoNellAvviso = {};   // docId -> true: l'avviso a quella scheda porta l'invito
+            const daInvitarePerDoc = {};
+            if (conferme) conferme.daInvitare.forEach(x => { daInvitarePerDoc[x.docId] = x; });
 
             /* CENA E MEETING DEGLI ADERENTI (Milano 2027). Chi entra fra gli
                aderenti e' iscritto anche alla cena e al meeting della quota del
@@ -1743,8 +1754,21 @@ module.exports = async (req, res) => {
                     visti[a] = true;
                     const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
                     const link = NL.linkCompleta(docId);
+                    /* l'invito in PDF, se a questa scheda va mandato: si prenota
+                       (come la mail dell'invito da sola) e si allega all'avviso */
+                    let allegati, conInvito = null;
+                    if (daInvitarePerDoc[docId]) {
+                        const CONF = moduloConferma();
+                        try {
+                            const sch = await CONF.prenotaInvito(db, docId);
+                            if (sch) { conInvito = sch; allegati = CONF.allegatiInvito(docId, Object.assign({}, sch, { modalita: 'presenza' })); }
+                        } catch (e) { conInvito = null; allegati = undefined; }
+                    }
+                    // il blocco {{SE_INVITO}}...{{/SE_INVITO}} del modello resta solo a chi ha l'invito allegato
+                    const conBlocco = t => conBloccoInvito(t, !!allegati);
                     try {
                         await trans.sendMail({
+                            attachments: allegati,
                             from: '"' + fromName + '" <' + fromEmail + '>',
                             replyTo: email,
                             to: a,
@@ -1758,10 +1782,11 @@ module.exports = async (req, res) => {
                                arrivato fin li' verrebbe spedito tale e quale,
                                ed e' la prima riga che il destinatario legge */
                             subject: oggettoBase.split('{{NOME}}').join(nomeDest),
-                            text: testoBase ? testoBase.split('{{NOME}}').join(nomeDest).split('{{COMPLETA}}').join(link) : undefined,
-                            html: htmlBase.split('{{NOME}}').join(esc(nomeDest)).split('{{COMPLETA}}').join(link)
+                            text: testoBase ? conBlocco(testoBase).split('{{NOME}}').join(nomeDest).split('{{COMPLETA}}').join(link) : undefined,
+                            html: conBlocco(htmlBase).split('{{NOME}}').join(esc(nomeDest)).split('{{COMPLETA}}').join(link)
                         });
                         inviate++;
+                        if (conInvito) { await moduloConferma().segnaInvito(db, docId, conInvito, { ok: true }, 'avviso'); invitoNellAvviso[docId] = true; }
                         // sulla presenza resta scritto che l'avviso e' partito: senza,
                         // al secondo giro non si saprebbe a chi si e' gia' scritto
                         await db.collection('presenze').doc(idDoc(evento, d.id)).set({
@@ -1770,6 +1795,8 @@ module.exports = async (req, res) => {
                     } catch (e) {
                         const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
                         falliti.push({ email: a, motivo: motivo });
+                        // l'invito prenotato non e' partito: si libera, e lo riprova la mail da sola qui sotto
+                        if (conInvito) await moduloConferma().segnaInvito(db, docId, conInvito, { ok: false, errore: motivo }, 'avviso');
                     }
                 }
                 if (inviate) await segnaCambiamento(db);
@@ -1778,6 +1805,14 @@ module.exports = async (req, res) => {
                     giaAvvisati: giaAvvisati, restanti: restanti, falliti: falliti.slice(0, 50)
                 };
             }
+            // l'invito da solo, a chi non l'ha avuto dentro l'avviso
+            if (conferme) {
+                const restano = conferme.daInvitare.filter(x => !invitoNellAvviso[x.docId]);
+                invitiEsito = await invitiDaSpostamento(db, restano, scadenza, { email: email, emailSessione: emailSessione });
+                invitiEsito.inviati += Object.keys(invitoNellAvviso).length;
+                if (invitiEsito.inviati || invitiEsito.falliti.length) await segnaCambiamento(db);
+            }
+
             res.status(200).json({
                 ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito, cena: cena,
                 conferme: conferme ? {
