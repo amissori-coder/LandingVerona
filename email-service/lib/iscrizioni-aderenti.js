@@ -287,11 +287,20 @@ async function ricevi(db, corpo) {
         return { stato: 500, corpo: { ok: false, msg: 'Non siamo riusciti a registrare l\'iscrizione: riprovi fra poco.' } };
     }
 
+    /* LA SCHEDA NATA DALLO SPOSTAMENTO, che riceve per la prima volta i dati
+       per la fattura: e' il primo invio della persona, non una correzione.
+       Niente storia (non c'era niente da confrontare), la mail di una
+       registrazione e la data di oggi come prima volta, cosi' il riepilogo
+       di mezzanotte la porta fra le nuove con i dati appena arrivati. Il
+       segno dello spostamento (`daSpostamento`) resta: e' cio' che la toglie
+       se la persona esce dagli aderenti prima della fattura. */
+    const daCompletare = !!(prima && prima.daSpostamento && !((prima.fatturazione || {}).intestatario));
     // le versioni precedenti dei dati, per sapere che cosa e' cambiato
     const storia = Array.isArray(prima && prima.storia) ? prima.storia.slice(-4) : [];
-    if (prima) storia.push({ quando: Number(prima.quando) || 0, fatturazione: prima.fatturazione || null });
+    if (prima && !daCompletare) storia.push({ quando: Number(prima.quando) || 0, fatturazione: prima.fatturazione || null });
     r.storia = storia;
-    r.primaVolta = (prima && prima.primaVolta) || r.quando;
+    r.primaVolta = (prima && !daCompletare && prima.primaVolta) || r.quando;
+    if (prima && prima.origine === 'spostamento') r.origine = 'spostamento';
 
     try {
         await rif.set(r, { merge: true });
@@ -306,7 +315,7 @@ async function ricevi(db, corpo) {
     let confermata = false;
     if (configurato()) {
         const trans = trasporto();
-        const conferma = mailConferma(q, r, !!prima);
+        const conferma = mailConferma(q, r, !!prima && !daCompletare);
         try {
             await trans.sendMail({ from: mittente(), to: r.email, subject: conferma.oggetto, html: conferma.html });
             confermata = true;
@@ -318,7 +327,7 @@ async function ricevi(db, corpo) {
     try { await rif.set({ mail: confermata }, { merge: true }); }
     catch (_) { /* dato di servizio */ }
 
-    return { stato: 200, corpo: { ok: true, aggiornata: !!prima, mail: confermata, importi: r.importi } };
+    return { stato: 200, corpo: { ok: true, aggiornata: !!prima && !daCompletare, mail: confermata, importi: r.importi } };
 }
 
 /* =========================================================
@@ -362,7 +371,7 @@ function rigaElenco(id, v) {
             da: fat.da || ''
         },
         // iscritta dallo spostamento fra gli aderenti: i dati per la fattura vanno ancora chiesti
-        daSpostamento: v.origine === 'spostamento',
+        daSpostamento: !!v.daSpostamento,
         datiFatturaMancanti: !f.intestatario
     };
 }
@@ -548,7 +557,7 @@ async function togliDaSpostamento(db, evento, emails) {
             const s = await rif.get();
             if (!s.exists) continue;
             const v = s.data() || {};
-            if (v.origine !== 'spostamento' || (v.fattura && v.fattura.emessa)) { out.tenuti++; continue; }
+            if (!v.daSpostamento || (v.fattura && v.fattura.emessa)) { out.tenuti++; continue; }
             await rif.delete();
             out.tolti++;
         } catch (err) {
