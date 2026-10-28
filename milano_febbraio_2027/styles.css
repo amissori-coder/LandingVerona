@@ -940,6 +940,37 @@ ul, ol { list-style: none; }
     font-size: 0.85rem;
 }
 
+/* la nota per chi non e' un'azienda: accanto ai passi, stesso vetro, filo azzurro a sinistra */
+.accredito-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px 20px;
+    border-radius: var(--raggio);
+    background: rgba(125, 184, 238, 0.08);
+    border: 1px solid rgba(125, 184, 238, 0.28);
+    border-left: 3px solid var(--azzurro);
+    text-align: left;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+.accredito-nota svg { flex-shrink: 0; width: 26px; height: 26px; margin-top: 1px; color: var(--azzurro); }
+.accredito-nota p { margin: 0; }
+.accredito-nota strong { color: var(--bianco); }
+.accredito-nota-titolo {
+    margin-bottom: 2px !important;
+    font-family: var(--font-titoli);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--bianco);
+}
+@media (max-width: 560px) {
+    .accredito-nota { padding: 14px 16px; gap: 12px; }
+}
+
 .modulo-involucro {
     width: 100%;
     margin-top: 32px;
