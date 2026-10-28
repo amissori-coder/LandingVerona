@@ -8,6 +8,11 @@
    controlla solo quello
    che serve a non far aspettare una risposta "manca il CAP".
    La quota e le date le decide il servizio, non questa pagina.
+   Dal pulsante "Completa i dati per la fattura" della mail
+   (?d=<scheda>&t=<firma>) la pagina chiede i dati della persona
+   (azione "aderenti-leggi"), li mette nel modulo con l'email
+   bloccata e manda d e t con l'invio: il servizio aggiorna quella
+   stessa iscrizione.
    ============================================================ */
 (function () {
     'use strict';
@@ -19,6 +24,7 @@
     var errore = document.getElementById('errore');
     var bottone = document.getElementById('invia');
     var fatto = document.getElementById('fatto');
+    var personale = null;   // { d, t } quando la pagina arriva dal collegamento della mail
 
     function valore(nome) {
         var el = form.elements[nome];
@@ -92,6 +98,7 @@
             privacy: form.elements.privacy.checked,
             origine: location.pathname
         };
+        if (personale) { corpo.d = personale.d; corpo.t = personale.t; }
 
         bottone.disabled = true;
         bottone.textContent = 'Invio in corso…';
@@ -103,7 +110,8 @@
                     mostraErrore(msg, campoDa(msg));
                     return;
                 }
-                document.getElementById('fatto-titolo').textContent = d.aggiornata ? 'Iscrizione aggiornata' : 'Iscrizione registrata';
+                document.getElementById('fatto-titolo').textContent = personale ? 'Dati per la fattura registrati'
+                    : (d.aggiornata ? 'Iscrizione aggiornata' : 'Iscrizione registrata');
                 document.getElementById('fatto-testo').textContent =
                     'Grazie, ' + corpo.nome + '. ' + (d.mail
                         ? 'Le abbiamo inviato il riepilogo all\'indirizzo ' + corpo.email + '. '
@@ -118,7 +126,7 @@
             })
             .then(function () {
                 bottone.disabled = false;
-                bottone.textContent = 'Invia l\'iscrizione';
+                bottone.textContent = personale ? 'Invia i dati per la fattura' : 'Invia l\'iscrizione';
             });
     });
 
@@ -132,6 +140,59 @@
     form.addEventListener('input', function (e) {
         if (e.target && e.target.removeAttribute) e.target.removeAttribute('aria-invalid');
     });
+
+    /* --- il collegamento personale della mail --- */
+    function mostraPersonale(titolo, testo, ko) {
+        var box = document.getElementById('personale');
+        document.getElementById('personale-titolo').textContent = titolo;
+        document.getElementById('personale-testo').textContent = testo;
+        box.className = 'ad-personale' + (ko ? ' ad-personale-ko' : '');
+        box.hidden = false;
+    }
+    function metti(nome, v) {
+        var el = form.elements[nome];
+        if (el && v && !el.value) el.value = v;
+    }
+    (function () {
+        var q;
+        try { q = new URLSearchParams(location.search); } catch (e) { return; }
+        var d = q.get('d'), t = q.get('t');
+        if (!d || !t) return;
+        fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ azione: 'aderenti-leggi', d: d, t: t }) })
+            .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+            .then(function (r) {
+                if (!r || !r.ok || !r.scheda) {
+                    mostraPersonale('Collegamento non riconosciuto',
+                        (r && r.msg) || 'Non siamo riusciti a leggere la Sua iscrizione: compili il modulo, oppure scriva a info@nextgenerationbusiness.it', true);
+                    return;
+                }
+                personale = { d: d, t: t };
+                var s = r.scheda, f = s.fatturazione || {};
+                ['nome', 'cognome', 'telefono', 'studio', 'citta'].forEach(function (n) { metti(n, s[n]); });
+                ['intestatario', 'partitaIva', 'codiceFiscale', 'indirizzo', 'cap', 'comune', 'provincia',
+                    'codiceDestinatario', 'pec', 'emailFatture'].forEach(function (n) { metti(n, f[n]); });
+                var em = form.elements.email;
+                em.value = s.email;
+                em.readOnly = true;
+                em.title = 'L\'indirizzo della Sua iscrizione: non si cambia da qui';
+                document.getElementById('iscrizione-titolo').textContent = 'Completa i dati per la fattura';
+                document.getElementById('iscrizione-sotto').textContent = 'La Sua iscrizione a cena e meeting è già registrata: manca solo l\'intestazione della fattura.';
+                mostraPersonale(s.datiFatturaMancanti ? 'Completa i dati per la fattura' : 'I Suoi dati per la fattura',
+                    'Gentile ' + (s.nome || 'aderente') + ', abbiamo già inserito i Suoi dati: '
+                    + (s.datiFatturaMancanti ? 'indichi quelli per la fattura qui sotto, confermi la quota e invii.'
+                        : 'li controlli, corregga quello che serve e invii.')
+                    + ' L\'iscrizione resta associata all\'indirizzo ' + s.email + '.');
+                document.getElementById('dati-fattura').className = 'ad-evidenza';
+                bottone.textContent = 'Invia i dati per la fattura';
+                var primo = form.elements[s.datiFatturaMancanti ? 'intestatario' : 'nome'];
+                document.getElementById('personale').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (primo && primo.focus) { try { primo.focus({ preventScroll: true }); } catch (e) { primo.focus(); } }
+            })
+            .catch(function () {
+                mostraPersonale('Connessione non riuscita', 'Non siamo riusciti a leggere la Sua iscrizione: ricarichi la pagina, oppure compili il modulo con lo stesso indirizzo email della mail ricevuta.', true);
+            });
+    }());
 
     // provincia, SDI e codice fiscale si scrivono in maiuscolo
     ['provincia', 'codiceDestinatario', 'codiceFiscale'].forEach(function (n) {

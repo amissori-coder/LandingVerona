@@ -1814,6 +1814,15 @@ module.exports = async (req, res) => {
            IP qui sopra vale anche qui: la pagina si raggiunge solo dal
            collegamento, ma l'endpoint e' aperto e ogni invio fa partire una
            mail. */
+        /* Il collegamento personale dell'avviso (?d=&t=): la pagina chiede
+           la scheda per mettere i dati nel modulo. Firma controllata in
+           lib/iscrizioni-aderenti.js. */
+        if (azione === 'aderenti-leggi') {
+            initAdmin(leggiServiceAccount());
+            const r = await ADERENTI.leggiPerFattura(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
         if (azione === 'aderenti-iscrizione') {
             const credAd = leggiServiceAccount();
             initAdmin(credAd);

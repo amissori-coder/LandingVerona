@@ -1754,6 +1754,11 @@ module.exports = async (req, res) => {
                     visti[a] = true;
                     const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
                     const link = NL.linkCompleta(docId);
+                    /* il pulsante "Completa i dati per la fattura" dell'avviso
+                       fra gli aderenti: la pagina degli aderenti aperta sulla
+                       scheda di cena e meeting di questo indirizzo, firmata */
+                    let firmaFatt = '';
+                    if (nuova === 'aderenti') { try { firmaFatt = moduloAderenti().parametriFattura(evento, a); } catch (e) { firmaFatt = ''; } }
                     /* l'invito in PDF, se a questa scheda va mandato: si prenota
                        (come la mail dell'invito da sola) e si allega all'avviso */
                     let allegati, conInvito = null;
@@ -1782,8 +1787,8 @@ module.exports = async (req, res) => {
                                arrivato fin li' verrebbe spedito tale e quale,
                                ed e' la prima riga che il destinatario legge */
                             subject: oggettoBase.split('{{NOME}}').join(nomeDest),
-                            text: testoBase ? conBlocco(testoBase).split('{{NOME}}').join(nomeDest).split('{{COMPLETA}}').join(link) : undefined,
-                            html: conBlocco(htmlBase).split('{{NOME}}').join(esc(nomeDest)).split('{{COMPLETA}}').join(link)
+                            text: testoBase ? conBlocco(testoBase).split('{{NOME}}').join(nomeDest).split('{{COMPLETA}}').join(link).split('{{FIRMA_FATTURA}}').join(firmaFatt) : undefined,
+                            html: conBlocco(htmlBase).split('{{NOME}}').join(esc(nomeDest)).split('{{COMPLETA}}').join(link).split('{{FIRMA_FATTURA}}').join(esc(firmaFatt))
                         });
                         inviate++;
                         if (conInvito) { await moduloConferma().segnaInvito(db, docId, conInvito, { ok: true }, 'avviso'); invitoNellAvviso[docId] = true; }

@@ -320,3 +320,44 @@ input[name="codiceDestinatario"]::placeholder { text-transform: none; }
 @media (max-width: 720px) {
     .pranzo-hotel { flex-basis: auto; width: 100%; max-width: 260px; }
 }
+
+/* Dal pulsante personale della mail: il riquadro in cima al modulo, l'email
+   bloccata e la parte della fattura in evidenza */
+.ad-personale {
+    scroll-margin-top: 96px;   /* sotto la barra fissa in alto */
+    margin: 0 0 28px;
+    padding: 18px 20px;
+    border: 1px solid var(--linea);
+    border-left: 4px solid var(--azzurro);
+    border-radius: 6px;
+    background: #F3F7FC;
+}
+.ad-personale strong {
+    display: block;
+    font-family: var(--font-titoli);
+    font-size: 1.1rem;
+    color: var(--blu-notte);
+}
+.ad-modulo .ad-personale p {
+    margin: 6px 0 0;
+    font-size: 0.92rem;
+    color: var(--testo);
+    text-align: left !important;
+}
+.ad-personale.ad-personale-ko { border-left-color: #B42318; }
+.campo input[readonly] {
+    background: #F2F4F7;
+    color: var(--testo-tenue);
+    cursor: not-allowed;
+}
+.ad-modulo fieldset.ad-evidenza {
+    margin: 0 -20px 32px;
+    padding: 24px 20px 32px;
+    border: 1px solid var(--azzurro);
+    border-radius: 8px;
+    background: #FAFCFF;
+    box-shadow: 0 0 0 4px rgba(125, 184, 238, 0.18);
+}
+@media (max-width: 640px) {
+    .ad-modulo fieldset.ad-evidenza { margin: 0 -10px 32px; padding: 20px 10px 28px; }
+}

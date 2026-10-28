@@ -1105,9 +1105,17 @@ collaboratore, quello del suo utente di riferimento): un
   emettere e i dati per la fattura VUOTI, `origine: 'spostamento'` e
   `daSpostamento: { quando, da, idIscritto, doc }`. Chi era gia' iscritto
   (dalla pagina o da uno spostamento di prima) non si tocca. L'avviso agli
-  aderenti dice date e quota e chiede i dati per la fattura dalla pagina
-  riservata, dove con lo stesso indirizzo il modulo aggiorna la stessa
-  scheda. Uscendo dagli aderenti, la scheda nata dallo spostamento si toglie
+  aderenti dice date e quota e chiede i dati per la fattura con il pulsante
+  "Completa i dati per la fattura": un collegamento PERSONALE alla pagina
+  degli aderenti, `?d=<id della scheda>&t=<firma>` (segnaposto
+  `{{FIRMA_FATTURA}}` in coda all'indirizzo, sostituito qui per ogni
+  destinatario con `parametriFattura`; firma `firmaFatturaAderente` in
+  `lib/newsletter.js`, contesto suo). La pagina legge la scheda
+  (`azione: 'aderenti-leggi'` su `/api/iscrizione-nuova`), mette nome, email
+  e telefono nel modulo con l'email bloccata e mette in evidenza i dati di
+  fatturazione; l'invio porta `d` e `t` e `ricevi` aggiorna quella scheda,
+  con l'indirizzo della scheda e non con quello del modulo. Firma storta:
+  403, niente dati. Uscendo dagli aderenti, la scheda nata dallo spostamento si toglie
   se la fattura non e' emessa (`togliDaSpostamento`). Risposta: `cena`,
   `{ iscritti, gia, falliti }` o `{ tolti, tenuti }`, `null` fuori da un
   evento con la quota. Nel riquadro "Aderenti" e nel riepilogo di mezzanotte

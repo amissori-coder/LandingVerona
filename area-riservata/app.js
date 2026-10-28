@@ -27255,7 +27255,8 @@
                se almeno uno lo ricevera' (chi non aveva confermato l'email) */
             return m.html.replace(/\{\{SE_INVITO\}\}([\s\S]*?)\{\{\/SE_INVITO\}\}/g, (x, dentro) => daConfermare && !eventoPassato(ev) ? dentro : '')
                 .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeDi(elenco[0])))
-                .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
+                .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/')
+                .split(RV_NEWSLETTER.SEGNAPOSTO_FIRMA_FATTURA || '{{FIRMA_FATTURA}}').join('');
         });
         // la quota di cena e meeting si legge dal servizio: se non e' ancora arrivata, l'anteprima si rifa' quando arriva
         if (conCena && !cm) caricaAderenti(ev, () => { if (ant) ant.aggiorna(); });
