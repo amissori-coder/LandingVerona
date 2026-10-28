@@ -1990,7 +1990,8 @@
        ricopiate in due punti, perche' sono la faccia della mail: due copie
        si allontanano al primo ritocco e il giorno dopo partono due mail che
        sembrano di due studi diversi. */
-    function testaB2B(titolo, sommario) {
+    // `senzaTrattini`: il sommario a bandiera e senza sillabe (passaggioSezione)
+    function testaB2B(titolo, sommario, senzaTrattini) {
         return '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
@@ -2001,9 +2002,11 @@
                 + spazio(24)
                 + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
                 + spazio(12)
-                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(titolo) + '</td></tr>'
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(titolo, !!senzaTrattini) + '</td></tr>'
                 + spazio(16)
-                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';' + ALLINEA + '">' + testoHtml(sommario) + '</td></tr>'
+                // la classe "par" porta la sillabazione sul telefono: senza trattini, non la si mette
+                + '<tr><td class="' + (senzaTrattini ? 'lead' : 'lead par') + '" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';'
+                + (senzaTrattini ? 'text-align:left;-webkit-hyphens:manual;hyphens:manual;' : ALLINEA) + '">' + testoHtml(sommario, !!senzaTrattini) + '</td></tr>'
             )
             + '</td></tr>';
     }
@@ -2863,6 +2866,9 @@
         aderenti: { dove: 'fra gli aderenti Revilaw', partecipazione: 'In sala, fra gli aderenti Revilaw', oggetto: 'aderenti Revilaw' },
         sponsor: { dove: 'fra sponsor e relatori', partecipazione: 'In sala, fra sponsor e relatori', oggetto: 'sponsor e relatori' }
     };
+    /* Senza a capo con il trattino: il testo va a bandiera, senza sillabe
+       invisibili (le parole spezzate a fine riga, in questa mail, si leggevano male). */
+    const SENZA_TRATTINI = 'text-align:left;-webkit-hyphens:manual;-moz-hyphens:manual;-ms-hyphens:manual;hyphens:manual;';
     function passaggioSezione(dati) {
         dati = dati || {};
         const s = SEZIONI_AVVISO[dati.verso];
@@ -2886,8 +2892,8 @@
             ['Partecipazione', s.partecipazione],
             ['Iscrizione', cm ? 'Confermata' : 'Confermata, nessuna azione richiesta']
         ].concat(cm ? cm.voci.map(v => [v.cosa, v.quando]).concat([['Quota', quotaCm]]) : []).filter(v => v[1]);
-        const riga = (et, val) => '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
-            + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>';
+        const riga = (et, val) => '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:13px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et, true) + '</td>'
+            + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val, true) + '</td></tr>';
         const box = '<table role="presentation" class="bx" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:16px 22px;">' + tabellaInterna(voci.map(v => riga(v[0], v[1])).join('')) + '</td></tr></table>';
@@ -2901,7 +2907,7 @@
             + (quotaCm ? ', con la quota di partecipazione di ' + quotaCm : '') + ': per questi riceverà la fattura.' : '';
         const P_FATT = cm && cm.url ? 'Se non ci ha già comunicato i dati per la fattura, La preghiamo di indicarli dalla pagina riservata agli aderenti, '
             + 'con questo stesso indirizzo email: la Sua iscrizione si aggiorna da sola.' : '';
-        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + ALLINEA + '">' + testoHtml(t) + '</td></tr>';
+        const par = t => '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + SENZA_TRATTINI + '">' + testoHtml(t, true) + '</td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par(P1)
@@ -2911,15 +2917,16 @@
             + par(P2)
             + (P_CENA ? spazio(22) + par(P_CENA) : '')
             + (P_FATT ? spazio(22) + par(P_FATT) + spazio(18)
-                + '<tr><td>' + pulsante('Completa i dati per la fattura', cm.url) + '</td></tr>' : '')
+                + '<tr><td align="center" style="text-align:center;"><table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td>'
+                + pulsante('Completa i dati per la fattura', cm.url) + '</td></tr></table></td></tr>' : '')
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + ALLINEA + '">'
+            + '<tr><td style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + SENZA_TRATTINI + '">'
             + 'Se i Suoi dati sono da correggere, o se preferisce rinunciare, può farlo dal '
             + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
             + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
 
-        const html = involucro(oggetto, anteprima, testaB2B('Iscrizione aggiornata', sommario) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO_PROMEMORIA));
+        const html = involucro(oggetto, anteprima, testaB2B('Iscrizione aggiornata', sommario, true) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO_PROMEMORIA));
 
         const testo = ['ISCRIZIONE AGGIORNATA', sommario, P1,
             voci.map(v => v[0] + ': ' + v[1]).join('\n'),
