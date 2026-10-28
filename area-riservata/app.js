@@ -16532,6 +16532,30 @@
         if (String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'presente') return false;
         return !confermaEmailDi(r, lista);
     }
+    /* LA SCHEDA ASPETTA LA CONFERMA? La stessa domanda, ma per la SCHEDA e non
+       per l'indirizzo: e' la regola del servizio (lib/conferma-email.js,
+       inAttesaDiConferma), quella con cui lo spostamento fra aderenti o
+       sponsor conferma d'ufficio e manda l'invito in PDF. Le due rispondono
+       diverso solo quando lo stesso indirizzo ha un'altra riga confermata: a
+       video quella riga non aspetta (la conferma vale per l'indirizzo), ma la
+       sua scheda si', e lo spostamento la conferma - e le manda l'invito. La
+       finestra dello spostamento conta con questa, per annunciare tutto
+       quello che partira'. */
+    function schedaDaConfermare(ev, r) {
+        if (!ev || ev.tutti || !ev.confermaEmail || !r || !r.doc || r.soloCena) return false;
+        if (!String(r.email || '').trim() || !dalModuloDelSito(r)) return false;
+        if (String((EventiPresenze.di(ev.id, r.id) || {}).stato || '') === 'presente') return false;
+        return !(r.emailConfermata && r.emailConfermata.quando);
+    }
+    /* L'invito in PDF di chi e' confermato con lo spostamento e' partito, a
+       questo indirizzo? (lib/conferma-email.js, invitoPartito) */
+    function invitoDaRimandare(ev, r) {
+        if (!ev || ev.tutti || !r || !r.doc || r.soloCena || eventoPassato(ev)) return false;
+        if (!r.emailConfermata || r.emailConfermata.come !== 'spostamento') return false;
+        const m = r.mailInvito;
+        const a = String(r.email || '').trim().toLowerCase();
+        return !!a && !(m && m.ok === true && (!m.a || m.a === a));
+    }
     /* LA SEZIONE IN CUI UNA RIGA SI GUARDA: l'attesa della conferma, se c'e',
        altrimenti la sua modalita'. E' la risposta alla domanda "chi c'e' in
        presenza", e la fanno in tanti - i conteggi, le voci sopra l'elenco,
@@ -16666,11 +16690,12 @@
                resta altrove - segue online, una riga per piu' persone - si
                propone come sempre: spostarlo e' una decisione di chi guarda. */
             if (sezioneElenco(ev, r) === 'aderenti') return;
-            /* Chi non ha ancora confermato l'indirizzo si riconosce DOPO: fino
-               ad allora sta nella sezione dell'attesa, e spostarlo fra gli
-               aderenti non lo farebbe comparire la' - la proposta tornerebbe
-               uguale a ogni apertura, come se lo spostamento non fosse
-               riuscito. Quando conferma, se e' un aderente, lo si propone. */
+            /* Chi non ha ancora confermato l'indirizzo non si propone qui.
+               Spostato fra gli aderenti verrebbe confermato d'ufficio e gli
+               partirebbe l'invito in PDF (sposta-modalita), e questa finestra
+               sposta in silenzio, senza dirlo prima. Si sposta dal menu della
+               sua riga, dove la finestra dello spostamento lo spiega; oppure,
+               quando conferma da se', lo si propone qui. */
             if (inAttesaConfermaMail(ev, r)) return;
             const e = String(r.email || '').trim().toLowerCase();
             const inAnagrafica = !!(noti && e && noti.has(e));
@@ -17036,9 +17061,11 @@
             return '<div class="hint ev-avvisato" title="' + esc(avvisoTitolo(a)) + '">\u2713 '
                 + esc(avvisoBreve(a)) + '</div>';
         }
-        /* Solo l'online si annuncia: diventare aderente in elenco o tornare in
-           sala non porta con se' nessuna mail, e una riga "da inviare" li'
-           chiederebbe di fare una cosa che non va fatta. */
+        /* Solo l'online VA annunciato: fra gli aderenti o fra sponsor e
+           relatori l'avviso parte se chi sposta lo lascia spuntato, e se e'
+           partito si legge qui sopra, in verde; tornare fra gli ospiti non ne
+           porta nessuno. Li' una riga "da inviare" chiederebbe di fare una
+           cosa che non e' rimasta da fare. */
         if (md !== 'online') return '';
         /* E non si annuncia a chi l'online se l'e' scelto da se'. La pagina
            glielo ha detto prima di iscriversi - i posti in sala sono esauriti,
@@ -17232,10 +17259,12 @@
                per chi e' gia' online - il reinvio dell'avviso. Nel riepilogo
                no: li' le presenze non si leggono, e la modalita' e' una di
                quelle.
-               L'avviso lo porta con se' il solo passaggio all'online: e'
-               l'unico che toglie qualcosa a chi lo riceve, e va spiegato.
-               Diventare aderente in elenco, passare fra sponsor e relatori o
-               tornare in sala non si annunciano per posta.
+               L'avviso lo propone la finestra dello spostamento: per il
+               passaggio all'online, che toglie qualcosa a chi lo riceve e va
+               spiegato, e per l'ingresso fra gli aderenti o fra sponsor e
+               relatori, dove dice che l'iscrizione e' confermata (e a Milano
+               chi aspettava ancora di confermare l'email non deve piu'
+               farlo). Tornare fra gli ospiti in sala non si annuncia.
                A chi l'online se l'e' scelto iscrivendosi non si offre: dietro
                quella voce c'e' uno spostamento, e uno spostamento scrive la
                sezione fra le presenze PRIMA di provare a spedire. Bastava
@@ -17245,15 +17274,31 @@
                e senza un gesto per tornare indietro. Un comando che puo'
                lasciare le cose peggio di come le ha trovate e' meglio non
                averlo: per scrivere a qualcuno ci sono i suoi recapiti, che
-               stanno nella riga accanto. */
+               stanno nella riga accanto.
+               Fra aderenti e sponsor si offre anche la sezione in cui la riga
+               GIA' sta, se la sua scheda aspetta ancora di confermare l'email
+               (chi si e' iscritto dalla pagina di sponsor e relatori, o chi ci
+               e' stato messo con la tendina): e' lo spostamento a togliere la
+               conferma, e senza questa voce non ci sarebbe modo di farlo.
+               E a chi e' confermato con lo spostamento ma l'invito in PDF non
+               l'ha ricevuto (posta ferma, tempo finito) si offre di
+               rimandarlo: rifa' lo spostamento nella stessa sezione, che
+               manda solo l'invito mancante.
+               Il bottone porta la scheda (data-doc): due righe di uno stesso
+               ordine hanno lo stesso id, e conferma e invito vanno alla sua. */
             (puoRichiedere && !ev.tutti
-                ? SEZIONI_MODALITA.filter(x => x.id !== md && !x.fuoriElenco).map(x =>
-                    '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
+                ? SEZIONI_MODALITA.filter(x => !x.fuoriElenco
+                    && (x.id !== md || ((x.id === 'aderenti' || x.id === 'sponsor') && schedaDaConfermare(ev, r)))).map(x =>
+                    '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
                     + '" data-verso="' + x.id + '">' + esc(x.vai) + '</button>').join('')
                 + (md === 'online' && r.email && !sezioneDalModulo(ev, r, md)
-                    ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
+                    ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
                     + '" data-verso="online" data-rinvia="1">'
                     + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
+                    : '')
+                + ((md === 'aderenti' || md === 'sponsor') && invitoDaRimandare(ev, r)
+                    ? '<button type="button" class="ev-menu-voce ev-invito-pdf" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
+                    + '" data-verso="' + md + '">Rimanda l\'invito in PDF</button>'
                     : '')
                 : ''),
             (adminEv
@@ -19134,7 +19179,7 @@
             + (soloRiepiloghi ? '' : '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
                 + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
                 + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
-                + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi confermati dal pulsante nella mail di iscrizione, oppure iscritti prima che la mail lo avesse (pregresso)', 'verde', 'confmail')
+                + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi confermati dal pulsante nella mail di iscrizione, oppure d\'ufficio: iscritti prima che la mail lo avesse (pregresso) o spostati fra gli aderenti Revilaw o fra sponsor e relatori', 'verde', 'confmail')
                 + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join('')))
             + '</div>'
@@ -19469,10 +19514,18 @@
                 if (r) modaleInvitoB2B(ev, r);
             }));
             radice.querySelectorAll('.ev-sposta').forEach(b => b.addEventListener('click', () => {
-                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                // la scheda del bottone, non la prima con quell'identificativo (rigaPerScheda)
+                const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
                 // "Invia di nuovo l'avviso" e' l'unico caso in cui si riscrive a chi
                 // e' gia' stato avvisato: il resto salta chi ha gia' ricevuto
                 if (r) modaleSpostaModalita(ev, [r], b.dataset.verso, { rinvia: b.dataset.rinvia === '1' });
+            }));
+            /* L'invito in PDF rimasto indietro: lo spostamento nella stessa
+               sezione, senza avviso, che manda solo quello. Niente finestra:
+               non c'e' niente da decidere, e il riassunto dice com'e' andata. */
+            radice.querySelectorAll('.ev-invito-pdf').forEach(b => b.addEventListener('click', () => {
+                const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
+                if (r) eseguiSpostaModalita(ev, [r], b.dataset.verso, { soloInvito: true });
             }));
             radice.querySelectorAll('.ev-menu-btn').forEach(b => b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -26210,7 +26263,7 @@
            mail per 45 secondi e il freno agli invii e' per utente. Due lotti
            insieme se lo prenderebbero in faccia a vicenda. */
         const mosse = [];        // le righe che il servizio ha davvero preso
-        const somma = { spostate: 0, mail: null };
+        const somma = { spostate: 0, mail: null, conferme: null };
         let ko = null;
         const unLotto = k => {
             if (k >= lotti.length) return Promise.resolve();
@@ -26230,6 +26283,16 @@
                         .forEach(c => { somma.mail[c] += (Number(res.mail[c]) || 0); });
                     somma.mail.falliti = somma.mail.falliti.concat(res.mail.falliti || []);
                 }
+                // chi e' stato confermato dallo spostamento (aderenti, sponsor) e i suoi inviti in PDF
+                if (res.conferme) {
+                    if (!somma.conferme) somma.conferme = { confermate: 0, nonConfermate: 0, righe: [], inviti: 0, invitiFalliti: [], invitiRestanti: 0 };
+                    somma.conferme.confermate += Number(res.conferme.confermate) || 0;
+                    somma.conferme.nonConfermate += Number(res.conferme.nonConfermate) || 0;
+                    somma.conferme.righe = somma.conferme.righe.concat(res.conferme.righe || []);
+                    somma.conferme.inviti += Number(res.conferme.inviti) || 0;
+                    somma.conferme.invitiFalliti = somma.conferme.invitiFalliti.concat(res.conferme.invitiFalliti || []);
+                    somma.conferme.invitiRestanti += Number(res.conferme.invitiRestanti) || 0;
+                }
                 return unLotto(k + 1);
             });
         };
@@ -26239,8 +26302,8 @@
            quella vera. */
         return unLotto(0).then(() => {
             const res = ko
-                ? { ok: false, msg: (ko.msg || 'Spostamento non riuscito.'), spostate: somma.spostate, modalita: verso, mail: somma.mail }
-                : { ok: true, spostate: somma.spostate, modalita: verso, mail: somma.mail };
+                ? { ok: false, msg: (ko.msg || 'Spostamento non riuscito.'), spostate: somma.spostate, modalita: verso, mail: somma.mail, conferme: somma.conferme }
+                : { ok: true, spostate: somma.spostate, modalita: verso, mail: somma.mail, conferme: somma.conferme };
             if (ko && !mosse.length) return res;   // niente e' cambiato: l'errore e basta
             /* A video subito, poi la verita' dal server: la modalita' si
                aggiorna qui, l'avviso ("avvisato il ...") arriva con la
@@ -26253,10 +26316,28 @@
                     quando: Date.now()
                 };
             });
+            /* Chi il servizio ha confermato con lo spostamento esce dall'attesa
+               SUBITO, a video: la conferma sta sulla scheda e la rilettura qui
+               sotto la porta, ma il ridisegno immediato usa le righe che ci
+               sono - e la mappa degli indirizzi confermati va rifatta, perche'
+               vive per la lista e non per le righe. */
+            const esConf = res.conferme || null;
+            const confermate = (esConf && esConf.righe) || [];
+            if (confermate.length) {
+                const docs = new Set(confermate.map(x => String(x.doc || '')));
+                (_evIscrizioni || []).forEach(r => {
+                    if (r.doc && docs.has(String(r.doc)) && !(r.emailConfermata && r.emailConfermata.quando)) {
+                        r.emailConfermata = { quando: Date.now(), come: 'spostamento' };
+                    }
+                });
+                _evConfCache = { lista: null, mappa: null };
+            }
             _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
             const esMail = res.mail || null;
             const dove = ' ' + sezioneDef(verso).dove;
-            const parti = [(res.spostate || mosse.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
+            // "Rimanda l'invito in PDF": la sezione non cambia, e il riassunto parla del solo invito
+            const parti = opz.soloInvito ? []
+                : [(res.spostate || mosse.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
             if (esMail) {
                 parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
                 if (esMail.giaAvvisati) parti.push(esMail.giaAvvisati + ' già avvisati, saltati');
@@ -26266,7 +26347,23 @@
                 /* Il tempo della funzione e' finito prima dell'elenco: chi
                    resta non e' perso, basta ripremere - e chi ha gia'
                    ricevuto viene saltato, quindi nessuno prende due mail. */
-                if (esMail.restanti) parti.push(esMail.restanti + ' ancora da avvisare: ripremi "Sposta online" sulle stesse righe');
+                if (esMail.restanti) parti.push(esMail.restanti + ' ancora da avvisare: ripremi "' + sezioneDef(verso).vai + '" sulle stesse righe');
+            }
+            if (esConf) {
+                if (esConf.confermate) parti.push(esConf.confermate + (esConf.confermate === 1
+                    ? ' conferma dell\'email non più richiesta' : ' conferme dell\'email non più richieste'));
+                /* Una conferma che il servizio non e' riuscito a scrivere: la
+                   riga resta nell'attesa, e ripetere lo spostamento la riprova. */
+                if (esConf.nonConfermate) parti.push(esConf.nonConfermate + (esConf.nonConfermate === 1
+                    ? ' conferma non registrata: la riga resta in attesa, ripeti lo spostamento'
+                    : ' conferme non registrate: le righe restano in attesa, ripeti lo spostamento'));
+                if (esConf.inviti) parti.push(esConf.inviti + (esConf.inviti === 1 ? ' invito in PDF inviato' : ' inviti in PDF inviati'));
+                /* L'invito che non e' partito non e' perso: dal menu della
+                   riga, "Rimanda l'invito in PDF" manda quello e basta. */
+                const nonPartiti = esConf.invitiFalliti.length + esConf.invitiRestanti;
+                if (nonPartiti) parti.push(nonPartiti + (nonPartiti === 1 ? ' invito in PDF non partito' : ' inviti in PDF non partiti')
+                    + ': dal menu della riga, «Rimanda l\'invito in PDF»');
+                if (opz.soloInvito && !esConf.inviti && !nonPartiti) parti.push('nessun invito da mandare: risulta già partito');
             }
             /* Un lotto si e' rotto a meta' strada: quelli prima sono spostati
                davvero, e il numero qui sopra e' loro. Le righe che restano si
@@ -26277,11 +26374,13 @@
                 parti.push(restano + (restano === 1 ? ' riga non spostata' : ' righe non spostate')
                     + ': ' + (ko.msg || 'lo spostamento si è interrotto') + '. Rispuntale e ripremi');
             }
-            const rosso = !!ko || !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti));
+            const rosso = !!ko || !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti))
+                || !!(esConf && (esConf.invitiFalliti.length || esConf.invitiRestanti || esConf.nonConfermate));
             toast(parti.join(' · ') + '.', rosso ? 'rosso' : 'verde');
             try {
-                Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni spostate' + dove,
-                    'sistema', ev.id, null, mosse.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
+                Audit.registra(Auth.utenteCorrente, (opz.soloInvito ? 'Evento: invito in PDF rimandato' : 'Evento: iscrizioni spostate') + dove,
+                    'sistema', ev.id, null, mosse.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso')
+                    + (esConf && esConf.confermate ? ', ' + esConf.confermate + ' email confermate d\'ufficio' : ''));
             } catch (e) { }
             // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
             _evUltimoTentativo[ev.id] = 0;
@@ -26850,6 +26949,13 @@
        La stessa finestra serve anche per il ritorno in sala, dove la
        mail non c'e': "ti ho rimesso dentro" e' una notizia che si da'
        a voce, e un avviso automatico in senso opposto confonderebbe.
+
+       E serve per l'ingresso fra gli aderenti Revilaw o fra sponsor e
+       relatori: li' l'avviso (passaggioSezione) dice dove e' registrata
+       l'iscrizione e che non c'e' niente da fare. A Milano chi entra li'
+       aspettando ancora di confermare l'email e' confermato d'ufficio
+       dal servizio e riceve subito l'invito in PDF: la finestra lo dice
+       prima, con il numero.
     ========================================================= */
     function modaleSpostaModalita(ev, righe, verso, opz) {
         const rinvia = !!(opz && opz.rinvia);
@@ -26859,6 +26965,13 @@
         if (!elenco.length) return;
         if (!SEZIONI_MODALITA.some(x => x.id === verso)) return;
         const online = verso === 'online';
+        /* Fra gli aderenti e fra sponsor e relatori l'avviso si propone anche:
+           dice dove e' stata registrata l'iscrizione, che il posto in sala
+           resta e che non c'e' niente da fare. Spuntato, come per l'online:
+           chi apre questa finestra sta cambiando l'iscrizione di qualcuno, e
+           quel qualcuno lo deve sapere. Il ritorno fra gli ospiti no. */
+        const inSalaConAvviso = verso === 'aderenti' || verso === 'sponsor';
+        const conAvviso = online || inSalaConAvviso;
         const uno = elenco.length === 1;
         // quante delle righe scelte sono gia' dove le si sta mandando: non e'
         // un errore (si sposta lo stesso, e il servizio riscrive lo stesso
@@ -26896,12 +27009,23 @@
         const giaInformati = online
             ? elenco.filter(r => !avvisoModalitaDi(ev, r) && sezioneDalModulo(ev, r, 'online')).length
             : 0;
-        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.passaggioOnline({
-            evento: {
-                titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
-                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
-            }
-        }) : null;
+        const datiEvento = {
+            titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
+            luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+        };
+        const mailDi = () => !window.RV_NEWSLETTER ? null
+            : online ? RV_NEWSLETTER.passaggioOnline({ evento: datiEvento })
+                : (RV_NEWSLETTER.passaggioSezione ? RV_NEWSLETTER.passaggioSezione({ verso: verso, evento: datiEvento }) : null);
+        /* CHI ASPETTA ANCORA DI CONFERMARE L'EMAIL (Milano): entrando fra gli
+           aderenti o fra sponsor e relatori la conferma non gli si chiede piu'
+           - la scrive il servizio, d'ufficio (sposta-modalita) - e l'invito in
+           PDF gli parte subito, come dopo il clic. Si dice prima di premere,
+           con il numero: e' una mail che parte comunque, avviso o no. Si conta
+           per SCHEDA, con la regola del servizio (schedaDaConfermare): tutto
+           quello che partira' deve essere stato annunciato. */
+        const daConfermare = inSalaConAvviso ? elenco.filter(r => schedaDaConfermare(ev, r)).length : 0;
+        // chi arriva dall'online: per lui non "resta" niente, entra in sala
+        const dallOnline = inSalaConAvviso ? elenco.filter(r => modalitaDi(ev, r) === 'online').length : 0;
 
         const chi = uno ? '<strong>' + esc(nomeDi(elenco[0])) + '</strong>'
             : '<strong>' + elenco.length + ' iscrizioni</strong>' + (nPosti !== elenco.length ? ' (' + nPosti + ' posti)' : '');
@@ -26916,7 +27040,21 @@
             + (giaInformati
                 ? ': la sezione non cambia, ma ' + (giaInformati === 1 ? 'una riga arrivata' : giaInformati + ' righe arrivate')
                 + ' dal modulo ' + (giaInformati === 1 ? 'passa' : 'passano') + ' fra quelle decise da voi.'
-                : ': per ' + (giaLi === 1 ? 'quella riga' : 'quelle righe') + ' non cambia nulla.')
+                : inSalaConAvviso ? ': la sezione non cambia.'
+                    : ': per ' + (giaLi === 1 ? 'quella riga' : 'quelle righe') + ' non cambia nulla.')
+            : '';
+        /* L'invito in PDF e' "da esibire all'ingresso": a evento passato non
+           parte (il servizio non lo manda), e la finestra non lo promette. */
+        const NOTA_ATTESA = daConfermare
+            ? '<p class="hint" style="margin:-4px 0 12px;"><b>' + daConfermare + '</b> '
+            + (daConfermare === 1 ? 'non aveva ancora confermato l\'email' : 'non avevano ancora confermato l\'email')
+            + ': con lo spostamento <b>la conferma non serve più</b>. '
+            + (daConfermare === 1 ? 'Esce dall\'attesa ed entra nei conteggi della sala' : 'Escono dall\'attesa ed entrano nei conteggi della sala')
+            + (eventoPassato(ev) ? '.'
+                : (daConfermare === 1 ? ', e riceve subito' : ', e ricevono subito')
+                + ' l\'invito in PDF da esibire all\'ingresso, come dopo la conferma: questa mail parte anche senza l\'avviso, '
+                + 'e torna in copia nascosta anche a te.')
+            + '</p>'
             : '';
         /* Il titolo: lo stesso comando del menu della riga ("Sposta fra sponsor
            e relatori"), piu' quante righe si stanno spostando quando sono
@@ -26927,31 +27065,34 @@
         /* Una spiegazione per destinazione. Sono quattro spostamenti diversi e
            vanno raccontati per quello che sono: l'online toglie il posto in
            sala (e si annuncia), gli aderenti e gli sponsor sono due sezioni a
-           parte della stessa sala (e non si annunciano), il ritorno in presenza
-           rimette dentro chi era uscito. */
+           parte della stessa sala (l'avviso dice dove e' l'iscrizione), il
+           ritorno in presenza rimette dentro chi era uscito. Fra aderenti e
+           sponsor la frase vale per chi era gia' in sala, per chi aspettava la
+           conferma e per chi arriva dall'online: niente "resta" e niente
+           "come prima", che per due di loro non sarebbe vero. */
         const spiega = verso === 'online'
             ? chi + ' ' + (uno ? 'passa' : 'passano')
             + ' alla partecipazione online: ' + (uno ? 'il suo posto in sala si libera' : 'i loro posti in sala si liberano')
             + ', l\'iscrizione resta valida e i conteggi delle sezioni si aggiornano da soli. '
             + 'La mail avvisa che i posti in sala sono esauriti, che il collegamento arriverà pochi giorni prima dell\'evento '
             + 'e che il nominativo <b>resta in lista d\'attesa per la sala</b>: se un posto si libera, gli si scrive.'
-            : verso === 'aderenti'
-                ? chi + ' ' + (uno ? 'passa' : 'passano') + ' nella sezione <b>Aderenti Revilaw</b>: '
-                + (uno ? 'resta in sala, ma il suo posto si conta' : 'restano in sala, ma i loro posti si contano')
-                + ' a parte, non fra quelli degli ospiti. '
-                + 'Nessuna mail parte: è una classificazione interna, e chi la riceve non deve fare niente di diverso.'
-                : verso === 'sponsor'
-                    ? chi + ' ' + (uno ? 'passa' : 'passano') + ' nella sezione <b>Sponsor e relatori</b>. '
-                    + 'È una divisione <b>solo per uso interno</b>: ' + (uno ? 'resta' : 'restano')
-                    + ' in sala e ' + (uno ? 'il suo posto continua a contare' : 'i loro posti continuano a contare')
-                    + ' nel totale in sala, come prima. '
-                    + 'Nessuna mail parte, e per chi si sposta non cambia niente.'
+            : inSalaConAvviso
+                ? chi + ' ' + (uno ? 'passa' : 'passano') + ' nella sezione <b>' + esc(sezioneDef(verso).nome) + '</b>: in sala, con '
+                + (uno ? 'il suo posto contato' : 'i loro posti contati')
+                + (verso === 'aderenti' ? ' a parte, non fra quelli degli ospiti. ' : ' nel totale in sala. ')
+                + (dallOnline
+                    ? '<b>' + dallOnline + '</b> ' + (dallOnline === 1 ? 'seguiva online: entra in sala ed esce' : 'seguivano online: entrano in sala ed escono')
+                    + ' dalla lista d\'attesa. '
+                    : '')
+                + 'L\'avviso dice che l\'iscrizione è registrata ' + sezioneDef(verso).dove
+                + ', che ha un posto riservato in sala e che non c\'è niente da fare.'
                     : chi + ' ' + (uno ? 'torna' : 'tornano')
                     + ' fra gli ospiti in sala. Nessuna mail parte: se '
                     + (uno ? 'aveva' : 'avevano') + ' già ricevuto l\'avviso del passaggio online, va detto a voce.';
         const testa = '<h2>' + titolo + '</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">' + spiega + NOTA_GIA_LI + '</p>';
-        const scelteMail = online
+            + '<p class="hint" style="margin:-4px 0 12px;">' + spiega + NOTA_GIA_LI + '</p>'
+            + NOTA_ATTESA;
+        const scelteMail = conAvviso
             ? '<label class="ev-imp-passo" style="display:block;">'
             + '<input type="checkbox" id="sm-avvisa" checked> <strong>Invia anche l\'avviso</strong>'
             + '<div class="hint" style="margin-top:4px;">'
@@ -26973,7 +27114,8 @@
                 ? ' <b>' + giaAvvisati + '</b> ' + (giaAvvisati === 1 ? 'ha' : 'hanno') + ' già ricevuto questo avviso'
                 + (rinvia ? ': lo ' + (giaAvvisati === 1 ? 'riceverà' : 'riceveranno') + ' di nuovo.'
                     : ' e ' + (giaAvvisati === 1 ? 'viene saltato' : 'vengono saltati')
-                    + ': per riscrivere a qualcuno usa "Invia di nuovo l\'avviso" dal menu della sua riga.')
+                    // la voce di reinvio c'e' solo per l'online
+                    + (online ? ': per riscrivere a qualcuno usa "Invia di nuovo l\'avviso" dal menu della sua riga.' : '.'))
                 : '')
             /* Non e' un salto: la mail parte anche a loro. E' che a loro non
                dice niente che non sappiano gia', ed e' meglio saperlo prima di
@@ -26988,14 +27130,14 @@
             + '</div></label>'
             : '';
         apriModale(testa + scelteMail
-            + (online
+            + (conAvviso
                 ? '<div id="sm-anteprima" style="margin-top:10px;">'
-                + '<iframe id="sm-frame" title="Anteprima della mail di passaggio online" sandbox="allow-same-origin" '
+                + '<iframe id="sm-frame" title="Anteprima della mail di avviso" sandbox="allow-same-origin" '
                 + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
                 : '')
             + '<div id="sm-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="sm-no">Annulla</button>'
-            + (online ? '<button class="btn btn-secondary" id="sm-ant">Nascondi anteprima</button>' : '')
+            + (conAvviso ? '<button class="btn btn-secondary" id="sm-ant">Nascondi anteprima</button>' : '')
             + '<button class="btn btn-primary" id="sm-si">'
             + esc(comando)
             + '</button></div>',
@@ -27005,7 +27147,7 @@
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
         document.getElementById('sm-no').addEventListener('click', chiudiModale);
-        if (online) anteprimaMail('sm', () => {
+        if (conAvviso) anteprimaMail('sm', () => {
             const m = mailDi();
             if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             /* Nell'anteprima i segnaposti diventano un nome di esempio e
@@ -27016,7 +27158,7 @@
                 .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
         document.getElementById('sm-si').addEventListener('click', () => {
-            const avvisa = online && !!(document.getElementById('sm-avvisa') || {}).checked && indirizzi.length > 0;
+            const avvisa = conAvviso && !!(document.getElementById('sm-avvisa') || {}).checked && indirizzi.length > 0;
             const m = avvisa ? mailDi() : null;
             if (avvisa && !m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
             const b = document.getElementById('sm-si');

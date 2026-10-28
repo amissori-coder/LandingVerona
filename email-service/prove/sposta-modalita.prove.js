@@ -29,8 +29,10 @@
      - la modalita' sbagliata e chi non ha il ruolo vengano respinti;
      - le sezioni in sala (aderenti Revilaw, sponsor e relatori) si
        comportino come le altre DOVE devono - stesso spostamento, stessi
-       permessi - e diversamente dove devono: nessun avviso automatico,
-       perche' entrarci non toglie niente a nessuno e non va annunciato;
+       permessi, l'avviso solo se chi sposta lo chiede - e diversamente
+       dove devono: a Milano chi ci entra mentre aspetta ancora di
+       confermare l'email e' confermato d'ufficio e riceve subito l'invito
+       in PDF, come dopo il clic (con o senza avviso);
      - la copia nascosta a chi sta facendo l'operazione parta su OGNI
        mail, mai in chiaro, e mai al destinatario stesso.
    ============================================================ */
@@ -80,7 +82,12 @@ const db = {
                             data: () => dati[k] || {}
                         };
                     },
-                    async set(patch) { fondi(coll, id, patch); }
+                    async set(patch) { fondi(coll, id, patch); },
+                    // come Firestore: update su un documento che non c'e' e' un errore
+                    async update(patch) {
+                        if (!Object.prototype.hasOwnProperty.call(dati, chiave(coll, id))) throw new Error('documento inesistente: ' + id);
+                        fondi(coll, id, patch);
+                    }
                 };
             }
         };
@@ -99,8 +106,30 @@ const db = {
             set(rif, patch) { ops.push({ rif: rif, patch: patch }); },
             commit: async () => { ops.forEach(o => fondi(o.rif._coll, o.rif.id, o.patch)); }
         };
+    },
+    /* Una transazione alla buona: si legge, e le scritture si applicano alla
+       fine. Una alla volta, in fila: e' l'effetto che Firestore ottiene
+       ritentando quelle in conflitto, ed e' quello che serve alle prove di due
+       spostamenti insieme. `rompiTransazione` fa fallire la prossima. */
+    runTransaction(fn) {
+        const giro = codaTransazioni.then(async () => {
+            if (rompiTransazione) { rompiTransazione = false; throw new Error('10 ABORTED: Too much contention'); }
+            const ops = [];
+            const t = {
+                get: rif => rif.get(),
+                update(rif, patch) { ops.push(() => rif.update(patch)); },
+                set(rif, patch) { ops.push(() => rif.set(patch)); }
+            };
+            const r = await fn(t);
+            for (const op of ops) await op();
+            return r;
+        });
+        codaTransazioni = giro.catch(() => { });
+        return giro;
     }
 };
+let codaTransazioni = Promise.resolve();
+let rompiTransazione = false;
 /* Il batch riceve il riferimento, non il nome della collezione: glielo si
    attacca al riferimento, come fa Firestore per davvero. */
 const collezioneVera = db.collection;
@@ -114,6 +143,7 @@ db.collection = function (coll) {
 // ---------- server di posta finto ----------
 let spedite = [];
 let cadeLaPosta = false;
+let lentezzaPosta = 0;   // millisecondi per mail: per far sovrapporre due spostamenti
 
 // ---------- intercetta i require ----------
 const veroRequire = Module.prototype.require;
@@ -123,6 +153,7 @@ Module.prototype.require = function (nome) {
         return {
             createTransport: () => ({
                 sendMail: async m => {
+                    if (lentezzaPosta) await new Promise(r => setTimeout(r, lentezzaPosta));
                     if (cadeLaPosta) throw new Error('server di posta non raggiungibile');
                     spedite.push(m);
                     ordine.push({ tipo: 'mail', a: m.to });
@@ -193,7 +224,7 @@ function scenario() {
     dati[chiave('iscrizioni', idScheda('lucia@beta.it|03/09/2026 09:00'))] = { nome: 'Lucia', cognome: 'Bianchi', email: 'lucia@beta.it' };
     dati[chiave('iscrizioni', idScheda('nino.senzamail|04/09/2026 09:00'))] = { nome: 'Nino', cognome: 'Senzamail', email: '' };
     dati[chiave('iscrizioni', idScheda('rinuncia@gamma.it|05/09/2026 09:00'))] = { nome: 'Ruggero', cognome: 'Rinuncia', email: 'rinuncia@gamma.it', annullato: true };
-    spedite = []; ordine.length = 0; cadeLaPosta = false; sessione = 'admin@esempio.it';
+    spedite = []; ordine.length = 0; cadeLaPosta = false; lentezzaPosta = 0; rompiTransazione = false; sessione = 'admin@esempio.it';
 }
 const TUTTI = [
     { id: 'mario@alfa.it|01/09/2026 10:00' },
@@ -399,7 +430,7 @@ prova('La terza sezione: aderenti Revilaw', async () => {
     esigi((presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).modalita === 'aderenti'
         && (presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).modalita === 'aderenti',
         'la sezione e scritta sulle presenze');
-    esigi(spedite.length === 0, 'nessun avviso parte: entrare fra gli aderenti non si annuncia');
+    esigi(spedite.length === 0, 'senza la mail nella richiesta non parte nessun avviso');
     esigi(!(presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).avvisoModalita, 'e non resta nessun avviso registrato');
 });
 
@@ -449,18 +480,17 @@ prova('Dal modulo la sezione non si sceglie scrivendo un campo', async () => {
         'il campo "modalita" accetta solo presenza e online', riga);
 });
 
-prova('Sponsor e relatori: una quarta sezione, in sala e senza mail', async () => {
+prova('Sponsor e relatori: una quarta sezione, in sala', async () => {
     /* Sponsor e relatori occupano un posto come tutti gli altri: la sezione
        serve a chi organizza per sapere quali posti sono gia' impegnati da chi
-       l'evento lo fa. Per la persona non cambia niente, e infatti non parte
-       nessuna mail - annunciare "ti ho messo fra i relatori" a chi relatore
-       lo e' gia' non direbbe niente a nessuno. */
+       l'evento lo fa. L'avviso parte solo se chi sposta lo chiede (la mail
+       nella richiesta): qui non lo chiede, e non parte niente. */
     scenario();
     const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsor', destinatari: [TUTTI[2]] });
     esigi(r.stato === 200 && r.corpo.ok === true && r.corpo.modalita === 'sponsor',
         'la quarta sezione si accetta', JSON.stringify(r.corpo).slice(0, 160));
     esigi((presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).modalita === 'sponsor', 'la sezione e scritta sulle presenze');
-    esigi(spedite.length === 0, 'nessuna mail parte: e una divisione a uso interno');
+    esigi(spedite.length === 0, 'senza la mail nella richiesta non parte niente');
     esigi(!(presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).avvisoModalita, 'e non resta nessun avviso registrato');
 });
 
@@ -732,6 +762,237 @@ prova('Le altre sezioni in sala non mettono in coda nessuno', async () => {
     await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsor', destinatari: [TUTTI[1]] });
     esigi((presenzaDi('napoli-2026-10-02', TUTTI[1].id) || {}).listaAttesa === undefined,
         'e nemmeno fra sponsor e relatori');
+});
+
+
+/* ---------- MILANO: CHI ENTRA FRA ADERENTI O SPONSOR NON CONFERMA PIU' ----------
+   A Milano l'iscrizione dal sito vale dopo la conferma dell'email. Chi
+   organizza puo' spostare fra gli aderenti Revilaw o fra sponsor e relatori
+   anche chi la conferma non l'ha ancora data: da li' non gli si chiede piu'.
+   La scheda si conferma d'ufficio (come: 'spostamento'), esce dal giro dei
+   solleciti (confermaInAttesa tolta) e riceve subito l'invito in PDF, come
+   dopo il clic - con o senza avviso dello spostamento. */
+const MI = 'milano-2027-02-26';
+const PAGINA_MI = 'Milano 26 Febbraio 2027 - Iscrizione';
+const MI_ATTESA = { id: 'alda@attesa.it|10/01/2027 10:00' };
+const MI_CLIC = { id: 'carlo@clic.it|10/01/2027 11:00' };
+const MI_MANO = { id: 'mara@mano.it|10/01/2027 12:00' };
+const MI_ANNULLATA = { id: 'anna@annullata.it|10/01/2027 13:00' };
+const MI_PRESENTE = { id: 'pia@presente.it|10/01/2027 14:00' };
+const NA_ATTESA = { id: 'nello@napoli.it|10/09/2026 10:00' };
+const MI_PARTECIPANTE = { id: 'capo@ordine.it|10/01/2027 15:00', doc: 'capo@ordine.it|10-01-2027 15:00~p2' };
+/* Un amministratore suo: il servizio tiene un freno di 60 richieste al
+   minuto per utente, e le prove qui sopra lo hanno gia' quasi consumato per
+   admin@esempio.it. */
+function scenarioMilano() {
+    scenario();
+    dati['utenti/milano@esempio.it'] = { nome: 'Mila Admin', ruolo: 'admin', attivo: true, eventi: true };
+    sessione = 'milano@esempio.it';
+    const attesa = { pagina: PAGINA_MI, confermaInAttesa: true, mailConferma: { quando: 1, ok: true }, modalita: 'presenza' };
+    dati[chiave('iscrizioni', idScheda(MI_ATTESA.id))] = Object.assign({ nome: 'Alda', cognome: 'Attesa', email: 'alda@attesa.it', azienda: 'Alfa S.p.A.' }, attesa);
+    dati[chiave('iscrizioni', idScheda(MI_CLIC.id))] = { nome: 'Carlo', cognome: 'Clic', email: 'carlo@clic.it', pagina: PAGINA_MI,
+        emailConfermata: { quando: 111, come: 'mail' }, mailInvito: { quando: 112, ok: true } };
+    dati[chiave('iscrizioni', idScheda(MI_MANO.id))] = { nome: 'Mara', cognome: 'Mano', email: 'mara@mano.it', pagina: 'Milano 26 Febbraio 2027', inserito: true };
+    dati[chiave('iscrizioni', idScheda(MI_ANNULLATA.id))] = Object.assign({ nome: 'Anna', cognome: 'Annullata', email: 'anna@annullata.it', annullato: true }, attesa);
+    dati[chiave('iscrizioni', idScheda(MI_PRESENTE.id))] = Object.assign({ nome: 'Pia', cognome: 'Presente', email: 'pia@presente.it' }, attesa);
+    dati[chiave('presenze', idPresenza(MI, MI_PRESENTE.id))] = { evento: MI, idIscritto: MI_PRESENTE.id, stato: 'presente' };
+    dati[chiave('iscrizioni', idScheda(NA_ATTESA.id))] = { nome: 'Nello', cognome: 'Napoli', email: 'nello@napoli.it', pagina: 'Napoli 2 Ottobre 2026', confermaInAttesa: true, mailConferma: { quando: 1, ok: true } };
+    // la scheda di un partecipante: il documento non e' quello che si ricava dall'id
+    dati[chiave('iscrizioni', MI_PARTECIPANTE.doc)] = Object.assign({ nome: 'Paolo', cognome: 'Partecipante', email: 'paolo@ordine.it' }, attesa);
+}
+const schedaDi = id => dati[chiave('iscrizioni', idScheda(id))] || {};
+const invitiA = a => spedite.filter(m => m.to === a && (m.attachments || []).some(x => /\.pdf$/.test(x.filename)));
+
+prova('Milano: chi aspetta la conferma ed entra fra gli aderenti e confermato d\'ufficio', async () => {
+    scenarioMilano();
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r.stato === 200 && r.corpo.ok === true, 'lo spostamento va a buon fine', JSON.stringify(r.corpo).slice(0, 200));
+    const s = schedaDi(MI_ATTESA.id);
+    const c = s.emailConfermata || {};
+    esigi(c.quando > 0 && c.come === 'spostamento' && c.verso === 'aderenti' && c.da === 'milano@esempio.it',
+        'sulla scheda: confermata con lo spostamento, da chi e verso dove', JSON.stringify(c));
+    esigi(!('confermaInAttesa' in s), 'il giro dei solleciti non la cerca piu\'');
+    esigi(r.corpo.conferme && r.corpo.conferme.confermate === 1 && r.corpo.conferme.righe[0].id === MI_ATTESA.id,
+        'la risposta dice chi e\' stato confermato', JSON.stringify(r.corpo.conferme));
+    const inv = invitiA('alda@attesa.it');
+    esigi(inv.length === 1 && r.corpo.conferme.inviti === 1, 'parte l\'invito in PDF, come dopo il clic', spedite.map(m => m.to + ' ' + m.subject).join(' | '));
+    esigi(inv.length === 1 && /Il tuo invito/.test(inv[0].subject) && /In sala/.test(inv[0].text), 'e dice "in sala"', inv[0] && inv[0].subject);
+    esigi((s.mailInvito || {}).ok === true && s.mailInvito.da === 'spostamento' && s.mailInvito.a === 'alda@attesa.it' && !s.mailInvito.inCorsoFino,
+        'l\'invito resta segnato sulla scheda, con l\'indirizzo', JSON.stringify(s.mailInvito));
+    esigi(String(inv[0] && inv[0].bcc) === 'milano@esempio.it', 'e torna in copia nascosta a chi ha spostato', JSON.stringify(inv[0] && inv[0].bcc));
+    esigi(spedite.length === 1 && !(presenzaDi(MI, MI_ATTESA.id) || {}).avvisoModalita, 'senza avviso richiesto parte solo l\'invito');
+    esigi((presenzaDi(MI, MI_ATTESA.id) || {}).modalita === 'aderenti', 'e la sezione e\' quella nuova');
+});
+
+prova('Milano: fra sponsor e relatori, con l\'avviso, partono invito e avviso', async () => {
+    scenarioMilano();
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA, MI_CLIC], mail: MAIL });
+    esigi(r.corpo.ok === true && (schedaDi(MI_ATTESA.id).emailConfermata || {}).verso === 'sponsor', 'confermata verso sponsor e relatori');
+    esigi(r.corpo.conferme.confermate === 1, 'una sola conferma: l\'altro aveva gia\' confermato');
+    esigi(invitiA('alda@attesa.it').length === 1 && invitiA('carlo@clic.it').length === 0, 'l\'invito solo a chi e\' confermato adesso');
+    const avvisi = spedite.filter(m => /i posti sono esauriti/.test(m.html || ''));
+    esigi(avvisi.length === 2 && avvisi.every(m => m.bcc), 'l\'avviso parte a tutti e due, con la copia nascosta', String(avvisi.length));
+    esigi((presenzaDi(MI, MI_ATTESA.id) || {}).avvisoModalita.modalita === 'sponsor', 'e resta scritto per la sezione nuova');
+    const ia = ordine.findIndex(o => o.tipo === 'mail' && o.a === 'alda@attesa.it');
+    const primaAvviso = spedite.findIndex(m => m.to === 'alda@attesa.it');
+    esigi(ia >= 0 && invitiA('alda@attesa.it')[0] === spedite[primaAvviso], 'prima l\'invito, poi l\'avviso');
+});
+
+prova('Milano: chi ha gia\' confermato con il clic non si tocca', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_CLIC] });
+    const c = schedaDi(MI_CLIC.id).emailConfermata || {};
+    esigi(c.quando === 111 && c.come === 'mail' && !c.verso, 'la sua conferma resta quella del clic', JSON.stringify(c));
+    esigi(spedite.length === 0, 'e nessun invito: lo ha gia\'');
+});
+
+prova('Milano: niente da confermare per chi non e\' in attesa', async () => {
+    scenarioMilano();
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_MANO, MI_ANNULLATA, MI_PRESENTE, { id: 'solo.foglio@m.it|10/01/2027 16:00' }] });
+    esigi(r.corpo.ok === true && r.corpo.conferme.confermate === 0, 'nessuna conferma', JSON.stringify(r.corpo.conferme));
+    esigi(!schedaDi(MI_MANO.id).emailConfermata, 'inserita a mano: l\'indirizzo l\'ha scritto chi organizza');
+    esigi(!schedaDi(MI_ANNULLATA.id).emailConfermata && schedaDi(MI_ANNULLATA.id).confermaInAttesa === true, 'annullata: non si tocca');
+    esigi(!schedaDi(MI_PRESENTE.id).emailConfermata, 'segnata presente: in attesa non e\'');
+    esigi(!Object.prototype.hasOwnProperty.call(dati, chiave('iscrizioni', idScheda('solo.foglio@m.it|10/01/2027 16:00'))),
+        'senza scheda: non ne nasce una vuota');
+    esigi(spedite.length === 0, 'e nessun invito');
+});
+
+prova('Milano: verso l\'online o fra gli ospiti la conferma resta da dare', async () => {
+    scenarioMilano();
+    for (const verso of ['online', 'presenza']) {
+        const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: verso, destinatari: [MI_ATTESA] });
+        esigi(r.corpo.ok === true && r.corpo.conferme === null, 'verso "' + verso + '": nessuna conferma', JSON.stringify(r.corpo.conferme));
+    }
+    esigi(!schedaDi(MI_ATTESA.id).emailConfermata && schedaDi(MI_ATTESA.id).confermaInAttesa === true, 'la scheda aspetta ancora');
+    esigi(spedite.length === 0, 'e nessun invito');
+});
+
+prova('Napoli non chiede la conferma: niente da confermare', async () => {
+    scenarioMilano();
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'aderenti', destinatari: [NA_ATTESA] });
+    esigi(r.corpo.ok === true && r.corpo.conferme.confermate === 0 && !schedaDi(NA_ATTESA.id).emailConfermata,
+        'la scheda di un evento senza conferma non si tocca');
+});
+
+prova('Milano: la scheda del partecipante si conferma sul suo documento', async () => {
+    scenarioMilano();
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_PARTECIPANTE] });
+    const s = dati[chiave('iscrizioni', MI_PARTECIPANTE.doc)] || {};
+    esigi((s.emailConfermata || {}).come === 'spostamento', 'confermata la scheda indicata dalla riga', JSON.stringify(s.emailConfermata));
+    esigi(invitiA('paolo@ordine.it').length === 1, 'e l\'invito va al suo indirizzo');
+});
+
+prova('Milano: l\'invito che non parte si rimanda spostando di nuovo', async () => {
+    scenarioMilano();
+    cadeLaPosta = true;
+    const r1 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r1.corpo.ok === true && (schedaDi(MI_ATTESA.id).emailConfermata || {}).come === 'spostamento',
+        'la posta ferma non ferma la conferma');
+    esigi(r1.corpo.conferme.inviti === 0 && r1.corpo.conferme.invitiFalliti.length === 1 && schedaDi(MI_ATTESA.id).mailInvito.ok === false,
+        'l\'invito non partito si dice, e resta scritto', JSON.stringify(r1.corpo.conferme));
+    cadeLaPosta = false;
+    const r2 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA] });
+    esigi(r2.corpo.conferme.confermate === 0 && r2.corpo.conferme.inviti === 1 && invitiA('alda@attesa.it').length === 1,
+        'allo spostamento dopo l\'invito parte, senza una seconda conferma', JSON.stringify(r2.corpo.conferme));
+    esigi((schedaDi(MI_ATTESA.id).emailConfermata || {}).verso === 'aderenti', 'la conferma resta quella della prima volta');
+    const r3 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r3.corpo.conferme.inviti === 0 && invitiA('alda@attesa.it').length === 1, 'e non riparte una seconda volta');
+});
+
+prova('Milano: un clic arrivato prima vince sullo spostamento', async () => {
+    /* La conferma si scrive in transazione, rileggendo la scheda: se la
+       persona ha cliccato fra la lettura dell'elenco e lo spostamento, la sua
+       conferma resta quella del clic. Qui il clic arriva dentro la lettura
+       in blocco delle schede, l'ultima cosa che il servizio legge prima. */
+    scenarioMilano();
+    const veroGetAll = db.getAll;
+    db.getAll = async function () {
+        // la lettura vede la scheda com'era: ancora in attesa
+        const letti = (await veroGetAll.apply(db, arguments)).map(x => {
+            const d = JSON.parse(JSON.stringify(x.data()));
+            return { id: x.id, exists: x.exists, data: () => d };
+        });
+        const k = chiave('iscrizioni', idScheda(MI_ATTESA.id));
+        if (letti.some(x => x.id === idScheda(MI_ATTESA.id))) {
+            // e subito dopo la persona clicca
+            dati[k] = Object.assign({}, dati[k], { emailConfermata: { quando: 222, come: 'mail' } });
+            delete dati[k].confermaInAttesa;
+        }
+        return letti;
+    };
+    try {
+        const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+        const c = schedaDi(MI_ATTESA.id).emailConfermata || {};
+        esigi(r.corpo.ok === true && c.come === 'mail' && c.quando === 222, 'resta la conferma del clic', JSON.stringify(c));
+        esigi(r.corpo.conferme.confermate === 0 && invitiA('alda@attesa.it').length === 0, 'e l\'invito non parte da qui: lo manda il clic');
+    } finally { db.getAll = veroGetAll; }
+});
+
+prova('Milano: due spostamenti insieme sulle stesse righe, un invito a testa', async () => {
+    /* Due persone che lavorano sull'evento, o una finestra chiusa e
+       ripremuta mentre la prima chiamata spedisce ancora: l'invito si prenota
+       in transazione prima di partire, e chi lo trova prenotato salta. */
+    scenarioMilano();
+    const altre = [];
+    for (let k = 0; k < 4; k++) {
+        const id = 'persona' + k + '@m.it|11/01/2027 10:0' + k;
+        dati[chiave('iscrizioni', idScheda(id))] = { nome: 'P' + k, cognome: 'Rossi', email: 'persona' + k + '@m.it', pagina: PAGINA_MI, confermaInAttesa: true, mailConferma: { quando: 1, ok: true } };
+        altre.push({ id: id });
+    }
+    dati['utenti/milano2@esempio.it'] = { nome: 'Mila Due', ruolo: 'admin', attivo: true, eventi: true };
+    lentezzaPosta = 30;
+    const primo = chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: altre });
+    await new Promise(r => setTimeout(r, 45));
+    sessione = 'milano2@esempio.it';
+    const secondo = chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: altre });
+    const [r1, r2] = await Promise.all([primo, secondo]);
+    lentezzaPosta = 0;
+    const perIndirizzo = altre.map((x, k) => invitiA('persona' + k + '@m.it').length);
+    esigi(perIndirizzo.every(n => n === 1), 'ognuno riceve un invito solo', perIndirizzo.join(','));
+    esigi(r1.corpo.conferme.inviti + r2.corpo.conferme.inviti === 4 && r1.corpo.conferme.confermate + r2.corpo.conferme.confermate === 4,
+        'quattro conferme e quattro inviti in tutto', JSON.stringify([r1.corpo.conferme, r2.corpo.conferme]));
+});
+
+prova('Milano: una conferma che non riesce non ferma il resto', async () => {
+    scenarioMilano();
+    const altra = { id: 'bea@m.it|11/01/2027 11:00' };
+    dati[chiave('iscrizioni', idScheda(altra.id))] = { nome: 'Bea', cognome: 'Bianchi', email: 'bea@m.it', pagina: PAGINA_MI, confermaInAttesa: true, mailConferma: { quando: 1, ok: true } };
+    rompiTransazione = true;   // la prima conferma trova la contesa
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, altra], mail: MAIL });
+    esigi(r.stato === 200 && r.corpo.ok === true, 'la risposta e\' quella di uno spostamento riuscito', JSON.stringify(r.corpo).slice(0, 200));
+    esigi(r.corpo.conferme.nonConfermate === 1 && r.corpo.conferme.confermate === 1, 'una conferma non registrata si conta', JSON.stringify(r.corpo.conferme));
+    esigi(schedaDi(MI_ATTESA.id).confermaInAttesa === true && !schedaDi(MI_ATTESA.id).emailConfermata, 'quella scheda resta in attesa');
+    esigi((schedaDi(altra.id).emailConfermata || {}).come === 'spostamento' && invitiA('bea@m.it').length === 1, 'l\'altra e\' confermata e ha il suo invito');
+    esigi((r.corpo.mail || {}).inviate === 2, 'e gli avvisi partono a tutti e due', JSON.stringify(r.corpo.mail));
+    esigi(ordine.some(o => o.tipo === 'scrittura' && o.coll === 'meta'), 'e l\'elenco sa che qualcosa e\' cambiato');
+    const r2 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(r2.corpo.conferme.confermate === 1 && (schedaDi(MI_ATTESA.id).emailConfermata || {}).come === 'spostamento', 'ripetendo lo spostamento, la conferma si registra');
+});
+
+prova('Milano: a evento finito la conferma si', async () => {
+    /* La conferma toglie la riga dall'attesa, e serve anche dopo; l'invito e'
+       "da esibire all'ingresso": a evento finito non parte. */
+    scenarioMilano();
+    const veroNow = Date.now;
+    Date.now = () => Date.parse('2027-02-27T10:00:00+01:00');
+    try {
+        const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+        esigi(r.corpo.conferme.confermate === 1 && r.corpo.conferme.inviti === 0 && spedite.length === 0, 'confermata, ma nessun invito', JSON.stringify(r.corpo.conferme));
+    } finally { Date.now = veroNow; }
+});
+
+prova('Milano: l\'invito partito a un indirizzo vecchio non vale per quello nuovo', async () => {
+    scenarioMilano();
+    const k = chiave('iscrizioni', idScheda(MI_ATTESA.id));
+    dati[k] = Object.assign({}, dati[k], { email: 'nuovo@attesa.it', mailInvito: { quando: 5, ok: true, a: 'alda@attesa.it' } });
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA] });
+    esigi(invitiA('nuovo@attesa.it').length === 1, 'l\'invito parte al nuovo indirizzo');
+    const prima = { quando: 5, ok: true };   // scritto prima che ci fosse `a`: vale per l'indirizzo della scheda
+    dati[k] = Object.assign({}, dati[k], { emailConfermata: { quando: 9, come: 'spostamento' }, mailInvito: prima });
+    spedite = [];
+    await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA] });
+    esigi(spedite.length === 0, 'un invito senza indirizzo vale per quello della scheda: non riparte');
 });
 
 (async () => {

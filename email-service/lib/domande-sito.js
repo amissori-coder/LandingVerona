@@ -230,7 +230,9 @@ function rigaDiagnosi(x) {
     r.push(['Registrata il', testo(x.data, 40) || '-']);
     const c = x.emailConfermata;
     r.push(['Email confermata', CONF.confermata(x)
-        ? 'sì, il ' + quandoLeggibile(c.quando) + (c.come === 'pregresso' ? ' (d\'ufficio)' : ' (dalla mail)')
+        ? 'sì, il ' + quandoLeggibile(c.quando) + (c.come === 'pregresso' ? ' (d\'ufficio)'
+            : c.come === 'spostamento' ? ' (d\'ufficio, con lo spostamento fra ' + (c.verso === 'sponsor' ? 'sponsor e relatori' : 'gli aderenti Revilaw') + ')'
+                : ' (dalla mail)')
         : 'NO']);
     const m = CONF.mailPerIndirizzo(x);
     const mAltro = !m && x.mailConferma && typeof x.mailConferma === 'object';

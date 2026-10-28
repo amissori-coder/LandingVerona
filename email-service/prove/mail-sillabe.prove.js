@@ -100,10 +100,11 @@ prova('2) I segnaposto restano interi', () => {
         evento: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel', indirizzo: 'Via Partenope 48' },
         nome: 'Mario', azienda: 'Alfa S.r.l.', pagina: 'Napoli 2 Ottobre 2026',
         aree: [{ id: 'esg', nome: 'ESG e sostenibilita', descrizione: 'sostenibilita ed ESG' }],
-        giornata: g, regole: MODELLO.regoleB2B(g), temi: [], tavoli: []
+        giornata: g, regole: MODELLO.regoleB2B(g), temi: [], tavoli: [],
+        verso: 'sponsor'   // per l'avviso dello spostamento fra le sezioni in sala
     };
     const chiavi = ['{{NOME}}', '{{AZIENDA}}', '{{REFERENTI}}', '{{COMPLETA}}', '{{B2B}}', '{{SE_COLLEGHI}}', '{{/SE_COLLEGHI}}'];
-    ['confermaEvento', 'richiestaDati', 'invitoB2B', 'invitoB2BArea', 'passaggioOnline', 'promemoriaEvento', 'invitoB2BAzienda']
+    ['confermaEvento', 'richiestaDati', 'invitoB2B', 'invitoB2BArea', 'passaggioOnline', 'passaggioSezione', 'promemoriaEvento', 'invitoB2BAzienda']
         .forEach(nome => {
             const m = NL[nome](dati, 'https://esempio.it/collegamento');
             /* Un segnaposto che sta nel testo semplice e non nell'HTML vuol

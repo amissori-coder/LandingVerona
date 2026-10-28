@@ -8,14 +8,20 @@
    resta scritto `emailConfermata: { quando, come }`. Nell'area
    riservata quel campo e' il baffetto verde accanto all'indirizzo.
 
-   DUE MODI DI ESSERE CONFERMATI, e il baffetto e' lo stesso:
-     come: 'mail'       la persona ha cliccato;
-     come: 'pregresso'  iscritta prima che la mail avesse il pulsante.
-                        Con quelle persone si e' gia' corrisposto: non
-                        vanno disturbate con una richiesta di conferma,
-                        e l'amministratore le segna d'ufficio, un
-                        evento per volta (conferma-email-pregresso).
-   Il suggerimento nell'elenco dice quale dei due.
+   TRE MODI DI ESSERE CONFERMATI, e il baffetto e' lo stesso:
+     come: 'mail'         la persona ha cliccato;
+     come: 'pregresso'    iscritta prima che la mail avesse il pulsante.
+                          Con quelle persone si e' gia' corrisposto: non
+                          vanno disturbate con una richiesta di conferma,
+                          e l'amministratore le segna d'ufficio, un
+                          evento per volta (conferma-email-pregresso);
+     come: 'spostamento'  chi organizza l'ha spostata fra gli aderenti
+                          Revilaw o fra sponsor e relatori mentre era
+                          ancora in attesa: da li' la conferma non si
+                          chiede piu' (confermaPerSpostamento, chiamata da
+                          sposta-modalita), e l'invito in PDF parte subito
+                          (invitoDopoSpostamento), come dopo il clic.
+   Il suggerimento nell'elenco dice se la conferma e' d'ufficio.
 
    PERCHE' LA PAGINA CONFERMA CON UNA POST E NON APRENDOSI. Gli
    antispam aziendali (Safe Links di Outlook, i proxy di sicurezza)
@@ -58,9 +64,9 @@
    sito agli eventi che chiedono la conferma (lib/iscrizione-verificata.js),
    nella stessa transazione della scheda: e' cio' che il giro automatico
    cerca, invece di rileggere tutte le iscrizioni ogni dieci minuti. Si
-   toglie quando l'indirizzo e' confermato (qui sotto, dal clic e dal
-   pregresso), quando l'iscrizione si annulla, e dal giro stesso quando
-   non ha piu' niente da fare.
+   toglie quando l'indirizzo e' confermato (qui sotto, dal clic, dal
+   pregresso e dallo spostamento), quando l'iscrizione si annulla, e dal
+   giro stesso quando non ha piu' niente da fare.
    ============================================================ */
 
 const admin = require('firebase-admin');
@@ -128,8 +134,10 @@ function adessoInItalia() {
     return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute;
 }
 /* Compone e spedisce l'invito. Restituisce { ok, errore }: se non parte, la
-   conferma dell'indirizzo resta valida e l'area riservata puo' rimandarla. */
-async function spedisciInvito(idDoc, scheda) {
+   conferma dell'indirizzo resta valida e l'area riservata puo' rimandarla.
+   `opz.bcc`: la copia nascosta a chi lo ha fatto partire dall'area riservata
+   (lo spostamento fra aderenti o sponsor); il clic e il desk non la passano. */
+async function spedisciInvito(idDoc, scheda, opz) {
     const online = String(scheda.modalita || '').toLowerCase() === 'online';
     const evento = dettagliEvento(scheda.pagina);
     const dati = {
@@ -149,6 +157,7 @@ async function spedisciInvito(idDoc, scheda) {
     const agenda = CAL.valido(perAgenda) ? { google: CAL.linkGoogle(perAgenda), outlook: CAL.linkOutlook(perAgenda) } : null;
     const m = MNGB.invitoIngresso(Object.assign({}, dati, { agenda: agenda }), NL.linkCompleta(idDoc));
     const messaggio = { from: mittente(), to: String(scheda.email), subject: m.oggetto, text: m.testo, html: m.html, attachments: [] };
+    if (opz && opz.bcc) messaggio.bcc = opz.bcc;
     if (!online) {
         const nomeCompleto = (dati.nome + ' ' + dati.cognome).trim();
         messaggio.attachments.push({
@@ -258,7 +267,7 @@ async function conferma(db, body, opz) {
     // la seconda mail, con l'invito: parte una volta, alla prima conferma
     const invito = await spedisciInvito(idDoc, scheda);
     try {
-        await rif.set({ mailInvito: { quando: Date.now(), ok: invito.ok === true, errore: testo(invito.errore, 200) } }, { merge: true });
+        await rif.set({ mailInvito: { quando: Date.now(), ok: invito.ok === true, errore: testo(invito.errore, 200), a: String(scheda.email || '').trim().toLowerCase() } }, { merge: true });
     } catch (e) { /* informazione, non condizione */ }
     return { stato: 200, corpo: { ok: true, gia: false, quando: quando, nome: nome, evento: evento, invito: invito.ok === true, online: online } };
 }
@@ -292,6 +301,92 @@ async function pregresso(db, opz) {
     if (nel) await batch.commit();
     if (segnate) await segnaCambiamento(db);
     return { stato: 200, corpo: { ok: true, segnate: segnate, giaConfermate: giaFatte } };
+}
+
+/* ---------- la conferma d'ufficio di chi passa fra aderenti o sponsor ----------
+   Chi organizza sposta un'iscrizione fra gli aderenti Revilaw o fra sponsor
+   e relatori (api/presenze.js, sposta-modalita) mentre aspetta ancora di
+   confermare l'indirizzo: da quel momento la conferma non si chiede piu'.
+   Sono persone che chi organizza conosce, e in sala ci sono per questo:
+   lasciarle nell'attesa vorrebbe dire tenerle fuori dai conteggi e
+   continuare a sollecitarle per una cosa che nessuno chiede loro.
+   UNA SCHEDA PER VOLTA, IN TRANSAZIONE: si rilegge e si conferma solo se e'
+   ancora in attesa (inAttesaDiConferma, la regola di tutti). Un clic
+   arrivato un attimo prima vince e non si riscrive: la sua data e il suo
+   'mail' restano, ed e' la conferma che conta per la diretta.
+   `opz`: { da, verso, presenza } - chi sposta, dove, e il documento delle
+   presenze (chi e' segnato presente non e' in attesa). Restituisce la
+   scheda con la conferma nuova, o null se non c'era niente da confermare.
+   Mai su una scheda che non esiste: t.update non la crea. */
+async function confermaPerSpostamento(db, idDoc, opz) {
+    opz = opz || {};
+    const rif = db.collection('iscrizioni').doc(idDoc);
+    return db.runTransaction(async t => {
+        const snap = await t.get(rif);
+        if (!snap.exists) return null;
+        const scheda = snap.data() || {};
+        if (!inAttesaDiConferma(scheda, opz.presenza)) return null;
+        const conferma = { quando: Date.now(), come: 'spostamento', da: testo(opz.da, 200), verso: testo(opz.verso, 20) };
+        // confermata: il giro automatico non ha piu' niente da mandarle
+        t.update(rif, { emailConfermata: conferma, confermaInAttesa: admin.firestore.FieldValue.delete() });
+        return Object.assign({}, scheda, { emailConfermata: conferma });
+    });
+}
+/* L'INVITO IN PDF DOPO LO SPOSTAMENTO. Con il clic la seconda mail parte da
+   se' (conferma, qui sopra); chi e' confermato dallo spostamento il clic
+   non lo fara' mai - e se lo fa, la conferma c'e' gia' e l'invito non
+   riparte. Quindi parte qui, una volta, con la stessa mail e lo stesso PDF
+   ("In sala": aderenti e sponsor sono in sala, e la modalita' scritta sulla
+   scheda e' quella del modulo, non la sezione nuova - come fa il desk,
+   lib/accredito-desk.js). `mailInvito` resta scritto com'e' andata, con
+   da: 'spostamento': e' cio' che dice a un secondo spostamento se l'invito
+   va ancora mandato. */
+/* L'invito e' gia' partito A QUESTO INDIRIZZO? `mailInvito.a` e' l'indirizzo
+   a cui e' andato; quelli scritti prima che ci fosse non lo hanno, e valgono
+   per l'indirizzo della scheda (la Modifica che lo cambia lo aggiunge, con
+   quello vecchio: api/presenze.js, 'modifica'). */
+function invitoPartito(scheda) {
+    const m = scheda && scheda.mailInvito;
+    if (!m || typeof m !== 'object' || m.ok !== true) return false;
+    return !m.a || String(m.a).toLowerCase() === String(scheda.email || '').trim().toLowerCase();
+}
+const INVITO_IN_CORSO_MS = 90 * 1000;
+/* UNA VOLTA SOLA anche con due spostamenti insieme sulle stesse righe (due
+   persone che lavorano sull'evento, una finestra chiusa e ripremuta mentre la
+   prima chiamata spedisce ancora): prima di spedire l'invito si PRENOTA, in
+   transazione, rileggendo la scheda - come invioInCorsoFino per la mail di
+   conferma. Chi trova la prenotazione di un altro salta; una prenotazione
+   scaduta (funzione interrotta) si riprende. Si spedisce con la scheda riletta:
+   l'indirizzo e' quello di adesso, e una scheda annullata o cancellata nel
+   frattempo non riceve niente. L'esito si scrive con update: una scheda
+   cancellata non rinasce. Restituisce { ok, errore } o { saltato: true }. */
+async function invitoDopoSpostamento(db, idDoc, opz) {
+    opz = opz || {};
+    const rif = db.collection('iscrizioni').doc(idDoc);
+    const ora = Date.now();
+    const scheda = await db.runTransaction(async t => {
+        const snap = await t.get(rif);
+        if (!snap.exists) return null;
+        const s = snap.data() || {};
+        const c = s.emailConfermata;
+        const a = String(s.email || '').trim().toLowerCase();
+        if (s.annullato || !a || !c || c.come !== 'spostamento' || invitoPartito(s)) return null;
+        const m = s.mailInvito;
+        if (m && typeof m === 'object' && Number(m.inCorsoFino) > ora && (!m.a || m.a === a)) return null;
+        t.update(rif, { mailInvito: { inCorsoFino: ora + INVITO_IN_CORSO_MS, da: 'spostamento', a: a } });
+        return s;
+    });
+    if (!scheda) return { saltato: true };
+    const esito = await spedisciInvito(idDoc, Object.assign({}, scheda, { modalita: 'presenza' }), { bcc: opz.bcc });
+    try {
+        await rif.update({
+            mailInvito: {
+                quando: Date.now(), ok: esito.ok === true, errore: testo(esito.errore, 200), da: 'spostamento',
+                a: String(scheda.email || '').trim().toLowerCase()
+            }
+        });
+    } catch (e) { /* informazione, non condizione */ }
+    return esito;
 }
 
 /* ---------- la mail di conferma, rispedita dall'area riservata ----------
@@ -567,7 +662,8 @@ async function rimandaConferma(db, idDoc, opz) {
 }
 
 module.exports = {
-    conferma, pregresso, mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
+    conferma, pregresso, confermaPerSpostamento, invitoDopoSpostamento, invitoPartito,
+    mailDiConferma, spedisciInvito, dettagliEvento, confermata, inAttesaDiConferma, dalModuloDelSito, RL_MAX,
     trasporto, mittente, rispondiA,
     spedisciConferma, rimandaConferma, attesaRimanda, statoMail, mailPerIndirizzo, invioPerIndirizzo, transitorio, segnaCambiamento,
     RIMANDA_PAUSA_MS, RIMANDA_MAX_GIORNO, INVIO_IN_CORSO_MS

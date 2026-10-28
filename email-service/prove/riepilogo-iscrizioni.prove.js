@@ -650,6 +650,24 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         esigi(!/Gmail potrebbe accorciarla/.test(mq.html) && /Confermata4 Qui/.test(mq.html), 'con trenta aderenti nessun avviso, e le aziende intere');
     }
 
+    console.log('\nLa conferma d\'ufficio dello spostamento non e\' una conferma del giorno');
+    {
+        /* Chi e' stato spostato fra aderenti o sponsor mentre aspettava di
+           confermare e' confermato d'ufficio (come: 'spostamento'): non ha
+           confermato lui, e fra le conferme del giorno non va. Nel totale si'. */
+        const R = require(path.join(__dirname, '..', 'lib/riepilogo-iscrizioni.js'));
+        const ev = R.EVENTI[0];
+        const MI = 'Milano 26 Febbraio 2027 - Iscrizione';
+        const q = ms('2027-01-20T10:00:00Z');
+        const sc = [
+            { id: 'x1', dati: { pagina: MI, nome: 'Carla', cognome: 'Clic', email: 'clic@x.it', data: '19/01/2027 09:00:00', emailConfermata: { quando: q, come: 'mail' } } },
+            { id: 'x2', dati: { pagina: MI, nome: 'Sara', cognome: 'Spostata', email: 'spostata@x.it', data: '19/01/2027 09:00:00', emailConfermata: { quando: q, come: 'spostamento', verso: 'sponsor' } } }
+        ];
+        const c = R.conti(sc, ev, '2027-01-20');
+        esigi(c.nuove.length === 1 && c.nuove[0].email === 'clic@x.it', 'fra le conferme del giorno solo chi ha cliccato', JSON.stringify(c.nuove.map(x => x.email)));
+        esigi(c.totale === 2 && c.inAttesa.length === 0, 'nel totale tutte e due, e nessuna in attesa');
+    }
+
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');
     require('fs').writeFileSync(process.env.ANTEPRIMA || '/dev/null', (spedite[0] || {}).html || '');
     if (process.env.ANTEPRIMA_ADERENTI) require('fs').writeFileSync(process.env.ANTEPRIMA_ADERENTI, (spedite[prima] || {}).html || '');

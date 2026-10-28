@@ -1056,10 +1056,10 @@ collaboratore, quello del suo utente di riferimento): un
   con il collegamento personale FIRMATO verso `/completa_iscrizione/`: il
   segnaposto `{{COMPLETA}}` viene sostituito qui, con copia nascosta a chi
   chiede. Sulla scheda resta `datiRichiesti` (da chi e quando).
-- `azione: "sposta-modalita"`: stessi permessi di `aggiungi`. Sposta **fra le tre
+- `azione: "sposta-modalita"`: stessi permessi di `aggiungi`. Sposta **fra le
   sezioni** le iscrizioni indicate (`destinatari`: `[{ id, doc }]`, fino a 300, o
   il solo `idIscritto`) e, se richiesto, manda l'avviso. Nel corpo: `modalita`
-  (`presenza`, `aderenti` o `online`) e, facoltativa, `mail` `{ oggetto, html, testo }` gia
+  (`presenza`, `aderenti`, `sponsor` o `online`) e, facoltativa, `mail` `{ oggetto, html, testo }` gia
   composta in formato NGB con i segnaposti `{{NOME}}` e `{{COMPLETA}}`,
   sostituiti qui per destinatario. Il destinatario lo decide il servizio
   leggendo l'email dalla scheda: da qui non si spedisce ad altri. Prima si
@@ -1070,7 +1070,38 @@ collaboratore, quello del suo utente di riferimento): un
   resta `avvisoModalita` (modalita, da chi, quando) sulla presenza, cosi l'area
   riservata mostra "mail inviata il ..." sulla riga. Risposta: `{ ok, spostate,
   modalita, mail: { inviate, senzaScheda, senzaEmail, doppie, giaAvvisati,
-  restanti, falliti } }`.
+  restanti, falliti }, conferme }`.
+  **Verso `aderenti` e `sponsor` la conferma dell'email non si chiede piu'.**
+  Dopo lo spostamento, ogni scheda di un evento che chiede la conferma (Milano
+  2027) ancora in attesa (`inAttesaDiConferma`) si conferma d'ufficio:
+  `emailConfermata: { quando, come: 'spostamento', da, verso }` e via la
+  bandiera `confermaInAttesa`, una transazione per scheda
+  (`confermaPerSpostamento` in `lib/conferma-email.js`), che non riscrive un
+  clic arrivato prima. Una conferma che non riesce (contesa, rete) non ferma
+  le altre ne' gli avvisi: si conta in `nonConfermate`, e ripetere lo
+  spostamento la riprova. Poi parte l'invito in PDF, come dopo il clic
+  (`invitoDopoSpostamento`, `mailInvito` con `da: 'spostamento'` e `a`,
+  l'indirizzo a cui e' andato), in copia nascosta a chi sposta: prima gli
+  inviti, poi gli avvisi, dentro lo stesso tetto di 45 secondi. L'invito si
+  PRENOTA in transazione prima di partire (`mailInvito.inCorsoFino`, 90
+  secondi): due spostamenti insieme sulle stesse righe non lo mandano due
+  volte. A evento finito l'invito non parte (la conferma si'). Un invito non
+  partito si rimanda dal menu della riga, **"Rimanda l'invito in PDF"**, che
+  ripete lo spostamento nella stessa sezione: parte a chi e' confermato dallo
+  spostamento e non ha l'invito a quell'indirizzo (`invitoPartito`; la
+  Modifica che cambia l'indirizzo segna quello vecchio su `mailInvito.a`).
+  Succede con o senza `mail`; verso l'online e fra gli ospiti la conferma
+  resta da dare. Non si toccano le righe senza scheda, le annullate, le
+  inserite a mano o da altri portali, quelle gia' confermate e gli eventi che
+  la conferma non la chiedono. Chi aspetta la conferma ed e' GIA' fra aderenti
+  o sponsor (la pagina di sponsor e relatori, la tendina) trova nel menu anche
+  la sua sezione: e' lo spostamento a togliere la conferma. `conferme`:
+  `{ confermate, righe: [{ id, doc }], nonConfermate, inviti, invitiFalliti,
+  invitiRestanti }`, `null` per le altre sezioni. Il riepilogo serale non
+  conta queste conferme fra quelle del giorno (non le ha date la persona), ma
+  nel totale si'. Provato in
+  `prove/sposta-modalita.prove.js` e, per la finestra e la mail,
+  `prove/avviso-sezione.prove.js`.
 - **Ogni mail che parte da un comando dell'area riservata torna in copia
   nascosta a chi l'ha fatta partire** (`ccnOperatore` in `api/presenze.js`):
   conferma dell'inserimento manuale, richiesta dati, invito B2B, avviso di
@@ -1104,7 +1135,7 @@ Un'iscrizione sta in **una** sezione sola. Tre sono in sala, e solo l'online no:
 |---|---|---|---|
 | Aziende in presenza | `presenza` (o vuoto) | si | gli **ospiti** in sala, le aziende. Sopra l'elenco questa voce, gli aderenti e sponsor e relatori stanno in un riquadro solo, "tutti in presenza", e dentro il riquadro la voce si legge solo "Aziende"; in fondo al riquadro sta anche "Aziende in attesa di conferma mail" (chi la aspetta si e' iscritto dal modulo, che iscrive in presenza; nel CSV la sezione resta "In attesa di conferma mail"); nella riga la modalita' si legge ancora "In presenza" |
 | Aderenti Revilaw | `aderenti` | si | gli **aderenti** in sala: occupano un posto come gli altri, ma si contano a parte - sono la rete dello studio, non ospiti da invitare |
-| Sponsor e relatori | `sponsor` | si | chi l'evento lo **fa**: occupa un posto come gli altri e va sempre contato fra quelli in sala, ma a parte dalle aziende (nei totali di Milano e' la casella "sponsor e relatori"). Ci si entra dall'area riservata oppure iscrivendosi dalla **pagina riservata** `/milano_febbraio_2027/sponsor_relatori/` (vedi sotto); per la persona non cambia niente: nessuna mail in piu' parte |
+| Sponsor e relatori | `sponsor` | si | chi l'evento lo **fa**: occupa un posto come gli altri e va sempre contato fra quelli in sala, ma a parte dalle aziende (nei totali di Milano e' la casella "sponsor e relatori"). Ci si entra dall'area riservata oppure iscrivendosi dalla **pagina riservata** `/milano_febbraio_2027/sponsor_relatori/` (vedi sotto); spostando qualcuno qui dall'area riservata si puo' mandargli l'avviso (vedi sotto) |
 | Online | `online` | no | chi segue **da remoto**, che in sala non occupa niente |
 
 Fino all'evento di Napoli il modulo non chiedeva nulla e le iscrizioni erano
@@ -1210,11 +1241,20 @@ L'ultima parola e della prima: in quale sezione si sta lo decide chi organizza.
 `presenze`, con `avvisoModalita`) e l'area riservata conta le quattro sezioni
 separatamente, con il filtro sopra l'elenco per guardarne una alla volta.
 
-**L'avviso per posta lo porta con se' il solo PASSAGGIO all'online**: e' l'unico
-che toglie qualcosa a chi lo riceve (il posto in sala) e va spiegato. Entrare
-fra gli aderenti, passare fra sponsor e relatori o tornare in presenza non si
-annunciano: sono classificazioni interne, e chi le riceve non deve fare niente
-di diverso.
+**L'avviso per posta lo propone la finestra dello spostamento** in due casi.
+Il PASSAGGIO all'online toglie qualcosa a chi lo riceve (il posto in sala) e va
+spiegato (`passaggioOnline`). L'INGRESSO fra gli aderenti Revilaw o fra sponsor
+e relatori (`passaggioSezione` in `area-riservata/newsletter-format.js`) dice
+dove e' registrata l'iscrizione, che ha un posto riservato in sala, che non
+c'e' niente da fare e che la conferma dell'indirizzo email non serve piu'. In
+tutti e due i casi la casella parte spuntata e si puo' togliere; il ritorno fra
+gli ospiti non si annuncia. A Milano chi entra fra aderenti o sponsor mentre
+aspetta ancora di confermare l'email e' confermato d'ufficio e riceve subito
+l'invito in PDF, avviso o no: la finestra lo dice prima, con il numero.
+"Riconosci aderenti" sposta in silenzio, e per questo non propone chi aspetta
+ancora la conferma: quelle righe si spostano dal menu, con la finestra.
+La tendina "Modalita'" della riga resta com'era: cambia la sezione e basta,
+senza mail e senza conferma.
 
 E non si annuncia a chi online ci e nato: chi si iscrive dal modulo per la
 diretta un passaggio non lo ha mai fatto - la pagina glielo ha detto prima di
@@ -1559,7 +1599,13 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
   gli iscritti finora"**, che compare finche' c'e' qualcuno senza baffetto.
   Le righe del foglio Google storico non hanno una scheda: `/api/iscrizioni`
   le restituisce gia' come pregresso. Il suggerimento sul baffetto dice
-  quale dei due e'.
+  se e' d'ufficio.
+- **Lo spostamento.** Chi organizza sposta fra gli aderenti Revilaw o fra
+  sponsor e relatori qualcuno che aspetta ancora di confermare: la scheda si
+  conferma d'ufficio con `{ come: 'spostamento', da, verso }` e l'invito in
+  PDF parte subito, come dopo il clic (vedi `sposta-modalita`). Nell'export
+  e' "si' (d'ufficio)", come il pregresso; la diretta, che vuole il clic
+  (`come: 'mail'`), non la conta - ma aderenti e sponsor sono in sala.
 - **L'ORDINE CONTA: prima si pubblica il servizio con la mail nuova, poi si
   preme il pulsante del pregresso su ogni evento aperto** (Napoli in testa).
   Al contrario chi si iscrive nel mezzo riceverebbe la mail E verrebbe
@@ -1651,8 +1697,9 @@ mail di conferma" nel menu della riga per chi non ce l'ha ancora.
 - **La bandiera `confermaInAttesa`.** Scritta a `true` sulle iscrizioni dal
   sito agli eventi che chiedono la conferma, **nella stessa transazione della
   scheda** (`VERIFICATA.registra`): se la funzione si chiudesse prima di
-  spedire, il giro automatico la ritrova. Si toglie con la conferma (il clic
-  e il pregresso), con l'annullamento dal collegamento personale (e torna se
+  spedire, il giro automatico la ritrova. Si toglie con la conferma (il clic,
+  il pregresso e lo spostamento fra aderenti o sponsor), con l'annullamento
+  dal collegamento personale (e torna se
   l'iscrizione si riattiva senza conferma), e dal giro quando non ha piu'
   niente da fare. La Modifica dall'area riservata la porta sul documento nuovo
   se l'indirizzo e' lo stesso, e la **accende** se l'indirizzo e' cambiato su
