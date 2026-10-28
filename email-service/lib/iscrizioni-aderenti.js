@@ -263,7 +263,24 @@ function configurato() {
 
 /* --- l'arrivo di un'iscrizione --- */
 async function ricevi(db, corpo) {
-    const c = corpo || {};
+    let c = corpo || {};
+    /* Dal collegamento personale (d, t): la scheda e' quella del
+       collegamento, e l'indirizzo e' il suo - chi completa i dati non
+       cambia la propria email da qui, e non puo' scrivere su un'altra. */
+    if (c.d || c.t) {
+        const sc = schedaDelCollegamento(c.d, c.t);
+        if (!sc) return { stato: 403, corpo: { ok: false, msg: COLLEGAMENTO_NON_VALIDO } };
+        let em = '';
+        try {
+            const s = await db.collection(COLLEZIONE).doc(sc.id).get();
+            em = s.exists ? String((s.data() || {}).email || '').toLowerCase() : '';
+        } catch (e) {
+            console.error('Aderente, scheda del collegamento non letta:', String((e && e.message) || e).slice(0, 200));
+            return { stato: 500, corpo: { ok: false, msg: 'Non siamo riusciti a registrare l\'iscrizione: riprovi fra poco.' } };
+        }
+        // la scheda non c'e' piu' (tolta dall'area riservata): vale il modulo come per tutti
+        if (em && idScheda(sc.q.id, em) === sc.id) c = Object.assign({}, c, { quota: sc.q.id, email: em });
+    }
     const q = definizione(c.quota);
     if (!q) return { stato: 400, corpo: { ok: false, msg: 'Iscrizione non riconosciuta.' } };
     if (chiusa(q)) {
@@ -498,6 +515,59 @@ function gestisce(body) { return !!(body && String(body.sezione || '') === 'ader
 function quotaDellEvento(evento) {
     return QUOTE.find(q => q.evento === String(evento || '')) || null;
 }
+
+/* =========================================================
+   IL COLLEGAMENTO PERSONALE "COMPLETA I DATI PER LA FATTURA"
+   ---------------------------------------------------------
+   L'avviso dello spostamento fra gli aderenti porta un pulsante che
+   apre la pagina degli aderenti su QUESTA scheda: ?d=<id della
+   scheda>&t=<firma>. La pagina chiede i dati (aderenti-leggi), li
+   mette nel modulo con l'email bloccata e manda d e t con l'invio:
+   ricevi aggiorna la stessa scheda, con l'indirizzo della scheda e
+   non con quello scritto nel modulo. La firma (lib/newsletter.js,
+   contesto suo) vale per quella sola scheda: cambiando d nel
+   collegamento non si apre la scheda di un altro. */
+function moduloFirma() { return require('./newsletter'); }
+function parametriFattura(evento, email) {
+    const q = quotaDellEvento(evento);
+    const e = testo(email, 200).toLowerCase();
+    if (!q || !indirizzoValido(e)) return '';
+    const id = idScheda(q.id, e);
+    return '?d=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(moduloFirma().firmaFatturaAderente(id));
+}
+// la scheda del collegamento, se la firma torna e l'id e' di una quota che c'e'
+function schedaDelCollegamento(d, t) {
+    const id = String(d || '').slice(0, 400);
+    const q = QUOTE.find(x => id.indexOf(x.id + '~') === 0);
+    if (!q || !moduloFirma().firmaFatturaAderenteValida(id, t)) return null;
+    return { q: q, id: id };
+}
+const COLLEGAMENTO_NON_VALIDO = 'Il collegamento non è valido: usi il pulsante della mail che ha ricevuto, oppure scriva a info@nextgenerationbusiness.it';
+async function leggiPerFattura(db, corpo) {
+    const c = corpo || {};
+    const sc = schedaDelCollegamento(c.d, c.t);
+    if (!sc) return { stato: 403, corpo: { ok: false, msg: COLLEGAMENTO_NON_VALIDO } };
+    let v;
+    try {
+        const s = await db.collection(COLLEZIONE).doc(sc.id).get();
+        v = s.exists ? (s.data() || {}) : null;
+    } catch (e) {
+        console.error('Aderente, scheda del collegamento non letta:', String((e && e.message) || e).slice(0, 200));
+        return { stato: 500, corpo: { ok: false, msg: 'Non siamo riusciti a leggere la Sua iscrizione: riprovi fra poco.' } };
+    }
+    if (!v || !indirizzoValido(v.email)) return { stato: 404, corpo: { ok: false, msg: 'Non troviamo la Sua iscrizione: compili il modulo, oppure scriva a info@nextgenerationbusiness.it' } };
+    const f = v.fatturazione || {};
+    return { stato: 200, corpo: { ok: true, quota: sc.q.id, scheda: {
+        nome: v.nome || '', cognome: v.cognome || '', email: v.email, telefono: v.telefono || '',
+        studio: v.studio || '', citta: v.citta || '',
+        fatturazione: {
+            intestatario: f.intestatario || '', partitaIva: f.partitaIva || '', codiceFiscale: f.codiceFiscale || '',
+            indirizzo: f.indirizzo || '', cap: f.cap || '', comune: f.comune || '', provincia: f.provincia || '',
+            codiceDestinatario: f.codiceDestinatario || '', pec: f.pec || '', emailFatture: f.emailFatture || ''
+        },
+        datiFatturaMancanti: !f.intestatario
+    } } };
+}
 async function iscriviDaSpostamento(db, evento, persone, opz) {
     const q = quotaDellEvento(evento);
     const out = { iscritti: 0, gia: 0, falliti: 0 };
@@ -606,6 +676,7 @@ async function togliDaSpostamento(db, evento, persone) {
 module.exports = {
     QUOTE, COLLEZIONE, definizione, perLaPagina, importi, ricevi,
     quotaDellEvento, iscriviDaSpostamento, togliDaSpostamento,
+    parametriFattura, leggiPerFattura,
     elenco, segnaFattura, elimina, esegui, gestisce,
     partitaIvaValida, codiceFiscaleValido, indirizzoValido, configurato
 };

@@ -2872,6 +2872,11 @@
        invisibili (le parole spezzate a fine riga, in questa mail, si leggevano male). */
     const SENZA_TRATTINI = 'text-align:left;-webkit-hyphens:manual;-moz-hyphens:manual;-ms-hyphens:manual;hyphens:manual;';
     const SE_INVITO = '{{SE_INVITO}}', FINE_INVITO = '{{/SE_INVITO}}';
+    /* In coda all'indirizzo della pagina degli aderenti: il servizio ci mette
+       ?d=...&t=... di quel destinatario (la sua scheda, firmata), cosi' la
+       pagina si apre con i suoi dati e aggiorna la sua iscrizione. Senza
+       sostituzione (anteprima) resta la pagina semplice. */
+    const SEGNAPOSTO_FIRMA_FATTURA = '{{FIRMA_FATTURA}}';
     function passaggioSezione(dati) {
         dati = dati || {};
         const s = SEZIONI_AVVISO[dati.verso];
@@ -2910,8 +2915,9 @@
             + 'e Le consegniamo il badge. C\'è anche il file per aggiungere la giornata al calendario.';
         const P_CENA = cm ? 'Come aderente Revilaw, la Sua iscrizione comprende anche la cena e il meeting degli aderenti indicati qui sopra'
             + (quotaCm ? ', con la quota di partecipazione di ' + quotaCm : '') + ': per questi riceverà la fattura.' : '';
-        const P_FATT = cm && cm.url ? 'Se non ci ha già comunicato i dati per la fattura, La preghiamo di indicarli dalla pagina riservata agli aderenti, '
-            + 'con questo stesso indirizzo email: la Sua iscrizione si aggiorna da sola.' : '';
+        const P_FATT = cm && cm.url ? 'Se non ci ha già comunicato i dati per la fattura, La preghiamo di indicarli dal pulsante qui sotto: '
+            + 'la pagina si apre con i Suoi dati già compilati e aggiorna la Sua iscrizione.' : '';
+        const urlFatt = cm && cm.url ? cm.url + SEGNAPOSTO_FIRMA_FATTURA : '';
         const par = t => '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + SENZA_TRATTINI + '">' + testoHtml(t, true) + '</td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
@@ -2924,7 +2930,7 @@
             + (P_CENA ? spazio(22) + par(P_CENA) : '')
             + (P_FATT ? spazio(22) + par(P_FATT) + spazio(18)
                 + '<tr><td align="center" style="text-align:center;"><table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td>'
-                + pulsante('Completa i dati per la fattura', cm.url) + '</td></tr></table></td></tr>' : '')
+                + pulsante('Completa i dati per la fattura', urlFatt) + '</td></tr></table></td></tr>' : '')
             + spazio(24)
             + '<tr><td style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + SENZA_TRATTINI + '">'
             + 'Se i Suoi dati sono da correggere, o se preferisce rinunciare, può farlo dal '
@@ -2936,7 +2942,7 @@
 
         const testo = ['ISCRIZIONE AGGIORNATA', sommario, P1,
             voci.map(v => v[0] + ': ' + v[1]).join('\n'),
-            P2, SE_INVITO + P_INVITO + FINE_INVITO, P_CENA, P_FATT ? P_FATT + '\n' + cm.url : '',
+            P2, SE_INVITO + P_INVITO + FINE_INVITO, P_CENA, P_FATT ? P_FATT + '\n' + urlFatt : '',
             'Per correggere i Suoi dati o rinunciare: ' + SEGNAPOSTO_COMPLETA,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_PROMEMORIA,
@@ -3479,7 +3485,7 @@
     return {
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         EVENTO_IN_EVIDENZA: EVENTO_IN_EVIDENZA, eventoInEvidenza: eventoInEvidenza,
-        SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
+        SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA, SEGNAPOSTO_FIRMA_FATTURA: SEGNAPOSTO_FIRMA_FATTURA,
         SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B, AREE_B2B: AREE_B2B,
         SEGNAPOSTO_NUOVO_INCONTRO: SEGNAPOSTO_NUOVO_INCONTRO, invitoNuovoIncontro: invitoNuovoIncontro,
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,

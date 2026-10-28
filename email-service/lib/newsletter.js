@@ -154,6 +154,23 @@ function firmaConfermaEmailValida(idDoc, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento "completa i dati per la fattura", nell'avviso a chi
+   e' stato spostato fra gli aderenti. Contesto suo: apre la pagina degli
+   aderenti con i dati di QUELLA scheda (iscrizioniAderenti) e lascia
+   aggiornare solo quella, senza toccare l'iscrizione all'evento. */
+function firmaFatturaAderente(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('fattura-aderente|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaFatturaAderenteValida(idDoc, token) {
+    if (!idDoc) return false;
+    const attesa = Buffer.from(firmaFatturaAderente(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 /* Firma del "numero verificato": il modulo di iscrizione la riceve quando
    la persona scrive il codice arrivato per SMS, e la rimanda con il resto
    dei dati (lib/iscrizione-verificata.js). Contesto suo, come le altre:
@@ -368,6 +385,7 @@ module.exports = {
     firmaCompleta, firmaCompletaValida, linkCompleta, linkB2B,
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
+    firmaFatturaAderente, firmaFatturaAderenteValida,
     firmaNuovoIncontro, firmaNuovoIncontroValida, linkNuovoIncontro,
     firmaSms, firmaSmsValida, firmaStato, firmaStatoValida,
     PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL,

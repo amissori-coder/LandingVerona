@@ -851,6 +851,27 @@ prova('Milano: fra sponsor e relatori, con l\'avviso, partono invito e avviso', 
     esigi((schedaDi(MI_ATTESA.id).mailInvito || {}).ok === true && schedaDi(MI_ATTESA.id).mailInvito.con === 'avviso', 'e l\'invito risulta partito, dentro l\'avviso');
 });
 
+prova('Milano: fra gli aderenti, il pulsante della fattura e\' il collegamento firmato di ciascuno', async () => {
+    scenarioMilano();
+    const NL = require(path.join(__dirname, '..', 'lib/newsletter.js'));
+    const pagina = 'https://nextgenerationbusiness.it/milano_febbraio_2027/aderenti/';
+    const mail = { oggetto: 'Iscrizione aggiornata', html: '<p>Gentile {{NOME}}, <a href="' + pagina + '{{FIRMA_FATTURA}}">Completa i dati per la fattura</a></p>',
+        testo: 'Completa: ' + pagina + '{{FIRMA_FATTURA}}' };
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, MI_CLIC], mail: mail });
+    esigi(r.corpo.ok === true, 'lo spostamento va a buon fine', JSON.stringify(r.corpo).slice(0, 200));
+    const perAlda = spedite.find(m => m.to === 'alda@attesa.it' && /Completa i dati/.test(m.html || '')) || {};
+    const perCarlo = spedite.find(m => m.to === 'carlo@clic.it' && /Completa i dati/.test(m.html || '')) || {};
+    const idA = 'milano-2027-aderenti~alda@attesa-it';
+    esigi((perAlda.html || '').indexOf(pagina + '?d=' + encodeURIComponent(idA) + '&amp;t=' + NL.firmaFatturaAderente(idA)) >= 0,
+        'nell\'HTML: la pagina, la scheda di cena e meeting di Alda e la sua firma', perAlda.html);
+    esigi((perAlda.text || '').indexOf(pagina + '?d=' + encodeURIComponent(idA) + '&t=' + NL.firmaFatturaAderente(idA)) >= 0, 'e nel solo testo', perAlda.text);
+    esigi(/carlo%40clic-it/.test(perCarlo.html || '') && !/alda/.test(perCarlo.html || ''), 'a Carlo il suo, non quello di Alda');
+    esigi(!/\{\{FIRMA_FATTURA\}\}/.test((perAlda.html || '') + (perAlda.text || '') + (perCarlo.html || '')), 'nessun segnaposto resta nella mail');
+    const sp = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_MANO], mail: mail });
+    const perMara = spedite.find(m => m.to === 'mara@mano.it') || {};
+    esigi(sp.corpo.ok && (perMara.html || '').indexOf('href="' + pagina + '"') >= 0, 'fuori dagli aderenti il segnaposto si toglie e basta', perMara.html);
+});
+
 prova('Milano: chi ha gia\' confermato con il clic non si tocca', async () => {
     scenarioMilano();
     await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_CLIC] });

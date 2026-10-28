@@ -37,7 +37,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles.css?v=17">
-    <link rel="stylesheet" href="aderenti.css?v=3">
+    <link rel="stylesheet" href="aderenti.css?v=4">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
 </head>
 <body class="pagina-aderenti">
@@ -163,8 +163,8 @@
         <div class="wrap">
             <header class="testata">
                 <span class="etichetta">Iscrizione</span>
-                <h2 class="titolo">Iscrizione a cena e meeting</h2>
-                <p class="testata-sotto">Dopo l'iscrizione riceverà il riepilogo per email e, nei giorni successivi, la fattura.</p>
+                <h2 class="titolo" id="iscrizione-titolo">Iscrizione a cena e meeting</h2>
+                <p class="testata-sotto" id="iscrizione-sotto">Dopo l'iscrizione riceverà il riepilogo per email e, nei giorni successivi, la fattura.</p>
             </header>
             <div class="ad-griglia">
             <aside class="ad-riepilogo" aria-label="La quota di partecipazione">
@@ -193,6 +193,11 @@
             </aside>
 
             <section class="ad-modulo" id="contenuto" aria-label="Modulo di iscrizione">
+                <!-- dal pulsante personale della mail (?d=&t=): i dati della persona sono gia' nel modulo -->
+                <div class="ad-personale" id="personale" role="status" hidden>
+                    <strong id="personale-titolo">Completa i dati per la fattura</strong>
+                    <p id="personale-testo"></p>
+                </div>
                 <form id="modulo" novalidate>
                     <fieldset>
                         <legend><span class="ad-num">1</span> Dati anagrafici</legend>
@@ -224,7 +229,7 @@
                         </div>
                     </fieldset>
 
-                    <fieldset>
+                    <fieldset id="dati-fattura">
                         <legend><span class="ad-num">2</span> Dati di fatturazione</legend>
                         <p class="ad-spiega">La fattura sarà intestata come indicato qui. Servono partita IVA e codice fiscale (per una società spesso coincidono), l'email a cui inviarla e almeno uno fra codice destinatario SDI e PEC.</p>
                         <div class="ad-campi">
@@ -354,6 +359,6 @@
     </footer>
 
     <script src="../script.js?v=26"></script>
-    <script src="aderenti.js?v=3"></script>
+    <script src="aderenti.js?v=4"></script>
 </body>
 </html>

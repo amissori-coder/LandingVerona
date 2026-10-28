@@ -289,6 +289,41 @@ function invia(extra, fat) { return A.ricevi(db, iscrizione(extra, fat)); }
         esigi(r.corpo.tolte === 1 && dati.size === 1, 'l\'amministratore la toglie');
     });
 
+    await prova('Il collegamento personale dell\'avviso: apre la scheda giusta e aggiorna quella', async () => {
+        azzera();
+        process.env.NEWSLETTER_SECRET = 'segreto-di-prova';
+        // la scheda come la lascia lo spostamento (iscriviDaSpostamento, provato in sposta-modalita)
+        const id = 'milano-2027-aderenti~vincenzo@studio-it';
+        dati.set('iscrizioniAderenti/' + id, { quota: 'milano-2027-aderenti', nome: 'Vincenzo', cognome: 'Rossi', email: 'vincenzo@studio.it',
+            telefono: '333 1112223', fatturazione: {}, origine: 'spostamento', daSpostamento: { quando: 1, righe: ['i1'] } });
+        esigi(dati.has('iscrizioniAderenti/' + id), 'la scheda nata dallo spostamento c\'e\'');
+        const qs = A.parametriFattura('milano-2027-02-26', 'VINCENZO@studio.it');
+        const u = new URLSearchParams(qs);
+        esigi(qs.indexOf('?d=') === 0 && u.get('d') === id && u.get('t').length === 32, 'i parametri portano la scheda e la firma', qs);
+        esigi(A.parametriFattura('napoli-qualcosa', 'x@y.it') === '', 'un evento senza quota: niente parametri');
+
+        let r = await A.leggiPerFattura(db, { d: u.get('d'), t: u.get('t') });
+        esigi(r.stato === 200 && r.corpo.scheda.email === 'vincenzo@studio.it' && r.corpo.scheda.nome === 'Vincenzo'
+            && r.corpo.scheda.telefono === '333 1112223' && r.corpo.scheda.datiFatturaMancanti === true, 'la pagina riceve nome, email, telefono e che mancano i dati', JSON.stringify(r.corpo));
+        r = await A.leggiPerFattura(db, { d: u.get('d'), t: u.get('t').replace(/^./, c => c === 'A' ? 'B' : 'A') });
+        esigi(r.stato === 403 && !r.corpo.scheda, 'firma storta: niente dati');
+        r = await A.leggiPerFattura(db, { d: 'milano-2027-aderenti~altro@studio-it', t: u.get('t') });
+        esigi(r.stato === 403, 'la firma di una scheda non apre un\'altra scheda');
+        r = await A.leggiPerFattura(db, { d: 'milano-2027-aderenti~nessuno@studio-it', t: A.parametriFattura('milano-2027-02-26', 'nessuno@studio.it').split('&t=')[1] });
+        esigi(r.stato === 404, 'scheda che non c\'e\' piu\': si dice');
+
+        // l'invio dal collegamento: l'email del modulo non conta, vale quella della scheda
+        r = await A.ricevi(db, iscrizione({ nome: 'Vincenzo', cognome: 'Rossi', email: 'altro@indirizzo.it', d: u.get('d'), t: u.get('t') }));
+        esigi(r.stato === 200 && r.corpo.ok && r.corpo.aggiornata === false, 'il primo invio dei dati e\' una registrazione, non una correzione', JSON.stringify(r.corpo));
+        const sch = dati.get('iscrizioniAderenti/' + id);
+        esigi(sch.email === 'vincenzo@studio.it' && sch.fatturazione.intestatario === 'Studio Verdi Associati' && sch.daSpostamento, 'aggiorna la stessa scheda, con i dati della fattura');
+        esigi(!dati.has('iscrizioniAderenti/milano-2027-aderenti~altro@indirizzo-it') && dati.size === 1, 'nessuna seconda scheda con l\'indirizzo scritto a mano');
+        esigi(posta.length === 1 && posta[0].to === 'vincenzo@studio.it', 'il riepilogo va all\'indirizzo della scheda');
+
+        r = await A.ricevi(db, iscrizione({ email: 'vincenzo@studio.it', d: u.get('d'), t: 'sbagliata' }));
+        esigi(r.stato === 403 && /collegamento non è valido/.test(r.corpo.msg), 'firma storta all\'invio: si ferma e lo dice');
+    });
+
     console.log('\n' + ok + ' ok, ' + ko + ' KO');
     process.exit(ko ? 1 : 0);
 })();

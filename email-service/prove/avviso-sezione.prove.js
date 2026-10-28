@@ -168,6 +168,9 @@ prova('Fra gli aderenti: cena e meeting si annunciano prima, e l\'avviso li port
     f.el('sm-si').ascolti.click();
     await Promise.resolve();
     esigi(f.chiamate[0] && /Completa i dati per la fattura/.test(f.chiamate[0].opz.mail.html), 'la mail che parte e\' quella con cena e meeting');
+    esigi(f.chiamate[0] && f.chiamate[0].opz.mail.html.indexOf('href="' + CENA.url + '{{FIRMA_FATTURA}}"') >= 0
+        && f.chiamate[0].opz.mail.testo.indexOf(CENA.url + '{{FIRMA_FATTURA}}') >= 0, 'il pulsante porta il segnaposto del collegamento personale, da sostituire al servizio');
+    esigi(!/\{\{FIRMA_FATTURA\}\}/.test(f.ambiente.anteprima || '') && (f.ambiente.anteprima || '').indexOf('href="' + CENA.url + '"') >= 0, 'nell\'anteprima resta la pagina semplice');
     const nl = finestra([R[0]], 'aderenti', [], { cenaNonLetta: true });
     nl.el('sm-si').ascolti.click();
     await Promise.resolve();
