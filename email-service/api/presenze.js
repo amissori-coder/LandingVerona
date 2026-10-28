@@ -1693,11 +1693,12 @@ module.exports = async (req, res) => {
             if (AD.quotaDellEvento(evento) && body.soloInvito !== true) {
                 if (nuova === 'aderenti') {
                     const entrano = (await personeSpostate(db, dest)).filter(p => ((primaDi[p.idIscritto] || {}).modalita || p.modalita) !== 'aderenti');
+                    // (ogni riga che entra, anche con un indirizzo gia' iscritto: la scheda la segna fra le sue)
                     cena = await AD.iscriviDaSpostamento(db, evento, entrano, { da: email });
                 } else {
                     const usciti = dest.filter(d => (primaDi[d.id] || {}).modalita === 'aderenti');
                     // anche chi ha annullato il convegno: per togliere basta l'indirizzo
-                    if (usciti.length) cena = await AD.togliDaSpostamento(db, evento, (await personeSpostate(db, usciti, true)).map(p => p.email));
+                    if (usciti.length) cena = await AD.togliDaSpostamento(db, evento, (await personeSpostate(db, usciti, true)).map(p => ({ email: p.email, idIscritto: p.idIscritto })));
                 }
             }
 

@@ -27074,8 +27074,13 @@
         const entrano = conCena ? elenco.filter(r => modalitaDi(ev, r) !== 'aderenti') : [];
         const nuoviCena = cenaLetta ? indirizziDi(entrano.filter(r => !allaCena(ev, r))).length : 0;
         const giaCena = cenaLetta ? indirizziDi(entrano.filter(r => allaCena(ev, r))).length : 0;
+        /* Escono solo gli indirizzi senza un'altra riga che resta fra gli
+           aderenti: due posti dello stesso ordine hanno una scheda di cena
+           sola, e se ne esce uno l'altro resta iscritto (il servizio fa lo stesso). */
+        const restaAderente = r => (_evIscrizioni || []).some(x => elenco.indexOf(x) < 0 && modalitaDi(ev, x) === 'aderenti'
+            && String(x.email || '').trim().toLowerCase() === String(r.email || '').trim().toLowerCase());
         const esconoCena = (!conCena && cenaLetta)
-            ? indirizziDi(elenco.filter(r => modalitaDi(ev, r) === 'aderenti' && cenaDaSpostamento(ev, r))).length : 0;
+            ? indirizziDi(elenco.filter(r => modalitaDi(ev, r) === 'aderenti' && cenaDaSpostamento(ev, r) && !restaAderente(r))).length : 0;
         const euroCm = n => Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         const NOTA_CENA = (conCena && entrano.length && !cenaLetta
             ? '<p class="hint" style="margin:-4px 0 12px;">Chi entra fra gli aderenti viene iscritto anche alla <b>cena del 26 e al meeting del 27</b>, '

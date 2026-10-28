@@ -50,6 +50,14 @@ const ordine = [];
 function chiave(coll, id) { return coll + '/' + id; }
 function fondi(coll, id, patch) {
     const k = chiave(coll, id);
+    // i campi annidati scritti con il punto ("daSpostamento.righe"), come li intende Firestore
+    const piatto = {};
+    Object.keys(patch || {}).forEach(c => {
+        if (c.indexOf('.') < 0) { piatto[c] = patch[c]; return; }
+        const [a, b] = c.split('.');
+        piatto[a] = Object.assign({}, (dati[k] || {})[a] || {}, piatto[a] || {}, { [b]: patch[c] });
+    });
+    patch = piatto;
     const fuso = Object.assign({}, dati[k] || {}, patch);
     // la sentinella di cancellazione toglie il campo, come fa Firestore
     Object.keys(fuso).forEach(c => { if (fuso[c] && fuso[c].__cancella) delete fuso[c]; });
@@ -1080,6 +1088,20 @@ prova('Milano: uscendo dagli aderenti l\'iscrizione dello spostamento si toglie,
     const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'sponsor', destinatari: [MI_ATTESA, MI_CLIC] });
     esigi(r.corpo.cena && r.corpo.cena.tolti === 1 && r.corpo.cena.tenuti === 1, 'una tolta, una tenuta', JSON.stringify(r.corpo.cena));
     esigi(!CENA_DI('alda@attesa.it') && !!CENA_DI('carlo@clic.it'), 'si toglie quella non fatturata; una fattura emessa non si cancella con uno spostamento');
+});
+
+prova('Milano: due righe con la stessa email, ne esce una: la cena resta all\'altra', async () => {
+    scenarioMilano();
+    // la referente e un secondo posto dello stesso ordine, con lo stesso indirizzo
+    const secondo = { id: 'alda@attesa.it|10/01/2027 10:00~p2', doc: 'alda@attesa-it|10-01-2027 10:00~p2' };
+    dati[chiave('iscrizioni', secondo.doc)] = { nome: 'Alda', cognome: 'Bis', email: 'alda@attesa.it', pagina: PAGINA_MI };
+    const r = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'aderenti', destinatari: [MI_ATTESA, secondo] });
+    esigi(r.corpo.cena.iscritti === 1, 'una scheda sola per l\'indirizzo', JSON.stringify(r.corpo.cena));
+    esigi(((CENA_DI('alda@attesa.it') || {}).daSpostamento || {}).righe.length === 2, 'che ricorda le due righe', JSON.stringify((CENA_DI('alda@attesa.it') || {}).daSpostamento));
+    const u1 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'presenza', destinatari: [MI_ATTESA] });
+    esigi(u1.corpo.cena.tolti === 0 && !!CENA_DI('alda@attesa.it'), 'ne esce una: la scheda resta per l\'altra', JSON.stringify(u1.corpo.cena));
+    const u2 = await chiama({ azione: 'sposta-modalita', evento: MI, modalita: 'presenza', destinatari: [secondo] });
+    esigi(u2.corpo.cena.tolti === 1 && !CENA_DI('alda@attesa.it'), 'esce anche l\'altra: la scheda si toglie');
 });
 
 prova('Fuori da Milano non c\'e\' nessuna cena', async () => {
