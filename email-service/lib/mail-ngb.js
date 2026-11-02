@@ -1250,8 +1250,16 @@ function riepilogoSerale(d, link) {
         testoAd += (testoAd ? '\n' : 'ADERENTI\n') + d.adNota;
     }
 
-    const CHIUSURA = 'Per le aziende l\'iscrizione vale dopo la conferma dell\'email; per gli aderenti non c\'è la conferma dell\'email: l\'iscrizione vale dall\'invio del modulo, e all\'iscritto parte subito la mail con la quota e i dati di fatturazione (se non è partita, lo trovi scritto sotto il suo nome).';
-    const DOVE = 'Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», evento di ' + (ev.nome || 'Milano') + ', trovi l\'elenco completo delle aziende (da lì si rimanda la mail di conferma a chi è in attesa) e, in «Aderenti» › «Apri le iscrizioni», gli aderenti, dove si segnano le fatture emesse.';
+    /* Gli aderenti ci sono solo dove l'evento ha le quote (Milano): `conAderenti`
+       lo dice chi chiama (api/riepilogo-iscrizioni.js); senza il dato, come
+       prima, si parla anche di loro. Un webinar non ne ha: le frasi si fermano
+       alle aziende. */
+    const conAderenti = d.conAderenti !== false;
+    const CHIUSURA = 'Per le aziende l\'iscrizione vale dopo la conferma dell\'email'
+        + (conAderenti ? '; per gli aderenti non c\'è la conferma dell\'email: l\'iscrizione vale dall\'invio del modulo, e all\'iscritto parte subito la mail con la quota e i dati di fatturazione (se non è partita, lo trovi scritto sotto il suo nome).' : '.');
+    // l'evento con il suo titolo corto («Webinar 10 Dicembre 2026», «Milano 26 Febbraio 2027»), non "evento di Webinar"
+    const DOVE = 'Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», evento «' + (ev.pagina || ev.nome || 'Milano') + '», trovi l\'elenco completo delle aziende (da lì si rimanda la mail di conferma a chi è in attesa)'
+        + (conAderenti ? ' e, in «Aderenti» › «Apri le iscrizioni», gli aderenti, dove si segnano le fatture emesse.' : '.');
     const MOTIVO = 'Riepilogo automatico per gli organizzatori: parte a mezzanotte quando ci sono conferme nuove o iscrizioni in attesa delle aziende, o iscrizioni nuove o corrette degli aderenti.';
 
     // una parte che non c'e' (non letta, gia' mandata) non ha numeri: niente zeri che direbbero il falso

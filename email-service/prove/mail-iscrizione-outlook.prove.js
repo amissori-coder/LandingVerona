@@ -17,6 +17,9 @@
      - i pulsanti abbiano il padding anche per Outlook (mso-padding-alt);
      - senza il foglio di stile (come dopo un inoltro) titoli, fondi e
        testo abbiano ancora misure e colori scritti nell'elemento.
+   Per tutti e due gli eventi con la grafica della pagina: Milano 2027
+   (in sala) e il webinar del 10 dicembre 2026 (online), che hanno
+   testata e piede diversi e nessun trattino lungo nei testi.
    ============================================================ */
 'use strict';
 const path = require('path');
@@ -27,16 +30,33 @@ function esigi(cond, cosa, extra) {
     if (cond) { ok++; console.log('  verde  ' + cosa); }
     else { ko++; console.log('  ROSSO  ' + cosa + (extra ? '   ' + extra : '')); }
 }
-const PAGINA = 'Milano 26 Febbraio 2027 - Iscrizione';
-const ev = { quando: 'Venerdì 26 febbraio 2027', orario: 'Dalle 8.30 alle 18.00', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, 20124 Milano' };
+/* I due eventi con la grafica della pagina: per ciascuno il modulo, i
+   dettagli, come si partecipa, e la riga dell'evento in testata e nel piede. */
+const EVENTI = [
+    {
+        nome: 'Milano', pagina: 'Milano 26 Febbraio 2027 - Iscrizione', modalita: 'presenza',
+        ev: { quando: 'Venerdì 26 febbraio 2027', orario: 'Dalle 8.30 alle 18.00', luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, 20124 Milano' },
+        occhiello: 'Milano &middot; 26 febbraio 2027', piede: 'Milano &middot; 26 febbraio 2027 &middot; Excelsior Hotel Gallia'
+    },
+    {
+        nome: 'Webinar', pagina: 'Webinar 10 Dicembre 2026 - Iscrizione', modalita: 'online',
+        ev: { quando: 'Giovedì 10 dicembre 2026', orario: 'Dalle 15.00 alle 17.00', luogo: 'Online, in diretta sul sito', indirizzo: '' },
+        occhiello: 'Webinar &middot; 10 dicembre 2026', piede: 'Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta'
+    }
+];
+const letterale = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+for (const E of EVENTI) {
+const PAGINA = E.pagina;
+const ev = E.ev;
 const mail = {
-    'richiesta di conferma': M.confermaSito({ nome: 'Andrea', cognome: 'Missori', azienda: 'Revilaw', pagina: PAGINA, data: '17/10/2026 23:30', modalita: 'presenza' }, 'https://x/m', 'https://x/c'),
-    'invito': M.invitoIngresso({ nome: 'Andrea', cognome: 'Missori', azienda: 'Revilaw', pagina: PAGINA, evento: ev, modalita: 'presenza', agenda: { google: 'https://g', outlook: 'https://o' } }, 'https://x/m'),
+    'richiesta di conferma': M.confermaSito({ nome: 'Andrea', cognome: 'Missori', azienda: 'Revilaw', pagina: PAGINA, data: '17/10/2026 23:30', modalita: E.modalita }, 'https://x/m', 'https://x/c'),
+    'invito': M.invitoIngresso({ nome: 'Andrea', cognome: 'Missori', azienda: 'Revilaw', pagina: PAGINA, evento: ev, modalita: E.modalita, agenda: { google: 'https://g', outlook: 'https://o' } }, 'https://x/m'),
     'iscrizione aggiornata': M.confermaVariazioni({ pagina: PAGINA, intestatario: 'Andrea Missori', attivi: [{ nome: 'Andrea', cognome: 'Missori' }], postiAttivi: 1, senzaNome: 0, annullati: 0 }, 'https://x/m')
 };
 
 for (const nome of Object.keys(mail)) {
-    console.log('\n' + nome);
+    console.log('\n' + E.nome + ' - ' + nome);
     const html = mail[nome].html;
     const corpo = html.slice(html.indexOf('<body'));
     esigi(/Next Generation <span[^>]*>Business<\/span>/.test(html), 'ha la testata della pagina dell\'evento');
@@ -65,11 +85,14 @@ for (const nome of Object.keys(mail)) {
     const colori = new Set((dopoFiletto.match(/[^-]color:(#[0-9A-Fa-f]{6})/g) || []).map(c => c.slice(-7).toUpperCase()));
     esigi(colori.size === 1, 'nel piede, sotto il filetto, un colore solo', Array.from(colori).join(' '));
     esigi(/046&#8203;416&#8203;102&#8203;35/.test(piede) && /371&#8203;29/.test(piede), 'indirizzo e codice fiscale non si trasformano in collegamenti');
-    esigi(/Milano &middot; 26 febbraio 2027 &middot; Excelsior Hotel Gallia<\/td>/.test(piede) && !/>color:/.test(piede), 'la riga dell\'evento e\' scritta giusta, senza stili a vista');
+    esigi(new RegExp(letterale(E.piede) + '<\\/td>').test(piede) && !/>color:/.test(piede), 'la riga dell\'evento e\' scritta giusta, senza stili a vista');
+    esigi(html.indexOf(E.occhiello + '</td>') > 0 && html.indexOf(E.occhiello) < html.indexOf('Next Generation <span'), 'la testata porta l\'occhiello dell\'evento, sopra il titolo');
+    esigi(!/[\u2012-\u2015]/.test(html + mail[nome].testo + mail[nome].oggetto), 'nessun trattino lungo nei testi');
     esigi(!/u \+ #corpo a|#MessageViewBody a/.test(html), 'nessuna regola ricolora TUTTI i collegamenti (il testo dei pulsanti resta bianco)');
     esigi((corpo.match(/<a [^>]*background-color:#164068[^>]*><span style="color:#ffffff/g) || []).length >= 1, 'il testo dei pulsanti e\' bianco anche nello span');
     esigi(!/copia questo indirizzo/.test(corpo), 'niente indirizzo lungo da copiare sotto il pulsante');
     esigi(/format-detection" content="telephone=no/.test(html) && /x-apple-data-detectors/.test(html), 'e il riconoscimento automatico e\' spento anche nell\'intestazione');
+}
 }
 
 console.log('\n' + ok + ' verdi, ' + ko + ' rossi');

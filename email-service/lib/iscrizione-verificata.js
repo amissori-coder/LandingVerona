@@ -107,9 +107,19 @@ const EVENTI = [
        email e per numero), tutti online. `riprese: false`: in un webinar
        nessuno e' ripreso, e api/iscrizione-nuova.js non chiede il consenso
        alle riprese. `pagina` e' il titolo corto delle iscrizioni inserite a
-       mano e del riepilogo di mezzanotte (lib/mail-ngb.js). */
-    { chiave: 'webinar-2026-12-10', se: /^webinar 10 dicembre 2026/i, filtro: 'webinar', nome: 'Webinar', pagina: 'Webinar 10 Dicembre 2026', contatti: 'webinar-2026', riprese: false, fine: Date.parse('2026-12-10T17:00:00+01:00') }
+       mano e del riepilogo di mezzanotte (lib/mail-ngb.js). `soloOnline`:
+       non c'e' una sala, e una scheda senza modalita' vale "online" (per i
+       promemoria e i totali, sezionePredefinita), come la legge l'area
+       riservata (EVENTI_DEF.soloOnline, modalitaPredefinita). */
+    { chiave: 'webinar-2026-12-10', se: /^webinar 10 dicembre 2026/i, filtro: 'webinar', nome: 'Webinar', pagina: 'Webinar 10 Dicembre 2026', contatti: 'webinar-2026', riprese: false, soloOnline: true, fine: Date.parse('2026-12-10T17:00:00+01:00') }
 ];
+/* La sezione di una scheda SENZA modalita' (o con una che non esiste): in
+   presenza, come fino a Napoli; online dove la sala non c'e' (soloOnline).
+   `ev` e' una voce di EVENTI oppure la sua chiave. */
+function sezionePredefinita(ev) {
+    const e = typeof ev === 'string' ? EVENTI.find(x => x.chiave === ev) : ev;
+    return e && e.soloOnline === true ? 'online' : 'presenza';
+}
 function eventoDi(pagina) {
     const p = String(pagina || '').trim();
     return EVENTI.find(e => e.se.test(p)) || null;
@@ -761,6 +771,6 @@ async function trasloca(db, dati) {
 module.exports = {
     EVENTI, eventoDi, attiva, cellulare, leggibile, mascherato,
     invia, verifica, registra, riattiva, assegnaCodice, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
-    smsConfermaEmail, testoSmsConferma, caratteriSms, msgInAttesa, LINK_MODULO_MAIL, linkModuloMail, SMS_MAX_CARATTERI,
+    smsConfermaEmail, testoSmsConferma, caratteriSms, msgInAttesa, LINK_MODULO_MAIL, linkModuloMail, sezionePredefinita, SMS_MAX_CARATTERI,
     MAX_PER_CODICE, MSG
 };

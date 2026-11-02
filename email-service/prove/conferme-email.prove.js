@@ -619,6 +619,42 @@ prova('Partita e non cliccata: a un\'ora il sollecito personale, solo testo', as
     delete process.env.SOLLECITO_FROM_EMAIL; delete process.env.SOLLECITO_FROM_NAME; delete process.env.SOLLECITO_RISPONDI_A; delete process.env.SOLLECITO_CCN;
 });
 
+prova('Il webinar: il sollecito parla del webinar, per data, in diretta online', async () => {
+    azzera();
+    // prima del webinar: a evento finito il giro non manda piu' niente
+    orologio = DateVera.parse('2026-11-20T10:00:00+01:00');
+    const t0 = orologio;
+    const W = 'Webinar 10 Dicembre 2026 - Iscrizione';
+    iscritto('web', { pagina: W, nome: 'Luca', cognome: 'Mereghetti', azienda: 'Aresys S.r.l.', modalita: 'online', ricevuto: t0,
+        mailConferma: { quando: t0, ok: true, errore: '', via: 'iscrizione', a: 'web@studio.it' },
+        invioConferma: { a: 'web@studio.it', tentativi: 1, falliti: 0, ultimo: t0 }, smsConferma: { quando: t0, ok: true, tipo: 'inviata' }, sollecitoConferma: undefined });
+    esigi(V.eventoDi(W).fine === DateVera.parse('2026-12-10T17:00:00+01:00') && GIRO.cosaFare(scheda('web'), V.eventoDi(W).fine).perche === 'evento finito',
+        'il webinar finisce il 10 dicembre 2026 alle 17 (ora di Milano): da li\' il giro lo lascia');
+    avanza(59 * MIN);
+    await giro();
+    esigi(spedite.length === 0, 'a 59 minuti: niente');
+    avanza(MIN);
+    const r = await giro();
+    const m = spedite[0] || {};
+    esigi(spedite.length === 1 && r.corpo.solleciti === 1 && m.to === 'web@studio.it', 'a un\'ora: la lettera del sollecito', JSON.stringify(r.corpo));
+    esigi(m.subject === 'Next Generation Business, webinar del 10 dicembre 2026 – conferma della sua iscrizione', 'l\'oggetto nomina il webinar per data, non una citta\'', m.subject);
+    esigi(/^Gentile Luca Mereghetti,\n\nla ringrazio per la sua iscrizione a Next Generation Business, il webinar in programma giovedì 10 dicembre 2026, dalle 15\.00 alle 17\.00, in diretta online\.\n/.test(m.text),
+        'la prima frase: il webinar, giovedi\' 10 dicembre, dalle 15 alle 17, in diretta online', String(m.text || '').slice(0, 300));
+    esigi(/La richiesta per Aresys S\.r\.l\. risulta registrata, ma l'iscrizione non è ancora completa/.test(m.text)
+        && /le istruzioni per seguire i lavori online le arriveranno con un'email a parte/.test(m.text)
+        && !/convegno|Milano|Gallia|incontri B2B|invito personale in PDF/.test(m.text),
+        'l\'azienda, e dopo il clic le istruzioni per la diretta: niente convegno, citta\' o PDF');
+    esigi(!m.html && m.from === '"Andrea Missori - Revilaw" <revilaw@nextgenerationbusiness.it>' && (m.headers || {})['X-Mailin-Tag'] === 'sollecito-conferma'
+        && scheda('web').sollecitoConferma.ok === true && scheda('web').confermaInAttesa === true, 'solo testo, da Andrea, con il tag; il segno sulla scheda, che resta nel giro');
+    avanza(ORA);
+    await giro();
+    esigi(spedite.length === 1, 'un\'ora dopo: non si ripete');
+    avanza(22 * ORA);
+    await giro();
+    esigi(spedite.length === 2 && /^Promemoria: .*Webinar 10 Dicembre 2026$/.test(spedite[1].subject) && /Webinar &middot; 10 dicembre 2026/.test(spedite[1].html) && sms.length === 1,
+        'e a un giorno il promemoria di sempre, vestito da webinar, con l\'SMS', spedite[1] && spedite[1].subject);
+});
+
 prova('Il sollecito agli arretrati, una volta: anche a chi ha gia\' avuto il promemoria', async () => {
     azzera();
     dati.set('meta/confermeEmail', { recupero: 1 });

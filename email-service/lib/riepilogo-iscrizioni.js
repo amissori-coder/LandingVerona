@@ -328,10 +328,11 @@ function totaliConAderenti(convegno, cena) {
     };
 }
 const SEZIONI = ['presenza', 'aderenti', 'sponsor', 'online', 'b2b'];
-// la sezione di una riga: la scelta di chi organizza (fra le presenze), poi il modulo; il resto vale in presenza
-function sezioneDi(s, p) {
+// la sezione di una riga: la scelta di chi organizza (fra le presenze), poi il modulo; il resto vale
+// in presenza, oppure online dove la sala non c'e' (EVENTI.soloOnline: il webinar)
+function sezioneDi(s, p, ev) {
     const m = String((p && p.modalita) || (s && s.modalita) || '').toLowerCase();
-    return SEZIONI.indexOf(m) >= 0 ? m : 'presenza';
+    return SEZIONI.indexOf(m) >= 0 ? m : VERIFICATA.sezionePredefinita(ev);
 }
 function personeDi(s) {
     const n = parseInt((s && s.extra && s.extra.Partecipanti) || '', 10);
@@ -362,7 +363,7 @@ function totali(schede, presenze, ev, aderenti, cancellate) {
     const convegno = [];
     righe.forEach(({ s, id }) => {
         const p = (presenze && presenze.get(GIRO.idPresenza(ev, s))) || null;
-        const sez = sezioneDi(s, p);
+        const sez = sezioneDi(s, p, ev);
         if (s.soloB2B === true || sez === 'b2b') return;
         if (CONFERMA.inAttesaDiConferma(s, p) && !confermati.has(em(s.email))) return;
         convegno.push({ email: s.email, persone: personeDi(s), aderente: sez === 'aderenti', sponsor: sez === 'sponsor', gruppo: String(s.gruppo || id || '') });

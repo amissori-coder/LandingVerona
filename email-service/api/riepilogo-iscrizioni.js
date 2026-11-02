@@ -315,7 +315,9 @@ module.exports = async (req, res) => {
                 }
                 const m = MNGB.riepilogoSerale({
                     giornoTesto: R.giornoLeggibile(giorno), ev: ev, az: az, azNota: azNota,
-                    ad: ad.map(x => ({ c: x.c, dalTesto: x.dalTesto })), adNota: adNota, t: totaliDi(ev)
+                    ad: ad.map(x => ({ c: x.c, dalTesto: x.dalTesto })), adNota: adNota, t: totaliDi(ev),
+                    // l'evento ha gli aderenti (le quote): senza, la mail non parla di loro
+                    conAderenti: R.QUOTE_ADERENTI.some(x => x.evento === ev.chiave)
                 }, LINK_AREA);
                 const inviata = await spedisci(nomeAz, conAnteprima(m),
                     azPrenotata ? () => db.collection('meta').doc(nomeAz).set({ ultimoGiorno: null }, { merge: true }) : null);

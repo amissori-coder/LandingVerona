@@ -48,7 +48,10 @@
        venti confermate la stessa notte: gli aderenti vengono prima, interi,
        e gli elenchi delle aziende si accorciano dicendo quante ne mancano;
      - una parte gia' mandata o non letta non mette zeri: una riga lo dice;
-     - se la mail parte e poi Firestore non risponde, niente doppioni.
+     - se la mail parte e poi Firestore non risponde, niente doppioni;
+     - con due eventi (Milano e il webinar del 10 dicembre 2026) il giro
+       passa da tutti e due: una mail per evento, ognuna con i suoi
+       iscritti, il suo titolo e il suo documento meta.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -666,6 +669,38 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         const c = R.conti(sc, ev, '2027-01-20');
         esigi(c.nuove.length === 1 && c.nuove[0].email === 'clic@x.it', 'fra le conferme del giorno solo chi ha cliccato', JSON.stringify(c.nuove.map(x => x.email)));
         esigi(c.totale === 2 && c.inAttesa.length === 0, 'nel totale tutte e due, e nessuna in attesa');
+    }
+
+    console.log('\nDue eventi: il webinar ha la sua mail, con il suo titolo, e Milano la sua');
+    {
+        n0 = spedite.length;
+        const WEB = 'Webinar 10 Dicembre 2026 - Iscrizione';
+        scheda('w1', { nome: 'Wanda', cognome: 'Web', email: 'wanda@w.it', pagina: WEB, modalita: 'online', data: '05/03/2027 09:00:00', ricevuto: T('2027-03-05T08:00:00Z'), emailConfermata: { quando: ms('2027-03-05T09:30:00Z') } });
+        scheda('w2', { nome: 'Walter', cognome: 'Attesa', email: 'walter@w.it', pagina: WEB, modalita: 'online', data: '05/03/2027 11:00:00', ricevuto: T('2027-03-05T10:00:00Z') });
+        scheda('m1', { nome: 'Marta', cognome: 'Milano', email: 'marta@m.it', data: '05/03/2027 12:00:00', ricevuto: T('2027-03-05T11:00:00Z'), emailConfermata: { quando: ms('2027-03-05T12:30:00Z') } });
+        orologio = ms('2027-03-05T23:00:05Z');
+        r = await gira();
+        const esiti = r.corpo.esiti || [];
+        esigi(esiti.length === 2 && esiti[0].evento === 'milano-2027-02-26' && esiti[1].evento === 'webinar-2026-12-10', 'il giro passa dai due eventi, Milano e il webinar', JSON.stringify(esiti.map(e => e.evento)));
+        const mW = spedite.slice(n0).find(x => /^Iscrizioni Webinar /.test(x.subject || '')) || {};
+        const mM = spedite.slice(n0).find(x => /^Iscrizioni Milano /.test(x.subject || '')) || {};
+        esigi(spedite.length === n0 + 2 && mW.subject && mM.subject, 'due mail: una per evento', spedite.slice(n0).map(x => x.subject).join(' | '));
+        esigi(/^Iscrizioni Webinar del 05\/03\/2027 - aziende: 1 confermata, 1 in attesa \(aziende 1, con aderenti e sponsor 1\)$/.test(mW.subject), 'l\'oggetto del webinar: le sue conferme e le sue attese, senza aderenti', mW.subject);
+        esigi(/Wanda Web/.test(mW.html) && /Walter Attesa/.test(mW.html) && !/Marta Milano/.test(mW.html), 'nella mail del webinar solo gli iscritti al webinar');
+        esigi(/Marta Milano/.test(mM.html) && !/Wanda Web|Walter Attesa/.test(mM.html), 'e in quella di Milano solo quelli di Milano');
+        esigi(/Webinar &middot; 10 dicembre 2026/.test(mW.html) && /Merito creditizio e revisione legale/.test(mW.html) && /Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta<\/td>/.test(mW.html) && /webinar_dicembre_2026/.test(mW.html),
+            'la testata e il piede del webinar, con la sua pagina (il titolo corto "Webinar 10 Dicembre 2026")');
+        esigi(/Milano &middot; 26 febbraio 2027/.test(mM.html) && !/Webinar &middot;/.test(mM.html), 'Milano resta vestita da Milano');
+        // la chiusura: il webinar e' nominato con il suo titolo corto e non ha aderenti; Milano si', come prima
+        esigi(/evento «Webinar 10 Dicembre 2026»/.test(mW.html) && !/«Aderenti» › «Apri le iscrizioni»/.test(mW.html) && !/per gli aderenti non c/.test(mW.html),
+            'nella mail del webinar la chiusura dice «Webinar 10 Dicembre 2026» e non parla di aderenti', (mW.html.match(/Nell[^<]{0,260}/) || [''])[0]);
+        esigi(/evento «Milano 26 Febbraio 2027»/.test(mM.html) && /«Aderenti» › «Apri le iscrizioni»/.test(mM.html) && /per gli aderenti non c/.test(mM.html),
+            'nella mail di Milano la chiusura parla ancora degli aderenti', (mM.html.match(/Nell[^<]{0,260}/) || [''])[0]);
+        esigi((dati.get('meta/riepilogoIscrizioni-webinar-2026-12-10') || {}).ultimoGiorno === '2027-03-05' && (dati.get('meta/riepilogoIscrizioni-milano-2027-02-26') || {}).ultimoGiorno === '2027-03-05',
+            'ogni evento segna il suo giorno sul suo documento meta');
+        r = await gira();
+        esigi(spedite.length === n0 + 2 && r.corpo.esiti[0].aziende.gia && r.corpo.esiti[1].aziende.gia, 'il secondo giro della notte non rispedisce nessuna delle due', JSON.stringify(r.corpo.esiti));
+        ['w1', 'w2', 'm1'].forEach(k => dati.delete('iscrizioni/' + k));
     }
 
     console.log('\n' + ok + ' verdi, ' + ko + ' rossi');

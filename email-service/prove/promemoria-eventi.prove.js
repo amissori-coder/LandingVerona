@@ -750,6 +750,49 @@ await prova('24) Milano: chi lo staff ha segnato presente riceve le mail anche s
     esigi(assente.destinatari.length === 0 && assente.inAttesa === 1, 'segnato assente e mai confermato: resta in attesa anche per il ringraziamento');
 });
 
+await prova('25) Il webinar: tutti online, con la conferma dell\'email come a Milano', async () => {
+    azzera();
+    const WEB = 'Webinar 10 Dicembre 2026 - Iscrizione';
+    const EV = 'webinar-2026-12-10';
+    const confermata = { emailConfermata: { quando: Date.parse('2026-09-10T10:00:00Z'), come: 'mail' } };
+    mettiIscrizioni([
+        iscr('attesa@esempio.it', 'Paola', 'Attesa', { pagina: WEB, modalita: 'online' }),                                     // dal sito, non ha confermato
+        iscr('confermata@esempio.it', 'Carlo', 'Confermato', Object.assign({ pagina: WEB, modalita: 'online' }, confermata)),
+        // inserita a mano dall'area riservata (nasce online): non ha una mail da confermare
+        iscr('mano@esempio.it', 'Mara', 'Mano', { pagina: 'Webinar 10 Dicembre 2026', modalita: 'online', inserito: { da: 'segreteria@revilaw.it', quando: 1 } }),
+        // Milano online, confermata: e' di un altro evento
+        iscr('milano@esempio.it', 'Mia', 'Milano', Object.assign({ pagina: 'Milano 26 Febbraio 2027 - Iscrizione', modalita: 'online' }, confermata))
+    ], []);
+    mettiPromemoria([recBase({ id: EV + '~o1', evento: EV, filtro: 'webinar', proposta: 'o1', sezioni: ['online'],
+        mail: { oggetto: 'Webinar: ci vediamo online, {{NOME}}', html: '<p>Ciao {{NOME}}</p><a href="{{COMPLETA}}">link</a>', testo: 'Ciao {{NOME}}\n{{COMPLETA}}' } })]);
+    const r = await giro();
+    const dest = noCopia().map(m => m.to).sort();
+    esigi(r._stato === 200 && JSON.stringify(dest) === JSON.stringify(['confermata@esempio.it', 'mano@esempio.it']),
+        'partono a chi ha confermato e a chi e\' stato inserito a mano; non a chi e\' in attesa, non a Milano (' + dest.join(', ') + ')');
+    const rec = leggiPromemoria(EV + '~o1');
+    esigi(rec.stato === 'inviato' && rec.invio && rec.invio.inAttesa === 1 && rec.invio.destinatari === 2 && rec.invio.inviate === 2,
+        'il record conta 1 in attesa e 2 destinatari: ' + JSON.stringify(rec.invio && { inAttesa: rec.invio.inAttesa, destinatari: rec.invio.destinatari, inviate: rec.invio.inviate }));
+    const I = cron._interni;
+    esigi(I.giornoEventoDi(rec) === '2026-12-10' && I.serieDi(rec) === 'online', 'il giorno dell\'evento si legge dal suo identificativo, e la serie e\' quella online');
+    // nella serie in sala del webinar non c'e' nessuno: sono tutti online
+    const sala = I.risolviDestinatari({ iscrizioni: [iscr('x@esempio.it', 'Xenia', 'Sala', Object.assign({ pagina: WEB, modalita: 'online' }, confermata))] },
+        recBase({ evento: EV, filtro: 'webinar', sezioni: ['presenza', 'aderenti', 'sponsor'] }));
+    esigi(sala.destinatari.length === 0 && sala.inAttesa === 0, 'nella serie in sala del webinar non c\'e\' nessuno: sono tutti online');
+    const attesa = I.risolviDestinatari({ iscrizioni: [iscr('attesa@esempio.it', 'Paola', 'Attesa', { pagina: WEB, modalita: 'online' })] }, recBase({ evento: EV, filtro: 'webinar', sezioni: ['online'] }));
+    esigi(attesa.destinatari.length === 0 && attesa.inAttesa === 1, 'risolviDestinatari: chi aspetta la conferma al webinar e\' "in attesa", non un destinatario');
+    /* Una scheda SENZA modalita' (importata, o di prima): al webinar vale
+       online, come la legge l'area riservata (EVENTI.soloOnline); a Milano
+       vale in presenza, come sempre. */
+    const senzaW = I.risolviDestinatari({ iscrizioni: [iscr('senza@esempio.it', 'Sem', 'Modalita', Object.assign({ pagina: WEB }, confermata))] },
+        recBase({ evento: EV, filtro: 'webinar', sezioni: ['online'] }));
+    esigi(senzaW.destinatari.length === 1 && senzaW.destinatari[0].email === 'senza@esempio.it', 'una scheda del webinar senza modalita\' riceve i promemoria online (vale "online")');
+    const senzaM = I.risolviDestinatari({ iscrizioni: [iscr('senza@esempio.it', 'Sem', 'Modalita', Object.assign({ pagina: 'Milano 26 Febbraio 2027 - Iscrizione' }, confermata))] },
+        recBase({ evento: 'milano-2027-02-26', filtro: 'milano', sezioni: ['online'] }));
+    const senzaMSala = I.risolviDestinatari({ iscrizioni: [iscr('senza@esempio.it', 'Sem', 'Modalita', Object.assign({ pagina: 'Milano 26 Febbraio 2027 - Iscrizione' }, confermata))] },
+        recBase({ evento: 'milano-2027-02-26', filtro: 'milano', sezioni: ['presenza'] }));
+    esigi(senzaM.destinatari.length === 0 && senzaMSala.destinatari.length === 1, 'a Milano la stessa scheda senza modalita\' vale ancora "in presenza"');
+});
+
 await prova('6) Chiamata senza segreto: rifiutata', async () => {
     azzera();
     const res = { _s: 0, status(n) { this._s = n; return this; }, json() { return this; } };

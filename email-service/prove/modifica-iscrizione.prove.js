@@ -325,6 +325,45 @@ prova('Il codice invito continua a contarla, il cellulare resta occupato, l\'ema
     esigi(vecchiaLibera.ok, 'e l\'indirizzo vecchio si puo\' usare di nuovo', JSON.stringify(vecchiaLibera));
 });
 
+prova('Il webinar: i documenti di unicita\' portano la sua chiave, e traslocano con la scheda', async () => {
+    scenario();
+    const EVW = 'webinar-2026-12-10';
+    const WEB = 'Webinar 10 Dicembre 2026 - Iscrizione';
+    const W = 'wanda@web.it|20/11/2026 10:00:00';
+    dati.set('iscrizioni/' + idScheda(W), {
+        data: '20/11/2026 10:00:00', pagina: WEB, nome: 'Wanda', cognome: 'Web', email: 'wanda@web.it', azienda: 'Web srl', modalita: 'online',
+        telefono: '+39 333 777 8888', telefonoNumero: '+393337778888', telefonoVerificato: { quando: 2, come: 'sms' },
+        mailConferma: { quando: 3, ok: true, errore: '' }, emailConfermata: { quando: 4, come: 'mail' }
+    });
+    dati.set('iscrizioniUniche/' + EVW + '|email|wanda@web.it', { evento: EVW, campo: 'email', iscrizione: idScheda(W) });
+    dati.set('iscrizioniUniche/' + EVW + '|tel|+393337778888', { evento: EVW, campo: 'telefono', iscrizione: idScheda(W) });
+    const unicoW = (campo, valore) => dati.get('iscrizioniUniche/' + (EVW + '|' + campo + '|' + valore).replace(/\//g, '%2F'));
+    const r = await chiama({
+        azione: 'modifica', evento: EVW, idIscritto: W, pagina: WEB,
+        campi: { nome: 'Wanda', cognome: 'Web', email: 'Wanda@Web.com', telefono: '+39 333 777 8888', azienda: 'Web srl', ruolo: '', data: '20/11/2026 10:00:00', messaggio: '' }
+    });
+    const nuovoId = 'wanda@web.com|20/11/2026 10:00:00';
+    esigi(r.stato === 200 && r.corpo.ok && r.corpo.id === nuovoId, 'la modifica riesce, con l\'identificativo nuovo', JSON.stringify(r.corpo).slice(0, 160));
+    const s = scheda(nuovoId) || {};
+    esigi(!scheda(W) && s.email === 'wanda@web.com' && s.pagina === WEB && s.modalita === 'online' && s.telefonoNumero === '+393337778888' && s.telefonoVerificato && s.telefonoVerificato.come === 'sms',
+        'la scheda trasloca intera, resta online e con il cellulare verificato');
+    esigi(!('emailConfermata' in s) && CONF.inAttesaDiConferma(s) === true && s.confermaInAttesa === true, 'l\'indirizzo nuovo non e\' confermato: in attesa, nel giro automatico');
+    esigi((unicoW('tel', '+393337778888') || {}).iscrizione === idScheda(nuovoId), 'il documento del cellulare, con la chiave del webinar, punta alla scheda nuova');
+    esigi((unicoW('email', 'wanda@web.it') || {}).iscrizione === idScheda(W) && !unicoW('email', 'wanda@web.com'),
+        'l\'email vecchia resta sul suo documento (che punta a una scheda sparita: libera), e quella nuova non ne ha uno');
+    const giaPreso = await V.registra(db, {
+        ev: V.eventoDi(WEB), idDoc: 'altro@web-it|21-11-2026 10:00:00', email: 'altro@web.it', numero: '+393337778888', codice: '',
+        scheda: { pagina: WEB, email: 'altro@web.it', nome: 'Altro' }
+    });
+    esigi(!giaPreso.ok && giaPreso.campo === 'telefono', 'un\'altra persona con lo stesso cellulare al webinar viene respinta', JSON.stringify(giaPreso));
+    const aMilano = await V.registra(db, {
+        ev: V.eventoDi(MILANO), idDoc: 'wanda@web-com|21-11-2026 10:00:00', email: 'wanda@web.com', numero: '+393337778888', codice: '',
+        scheda: { pagina: MILANO, email: 'wanda@web.com', nome: 'Wanda' }
+    });
+    esigi(aMilano.ok && dati.has('iscrizioniUniche/' + EV + '|tel|+393337778888'), 'ma a Milano lo stesso numero e\' libero: l\'unicita\' e\' per evento', JSON.stringify(aMilano));
+    esigi(dati.has('iscrizioniUniche/' + EV + '|email|anna@alfa.it') && (unico('tel', '+393331112222') || {}).iscrizione === idScheda(A), 'e i documenti di Milano non si toccano');
+});
+
 prova('Si corregge solo la data: la conferma resta, e anche il documento dell\'email', async () => {
     scenario();
     const r = await modifica(A, { data: '10/01/2027 10:05:00' });

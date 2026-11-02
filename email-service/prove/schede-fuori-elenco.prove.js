@@ -60,6 +60,9 @@ function risposta(lista, cancellate) {
 /* --- la schermata: chi resta fuori dall'elenco --- */
 const SCHERMO = new Function('EventiPresenze',
     ritaglia(APP, 'const SEZIONI_MODALITA = [', '[', ']') + ';\n'
+    // modalitaDi passa da sezioniDi e modalitaPredefinita (un evento solo online non ha la sala)
+    + ritaglia(APP, 'function sezioniDi(', '{', '}') + '\n'
+    + ritaglia(APP, 'function modalitaPredefinita(', '{', '}') + '\n'
     + ritaglia(APP, 'function modalitaDi(', '{', '}') + '\n'
     + ritaglia(APP, 'function inSala(', '{', '}') + '\n'
     + ritaglia(APP, 'function fuoriElenco(', '{', '}') + '\n'

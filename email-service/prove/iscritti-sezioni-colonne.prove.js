@@ -112,7 +112,7 @@ const COSTANTI = [
 ].join('\n');
 /* Le funzioni ritagliate si chiamano fra loro: si dichiarano tutte nello
    stesso giro, dentro una funzione sola, cosi' si vedono come dentro app.js. */
-const NOMI = ['modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalModuloDelSito', 'inAttesaConfermaMail',
+const NOMI = ['sezioniDi', 'modalitaPredefinita', 'modalitaDi', 'sezioneDef', 'fuoriElenco', 'soloIscritti', 'dalModuloDelSito', 'inAttesaConfermaMail',
     'scrittoDaChiSiIscrive', 'aziendaDalFileDi',
     'sezioneVista', 'nomeSezioneVista', 'indirizziConfermati', 'confermaEmailDi', 'partecipantiDi',
     'colonneExtraDisponibili', 'datiInvitoDi', 'colonneFileDisponibili', 'valoreFileDi',
@@ -1074,9 +1074,16 @@ prova('Sopra l\'elenco: "Aziende in presenza", e le tre sezioni in sala insieme,
     esigi(/SEZIONI_MODALITA\.filter\(x => x\.sala && !x\.fuoriElenco\)\.map\(x => voce\(x\.id, x\.nelRiquadro \|\| x\.nome\)\)/.test(FS)
         && A.SEZIONI_MODALITA.filter(x => x.sala).map(x => x.nelRiquadro || x.nome).join('|') === 'Aziende|Aderenti Revilaw|Sponsor e relatori',
         'dentro il riquadro "tutti in presenza" la voce delle aziende dice solo "Aziende", senza ripetere "in presenza"');
-    esigi(/x\.nelRiquadro \|\| x\.nome\)\)\.join\(''\)\s*\+ \(ev\.confermaEmail \? voce\(SEZIONE_ATTESA\.id, SEZIONE_ATTESA\.nelRiquadro\) : ''\)\s*\+ '<\/span>'\s*\+ SEZIONI_MODALITA\.filter\(x => !x\.sala/.test(FS)
-        && (FS.match(/voce\(SEZIONE_ATTESA\.id/g) || []).length === 1,
-        'l\'attesa della conferma sta in fondo al riquadro "tutti in presenza", prima di chiuderlo, e una volta sola; l\'online fuori');
+    /* Il riquadro e' un pezzo a parte (gruppoSala): dentro, in fondo, l'attesa
+       della conferma; poi, fuori, l'online. In un evento solo online il riquadro
+       non c'e' e l'attesa sta da sola, con il suo nome intero: la voce
+       dell'attesa compare quindi due volte nel sorgente, una per caso. */
+    esigi(/x\.nelRiquadro \|\| x\.nome\)\)\.join\(''\)\s*\+ \(ev\.confermaEmail \? voce\(SEZIONE_ATTESA\.id, SEZIONE_ATTESA\.nelRiquadro\) : ''\)\s*\+ '<\/span>';/.test(FS)
+        && /voce\('tutte', 'Tutte'\)\s*\+ gruppoSala\s*\+ SEZIONI_MODALITA\.filter\(x => !x\.sala/.test(FS),
+        'l\'attesa della conferma sta in fondo al riquadro "tutti in presenza", prima di chiuderlo; il riquadro viene dopo "Tutte" e prima dell\'online');
+    esigi(/const gruppoSala = ev\.soloOnline\s*\? \(ev\.confermaEmail \? voce\(SEZIONE_ATTESA\.id, SEZIONE_ATTESA\.nome\) : ''\)\s*: '<span class="ev-sez-gruppo"/.test(FS)
+        && (FS.match(/voce\(SEZIONE_ATTESA\.id/g) || []).length === 2,
+        'in un evento solo online niente riquadro: l\'attesa da sola, con il nome intero (due voci dell\'attesa nel sorgente, una per caso)');
     esigi(A.SEZIONE_ATTESA.nelRiquadro === 'Aziende in attesa di conferma mail' && A.SEZIONE_ATTESA.nome === 'In attesa di conferma mail',
         'nel riquadro la voce dice che sono aziende in attesa di conferma mail; nel CSV la sezione resta "In attesa di conferma mail"');
     const CSS = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'styles.css'), 'utf8');
@@ -1115,6 +1122,106 @@ prova('I totali: aziende + aderenti + sponsor e relatori', () => {
     esigi(/\['aziende', 'aderenti', 'sponsor', 'tutti', 'attesa', 'conAttesaAziende', 'conAttesaTutti'\]/.test(num), 'e si aggiorna al volo con gli altri');
     const ev = APP.slice(APP.indexOf('function totaliEvento('), APP.indexOf('function titoliTotali('));
     esigi(/sponsor: m === 'sponsor'/.test(ev), 'le righe del convegno dicono se stanno fra sponsor e relatori');
+});
+
+/* ------------------------------------------------------------
+   UN EVENTO SOLO ONLINE (il webinar del 10 dicembre 2026)
+   ------------------------------------------------------------ */
+
+const WEBINAR = A.EVENTI_DEF.find(e => e.id === 'webinar-2026-12-10');
+
+prova('Il webinar: solo online, con la conferma dell\'email, senza sala ne\' aderenti', () => {
+    esigi(WEBINAR && WEBINAR.soloOnline === true && WEBINAR.confermaEmail === true && WEBINAR.manuale === true, 'e\' solo online, chiede la conferma dell\'email, si gestisce a mano');
+    esigi(WEBINAR.filtro === 'webinar' && WEBINAR.pagina === 'Webinar 10 Dicembre 2026' && WEBINAR.giorno === '2026-12-10' && WEBINAR.urlPagina === '/webinar_dicembre_2026/',
+        'con il filtro, il titolo della pagina, il giorno e la pagina del sito', JSON.stringify([WEBINAR.filtro, WEBINAR.pagina, WEBINAR.giorno, WEBINAR.urlPagina]));
+    esigi(WEBINAR.luogo === 'Online, in diretta sul sito' && WEBINAR.indirizzo === '', 'il luogo e\' la diretta, senza indirizzo');
+    esigi(!WEBINAR.moduliRiservati && !WEBINAR.invito && !WEBINAR.iscrizioniPerCodice && A.EVENTI_CON_ADERENTI.indexOf(WEBINAR.id) < 0 && !A.evHaAderenti(WEBINAR),
+        'niente moduli riservati, inviti, codici o aderenti');
+    esigi(!MILANO.soloOnline && !NAPOLI.soloOnline, 'Milano e Napoli hanno la sala');
+    esigi(A.EVENTI_DEF.map(e => e.id).join(',').indexOf('napoli-2026-10-02,webinar-2026-12-10,milano-2027-02-26') >= 0, 'sta fra Napoli e Milano, in ordine di data');
+});
+
+prova('Le sezioni di un evento solo online: niente sala, e la riga senza modalita\' vale online', () => {
+    presenze = {};
+    esigi(A.sezioniDi(WEBINAR).map(x => x.id).join('|') === 'online|b2b', 'il webinar ha l\'online e i soli incontri B2B', A.sezioniDi(WEBINAR).map(x => x.id));
+    esigi(A.sezioniDi(MILANO).map(x => x.id).join('|') === A.SEZIONI_MODALITA.map(x => x.id).join('|') && A.sezioniDi(NAPOLI).length === A.SEZIONI_MODALITA.length && A.sezioniDi(null).length === A.SEZIONI_MODALITA.length,
+        'Milano, Napoli e un evento qualunque le hanno tutte');
+    esigi(A.modalitaPredefinita(WEBINAR) === 'online' && A.modalitaPredefinita(MILANO) === 'presenza' && A.modalitaPredefinita(null) === 'presenza',
+        'la modalita\' di chi non ne ha: online al webinar, in presenza altrove');
+    const vuota = riga({ pagina: 'Webinar 10 Dicembre 2026' });
+    const inSalaScritta = riga({ pagina: 'Webinar 10 Dicembre 2026', modalita: 'presenza' });
+    const online = riga({ pagina: 'Webinar 10 Dicembre 2026', modalita: 'online' });
+    const b2b = riga({ pagina: 'Webinar 10 Dicembre 2026', modalita: 'b2b' });
+    const spostata = riga({ pagina: 'Webinar 10 Dicembre 2026', modalita: 'online' });
+    presenze[spostata.id] = { modalita: 'aderenti' };
+    esigi(A.modalitaDi(WEBINAR, vuota) === 'online', 'senza modalita\': online');
+    esigi(A.modalitaDi(WEBINAR, inSalaScritta) === 'online' && A.modalitaDi(WEBINAR, spostata) === 'online',
+        'una sezione della sala, scritta sulla scheda o decisa da chi organizza, al webinar non esiste: vale online');
+    esigi(A.modalitaDi(WEBINAR, online) === 'online' && A.modalitaDi(WEBINAR, b2b) === 'b2b', 'online resta online, e i soli incontri B2B restano fuori elenco');
+    esigi(A.modalitaDi(MILANO, riga()) === 'presenza' && A.modalitaDi(MILANO, inSalaScritta) === 'presenza', 'a Milano la riga senza modalita\' resta in presenza, come prima');
+    esigi(A.soloIscritti(WEBINAR, [vuota, online, b2b]).map(r => r.id).join(',') === vuota.id + ',' + online.id, 'nell\'elenco del webinar stanno le righe online, non i soli B2B');
+});
+
+prova('Nel webinar chi non conferma e\' in attesa, e chi conferma sta online', () => {
+    presenze = {};
+    const attesa = riga({ pagina: 'Webinar 10 Dicembre 2026', modalita: 'online' });
+    const conf = riga({ pagina: 'Webinar 10 Dicembre 2026', modalita: 'online', emailConfermata: CONFERMATA });
+    const aMano = riga({ pagina: 'Webinar 10 Dicembre 2026', inserito: { da: 'admin@x.it', daNome: 'Admin', quando: 1 } });
+    const lista = [attesa, conf, aMano];
+    esigi(A.inAttesaConfermaMail(WEBINAR, attesa, lista) === true && A.sezioneVista(WEBINAR, attesa, lista) === 'attesa', 'dal sito e senza clic: in attesa');
+    esigi(A.inAttesaConfermaMail(WEBINAR, conf, lista) === false && A.sezioneVista(WEBINAR, conf, lista) === 'online', 'confermata: online');
+    esigi(A.inAttesaConfermaMail(WEBINAR, aMano, lista) === false && A.sezioneVista(WEBINAR, aMano, lista) === 'online', 'inserita a mano senza modalita\': niente da confermare, e sta online');
+    A.metti(lista);
+    esigi(A.hintAttesaMailHtml(WEBINAR, attesa) !== '' && A.hintAttesaMailHtml(WEBINAR, conf) === '', 'la riga in attesa porta il suo segno, quella confermata no');
+    A.metti(null);
+    const righe = A.righeCsvIscrizioni(WEBINAR, lista, id => presenze[id] || null);
+    esigi(righe.length === 4 && righe.slice(1).map(r => r[0]).sort().join('|') === 'In attesa di conferma mail|Online|Online', 'nel CSV le sezioni sono attesa e online, mai la sala', JSON.stringify(righe.slice(1).map(r => r[0])));
+});
+
+prova('La testata e le tendine di un evento solo online: niente sala, niente desk', () => {
+    const vista = APP.slice(APP.indexOf('function vistaEventi('), APP.indexOf('function vistaEventi(') + 60000);
+    esigi(/\(\(ev\.tutti \|\| ev\.soloOnline\) \? '' : SEZIONI_MODALITA\.filter\(x => inSala\(x\.id\)\)/.test(vista), 'i riquadri delle sezioni in sala non ci sono');
+    esigi(/\(ev\.soloOnline \? '' : riquadroNum\(conModalita \? nInSala : '-', 'totale in sala'/.test(vista), 'ne\' il totale in sala');
+    esigi(/riquadroNum\(conf, ev\.soloOnline \? 'confermati' : 'confermati \/ presenti', '', 'verde', 'conf'\)/.test(vista), 'i confermati sono "confermati", senza "presenti"');
+    esigi(/\(ev\.soloOnline \? '' : riquadroNum\(desk, 'registrati al desk'/.test(vista), 'e il desk non c\'e\'');
+    esigi(/\(ev\.confermaEmail\s*\? riquadroNum\(conModalita \? \(postiSezione\[SEZIONE_ATTESA\.id\] \|\| 0\) : '-', SEZIONE_ATTESA\.breve/.test(vista), 'l\'attesa della conferma resta, accanto all\'online');
+    const tab = APP.slice(APP.indexOf('function tabellaIscrizioni('), APP.indexOf('function agganciaScorriX('));
+    esigi(/\+ sezioniDi\(ev\)\.map\(x => opzM\(x\.id, NOMI_MODALITA\[x\.id\]\)\)\.join\(''\)/.test(tab), 'la tendina della riga offre le sezioni dell\'evento (sezioniDi)');
+    esigi(/const scelta = sezioniDi\(ev\)\.some\(x => x\.id === s\.value\) \? s\.value : modalitaPredefinita\(ev\);/.test(APP)
+        && /const vero = \(p\.modalita \|\| modalitaPredefinita\(ev\)\);/.test(APP), 'e cambiandola una scelta fuori dall\'evento ricade sulla sua modalita\' predefinita');
+    esigi(/\+ sezioniDi\(ev\)\.map\(x => '<option value="' \+ x\.id \+ '">' \+ esc\(x\.nome\) \+ '<\/option>'\)\.join\(''\)/.test(APP)
+        && /const modalitaScelta = \(\) => sezioniDi\(ev\)\.some\(x => x\.id === v\('ni-modalita'\)\) \? v\('ni-modalita'\) : modalitaPredefinita\(ev\);/.test(APP),
+        '"Aggiungi iscrizione": le stesse sezioni, e al webinar nasce online');
+    esigi(/function sezioniDi\(ev\) \{ return SEZIONI_MODALITA\.filter\(x => !\(ev && ev\.soloOnline && x\.sala\)\); \}/.test(APP)
+        && /return sezioniDi\(ev\)\.some\(x => x\.id === scelta\) \? scelta : modalitaPredefinita\(ev\);/.test(APP), 'la regola e\' una (sezioniDi, modalitaPredefinita), e modalitaDi ci passa');
+});
+
+prova('Sopra l\'elenco del webinar: "Tutte", l\'attesa fuori da ogni riquadro, poi l\'online', () => {
+    /* filtroSezioniHtml vera, con intorno il minimo che le serve: la sezione
+       scelta ("tutte"), la sezione in cui ogni riga si mostra (qui scritta
+       sulla riga), una persona per riga e nessun pulsante in piu' (chi non
+       puo' aggiungere iscrizioni non vede "Riconosci aderenti" e gli altri). */
+    const filtro = new Function('SEZIONI_MODALITA', 'SEZIONE_ATTESA', 'sezioneDi', 'sezioneElenco', 'partecipantiDi', 'puoAggiungereIscrizioni', 'esc',
+        ritaglia('function titoloVoceSezione(', '{', '}') + '\n' + ritaglia('function filtroSezioniHtml(', '{', '}') + '\nreturn filtroSezioniHtml;')(
+        A.SEZIONI_MODALITA, A.SEZIONE_ATTESA, () => 'tutte', (ev, r) => r.sez, () => 1, () => false, A.esc);
+    const righe = [{ sez: 'attesa' }, { sez: 'online' }, { sez: 'online' }];
+    const voci = h => (h.match(/data-sez="([a-z]+)"/g) || []).map(x => x.replace(/data-sez="|"/g, ''));
+    const nome = (h, id) => ((new RegExp('data-sez="' + id + '"[^>]*><span class="ev-sez-nome">([^<]*)</span><span class="ev-sez-n">(\\d+)</span>').exec(h)) || []).slice(1).join(':');
+    const hw = filtro(WEBINAR, righe);
+    esigi(voci(hw).join('|') === 'tutte|attesa|online', 'al webinar: "Tutte", l\'attesa, l\'online', voci(hw));
+    esigi(!/ev-sez-gruppo|tutti in presenza/.test(hw), 'nessun riquadro "tutti in presenza"');
+    esigi(nome(hw, 'attesa') === 'In attesa di conferma mail:1' && nome(hw, 'online') === 'Online:2' && nome(hw, 'tutte') === 'Tutte:3',
+        'l\'attesa con il suo nome intero (non "Aziende in attesa..."), e i numeri giusti', [nome(hw, 'attesa'), nome(hw, 'online')]);
+    const hs = filtro(Object.assign({}, WEBINAR, { confermaEmail: false }), righe);
+    esigi(voci(hs).join('|') === 'tutte|online', 'solo online e senza conferma: "Tutte" e l\'online', voci(hs));
+    const hm = filtro(MILANO, righe);
+    esigi(voci(hm).join('|') === 'tutte|presenza|aderenti|sponsor|attesa|online' && /ev-sez-gruppo/.test(hm) && nome(hm, 'attesa') === 'Aziende in attesa di conferma mail:1',
+        'a Milano il riquadro c\'e\', con l\'attesa in fondo, e l\'online fuori', voci(hm));
+    esigi(/data-sez="attesa"[^>]*>[^]*?<\/button><\/span><button type="button" class="ev-sez-btn[^"]*" data-sez="online"/.test(hm)
+        && hm.indexOf('<span class="ev-sez-gruppo"') < hm.indexOf('data-sez="presenza"'),
+        'il riquadro si apre prima delle aziende e si chiude dopo l\'attesa, prima dell\'online');
+    const hn = filtro(NAPOLI, righe);
+    esigi(voci(hn).join('|') === 'tutte|presenza|aderenti|sponsor|online', 'a Napoli il riquadro senza l\'attesa', voci(hn));
 });
 
 console.log('\nL\'elenco degli iscritti: attesa della conferma, colonne dal file, esportazione\n');
