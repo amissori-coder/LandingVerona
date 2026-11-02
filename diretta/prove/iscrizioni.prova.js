@@ -357,12 +357,17 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         };
 
         titolo('Preparazione: gli eventi della diretta');
+        /* Le date degli eventi sono relative a oggi: un evento gia' finito
+           non riceve iscrizioni dal modulo (eventoDelModulo lo scarta), e
+           con le date fisse di Napoli la prova smetteva di passare dopo il 2
+           ottobre 2026. */
+        const giornoFra = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
         const EV = {
-            titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli', data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30',
+            titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli', data: giornoFra(30), oraInizio: '09:00', oraFine: '17:30',
             paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
         };
         const napoli = await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'napoli-2026' }, EV));
-        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'milano-2026' }, EV, { titolo: 'Evento di Milano', data: '2026-11-20', paginaEvento: '/milano_2026/' }));
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'milano-2026' }, EV, { titolo: 'Evento di Milano', data: giornoFra(48), paginaEvento: '/milano_2026/' }));
         vero(napoli.iscrizioniAutomatiche === false, 'Napoli e Milano create; a Napoli l\'invio automatico e\' spento di base');
 
         /* ---------- 1 ---------- */
@@ -548,7 +553,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
 
         /* ---------- 12 ---------- */
         titolo('12. Quale pagina conta: vince il percorso, l\'etichetta solo senza');
-        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'roma-2026' }, EV, { titolo: 'Evento di Roma', data: '2026-12-01', paginaEvento: '/roma_aprile_2026/' }));
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'roma-2026' }, EV, { titolo: 'Evento di Roma', data: giornoFra(60), paginaEvento: '/roma_aprile_2026/' }));
         await D.cambiaIscrizioni(ctx, { idEvento: 'roma-2026', iscrizioniAutomatiche: true });
         await iscrivi({ nome: 'Pia', cognome: 'Percorso', email: 'pia.percorso@esempio.it', pagina: 'Roma 16 Aprile 2026 - Iscrizione', percorso: '/napoli_ottobre_2026/' });
         const pPia = await profiloDi('pia.percorso@esempio.it');
@@ -859,7 +864,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             return s.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.ricevuto.toMillis() - b.ricevuto.toMillis());
         };
         const torinoDi = g => (g && g.riconciliazione && g.riconciliazione.eventi.find(e => e.idEvento === TORINO)) || {};
-        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: TORINO }, EV, { titolo: 'Evento di Torino', data: '2026-11-05', paginaEvento: '/torino_novembre_2026/' }));
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: TORINO }, EV, { titolo: 'Evento di Torino', data: giornoFra(33), paginaEvento: '/torino_novembre_2026/' }));
         await iscriviTorino({ nome: 'Tina', cognome: 'Prima', email: 'tina.prima@esempio.it' });
         vero(!(await profiloDi('tina.prima@esempio.it')) && (await schedaDi('tina.prima@esempio.it')).length === 1,
             'Tina si iscrive online a Torino con l\'interruttore ancora spento: la scheda del sito c\'e\', l\'account della diretta no');
