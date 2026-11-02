@@ -151,6 +151,8 @@ function argomento(nome, predefinito) {
 }
 const PORTA_FS = Number(argomento('firestore', 8330));
 const PORTA_AUTH = Number(argomento('auth', 9330));
+// il server di posta finto del sito (vedi smtpFinto): dice sempre di no
+const PORTA_SMTP = PORTA_FS + 9;
 const PROGETTO = 'demo-ngb-eventi';
 const PROGETTO_STUDIO = 'demo-studio-prova';
 const RISULTATI = path.resolve(__dirname, 'risultati');
@@ -174,8 +176,8 @@ Object.assign(process.env, {
     DIRETTA_MAX_GIORNO: '0',
     // il progetto dello studio: una chiave finta (l'emulatore non la chiede, firebase-admin si')
     FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ project_id: PROGETTO_STUDIO, private_key: privateKey, client_email: 'prova@' + PROGETTO_STUDIO + '.iam.gserviceaccount.com' }),
-    // la conferma del sito non parte: nessun server di posta su questa porta
-    SMTP_HOST: '127.0.0.1', SMTP_PORT: '9', SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna',
+    // la conferma del sito non parte: un server di posta finto che risponde 554 (smtpFinto, qui sotto)
+    SMTP_HOST: '127.0.0.1', SMTP_PORT: String(PORTA_SMTP), SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna',
     /* La riconciliazione (lib/diretta-riconcilia.js) gira in ogni giro del
        cron: fino alla prova 19 le schede sono tutte "troppo recenti" (un
        giorno di attesa) e non la tocca nessuno, cosi' le prove di prima
@@ -185,6 +187,15 @@ Object.assign(process.env, {
 ['DIRETTA_POSTA_ERRORE_ACCOUNT', 'DIRETTA_POSTA_RITARDO_MS', 'DIRETTA_POSTA_RIFIUTA', 'DIRETTA_POSTA_INCERTA', 'DIRETTA_POSTA_ERRORE_MESSAGGIO',
     'DIRETTA_FIREBASE_SERVICE_ACCOUNT', 'APP_BASE_URL', 'BREVO_API_KEY',
     'DIRETTA_MODULO_RETE_ORA', 'DIRETTA_MODULO_ORA', 'DIRETTA_MODULO_PERCENTO'].forEach(k => { delete process.env[k]; });
+
+/* ---------- il server di posta finto del sito ----------
+   Risponde 554 al saluto e chiude: la mail di conferma del sito non parte
+   e lib/conferma-email.js NON fa il secondo tentativo (un 5xx non e'
+   «transitorio»). Prima qui c'era una porta chiusa: ECONNREFUSED e'
+   transitorio, il servizio aspettava 1,5 s e riprovava, e il modulo
+   rispondeva dopo un secondo e mezzo, oltre la soglia della prova 9. */
+const smtpFinto = net.createServer(s => { s.on('error', () => {}); s.end('554 5.7.1 Nessun invio dalle prove\r\n'); });
+smtpFinto.listen(PORTA_SMTP, '127.0.0.1');
 
 /* ---------- i log: tutto quello che il servizio scrive, per controllarlo alla fine ---------- */
 const righeLog = [];
@@ -1200,6 +1211,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         console.error = erroreVero;
         logVero('\n' + verdi + ' verdi, ' + rossi + ' rossi');
         await fermaEmulatori(emulatori);
+        try { smtpFinto.close(); } catch (_) { /* gia' chiuso */ }
         process.exit(rossi ? 1 : 0);
     }
 })();
