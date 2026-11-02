@@ -33,6 +33,15 @@
     //            The window opens once per browser session.
     const NGB_EVENTS = [
         {
+            city: 'Online',
+            date: '2026-12-10',
+            title: 'Merito creditizio e revisione legale',
+            tagline: 'Webinar',
+            meta: 'Gio 10 dicembre 2026 &middot; 15.00 - 17.00 &middot; online, iscrizioni in apertura',
+            url: 'webinar_dicembre_2026/',
+            pagePath: 'webinar_dicembre_2026'
+        },
+        {
             city: 'Milano',
             date: '2027-02-26',
             title: 'Merito creditizio e crescita delle imprese',

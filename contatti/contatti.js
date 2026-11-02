@@ -58,6 +58,7 @@
        scritto, con il posto per l'indirizzo usato all'iscrizione. Dice di
        quale evento si tratta, con le parole della pagina dell'evento. */
     const FRASE_EVENTO = {
+        'webinar-2026': 'al webinar Next Generation Business del 10 dicembre 2026 (merito creditizio e revisione legale)',
         'milano-2027': 'al convegno Next Generation Business di Milano (26 febbraio 2027)',
         'milano-2027-aderenti': 'alla cena e al meeting degli aderenti di Milano (26-27 febbraio 2027)',
         'napoli-2026': 'al convegno Next Generation Business di Napoli (1-2 ottobre 2026)',

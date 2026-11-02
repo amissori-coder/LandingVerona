@@ -1,0 +1,984 @@
+/**
+ * Next Generation Business – Webinar, 10 dicembre 2026
+ * Navigazione, conto alla rovescia, animazioni allo scorrimento e il
+ * modulo di iscrizione (cellulare verificato per SMS, poi conferma email),
+ * lo stesso flusso della pagina di Milano, senza codice invito e senza il
+ * consenso alle riprese (nessuno e' ripreso in un webinar). Le iscrizioni
+ * si aprono con <body data-iscrizioni="aperte"> in index.html.
+ */
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ========================
+    // NAVBAR
+    // ========================
+    const navbar = document.getElementById('navbar');
+    const navToggle = document.getElementById('navToggle');
+    const navMenu = document.getElementById('navMenu');
+
+    const aggiornaNavbar = () => navbar.classList.toggle('scrolled', window.scrollY > 40);
+    window.addEventListener('scroll', aggiornaNavbar, { passive: true });
+    aggiornaNavbar();
+
+    navToggle.addEventListener('click', () => {
+        const aperto = navMenu.classList.toggle('active');
+        navToggle.classList.toggle('active', aperto);
+        navToggle.setAttribute('aria-expanded', String(aperto));
+    });
+
+    navMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            navToggle.classList.remove('active');
+            navMenu.classList.remove('active');
+            navToggle.setAttribute('aria-expanded', 'false');
+        });
+    });
+
+    // ========================
+    // CONTO ALLA ROVESCIA
+    // Il webinar del 10 dicembre 2026 va dalle 15.00 alle 17.00 (ora di Roma).
+    // ========================
+    const eventDate = new Date('2026-12-10T15:00:00+01:00').getTime();
+    const eventEnd = new Date('2026-12-10T17:00:00+01:00').getTime();
+    const countdownEl = document.getElementById('countdown');
+    const daysEl = document.getElementById('days');
+    const hoursEl = document.getElementById('hours');
+    const minutesEl = document.getElementById('minutes');
+    const secondsEl = document.getElementById('seconds');
+    let timer = null;
+
+    function updateCountdown() {
+        const now = Date.now();
+        const distance = eventDate - now;
+
+        if (distance < 0) {
+            const testo = now < eventEnd ? 'Il webinar è in corso' : 'Il webinar si è concluso';
+            countdownEl.innerHTML = '<p>' + testo + '</p>';
+            if (timer) clearInterval(timer);
+            return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        daysEl.textContent = String(days).padStart(2, '0');
+        hoursEl.textContent = String(hours).padStart(2, '0');
+        minutesEl.textContent = String(minutes).padStart(2, '0');
+        secondsEl.textContent = String(seconds).padStart(2, '0');
+    }
+
+    if (countdownEl) {
+        updateCountdown();
+        timer = setInterval(updateCountdown, 1000);
+    }
+
+    // ========================
+    // ANIMAZIONI ALLO SCORRIMENTO
+    // ========================
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.momento, .pranzo, .percorso li, .sede-info, .partecipare-passi, .presenza, .iscrizioni-chiuse').forEach((el, index) => {
+        el.classList.add('fade-in');
+        el.style.transitionDelay = `${(index % 4) * 0.08}s`;
+        observer.observe(el);
+    });
+
+    // ========================
+    // ANTEPRIMA DEGLI APPROFONDIMENTI
+    // Un clic su un tema della giornata non porta subito via dalla pagina:
+    // apre una finestra con l'immagine, il titolo e la descrizione della
+    // pagina di approfondimento (letti dalla pagina stessa) e chiede se
+    // andarci. Ctrl/Cmd/Maiusc + clic e il clic centrale restano quelli
+    // del browser (nuova scheda o finestra). Senza <dialog> il link va
+    // dritto alla pagina, come prima.
+    // ========================
+    const dialogo = document.getElementById('anteprima');
+    if (dialogo && typeof dialogo.showModal === 'function') {
+        const img = document.getElementById('anteprima-img');
+        const titolo = document.getElementById('anteprima-titolo');
+        const testo = document.getElementById('anteprima-testo');
+        const vai = document.getElementById('anteprima-vai');
+        const cache = new Map();
+        let richiesta = 0;
+
+        const leggiPagina = (url) => {
+            if (!cache.has(url)) {
+                cache.set(url, fetch(url, { credentials: 'same-origin' })
+                    .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+                    .then(html => {
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const meta = (sel) => (doc.querySelector(sel) || {}).content || '';
+                        const h1 = doc.querySelector('h1');
+                        if (h1) h1.querySelectorAll('br').forEach(br => br.replaceWith(' '));
+                        const nome = (h1 && h1.textContent.replace(/\s+/g, ' ').trim())
+                            || meta('meta[property="og:title"]').replace(/\s*\|.*$/, '')
+                            || doc.title;
+                        const immagine = meta('meta[property="og:image"]');
+                        let src = '';
+                        // Stesso sito: l'immagine si prende dal percorso, cosi' funziona anche in prova.
+                        if (immagine) { try { const u = new URL(immagine, url); src = u.pathname + u.search; } catch (e) {} }
+                        return { nome, descrizione: meta('meta[name="description"]'), src };
+                    })
+                    .catch(err => { cache.delete(url); throw err; }));
+            }
+            return cache.get(url);
+        };
+
+        const apri = (link) => {
+            const id = ++richiesta;
+            vai.href = link.href;
+            titolo.textContent = link.textContent.trim();
+            testo.textContent = '';
+            img.classList.remove('caricata');
+            img.removeAttribute('src');
+            dialogo.classList.add('in-caricamento');
+            dialogo.showModal();
+            vai.focus();
+
+            leggiPagina(link.href).then(info => {
+                if (id !== richiesta) return;
+                titolo.textContent = info.nome || titolo.textContent;
+                testo.textContent = info.descrizione;
+                if (info.src) {
+                    img.onload = () => img.classList.add('caricata');
+                    img.src = info.src;
+                }
+            }).catch(() => {
+                if (id === richiesta) testo.textContent = 'Anteprima non disponibile: puoi comunque aprire la pagina.';
+            }).finally(() => {
+                if (id === richiesta) dialogo.classList.remove('in-caricamento');
+            });
+        };
+
+        document.querySelectorAll('.momento-temi a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                apri(link);
+            });
+            // Si comincia a leggere la pagina appena il puntatore ci passa sopra.
+            link.addEventListener('pointerenter', () => { leggiPagina(link.href).catch(() => {}); }, { once: true });
+        });
+
+        const chiudi = () => dialogo.close();
+        document.getElementById('anteprima-annulla').addEventListener('click', chiudi);
+        document.getElementById('anteprima-chiudi').addEventListener('click', chiudi);
+        // Clic sullo sfondo scuro, fuori dalla finestra.
+        dialogo.addEventListener('click', (e) => {
+            const r = dialogo.getBoundingClientRect();
+            if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) chiudi();
+        });
+    }
+});
+
+/* ========================
+   MODULO DI ISCRIZIONE
+   Due conferme: il cellulare con il codice SMS, qui dentro e prima di
+   inviare, e l'indirizzo email con il pulsante della mail che parte
+   dopo l'invio. Il servizio (email-service/lib/iscrizione-verificata.js)
+   tiene le regole - un'iscrizione per email e per numero, due per
+   codice invito - e questa pagina le anticipa, perche' scoprirle dopo
+   aver compilato tutto e' il modo migliore per far abbandonare.
+   (text/plain evita la richiesta di verifica preliminare del browser; il
+   contenuto e' comunque JSON e il servizio lo legge come tale.)
+   ======================== */
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('moduloIscrizione');
+    if (!form) return;
+
+    const SERVIZIO = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+    /* Il nome con cui l'iscrizione arriva al servizio: lo dice il <body>
+       (data-pagina). Davanti resta sempre il nome dell'evento: e' quello che
+       lega l'iscrizione al webinar. */
+    const PAGINA = (document.body.dataset.pagina || '').trim() || 'Webinar 10 Dicembre 2026 - Iscrizione';
+    const $ = (id) => document.getElementById(id);
+
+    /* LE ISCRIZIONI APERTE O CHIUSE: lo dice <body data-iscrizioni>. Chiuse,
+       il modulo resta nascosto (l'avviso «apriranno a breve» e' gia' in
+       pagina) e qui non si accende niente. Aperte: via l'avviso, modulo e
+       scheda «mail non ricevuta» in vista, pillola e pulsante aggiornati. */
+    const aperte = (document.body.dataset.iscrizioni || '').trim() === 'aperte';
+    if (!aperte) return;
+    if ($('iscrizioniChiuse')) $('iscrizioniChiuse').hidden = true;
+    if ($('moduloInvolucro')) $('moduloInvolucro').hidden = false;
+    if ($('mailNonRicevuta')) $('mailNonRicevuta').hidden = false;
+    if ($('statoIscrizioni') && $('statoIscrizioni').lastChild) { $('statoIscrizioni').lastChild.textContent = 'Iscrizioni aperte'; $('statoIscrizioni').classList.remove('stato--chiuse'); }
+    if ($('heroIscrizioni')) $('heroIscrizioni').textContent = 'Iscriviti';
+    const chiama = (corpo) => fetch(SERVIZIO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify(Object.assign({ pagina: PAGINA }, corpo))
+    }).then(r => r.json().catch(() => ({})).then(d => Object.assign({ _stato: r.status }, d)));
+
+    function errore(id, testo) {
+        const campo = $(id);
+        const el = $(id + 'Error');
+        if (el) el.textContent = testo || '';
+        if (campo && campo.type !== 'checkbox') campo.classList.toggle('errore', !!testo);
+    }
+
+    // ---------- il cellulare ----------
+    /* Stessa regola del servizio: cellulare italiano, 3 e poi 8 o 9 cifre,
+       con o senza +39. Qui serve solo a dire subito "non e' un cellulare". */
+    function cellulare(v) {
+        let s = String(v || '').replace(/[\s().\-\/]/g, '');
+        if (s.indexOf('00') === 0) s = '+' + s.slice(2);
+        if (s.indexOf('+') === 0) { if (s.indexOf('+39') !== 0) return ''; s = s.slice(3); }
+        else if (/^393\d{8,9}$/.test(s) && s.length > 10) s = s.slice(2);
+        return /^3\d{8,9}$/.test(s) ? '+39' + s : '';
+    }
+    const campoTel = $('telefono');
+    const btnInvia = $('smsInvia');
+    const btnVerifica = $('smsVerifica');
+    const btnDiNuovo = $('smsDiNuovo');
+    const campoSms = $('codiceSms');
+    const gruppoSms = $('gruppoSms');
+    const telOk = $('telefonoOk');
+    const smsNota = $('smsNota');
+    // il numero verificato e la firma che il servizio ha reso: viaggiano con l'iscrizione
+    let verificato = { numero: '', token: '' };
+
+    /* ---------- la casella "non sono un robot" ----------
+       Cloudflare Turnstile, prima di ogni SMS (gli SMS costano, e un programma
+       che li chiede a raffica svuota i crediti). TURNSTILE_CHIAVE e' la chiave
+       PUBBLICA del sito, dal pannello Cloudflare (Turnstile -> il sito): la
+       segreta sta nel servizio (TURNSTILE_SECRET). Vuota, la casella non
+       compare, e il servizio senza la segreta non la chiede. Il gettone vale
+       una volta: dopo ogni richiesta se ne prepara uno nuovo. */
+    const TURNSTILE_CHIAVE = '0x4AAAAAAFZkLXVSuromvnHp';
+    const boxCaptcha = $('captcha');
+    /* `usato`: il gettone e' stato speso (o e' scaduto) e la verifica va
+       rifatta, ma SOLO quando la persona chiede un codice. Rifarla in
+       sottofondo dopo ogni SMS faceva comparire la casella a meta' strada e,
+       arrivando, cancellava il messaggio del servizio sotto il cellulare
+       ("numero gia' usato", "cinque codici al giorno"): restava una pagina
+       muta, e sembrava che l'SMS non arrivasse. `guasto`: lo script di
+       Cloudflare non si carica (rete o estensioni del browser).
+       `interattivo`: Cloudflare sta chiedendo la spunta. */
+    let captcha = { id: null, gettone: '', usato: false, guasto: false, interattivo: false, fallita: false };
+    /* La casella si vede SOLO quando Cloudflare chiede davvero un clic
+       (appearance: interaction-only). Di solito riconosce da se' un telefono o
+       un computer normale e non chiede niente: prima la casella compariva gia'
+       spuntata, e sul telefono sembrava un errore. Chi preme «Invia il codice»
+       prima che la verifica sia finita aspetta qualche secondo, non riceve un
+       errore; se Cloudflare chiede la spunta, si aspetta lui, senza limite, e
+       il codice parte da solo appena ha spuntato. */
+    const MSG_SPUNTA = 'Spunta la casella qui sopra: il codice parte da solo appena la verifica è finita.';
+    let attesaGettone = [];
+    let limiteAttesa = null;
+    function consegnaGettone(g) {
+        clearTimeout(limiteAttesa);
+        limiteAttesa = null;
+        attesaGettone.splice(0).forEach(f => f(g));
+    }
+    function gettonePronto(g) {
+        captcha.gettone = g;
+        captcha.fallita = false;
+        // si cancella solo la richiesta di spuntare la casella: i messaggi del servizio restano
+        if ($('telefonoError').textContent === MSG_SPUNTA) errore('telefono', '');
+        consegnaGettone(g);
+    }
+    // Cloudflare chiede la spunta: se qualcuno aspetta il codice glielo si dice, e lo si aspetta
+    function chiediSpunta() {
+        if (!attesaGettone.length) return;
+        clearTimeout(limiteAttesa);
+        limiteAttesa = null;
+        errore('telefono', MSG_SPUNTA);
+        if (boxCaptcha.scrollIntoView) boxCaptcha.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    function preparaCaptcha() {
+        if (!TURNSTILE_CHIAVE || !window.turnstile) return;
+        boxCaptcha.hidden = false;
+        captcha.id = window.turnstile.render(boxCaptcha, {
+            sitekey: TURNSTILE_CHIAVE, language: 'it', action: 'sms-iscrizione',
+            appearance: 'interaction-only', size: 'flexible', theme: 'light',
+            // scaduto, si rifa' alla prossima richiesta (vedi `usato`), non in sottofondo
+            'refresh-expired': 'never',
+            callback: gettonePronto,
+            'expired-callback': () => { captcha.gettone = ''; captcha.usato = true; },
+            /* la verifica non e' riuscita (anche dopo la spunta): chi aspettava
+               senza limite riprende i suoi 15 secondi, poi riceve un messaggio
+               invece di restare fermo. Cloudflare intanto riprova da solo. */
+            'error-callback': () => {
+                captcha.gettone = '';
+                captcha.interattivo = false;
+                captcha.fallita = true;   // alla prossima richiesta si ricomincia da capo
+                if (attesaGettone.length && limiteAttesa === null) limiteAttesa = setTimeout(() => consegnaGettone(''), 15000);
+            },
+            'unsupported-callback': () => { captcha.guasto = true; consegnaGettone(''); },
+            'before-interactive-callback': () => { captcha.interattivo = true; boxCaptcha.classList.add('captcha--visibile'); chiediSpunta(); },
+            'after-interactive-callback': () => { captcha.interattivo = false; boxCaptcha.classList.remove('captcha--visibile'); }
+        });
+    }
+    // il gettone, aspettandolo al massimo `ms` millisecondi ('' se non arriva), senza limite se c'e' da spuntare
+    function aspettaGettone(ms) {
+        if (!TURNSTILE_CHIAVE) return Promise.resolve('');
+        if (captcha.gettone) return Promise.resolve(captcha.gettone);
+        if (captcha.guasto) return Promise.resolve('');
+        // gettone gia' speso o scaduto: la verifica riparte adesso, perche' l'ha chiesta la persona
+        if ((captcha.usato || captcha.fallita) && captcha.id !== null && window.turnstile) {
+            captcha.usato = false;
+            captcha.fallita = false;
+            window.turnstile.reset(captcha.id);
+        }
+        return new Promise(fine => {
+            attesaGettone.push(fine);
+            clearTimeout(limiteAttesa);
+            limiteAttesa = setTimeout(() => consegnaGettone(''), ms);
+            if (captcha.interattivo) chiediSpunta();
+        });
+    }
+    // il gettone vale una volta: si spende con la richiesta, e si rifa' alla prossima
+    function rinnovaCaptcha() {
+        captcha.gettone = '';
+        captcha.usato = true;
+    }
+    if (TURNSTILE_CHIAVE) {
+        window.ngbCaptchaPronto = preparaCaptcha;
+        const sc = document.createElement('script');
+        sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=ngbCaptchaPronto';
+        sc.async = true;
+        sc.defer = true;
+        sc.onerror = () => { captcha.guasto = true; consegnaGettone(''); };
+        document.head.appendChild(sc);
+    }
+    let numeroInviato = '';
+    let attesaTimer = null;
+
+    function contoAllaRovescia(secondi) {
+        clearInterval(attesaTimer);
+        let restano = secondi;
+        btnDiNuovo.disabled = true;
+        const scrivi = () => { btnDiNuovo.textContent = 'Invia di nuovo il codice (fra ' + restano + ' s)'; };
+        scrivi();
+        attesaTimer = setInterval(() => {
+            restano--;
+            if (restano <= 0) {
+                clearInterval(attesaTimer);
+                attesaTimer = null;
+                btnDiNuovo.disabled = false;
+                btnDiNuovo.textContent = 'Invia di nuovo il codice';
+                return;
+            }
+            scrivi();
+        }, 1000);
+    }
+
+    function azzeraVerifica() {
+        smettiDiAscoltare();
+        verificato = { numero: '', token: '' };
+        numeroInviato = '';
+        clearInterval(attesaTimer);
+        attesaTimer = null;
+        campoTel.readOnly = false;
+        btnInvia.hidden = false;
+        btnInvia.disabled = false;
+        btnInvia.textContent = 'Invia il codice';
+        gruppoSms.hidden = true;
+        campoSms.value = '';
+        telOk.textContent = '';
+        errore('codiceSms', '');
+        // niente verifica nuova qui: riparte quando si chiede il codice per il numero nuovo
+        if (captcha.id !== null) boxCaptcha.hidden = false;
+    }
+
+    /* Dopo un invio non riuscito i pulsanti tornano a dire quello che fanno:
+       «Cambia numero» resta «Cambia numero» (prima diventava «Invia il codice»
+       ma azzerava tutto), e «Invia di nuovo il codice» si riaccende, o aspetta
+       i secondi che dice il servizio. Prima restava spento per sempre. */
+    const etichettaInvia = () => (numeroInviato || verificato.token) ? 'Cambia numero' : 'Invia il codice';
+    function dopoInvioFallito(attesa) {
+        btnInvia.disabled = false;
+        btnInvia.textContent = etichettaInvia();
+        if (attesa) { gruppoSms.hidden = false; contoAllaRovescia(attesa); return; }
+        if (!attesaTimer) { btnDiNuovo.disabled = false; btnDiNuovo.textContent = 'Invia di nuovo il codice'; }
+    }
+    // il messaggio accanto al pulsante premuto: sotto il codice se era un nuovo invio, se no sotto il cellulare
+    function avvisoInvio(msg) {
+        if (numeroInviato) $('codiceSmsError').textContent = msg || '';
+        else errore('telefono', msg);
+    }
+    let invioInCorso = false;
+    function inviaCodice(e) {
+        // una richiesta alla volta: l'invio della tastiera premuto due volte spenderebbe due volte lo stesso gettone
+        if (invioInCorso) return;
+        const btn = e && e.currentTarget === btnDiNuovo ? btnDiNuovo : btnInvia;
+        const nomeBtn = btn === btnDiNuovo ? 'Invia di nuovo il codice' : 'Invia il codice';
+        let numero = cellulare(campoTel.value);
+        errore('telefono', '');
+        $('codiceSmsError').textContent = '';
+        if (!numero) {
+            errore('telefono', 'Scrivi un numero di cellulare italiano, per esempio 333 123 4567.');
+            campoTel.focus();
+            return;
+        }
+        invioInCorso = true;
+        btnInvia.disabled = true;
+        btnDiNuovo.disabled = true;
+        btn.textContent = captcha.gettone || !TURNSTILE_CHIAVE ? 'Invio...' : 'Verifica in corso...';
+        aspettaGettone(15000).then(gettone => {
+            if (TURNSTILE_CHIAVE && !gettone) {
+                invioInCorso = false;
+                if ($('telefonoError').textContent === MSG_SPUNTA) errore('telefono', '');
+                dopoInvioFallito(0);
+                // il numero e' stato verificato nel frattempo (con il codice di prima): non serve dire niente
+                if (verificato.token) return null;
+                avvisoInvio(captcha.guasto
+                    ? 'La verifica di sicurezza di Cloudflare non si carica su questa rete o con le estensioni del browser, e senza non possiamo mandare l\'SMS. Prova con un\'altra connessione (per esempio i dati del telefono) o un altro browser, oppure scrivici a info@nextgenerationbusiness.it.'
+                    : !window.turnstile
+                        ? 'La verifica di sicurezza si sta ancora caricando: attendi qualche secondo e premi di nuovo «' + nomeBtn + '».'
+                        : 'La verifica di sicurezza non è ancora riuscita: attendi qualche secondo e premi di nuovo «' + nomeBtn + '». Se continua, ricarica la pagina.');
+                return null;
+            }
+            /* il numero di adesso: chi corregge un errore mentre aspetta la
+               verifica di sicurezza riceve il codice sul numero giusto */
+            numero = cellulare(campoTel.value);
+            if (!numero) {
+                invioInCorso = false;
+                dopoInvioFallito(0);
+                errore('telefono', 'Scrivi un numero di cellulare italiano, per esempio 333 123 4567.');
+                return null;
+            }
+            btn.textContent = 'Invio...';
+            rinnovaCaptcha();   // speso adesso: vale per questa richiesta sola
+            return chiama({ azione: 'sms-invia', telefono: campoTel.value, email: ($('email').value || '').trim(), captcha: gettone });
+        })
+            .then(d => {
+                if (d === null) return;    // la verifica di sicurezza non e' finita: gia' detto
+                invioInCorso = false;
+                if (!d.ok) {
+                    dopoInvioFallito(d.attesa);
+                    if (d.campo === 'email') { errore('email', d.msg); $('email').focus(); }
+                    else if (d.captchaKo) avvisoInvio('La verifica di sicurezza non è andata a buon fine: premi di nuovo «' + nomeBtn + '».');
+                    else avvisoInvio(d.msg || 'Non siamo riusciti a mandare l\'SMS. Riprova fra qualche minuto.');
+                    return;
+                }
+                /* Un "ok" senza il numero mascherato non viene da chi spedisce gli
+                   SMS: e' un servizio non ancora aggiornato, che avrebbe preso la
+                   richiesta per un'iscrizione. Meglio dirlo che fingere un invio. */
+                if (!d.numero) {
+                    dopoInvioFallito(0);
+                    avvisoInvio('Il servizio di verifica non è ancora attivo. Riprova fra qualche minuto, oppure scrivici a info@nextgenerationbusiness.it.');
+                    return;
+                }
+                const nuovo = !!numeroInviato;
+                numeroInviato = numero;
+                // il codice vale per questo numero: per cambiarlo si passa da «Cambia numero»
+                campoTel.readOnly = true;
+                btnInvia.disabled = false;
+                btnInvia.textContent = 'Cambia numero';
+                gruppoSms.hidden = false;
+                // dopo un nuovo invio vale anche il codice di prima, se arriva (il servizio li tiene buoni tutti e due)
+                smsNota.textContent = (nuovo ? 'Nuovo codice inviato a ' : 'Codice inviato a ') + (d.numero || numero) + '. Vale ' + (d.vale || 5) + ' minuti.'
+                    + (nuovo ? ' Va bene anche quello di prima, se arriva.' : '');
+                contoAllaRovescia(d.attesa || 60);
+                campoSms.focus();
+                ascoltaSms();
+            })
+            .catch(() => {
+                invioInCorso = false;
+                dopoInvioFallito(0);
+                avvisoInvio('Errore di connessione. Riprova fra qualche secondo.');
+            });
+    }
+
+    /* ANDROID (Chrome, Edge, Samsung Internet): il codice si legge da solo
+       dall'SMS, con il permesso della persona (WebOTP). Funziona perche' l'SMS
+       finisce con la riga "@nextgenerationbusiness.it #123456": lega il codice
+       a questo sito. Su iPhone ci pensa la tastiera, che propone il codice
+       appena arriva (autocomplete="one-time-code"). Dove nessuno dei due c'e',
+       il codice si scrive a mano come sempre. */
+    let ascoltoSms = null;
+    function ascoltaSms() {
+        if (!('OTPCredential' in window) || !navigator.credentials) return;
+        if (ascoltoSms) ascoltoSms.abort();
+        ascoltoSms = new AbortController();
+        navigator.credentials.get({ otp: { transport: ['sms'] }, signal: ascoltoSms.signal })
+            .then(otp => {
+                if (!otp || !otp.code || verificato.token) return;
+                campoSms.value = String(otp.code).replace(/\D/g, '').slice(0, 6);
+                if (campoSms.value.length === 6) verificaCodice();
+            })
+            .catch(() => { /* annullato, scaduto o rifiutato: si scrive a mano */ });
+    }
+    function smettiDiAscoltare() { if (ascoltoSms) { ascoltoSms.abort(); ascoltoSms = null; } }
+
+    function verificaCodice() {
+        const codice = campoSms.value.replace(/\D/g, '');
+        errore('codiceSms', '');
+        if (codice.length !== 6) { errore('codiceSms', 'Il codice è di 6 cifre.'); return; }
+        btnVerifica.disabled = true;
+        chiama({ azione: 'sms-verifica', telefono: campoTel.value, codice: codice })
+            .then(d => {
+                btnVerifica.disabled = false;
+                if (!d.ok) {
+                    errore('codiceSms', d.msg || 'Il codice non è corretto.');
+                    // il nuovo invio si riaccende, ma non prima della fine del conto alla rovescia (il servizio lo rifiuterebbe)
+                    if ((d.esito === 'scaduto' || d.esito === 'troppi' || d.esito === 'nessuno') && !attesaTimer) btnDiNuovo.disabled = false;
+                    return;
+                }
+                verificato = { numero: numeroInviato || cellulare(campoTel.value), token: String(d.token || '') };
+                smettiDiAscoltare();
+                clearInterval(attesaTimer);
+                attesaTimer = null;
+                gruppoSms.hidden = true;
+                campoTel.readOnly = true;
+                btnInvia.textContent = 'Cambia numero';
+                telOk.textContent = '✓ Numero verificato';
+                boxCaptcha.hidden = true;   // a numero verificato la casella non serve piu'
+                consegnaGettone('');        // e un nuovo invio che aspettava la spunta non serve piu'
+                errore('telefono', '');
+            })
+            .catch(() => {
+                btnVerifica.disabled = false;
+                errore('codiceSms', 'Errore di connessione. Riprova fra qualche secondo.');
+            });
+    }
+
+    btnInvia.addEventListener('click', (e) => {
+        // a numero gia' inviato o verificato, lo stesso pulsante serve a cambiarlo
+        if (numeroInviato || verificato.token) { azzeraVerifica(); campoTel.focus(); return; }
+        inviaCodice(e);
+    });
+    btnDiNuovo.addEventListener('click', inviaCodice);
+    btnVerifica.addEventListener('click', verificaCodice);
+    campoSms.addEventListener('input', () => {
+        const c = campoSms.value.replace(/\D/g, '').slice(0, 6);
+        if (campoSms.value !== c) campoSms.value = c;
+        if (c.length === 6) verificaCodice();
+    });
+    campoSms.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); verificaCodice(); } });
+    campoTel.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !campoTel.readOnly) { e.preventDefault(); inviaCodice(); }
+    });
+
+    // ---------- il ruolo: da elenco, oppure "Altro" scritto a mano ----------
+    const campoRuolo = $('ruolo');
+    const gruppoRuoloAltro = $('gruppoRuoloAltro');
+    const campoRuoloAltro = $('ruoloAltro');
+    campoRuolo.addEventListener('change', () => {
+        const altro = campoRuolo.value === 'altro';
+        gruppoRuoloAltro.hidden = !altro;
+        campoRuoloAltro.required = altro;
+        if (altro) campoRuoloAltro.focus(); else errore('ruoloAltro', '');
+    });
+    // nell'elenco degli iscritti si legge il ruolo, non la parola "altro"
+    function ruoloScelto() {
+        return campoRuolo.value === 'altro' ? campoRuoloAltro.value.trim() : campoRuolo.value;
+    }
+
+    // ---------- il tasto «Avanti» della tastiera ----------
+    /* Sul telefono il tasto in basso a destra della tastiera, in un campo di
+       testo, spedirebbe il modulo a meta': qui porta al campo successivo
+       (le tendine e le caselle si saltano solo se nascoste o bloccate). Il
+       cellulare e il codice SMS hanno il loro comportamento, gia' sopra. */
+    const percorso = () => Array.prototype.slice.call(form.querySelectorAll('input, select, button[type="submit"]'))
+        .filter(el => el.type !== 'hidden' && !el.disabled && !el.readOnly && el.offsetParent !== null);
+    form.addEventListener('keydown', (e) => {
+        const el = e.target;
+        if (e.key !== 'Enter' || el.tagName !== 'INPUT' || el.type === 'checkbox' || el === campoTel || el === campoSms) return;
+        e.preventDefault();
+        const campi = percorso();
+        const i = campi.indexOf(el);
+        const dopo = campi[i + 1];
+        if (dopo) dopo.focus(); else el.blur();
+    });
+
+    // ---------- campi obbligatori ----------
+    const obbligatori = Array.prototype.slice.call(form.querySelectorAll('[required]'));
+    function valida(campo) {
+        if (campo.type === 'checkbox') {
+            errore(campo.id, campo.checked ? '' : 'Campo obbligatorio');
+            return campo.checked;
+        }
+        const v = campo.value.trim();
+        if (!v) { errore(campo.id, 'Campo obbligatorio'); return false; }
+        if (campo.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) {
+            errore(campo.id, 'Inserire un indirizzo email valido');
+            return false;
+        }
+        if (campo === campoTel) {
+            if (!cellulare(v)) { errore('telefono', 'Scrivi un numero di cellulare italiano, per esempio 333 123 4567.'); return false; }
+            return true;   // la verifica col codice si controlla all'invio
+        }
+        errore(campo.id, '');
+        return true;
+    }
+    campoRuoloAltro.addEventListener('input', () => { if (campoRuoloAltro.classList.contains('errore')) valida(campoRuoloAltro); });
+    obbligatori.forEach(campo => {
+        if (campo.type === 'checkbox') { campo.addEventListener('change', () => valida(campo)); return; }
+        campo.addEventListener('blur', () => { if (!campo.readOnly) valida(campo); });
+        campo.addEventListener('input', () => { if (campo.classList.contains('errore')) valida(campo); });
+    });
+    // l'email cambiata dopo un "gia' iscritto" va ricontrollata dal servizio, non da qui
+    $('email').addEventListener('input', () => { if ($('emailError').textContent && !$('email').classList.contains('errore')) errore('email', ''); });
+
+    // ---------- la conferma a video ----------
+    /* Riepiloga cio' che la persona ha scritto (nome, email, azienda, il
+       numero mascherato) e prepara la data in agenda: Google Calendar e un
+       file .ics per Outlook e Apple, dalle 15.00 alle 17.00 ora di Roma
+       (scritte in UTC: a dicembre Roma e' un'ora avanti). */
+    function riempiConferma(c) {
+        const chi = (c.nome + ' ' + c.cognome).trim();
+        $('fattoNome').textContent = c.nome ? ', ' + c.nome : '';
+        $('fattoChi').textContent = chi || '-';
+        $('fattoAzienda').textContent = c.azienda || '-';
+        $('fattoEmail').textContent = c.email || 'il tuo indirizzo';
+        const n = String(c.telefono || '').replace(/^\+39/, '');
+        if (n) $('fattoTelefono').textContent = 'Il codice SMS inviato a +39 ' + n.slice(0, 3) + ' ••• ' + n.slice(-4) + ' è stato confermato.';
+        const titolo = 'Next Generation Business - Webinar';
+        const luogo = 'Online: https://nextgenerationbusiness.it/diretta/';
+        const dettagli = 'Merito creditizio e revisione legale. Webinar in diretta dalle 15.00 alle 17.00: si entra dalla pagina della diretta '
+            + 'con le credenziali ricevute per email. Programma: https://nextgenerationbusiness.it/webinar_dicembre_2026/';
+        $('fattoGoogle').href = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+            + '&text=' + encodeURIComponent(titolo) + '&dates=20261210T140000Z/20261210T160000Z'
+            + '&location=' + encodeURIComponent(luogo) + '&details=' + encodeURIComponent(dettagli);
+        const esc = s => s.replace(/[\\;,]/g, m => '\\' + m);
+        const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Revilaw//Next Generation Business//IT', 'BEGIN:VEVENT',
+            'UID:ngb-webinar-2026-12@nextgenerationbusiness.it', 'DTSTAMP:20261102T000000Z',
+            'DTSTART:20261210T140000Z', 'DTEND:20261210T160000Z',
+            'SUMMARY:' + esc(titolo), 'LOCATION:' + esc(luogo), 'DESCRIPTION:' + esc(dettagli),
+            'URL:https://nextgenerationbusiness.it/webinar_dicembre_2026/', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+        $('fattoIcs').href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+    }
+
+    // ---------- la conferma si aggiorna da sola ----------
+    /* Dopo l'invio la pagina rilegge lo stato dell'iscrizione (azione
+       "stato-iscrizione", con la firma resa dal servizio): quando la persona
+       conferma l'email - da questo telefono o da un altro dispositivo - il
+       riquadro passa da "manca un ultimo passo" a "iscrizione confermata". Si
+       rilegge spesso nei primi minuti, poi piu' di rado, e subito quando si
+       torna sulla scheda del browser. */
+    const SEGNO_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    function segnaFatto(id, titolo, testo) {
+        const li = $(id);
+        li.classList.remove('fatto-passo--attesa');
+        li.classList.add('fatto-passo--ok');
+        li.querySelector('.fatto-segno').innerHTML = SEGNO_OK;
+        li.querySelector('strong').textContent = titolo;
+        $(id + 'Testo').textContent = testo;
+    }
+    // ---------- la mail di conferma: se e' partita, e rimandarla ----------
+    /* Chi non trova la mail non deve restare fermo: il riquadro dice dove
+       cercarla, e il pulsante «Non e' arrivata? Rimandala» la fa ripartire
+       (azione "rimanda-conferma", con la stessa firma dello stato). I tempi
+       sono quelli del servizio (lib/conferma-email.js, rimandaConferma): due
+       minuti dall'ultimo tentativo verso l'indirizzo, riuscito o no, e un
+       tetto di rinvii al giorno. Offrire il pulsante prima vorrebbe dire
+       farselo rifiutare: parte spento per i due minuti dall'iscrizione, e si
+       rimette sull'attesa che dice il servizio, nello stato ("attesaRimanda",
+       i secondi che mancano: un tentativo del giro automatico la fa
+       ripartire) e nelle risposte al rinvio ("attesa"). */
+    const btnRimanda = $('rimandaMail');
+    const rimandaEsito = $('rimandaEsito');
+    const statoMail = $('fattoMailStato');
+    const RIMANDALA = 'Non è arrivata? Rimandala';
+    const PAUSA_RIMANDA = 120;   // secondi: RIMANDA_PAUSA_MS del servizio
+    // `fine`: quando il pulsante si riaccende (0: e' acceso); `giro`: i rinvii chiesti da qui
+    const rimanda = { stato: null, timer: null, inCorso: false, okAlle: 0, inviataAlle: 0, fine: 0, mail: '', giro: 0 };
+    // numero e unita' con lo spazio che non va a capo: mai "(fra 2 / min)"
+    function durata(s) {
+        if (s < 90) return s + '\u00a0s';
+        if (s < 5400) return Math.ceil(s / 60) + '\u00a0min';
+        return Math.ceil(s / 3600) + '\u00a0ore';
+    }
+    // i secondi che mancano, dall'orologio: in una scheda in secondo piano i timer rallentano
+    const restano = () => Math.max(0, Math.ceil((rimanda.fine - Date.now()) / 1000));
+    function rimandaFra(secondi) {
+        clearInterval(rimanda.timer);
+        const s = Math.max(0, Math.round(Number(secondi) || 0));
+        rimanda.fine = s ? Date.now() + s * 1000 : 0;
+        const scrivi = () => {
+            const r = restano();
+            if (!r) { clearInterval(rimanda.timer); rimanda.fine = 0; }
+            btnRimanda.disabled = r > 0;
+            btnRimanda.textContent = r ? RIMANDALA + ' (fra ' + durata(r) + ')' : RIMANDALA;
+            scriviStatoMail();
+        };
+        scrivi();
+        if (rimanda.fine) rimanda.timer = setInterval(scrivi, 1000);
+    }
+    function esitoRimanda(testo, ko) {
+        rimandaEsito.textContent = testo || '';
+        rimandaEsito.classList.toggle('ko', !!ko);
+    }
+    function preparaRimanda(stato) {
+        rimanda.stato = stato;
+        rimanda.inviataAlle = Date.now();
+        btnRimanda.hidden = false;
+        rimandaFra(PAUSA_RIMANDA);
+    }
+    /* Fra quanto, nella riga dello stato: a grandi passi, perche' la riga la
+       leggono i lettori di schermo a ogni cambio; i secondi esatti li conta
+       il pulsante. */
+    function fraQuanto(s) {
+        if (s <= 60) return 'fra meno di un minuto';
+        if (s < 5400) return 'fra ' + Math.ceil(s / 60) + ' minuti';
+        return 'fra ' + Math.ceil(s / 3600) + ' ore';
+    }
+    /* La riga sullo stato della mail, dal campo "mail" dello stato:
+       'inviata', 'errore' (l'ultimo invio non e' riuscito: il servizio
+       riprova da solo) o 'in-attesa' (nessun invio registrato ancora). Dopo
+       un "rimandata" riuscito si crede a quello per due minuti, finche' lo
+       stato non si e' aggiornato. "Rimandala subito" solo a pulsante acceso:
+       se no, fra quanto si potra'. */
+    function scriviStatoMail() {
+        const r = restano();
+        const oltreMinuto = Date.now() - rimanda.inviataAlle > 60 * 1000;
+        let testo = '', rimandabile = false;
+        if (Date.now() - rimanda.okAlle < 2 * 60 * 1000) testo = '';
+        else if (rimanda.mail === 'errore') {
+            testo = 'L\'invio della mail ha avuto un problema: stiamo riprovando in automatico.';
+            rimandabile = true;
+        } else if (rimanda.mail === 'in-attesa' && (oltreMinuto || !r)) {
+            testo = 'La mail non risulta ancora partita: stiamo riprovando in automatico.';
+            rimandabile = true;
+        } else if (rimanda.mail === 'in-attesa') testo = 'Invio della mail in corso...';
+        if (rimandabile && !btnRimanda.hidden && !rimanda.inCorso) {
+            testo += r ? ' Potrai rimandarla anche tu dal pulsante qui sotto ' + fraQuanto(r) + '.'
+                : ' Se vuoi, rimandala subito dal pulsante qui sotto.';
+        }
+        if (statoMail.textContent !== testo) statoMail.textContent = testo;
+        statoMail.hidden = !testo;
+    }
+    /* Lo stato riletto (solo finche' l'email non e' confermata): com'e'
+       andata la mail e, da un servizio aggiornato, fra quanti secondi si puo'
+       rimandarla. Una lettura partita prima o durante un rinvio non ne sa
+       niente (giro -1 o diverso): per i tempi vale la risposta del rinvio.
+       Il pulsante si risistema solo se il servizio dice altro da quello che
+       conta qui, oltre un paio di secondi. */
+    function aggiornaRimanda(s, giro) {
+        if (s.mail) rimanda.mail = String(s.mail);
+        const attesa = s.attesaRimanda;
+        if (typeof attesa === 'number' && isFinite(attesa) && attesa >= 0 && giro === rimanda.giro
+            && !rimanda.inCorso && !btnRimanda.hidden && Math.abs(attesa - restano()) > 2) {
+            rimandaFra(attesa);   // scrive anche la riga dello stato
+            return;
+        }
+        scriviStatoMail();
+    }
+    /* La frase sull'SMS mandato dopo l'iscrizione: solo se il servizio dice
+       che e' partito davvero (sms: true; un servizio di prima non lo dice, e
+       allora niente), con le parole di quell'SMS: dove cercare la mail, o che
+       la mail non era ancora partita e si riprova da soli. */
+    function mostraSms(d) {
+        const el = $('fattoMailSms');
+        if (!el) return;
+        if (d && d.smsTipo === 'non-inviata') {
+            el.textContent = ' Ti abbiamo avvisato anche con un SMS al cellulare verificato: al momento dell\'iscrizione la mail non era ancora partita, e riproviamo a spedirla in automatico.';
+        }
+        el.hidden = !(d && d.sms === true);
+    }
+    /* Il doppione in fondo alla conferma, accanto al calendario: chi arriva
+       li' dopo aver letto tutto non deve risalire a cercarlo. Non ha una
+       logica sua: copia quello del passo della mail ogni volta che cambia
+       (acceso o spento, il testo con l'attesa, l'esito) e sparisce con lui
+       - anche quando l'indirizzo e' confermato e il riquadro della mail va
+       via. Il clic e' il suo. */
+    const fondo = $('rimandaFondo');
+    if (fondo && btnRimanda) {
+        const btnFondo = $('rimandaMailFondo');
+        const esitoFondo = $('rimandaEsitoFondo');
+        const riquadroMail = $('fattoMail');
+        /* Senza il pulsante di sopra (un rinvio che il servizio rifiuta per
+           sempre, 403) resta l'esito, che dice dove scriverci: il riquadro
+           sparisce solo se non ha piu' niente da dire. */
+        const allineaFondo = () => {
+            const esito = rimandaEsito ? rimandaEsito.textContent : '';
+            fondo.hidden = !!(riquadroMail && riquadroMail.hidden) || (btnRimanda.hidden && !esito);
+            btnFondo.hidden = btnRimanda.hidden;
+            btnFondo.disabled = btnRimanda.disabled;
+            btnFondo.textContent = btnRimanda.textContent.replace(RIMANDALA, 'Rimanda la mail di conferma');
+            esitoFondo.textContent = esito;
+            esitoFondo.classList.toggle('ko', !!(rimandaEsito && rimandaEsito.classList.contains('ko')));
+        };
+        const osserva = (el, filtro) => {
+            if (el) new MutationObserver(allineaFondo).observe(el, { attributes: true, attributeFilter: filtro, childList: true, characterData: true, subtree: true });
+        };
+        osserva(btnRimanda, ['disabled', 'hidden']);
+        osserva(rimandaEsito, ['class']);
+        osserva(riquadroMail, ['hidden']);
+        btnFondo.addEventListener('click', () => { if (!btnRimanda.disabled && !btnRimanda.hidden) btnRimanda.click(); });
+        allineaFondo();
+    }
+    btnRimanda.addEventListener('click', () => {
+        if (!rimanda.stato || rimanda.inCorso) return;
+        rimanda.inCorso = true;
+        rimanda.giro++;
+        clearInterval(rimanda.timer);
+        btnRimanda.disabled = true;
+        btnRimanda.textContent = 'Invio in corso...';
+        esitoRimanda('');
+        scriviStatoMail();
+        chiama({ azione: 'rimanda-conferma', d: rimanda.stato.d, t: rimanda.stato.t })
+            .then(r => {
+                rimanda.inCorso = false;
+                if (r && r.ok && r.inviata !== false) {
+                    // l'indirizzo a cui e' partita, come lo ha scritto il servizio
+                    const elEmail = $('fattoEmail');
+                    if (r.a && elEmail) elEmail.textContent = String(r.a);
+                    rimanda.okAlle = Date.now();
+                    esitoRimanda('Rimandata a ' + (r.a || (elEmail && elEmail.textContent) || 'il tuo indirizzo') + '. Può volerci qualche minuto: guarda anche in Spam e Promozioni.');
+                    rimandaFra(r.attesa || PAUSA_RIMANDA);
+                    return;
+                }
+                if (r && r._stato === 403) {
+                    btnRimanda.hidden = true;
+                    btnRimanda.textContent = RIMANDALA;
+                    esitoRimanda('Da qui non riusciamo a rimandarla: scrivici dal modulo qui sotto e ci pensiamo noi.', true);
+                    scriviStatoMail();
+                    return;
+                }
+                // il freno del servizio, con il suo messaggio: dice anche se l'ultimo tentativo non e' riuscito
+                if (r && r._stato === 429) {
+                    esitoRimanda(r.msg || 'Troppe richieste ravvicinate: riprova fra qualche minuto.', true);
+                    rimandaFra(r.attesa || PAUSA_RIMANDA);
+                    return;
+                }
+                if (r && r.attesa) {
+                    esitoRimanda(r.msg || ('Per ora non possiamo rimandarla di nuovo: riprova fra ' + durata(r.attesa) + '.'));
+                    rimandaFra(r.attesa);
+                    return;
+                }
+                esitoRimanda((r && r.msg) || 'Non siamo riusciti a rimandarla. Riprova fra qualche minuto, oppure scrivici dal modulo qui sotto.', true);
+                // 502: il tentativo c'e' stato e non e' riuscito; il servizio riprova da solo e conta i due minuti da adesso
+                rimandaFra(r && r._stato === 502 ? PAUSA_RIMANDA : 0);
+            })
+            .catch(() => {
+                rimanda.inCorso = false;
+                esitoRimanda('Errore di connessione. Riprova fra qualche secondo.', true);
+                rimandaFra(0);
+            });
+    });
+
+    function seguiStato(stato, nome) {
+        const inizio = Date.now();
+        let finito = false, timer = null, inCorso = false;
+        const prossimo = () => {
+            const trascorso = Date.now() - inizio;
+            if (trascorso > 2 * 60 * 60 * 1000) return;            // dopo due ore si smette
+            timer = setTimeout(leggi, trascorso < 10 * 60 * 1000 ? 5000 : 20000);
+        };
+        function leggi() {
+            if (finito || inCorso) return;
+            inCorso = true;
+            // i rinvii chiesti finora: una lettura partita durante un rinvio non conta per i tempi
+            const giro = rimanda.inCorso ? -1 : rimanda.giro;
+            chiama({ azione: 'stato-iscrizione', d: stato.d, t: stato.t })
+                .then(s => {
+                    inCorso = false;
+                    if (!s || !s.ok) { if (s && (s._stato === 403 || s._stato === 404)) finito = true; else prossimo(); return; }
+                    // un servizio non ancora aggiornato non manda "mail" ne' "attesaRimanda": allora non si dice niente
+                    if (!s.emailConfermata) aggiornaRimanda(s, giro);
+                    if (s.emailConfermata) {
+                        // confermato: dove cercare la mail e come rimandarla non servono piu'
+                        $('fattoMail').hidden = true;
+                        clearInterval(rimanda.timer);
+                        $('fattoOcchiello').textContent = 'Iscrizione confermata';
+                        $('fattoTitolo').textContent = 'Iscrizione confermata' + (nome ? ', ' + nome : '') + '.';
+                        $('fattoIntro').textContent = 'Il tuo indirizzo email è confermato e la registrazione è completa. '
+                            + 'Le credenziali per seguire la diretta arrivano per email: ti aspettiamo giovedì 10 dicembre alle 15.00.';
+                        segnaFatto('passoEmail', 'Indirizzo email confermato', 'La registrazione è completa.');
+                        finito = true;
+                        return;
+                    }
+                    prossimo();
+                })
+                .catch(() => { inCorso = false; prossimo(); });
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !finito) { clearTimeout(timer); leggi(); }
+        });
+        prossimo();
+    }
+
+    // ---------- invio ----------
+    const btnInvio = $('submitBtn');
+    const btnTesto = btnInvio.querySelector('.btn-text');
+    const btnAttesa = btnInvio.querySelector('.btn-loading');
+    const erroreInvio = $('submitError');
+    function inAttesa(si) {
+        btnInvio.disabled = si;
+        btnTesto.hidden = si;
+        btnAttesa.hidden = !si;
+    }
+    function vaiA(el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (el.focus) el.focus({ preventScroll: true });
+    }
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        erroreInvio.textContent = '';
+        let primo = null;
+        obbligatori.forEach(campo => { if (!valida(campo) && !primo) primo = campo; });
+        if (campoRuolo.value === 'altro' && !valida(campoRuoloAltro) && !primo) primo = campoRuoloAltro;
+        if (!primo && (!verificato.token || verificato.numero !== cellulare(campoTel.value))) {
+            errore('telefono', 'Verifica il numero: tocca «Invia il codice» e scrivi il codice che ricevi per SMS.');
+            primo = campoTel;
+        }
+        if (primo) { vaiA(primo); return; }
+
+        inAttesa(true);
+        if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: document.title });
+        const n = new Date();
+        const p2 = x => String(x).padStart(2, '0');
+        const data = p2(n.getDate()) + '/' + p2(n.getMonth() + 1) + '/' + n.getFullYear()
+            + ' ' + p2(n.getHours()) + ':' + p2(n.getMinutes()) + ':' + p2(n.getSeconds());
+        const valore = id => (($(id) || {}).value || '').trim();
+        const interessi = Array.prototype.slice.call(form.querySelectorAll('input[name="interessi"]:checked'))
+            .map(c => c.value).join(', ');
+
+        chiama({
+            data: data,
+            nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
+            telefono: valore('telefono'), smsToken: verificato.token,
+            azienda: valore('azienda'), ruolo: ruoloScelto(), messaggio: '',
+            profilo: valore('profilo'), settore: valore('settore'), dimensione: valore('dimensione'),
+            interessi: interessi,
+            modalita: valore('modalita') || 'online',
+            privacy: $('privacy').checked, marketing: $('marketing').checked,
+            percorso: location.pathname
+        }).then(d => {
+            if (!d || !d.ok) {
+                inAttesa(false);
+                const msg = (d && d.msg) || 'Iscrizione non registrata. Riprova, oppure scrivici a info@nextgenerationbusiness.it';
+                // l'errore si mostra accanto al campo che lo ha causato, quando si sa quale
+                if (d && d.smsKo) { azzeraVerifica(); errore('telefono', msg); vaiA(campoTel); return; }
+                if (d && d.campo === 'telefono') { errore('telefono', msg); vaiA(campoTel); return; }
+                if (d && d.campo === 'email') { errore('email', msg); vaiA($('email')); return; }
+                erroreInvio.textContent = msg;
+                return;
+            }
+            /* L'azienda e' quella che il servizio ha SCRITTO: la schermata
+               deve dire quello che diranno la mail e l'elenco. */
+            riempiConferma({
+                nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
+                azienda: (d && d.azienda) || valore('azienda'), telefono: verificato.numero
+            });
+            mostraSms(d);
+            if (d.stato && d.stato.d && d.stato.t) { preparaRimanda(d.stato); seguiStato(d.stato, valore('nome')); }
+            form.hidden = true;
+            /* sotto la conferma il pulsante "Mail di conferma non ricevuta?"
+               ripeterebbe il collegamento del riquadro della mail, e a mail
+               confermata direbbe il contrario della schermata: va via */
+            const mailNonRicevuta = document.querySelector('.mail-non-ricevuta');
+            if (mailNonRicevuta) mailNonRicevuta.hidden = true;
+            const fatto = $('formSuccess');
+            fatto.hidden = false;
+            vaiA(fatto);
+        }).catch(() => {
+            inAttesa(false);
+            erroreInvio.textContent = 'Errore di connessione. Riprova più tardi o scrivici a info@nextgenerationbusiness.it';
+        });
+    });
+});
