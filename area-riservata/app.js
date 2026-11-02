@@ -15560,6 +15560,27 @@
                     + 'sostegno all\'internazionalizzazione.'
             }
         },
+        /* IL WEBINAR: solo online, niente sala. `soloOnline` toglie dalla
+           testata e dalle voci sopra l'elenco le sezioni in sala (aziende in
+           presenza, aderenti, sponsor), il totale in sala e il desk: restano
+           l'online, chi aspetta di confermare l'email e i confermati; e la
+           finestra "Aggiungi iscrizione" nasce con «Online» gia' scelto. Il
+           modulo del sito manda modalita' "online" per tutti (campo nascosto),
+           e il servizio lo tratta come Milano: cellulare verificato con l'SMS,
+           poi la conferma dell'email (confermaEmail), senza consenso alle
+           riprese ne' PDF. Le credenziali della diretta partono dal modulo di
+           iscrizione quando l'evento della diretta esiste in gestione
+           (diretta/README.md, §12.1). La pagina pubblica e' chiusa
+           (<body data-iscrizioni="chiuse"> in webinar_dicembre_2026): si apre
+           cambiando quel valore in "aperte", senza altre modifiche. */
+        {
+            id: 'webinar-2026-12-10', titolo: 'Webinar', quando: '10 dicembre 2026', giorno: '2026-12-10', filtro: 'webinar', pagina: 'Webinar 10 Dicembre 2026',
+            manuale: true, luogo: 'Online, in diretta sul sito', indirizzo: '', urlPagina: '/webinar_dicembre_2026/',
+            sottotitolo: 'Merito creditizio e revisione legale',
+            soloOnline: true,
+            confermaEmail: true,
+            nota: 'Le iscrizioni dal sito non sono ancora aperte (la pagina dice «Iscrizioni in apertura»). Quando si aprono, chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
+        },
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
             manuale: true, luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano', urlPagina: '/milano_febbraio_2027/',
@@ -18499,15 +18520,21 @@
            conta, si svuota da sola quando le persone confermano; finche' non
            confermano il posto non lo occupano, e lo dice il suo suggerimento.
            Solo dove la conferma e' chiesta. */
-        return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
-            + voce('tutte', 'Tutte')
-            + '<span class="ev-sez-gruppo" role="group" aria-label="Tutti in presenza" '
+        /* In un evento solo online (il webinar) il gruppo della sala non c'e':
+           restano "Tutte", l'online e, se la conferma dell'email e' chiesta,
+           chi la aspetta - che qui si e' iscritto online, non in presenza. */
+        const gruppoSala = ev.soloOnline
+            ? (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nome) : '')
+            : '<span class="ev-sez-gruppo" role="group" aria-label="Tutti in presenza" '
             + 'title="Aziende, aderenti Revilaw, sponsor e relatori: sono tutti in presenza, in sala'
             + (ev.confermaEmail ? '. Chi aspetta di confermare la mail si è iscritto in presenza, ma il posto lo occupa solo dopo la conferma' : '') + '">'
             + '<span class="ev-sez-gruppo-tit" aria-hidden="true">tutti in presenza</span>'
             + SEZIONI_MODALITA.filter(x => x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nelRiquadro || x.nome)).join('')
             + (ev.confermaEmail ? voce(SEZIONE_ATTESA.id, SEZIONE_ATTESA.nelRiquadro) : '')
-            + '</span>'
+            + '</span>';
+        return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
+            + voce('tutte', 'Tutte')
+            + gruppoSala
             + SEZIONI_MODALITA.filter(x => !x.sala && !x.fuoriElenco).map(x => voce(x.id, x.nome)).join('')
             + (daRiconoscere
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
@@ -19193,11 +19220,13 @@
                 + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
                 + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
                 + riquadroNum(nConfMail === null ? '-' : nConfMail, 'indirizzi confermati', 'Indirizzi confermati dal pulsante nella mail di iscrizione, oppure d\'ufficio: iscritti prima che la mail lo avesse (pregresso) o spostati fra gli aderenti Revilaw o fra sponsor e relatori', 'verde', 'confmail')
-                + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
+                /* un evento solo online (il webinar) non ha sezioni in sala:
+                   nessun riquadro a zero da guardare chiedendosi se manca qualcosa */
+                + ((ev.tutti || ev.soloOnline) ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join('')))
             + '</div>'
             + ((ev.tutti || soloRiepiloghi) ? '' : '<div class="ev-num-gruppo">'
-                + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala')
+                + (ev.soloOnline ? '' : riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala'))
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id) && !x.fuoriElenco)
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
                 /* Chi aspetta di confermare l'email sta fuori dal totale in sala
@@ -19207,8 +19236,9 @@
                 + (ev.confermaEmail
                     ? riquadroNum(conModalita ? (postiSezione[SEZIONE_ATTESA.id] || 0) : '-', SEZIONE_ATTESA.breve, SEZIONE_ATTESA.spiega, 'ambra', SEZIONE_ATTESA.id)
                     : '')
-                + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
-                + riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk')
+                + riquadroNum(conf, ev.soloOnline ? 'confermati' : 'confermati / presenti', '', 'verde', 'conf')
+                // il desk e' in sala: in un evento solo online non c'e'
+                + (ev.soloOnline ? '' : riquadroNum(desk, 'registrati al desk', 'Arrivati in sala senza iscrizione e registrati dal QR sul cartello: nell\'elenco hanno "' + PORTALE_DESK + '" nella colonna Portale', '', 'desk'))
                 + '</div>')
             /* I DUE RIEPILOGHI CON GLI ADERENTI della cena e del meeting, in
                presenza e online: gli unici numeri della testata, due file
@@ -20826,6 +20856,8 @@
            finestra che cambia il TESTO della mail, e chi la usa deve saperlo
            prima di premere Salva, non scoprirlo dall'anteprima. */
         const selModalita = document.getElementById('ni-modalita');
+        // un evento solo online nasce con «Online» gia' scelto: in sala non c'e' nessuno
+        if (ev.soloOnline && selModalita) selModalita.value = 'online';
         const notaModalita = () => {
             const n = document.getElementById('ni-modalita-nota');
             if (!n) return;

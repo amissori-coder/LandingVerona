@@ -1780,12 +1780,13 @@ mandi tu dalla gestione, quando decidi, con "Invia le credenziali")
     la usano il modulo e l'area riservata). Le iscrizioni arrivate **prima**
     di accenderlo non partono da sole: quelle le carichi tu con il file.
     Controlla che `iscrizione` in `diretta/config.js` porti al modulo giusto
-    (oggi `/napoli_ottobre_2026/#accreditamento`): è il collegamento di "Non
+    (oggi `/webinar_dicembre_2026/#iscrizioni`; per Napoli era
+    `/napoli_ottobre_2026/#accreditamento`): è il collegamento di "Non
     sei ancora iscritto? Iscriviti qui.". E che l'etichetta della pagina nel
-    modulo (`PAGINA_NGB` in `napoli_ottobre_2026/script.js`, oggi "Napoli 2
-    Ottobre 2026 - …") contenga le parole della «Pagina dell'evento»
-    (napoli, ottobre, 2026): è l'unica cosa che la riconciliazione può
-    confrontare.
+    modulo (`PAGINA` in `webinar_dicembre_2026/script.js`, oggi "Webinar 10
+    Dicembre 2026 - Iscrizione") contenga le parole della «Pagina
+    dell'evento» (webinar, dicembre, 2026): è l'unica cosa che la
+    riconciliazione può confrontare.
 15. [ ] Nei giorni prima e il giorno dell'evento, guarda ogni tanto il riquadro
     **"Iscrizioni dal modulo da verificare"** nella scheda *Partecipanti*: oltre
     alle email da sistemare, ci trovi chi ha **annullato** dal sito (è già fuori
@@ -1893,10 +1894,18 @@ chiavi dei servizi.
    (presenze e accessi) e, se possibile, un'esportazione di Firestore e degli
    utenti di `ngb-eventi` dalla console.
 9. [ ] **Nuovo evento**: crea l'evento in gestione (identificativo, date,
-   player, promemoria) e aggiorna `EVENTO` in `assets/diretta-stato.js` (id,
-   titolo, date con il fuso `+01:00`, pagina dell'evento), `iscrizione` in
-   `diretta/config.js` e l'etichetta della pagina nel modulo (`PAGINA_NGB`),
-   come ai passi 1 e 14.
+   player, promemoria) con l'identificativo `webinar-2026-12-10`: è quello
+   già scritto in `EVENTO` di `assets/diretta-stato.js` (titolo «Webinar, 10
+   dicembre 2026», 15.00-17.00 con il fuso `+01:00`, pagina
+   `/webinar_dicembre_2026/`, modulo `/webinar_dicembre_2026/#iscrizioni`),
+   in `iscrizione` di `diretta/config.js` e nell'etichetta del modulo della
+   pagina (`Webinar 10 Dicembre 2026 - Iscrizione`, che il servizio
+   riconosce in `lib/iscrizione-verificata.js`). Finché in gestione l'evento
+   non c'è, il sito mostra lo stesso voce di menu, pillola e fascia «Segui il
+   webinar» dal 3 dicembre (7 giorni prima), ma non sa mai se si è in onda e
+   le credenziali non partono: crealo per tempo. La pagina di Napoli non
+   legge più lo stato (ha `data-diretta="conclusa"` scritto a mano), come ai
+   passi 1 e 14.
 10. [ ] **Prova generale la settimana prima**: 300-500 accessi veri
     (dipendenti, soci) con la diretta accesa da Zoom via Azoto, possibilmente
     con un gruppo di 20-30 persone dalla stessa rete aziendale; guarda nei log

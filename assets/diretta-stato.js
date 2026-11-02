@@ -10,8 +10,10 @@
  * Componente autonomo, senza dipendenze: window.NGBDiretta.
  * - Tiene in UN solo posto le date dell'evento trasmesso in diretta: il popup
  *   della home (diretta-popup.js), la pillola fissa della home e i pulsanti
- *   della pagina di Napoli leggono da qui la finestra in cui comparire e
- *   l'orario da mostrare.
+ *   della pagina dell'evento leggono da qui la finestra in cui comparire e
+ *   l'orario da mostrare. Un evento alla volta: la pagina dell'evento
+ *   passato non carica piu' questo file (Napoli, conclusa, ha
+ *   <html data-diretta="conclusa"> scritto a mano).
  * - Dice se l'evento e' "in onda" SENZA chiamare Firebase: legge il piccolo
  *   endpoint pubblico del servizio (api/diretta-stato), che ha una cache di
  *   20-30 secondi sulla rete di Vercel. Qui sopra c'e' una seconda cache, in
@@ -35,10 +37,15 @@
  * - [data-diretta-conclusa] visibile solo dopo la fine (va scritto con
  *   l'attributo hidden, cosi' senza JavaScript non compare);
  * - [data-diretta-pubblica] visibile solo con la diretta accesa sul sito
- *   (PUBBLICA, qui sotto, o ?diretta=prova): la sezione della diretta di
- *   Napoli. Anche questo va scritto con hidden (e hidden anche le voci
- *   [data-diretta-aperta] del menu), cosi' con la diretta nascosta non
- *   compare nemmeno per un istante prima che questo file sia letto;
+ *   (PUBBLICA, qui sotto, o ?diretta=prova) e solo nella finestra
+ *   dell'evento (da mostraDaGiorni giorni prima, come il popup e la pillola
+ *   della home): la sezione "Segui la diretta" della pagina dell'evento.
+ *   Prima della finestra la pagina spiega gia' come si partecipa, e un
+ *   pulsante "Accedi alla diretta" a un mese dall'evento manderebbe a una
+ *   porta chiusa. Lo stesso vale per [data-diretta-aperta]. Anche questo va
+ *   scritto con hidden (e hidden anche le voci [data-diretta-aperta] del
+ *   menu), cosi' con la diretta nascosta non compare nemmeno per un
+ *   istante prima che questo file sia letto;
  * - data-pillola sul tag <script> di questo file: aggiunge la pillola fissa
  *   #dirPillola in basso a sinistra (la home), accesa per tutta la finestra
  *   dell'evento, anche dopo "Non mostrare più" del popup (che riguarda solo
@@ -50,24 +57,36 @@
 
   // --- Configurazione ---------------------------------------------------
   var EVENTO = {
-    id: "napoli-2026",
-    titolo: "Napoli, 2 ottobre 2026",
-    citta: "Napoli",
-    inizio: "2026-10-02T09:00:00+02:00",
-    fine: "2026-10-02T17:30:00+02:00",
+    // lo stesso identificativo dell'evento in Gestione (/diretta/gestione/)
+    id: "webinar-2026-12-10",
+    titolo: "Webinar, 10 dicembre 2026",
+    // la parola corta della pillola della home ("Diretta Webinar") e dei
+    // clic tracciati; per un convegno e' la citta'
+    citta: "Webinar",
+    // come il popup della home chiama l'evento dentro le frasi ("Il webinar
+    // è in corso", "Il convegno di Napoli riprende alle...")
+    cosa: "Il webinar",
+    // il titolo del popup prima del giorno dell'evento
+    invito: "Segui il webinar in diretta",
+    // solo online: niente posti in sala, il popup non parla a chi e'
+    // iscritto in presenza e non potra' venire (riga "dirp-presenza")
+    soloOnline: true,
+    inizio: "2026-12-10T15:00:00+01:00",
+    fine: "2026-12-10T17:00:00+01:00",
     // il popup e la pillola della home compaiono da tanti giorni prima
     // dell'inizio fino alla fine dell'evento, poi si spengono da soli
     mostraDaGiorni: 7,
-    pagina: "/napoli_ottobre_2026/",
+    pagina: "/webinar_dicembre_2026/",
     urlDiretta: "/diretta/",
-    // il modulo per iscriversi alla diretta (il popup lo indica a chi e'
-    // iscritto in presenza ma non potra' venire)
-    urlIscrizione: "/napoli_ottobre_2026/#accreditamento"
+    // il modulo per iscriversi alla diretta (il popup lo indica a chi non si
+    // e' ancora iscritto; a un convegno, a chi e' iscritto in presenza ma
+    // non potra' venire)
+    urlIscrizione: "/webinar_dicembre_2026/#iscrizioni"
   };
   /* LA DIRETTA SUL SITO PUBBLICO: ACCESA O NASCOSTA.
-     false = nascosta: in home niente popup ne' pillola, nella pagina di
-     Napoli niente voce "Diretta" nel menu ne' sezione "Segui la diretta",
-     e nessuna richiesta al servizio. Le pagine /diretta/ e
+     false = nascosta: in home niente popup ne' pillola, nella pagina
+     dell'evento niente voce "Diretta" nel menu ne' sezione "Segui la
+     diretta", e nessuna richiesta al servizio. Le pagine /diretta/ e
      /diretta/gestione/ funzionano comunque, per chi ne conosce
      l'indirizzo: serve alla prova generale sul sito vero.
      true = accesa: tutto compare da solo nella finestra dell'evento.
@@ -533,8 +552,10 @@
       if (buono) radice.setAttribute("data-diretta-stato", buono.stato);
       mostra(live, cond === "in_onda");
       mostra(pausa, cond === "pausa");
-      mostra(pubbliche, cond !== "nascosta");
-      mostra(aperte, cond !== "conclusa" && cond !== "nascosta");
+      // fuori dalla finestra dell'evento (cond 'fuori') la sezione e le voci
+      // del menu restano nascoste, come il popup e la pillola della home
+      mostra(pubbliche, cond !== "nascosta" && cond !== "fuori");
+      mostra(aperte, cond !== "conclusa" && cond !== "nascosta" && cond !== "fuori");
       mostra(concluse, cond === "conclusa");
       if (aggiornaPillola) aggiornaPillola(cond);
     }
