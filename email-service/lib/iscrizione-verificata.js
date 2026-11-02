@@ -96,7 +96,14 @@ const EVENTI = [
     /* `filtro`: la parola con cui l'elenco dell'area riservata prende le
        iscrizioni dell'evento (api/iscrizioni.js, EVENTI_DEF in app.js). La usano
        i totali del riepilogo di mezzanotte, che devono contare le stesse righe. */
-    { chiave: 'milano-2027-02-26', se: /^milano 26 febbraio 2027/i, filtro: 'milano', nome: 'Milano', fine: Date.parse('2027-02-26T18:00:00+01:00') }
+    { chiave: 'milano-2027-02-26', se: /^milano 26 febbraio 2027/i, filtro: 'milano', nome: 'Milano', pagina: 'Milano 26 Febbraio 2027', fine: Date.parse('2027-02-26T18:00:00+01:00') },
+    /* Il webinar del 10 dicembre 2026 (webinar_dicembre_2026/): lo stesso
+       flusso di Milano (codice SMS, conferma dell'email, una iscrizione per
+       email e per numero), tutti online. `riprese: false`: in un webinar
+       nessuno e' ripreso, e api/iscrizione-nuova.js non chiede il consenso
+       alle riprese. `pagina` e' il titolo corto delle iscrizioni inserite a
+       mano e del riepilogo di mezzanotte (lib/mail-ngb.js). */
+    { chiave: 'webinar-2026-12-10', se: /^webinar 10 dicembre 2026/i, filtro: 'webinar', nome: 'Webinar', pagina: 'Webinar 10 Dicembre 2026', riprese: false, fine: Date.parse('2026-12-10T17:00:00+01:00') }
 ];
 function eventoDi(pagina) {
     const p = String(pagina || '').trim();

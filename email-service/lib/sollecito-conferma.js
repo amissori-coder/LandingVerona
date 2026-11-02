@@ -114,14 +114,21 @@ function componi(scheda, opz) {
     const nome = pulito(((scheda && scheda.nome) || '') + ' ' + ((scheda && scheda.cognome) || ''), 160);
     const azienda = pulito(scheda && scheda.azienda, 200);
     const online = String((scheda && scheda.modalita) || '').toLowerCase() === 'online';
+    // un webinar (DETTAGLI_EVENTO con online: true) non ha una citta' e si nomina per data
+    const webinar = ev.online === true;
     const citta = ev.indirizzo ? String(ev.indirizzo).replace(/^.*\d{5}\s+/, '').replace(/^.*,\s*/, '') : 'Milano';
-    const giorno = ev.quando ? String(ev.quando).replace(/^Venerd[iì]\s+/i, '') : '';
+    const giorno = ev.quando ? String(ev.quando).replace(/^(luned|marted|mercoled|gioved|venerd|sabat|domenic)[a-zì]*\s+/i, '') : '';
     const quando = ev.quando ? ev.quando.charAt(0).toLowerCase() + ev.quando.slice(1) : '';
-    const oggetto = 'Next Generation Business ' + citta + (giorno ? ', ' + giorno : '') + ' – conferma della sua iscrizione';
+    const orario = ev.orario ? ev.orario.charAt(0).toLowerCase() + ev.orario.slice(1) : '';
+    const oggetto = webinar
+        ? 'Next Generation Business, webinar' + (giorno ? ' del ' + giorno : '') + ' – conferma della sua iscrizione'
+        : 'Next Generation Business ' + citta + (giorno ? ', ' + giorno : '') + ' – conferma della sua iscrizione';
+    const cosa = webinar
+        ? 'il webinar in programma' + (quando ? ' ' + quando : '') + (orario ? ', ' + orario : '') + ', in diretta online'
+        : 'il convegno con incontri B2B in programma a ' + citta + (quando ? ' ' + quando : '') + (ev.luogo ? ' presso l\'' + ev.luogo : '');
     const testo = [
         'Gentile ' + (nome || 'iscritto') + ',',
-        (pec ? 'la ringraziamo' : 'la ringrazio') + ' per la sua iscrizione a Next Generation Business, il convegno con incontri B2B in programma a ' + citta
-            + (quando ? ' ' + quando : '') + (ev.luogo ? ' presso l\'' + ev.luogo : '') + '.',
+        (pec ? 'la ringraziamo' : 'la ringrazio') + ' per la sua iscrizione a Next Generation Business, ' + cosa + '.',
         (azienda ? 'La richiesta per ' + azienda + ' risulta registrata' : 'La sua richiesta risulta registrata')
             + ', ma l\'iscrizione non è ancora completa: manca la conferma dell\'indirizzo email. Subito dopo l\'invio del modulo le è arrivata una mail da '
             + mailDiConferma() + ' con il pulsante «Conferma il tuo indirizzo email».',

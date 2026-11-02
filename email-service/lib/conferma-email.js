@@ -93,13 +93,21 @@ const DETTAGLI_EVENTO = [
       programma: 'Convegno, networking lunch e incontri B2B one-to-one',
       // inizio e fine con il fuso: servono all'evento da aggiungere in agenda
       inizio: '2027-02-26T08:30:00+01:00', fine: '2027-02-26T18:00:00+01:00',
-      url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/' }
+      url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/' },
+    /* Il webinar: solo online, nessun indirizzo. `online: true` lo dice a chi
+       scrive le mail (il sollecito parla di webinar, non di convegno). */
+    { se: /webinar/i, quando: 'Giovedì 10 dicembre 2026', orario: 'Dalle 15.00 alle 17.00', luogo: 'Online, in diretta sul sito', indirizzo: '',
+      tema: 'Merito creditizio e revisione legale',
+      programma: 'Webinar in diretta: il merito creditizio e la revisione legale',
+      online: true,
+      inizio: '2026-12-10T15:00:00+01:00', fine: '2026-12-10T17:00:00+01:00',
+      url: 'https://nextgenerationbusiness.it/webinar_dicembre_2026/' }
 ];
 function dettagliEvento(pagina) {
     const d = DETTAGLI_EVENTO.find(x => x.se.test(String(pagina || '')));
     return d ? {
         quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo, tema: d.tema, programma: d.programma,
-        inizio: d.inizio, fine: d.fine, url: d.url
+        inizio: d.inizio, fine: d.fine, url: d.url, online: d.online === true
     } : {};
 }
 /* Il trasporto, con i TEMPI MASSIMI. Senza, nodemailer aspetta due minuti

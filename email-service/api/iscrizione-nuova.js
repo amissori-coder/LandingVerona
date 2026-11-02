@@ -117,7 +117,7 @@ function mittenteMail() {
    newsletter), e a quelli non va spedito nulla. Per i moduli di contatto
    delle pagine dei temi parte solo l'avviso a noi (la richiesta di
    check-up, in fondo), e mai per una pagina che nomina un evento. */
-const RE_PAGINA_EVENTO = /verona|roma|napoli|milano/i;
+const RE_PAGINA_EVENTO = /verona|roma|napoli|milano|webinar/i;
 /* LA PAGINA RISERVATA A SPONSOR E RELATORI (milano_febbraio_2027/sponsor_relatori/):
    scrive in `pagina` il nome dell'evento con questa coda, ed e' l'unica da cui
    si entra nella sezione "sponsor" iscrivendosi (vedi sotto, `modalita`). La
@@ -1885,8 +1885,10 @@ module.exports = async (req, res) => {
             }
             /* Il consenso alle riprese: la giornata e' registrata e possono
                esserci troupe dei telegiornali. Obbligatorio come nel modulo,
-               cosi' non lo si salta chiamando il servizio a mano. */
-            if (consenso(body.riprese) !== true) {
+               cosi' non lo si salta chiamando il servizio a mano. Non lo
+               chiedono gli eventi con `riprese: false` in EVENTI (il webinar:
+               nessuno e' ripreso). */
+            if (evVerificato.riprese !== false && consenso(body.riprese) !== true) {
                 res.status(400).json({ ok: false, campo: 'riprese', msg: 'Per partecipare serve il consenso alle riprese: la giornata sarà registrata e potranno essere presenti troupe televisive.' }); return;
             }
         }
