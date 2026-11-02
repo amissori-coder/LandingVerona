@@ -39,7 +39,7 @@
            perche' la pagina lo mostra PRIMA dell'accesso, quando non legge
            ancora Firestore. Un percorso del sito (/...) oppure un indirizzo
            https://; vuoto o tolto: la frase non compare. */
-        iscrizione: '/napoli_ottobre_2026/#accreditamento',
+        iscrizione: '/webinar_dicembre_2026/#iscrizioni',
         emulatori: null,
         prove: null
     };

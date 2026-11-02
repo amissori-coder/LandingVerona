@@ -91,7 +91,13 @@ const ATTESA_BASE_MS = 30 * 1000;         // 30 s, 60 s, 120 s...
 const ATTESA_MASSIMA_MS = 15 * MINUTO;
 const TETTO_NOME = 50;                    // errori in un'ora sulla stessa email, da qualunque rete
 const BLOCCO_NOME_MS = 15 * MINUTO;
-const TETTO_IP = 40;                      // errori in una finestra di 15 minuti dalla stessa rete
+/* Il tetto di errori per rete in una finestra di 15 minuti: DIRETTA_TETTO_IP,
+   300 di base. Fino a Napoli era 40, pensato per mille iscritti: con 2.000
+   iscritti e sedi aziendali da centinaia di persone dietro un solo IP, 40
+   errori arrivano in pochi minuti e fermano anche chi ha la password giusta.
+   Si alza (o si abbassa) da Vercel senza rilascio; le prove lo mettono a 40
+   per esercitarlo con cento tentativi. */
+function tettoIp() { return Math.max(1, C.intero('DIRETTA_TETTO_IP', 300)); }
 const FINESTRA_IP_MS = 15 * MINUTO;       // finestre fisse: :00, :15, :30, :45
 const BLOCCO_IP_MS = 5 * MINUTO;          // raggiunto il tetto, la rete aspetta almeno tanto
 const ATTESA_RETE_MS = 3000;              // quanto si aspetta il proprio turno se tanti entrano insieme
@@ -246,12 +252,13 @@ async function restituisci(ctx, rif) {
    il tentativo si chiude: -1 su inCorso e, se era sbagliato, +1 su
    falliti, nella stessa scrittura. Per questo nessuna raffica passa il
    tetto: chi rilegge vede, oltre a se', tutti i tentativi gia' passati,
-   finiti o ancora in volo, e ne passano al massimo 40 che finiscono
-   male. Niente transazioni (la rete di un'azienda che entra tutta alle
-   9 non deve mettersi in fila dietro le ripartenze di Firestore) e mai
-   una scrittura che azzera: solo incrementi, con merge.
+   finiti o ancora in volo, e ne passano al massimo il tetto
+   (DIRETTA_TETTO_IP, 300 di base) che finiscono male. Niente
+   transazioni (la rete di un'azienda che entra tutta alle 9 non deve
+   mettersi in fila dietro le ripartenze di Firestore) e mai una
+   scrittura che azzera: solo incrementi, con merge.
    Oltre il tetto ci sono due casi diversi:
-   - i falliti sono gia' 40: la rete ha finito i suoi errori. Si scrive
+   - i falliti hanno raggiunto il tetto: la rete ha finito i suoi errori. Si scrive
      il blocco in tentativiIp/{impronta} (almeno 5 minuti, e comunque
      fino alla fine della finestra) e si risponde "attendi";
    - i falliti sono meno, ma ci sono tante verifiche in volo insieme
@@ -293,19 +300,20 @@ function bloccoIp(snap, ora) {
    restituito il tentativo. */
 async function prenotaRete(ctx, rif, impIp, finestra) {
     const limite = Date.now() + ATTESA_RETE_MS;
+    const tetto = tettoIp();
     let f = finestra;
     for (let giro = 1; ; giro++) {
         const snap = await f.rif.get();
         const falliti = Math.max(0, Number(snap.get('falliti')) || 0);
         const inCorso = Math.max(0, Number(snap.get('inCorso')) || 0);
-        if (falliti + inCorso <= TETTO_IP) return { finestra: f, chiusura: null };
+        if (falliti + inCorso <= tetto) return { finestra: f, chiusura: null };
         await restituisciRete(ctx, f);
         const ora = ctx.adesso();
-        if (falliti >= TETTO_IP) {
+        if (falliti >= tetto) {
             const fino = Math.max(ora + BLOCCO_IP_MS, f.fine);
             try { await rif.bloccoIp.set({ bloccatoFino: fino, aggiornato: ora, scade: scadenza(ctx, fino) }, { merge: true }); }
             catch (e) { console.error('[diretta] blocco della rete non scritto: ' + D.perLog(e)); }
-            console.error('[diretta] accesso: una rete ha raggiunto il tetto di ' + TETTO_IP + ' errori, attesa di ' + Math.ceil((fino - ora) / MINUTO) + ' minuti');
+            console.error('[diretta] accesso: una rete ha raggiunto il tetto di ' + tetto + ' errori, attesa di ' + Math.ceil((fino - ora) / MINUTO) + ' minuti');
             throw attendi(fino - ora);
         }
         if (Date.now() >= limite) {
@@ -812,6 +820,6 @@ async function linkVideo(ctx, req, b) {
 
 module.exports = {
     entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi, linkVideo,
-    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante, lasciaFinire, tempoMinimo, contaInFinestra,
+    attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante, lasciaFinire, tempoMinimo, contaInFinestra, tettoIp,
     MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO, TEMPO_FALLITO_MS, CASO_FALLITO_MS
 };

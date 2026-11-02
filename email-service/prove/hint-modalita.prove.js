@@ -83,6 +83,9 @@ const esc = daAppJs('esc');
 const avvisoBreve = daAppJs('avvisoBreve');
 const avvisoTitolo = daAppJs('avvisoTitolo');
 const avvisoModalitaDi = daAppJs('avvisoModalitaDi');
+// modalitaDi passa da sezioniDi e modalitaPredefinita (un evento solo online non ha la sala)
+const sezioniDi = daAppJs('sezioniDi');
+const modalitaPredefinita = daAppJs('modalitaPredefinita');
 const modalitaDi = daAppJs('modalitaDi');
 const sezioneDalModulo = daAppJs('sezioneDalModulo');
 const inListaAttesa = daAppJs('inListaAttesa');

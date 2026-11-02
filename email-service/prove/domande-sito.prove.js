@@ -209,6 +209,14 @@ prova('Il nome nella ricevuta solo se e\' un nome; argomenti, eventi e motivi so
     esigi(interna.subject === 'Domanda dal sito - Altro - Lucia Bianchi' && d.tema === 'altro' && d.evento === '' && d.motivo === '',
         'un argomento sconosciuto vale "altro", e fuori dagli eventi evento e motivo non contano', interna.subject);
     spedite = [];
+    await chiama(domanda({ tema: 'eventi', evento: 'webinar-2026', motivo: 'diretta', email: 'web@studio.it' }));
+    interna = spedite.find(m => /^Domanda dal sito/.test(m.subject)) || {};
+    const dw = domande().find(x => x.email === 'web@studio.it') || {};
+    esigi(interna.subject === 'Domanda dal sito - Eventi e convegni · Webinar, 10 dicembre 2026 · Diretta online - Lucia Bianchi' && dw.evento === 'webinar-2026',
+        'il webinar del 10 dicembre 2026 e\' fra gli eventi (webinar-2026)', interna.subject);
+    const ricW = spedite.find(m => m.to === 'web@studio.it') || {};
+    esigi(/Webinar, 10 dicembre 2026/.test(ricW.text || ''), 'e la ricevuta lo nomina');
+    spedite = [];
     await chiama(domanda({ tema: 'eventi', evento: 'parigi', motivo: 'boh', email: 'sconosciuti@studio.it' }));
     const e = domande().find(x => x.email === 'sconosciuti@studio.it') || {};
     esigi(e.evento === 'altro' && e.motivo === 'altro', 'evento e motivo sconosciuti valgono "altro"');
@@ -390,6 +398,28 @@ prova('"Non ho ricevuto la mail di conferma": la diagnosi solo a noi, la mail ri
         'gia\' confermata: nessun rinvio, e la diagnosi dice "confermata"');
     const reg = domande().find(x => x.email === 'ombretta@studio.it' && x.controllo) || {};
     esigi(reg.controllo && reg.controllo.trovate === 2 && reg.controllo.rimandate.length === 1, 'e la domanda salvata tiene il riassunto del controllo', JSON.stringify(reg.controllo));
+});
+
+prova('"Non ho ricevuto la mail di conferma" per il webinar: la mail riparte, ed e\' quella del webinar', async () => {
+    azzera();
+    const due = 2 * 24 * 60 * 60 * 1000;
+    dati.set('iscrizioni/wanda', {
+        pagina: 'Webinar 10 Dicembre 2026 - Iscrizione', data: '18/01/2027 09:30:00', nome: 'Wanda', cognome: 'Web', email: 'wanda@studio.it', modalita: 'online',
+        telefonoNumero: '+393331234567', telefonoVerificato: { quando: 1, come: 'sms' }, ricevuto: orologio - due,
+        mailConferma: { quando: orologio - due, ok: true, errore: '' }, smsConferma: { quando: orologio - due, ok: true, tipo: 'inviata' }
+    });
+    const r = await chiama(domanda({ tema: 'eventi', evento: 'webinar-2026', motivo: 'mail-non-ricevuta', messaggio: '', nome: 'Wanda', cognome: 'Web', email: 'Wanda@Studio.it' }));
+    esigi(r.stato === 200 && JSON.stringify(r.corpo) === '{"ok":true}', 'risposta: ok e nient\'altro', JSON.stringify(r.corpo));
+    const conferma = spedite.find(m => /^Richiesta di conferma/.test(m.subject)) || {};
+    esigi(conferma.to === 'wanda@studio.it' && /Webinar 10 Dicembre 2026/.test(conferma.subject) && /Webinar &middot; 10 dicembre 2026/.test(conferma.html),
+        'la mail di conferma riparte all\'iscrizione in attesa, vestita da webinar', conferma.subject);
+    const s = dati.get('iscrizioni/wanda');
+    esigi(s.mailConferma.via === 'rimanda' && s.mailConferma.ok === true && s.confermaInAttesa === true, 'sulla scheda: rimandata, nel giro automatico');
+    const interna = spedite.find(m => /^Domanda dal sito/.test(m.subject)) || {};
+    esigi(interna.subject === 'Domanda dal sito - Eventi e convegni · Webinar, 10 dicembre 2026 · Mail di conferma non ricevuta - Wanda Web'
+        && /Webinar 10 Dicembre 2026/.test(interna.html) && /RIMANDATA ADESSO in automatico a wanda@studio\.it/.test(interna.text),
+        'a noi: l\'evento nell\'oggetto, l\'iscrizione trovata e il rinvio appena fatto', interna.subject);
+    esigi(sms.length === 0 && !/Webinar 10 Dicembre|RIMANDATA/.test((spedite.find(m => /^Abbiamo ricevuto/.test(m.subject)) || {}).text || ''), 'nessun SMS, e la ricevuta non dice cosa risulta');
 });
 
 prova('Una "pagina" spedita con la domanda non fa nascere un\'iscrizione', async () => {

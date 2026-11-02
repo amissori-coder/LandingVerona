@@ -77,6 +77,9 @@ function rigaDaAppJs(inizio) {
 const RE_INDIRIZZO = eval(rigaDaAppJs('const RE_INDIRIZZO =')
     .replace(/^const RE_INDIRIZZO =\s*/, '').replace(/;\s*$/, ''));
 const SEZIONI_MODALITA = costanteDaAppJs('SEZIONI_MODALITA');
+// modalitaDi passa da sezioniDi e modalitaPredefinita (un evento solo online non ha la sala)
+const sezioniDi = daAppJs('sezioniDi');
+const modalitaPredefinita = daAppJs('modalitaPredefinita');
 const modalitaDi = daAppJs('modalitaDi');
 const indirizziIncollati = daAppJs('indirizziIncollati');
 const confrontoElencoDefinitivo = daAppJs('confrontoElencoDefinitivo');

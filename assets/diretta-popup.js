@@ -1,5 +1,5 @@
 /*
- * Popup promozionale - Diretta Napoli (accesso alla diretta dell'evento)
+ * Popup promozionale - Diretta dell'evento in corso (accesso alla diretta)
  * Componente autonomo (HTML + stile + logica iniettati da JS). Date e stato
  * da assets/diretta-stato.js (window.NGBDiretta), che va caricato PRIMA di
  * questo file.
@@ -20,12 +20,17 @@
  *   9.00" prima. Lo stato arriva da NGBDiretta.leggi (endpoint con cache,
  *   chiesto solo quel giorno): mai una chiamata a Firebase. Se la diretta
  *   risulta gia' conclusa, il popup non compare.
+ * - I testi prendono l'evento da NGBDiretta.EVENTO (titolo, `cosa` - "Il
+ *   webinar", "Il convegno di Napoli" -, `invito`): cambiando evento in
+ *   diretta-stato.js qui non si tocca niente.
  * - Chi e' iscritto IN PRESENZA ma non potra' venire trova una riga sua:
  *   si iscrive alla diretta dal modulo della pagina dell'evento (anche con
  *   la stessa email: ogni invio del modulo e' un'iscrizione a se') e annulla
  *   il posto in sala dalla sua email. Il collegamento e' quello di
  *   NGBDiretta.EVENTO.urlIscrizione. Sta SOTTO i pulsanti: sopra, sui
  *   telefoni da 360 px spingeva «Accedi alla diretta» fuori dallo schermo.
+ *   Per un evento solo online (EVENTO.soloOnline) la riga dice invece "Non
+ *   sei ancora iscritto? Iscriviti": posti in sala non ce ne sono.
  * - Una volta per sessione; "Non mostrare piu" vale per questo evento e
  *   solo per il popup: la pillola fissa della home (diretta-stato.js) resta.
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo;
@@ -84,28 +89,34 @@
   var eyebrow = "Diretta " + String(EVENTO.titolo || "").replace(", ", " · ");
   var quando = orario.giorno ? orario.giorno.charAt(0).toUpperCase() + orario.giorno.slice(1)
     + ", dalle " + orario.inizio + " alle " + orario.fine : "";
+  // come si chiama l'evento dentro le frasi: "Il webinar", "Il convegno di Napoli"
+  var cosa = String(EVENTO.cosa || ("Il convegno di " + (EVENTO.citta || ""))).trim();
+  var soloOnline = EVENTO.soloOnline === true;
   var TESTI = {
     prima: {
-      titolo: "Segui il convegno in diretta",
-      sotto: "Next Generation Business Napoli si segue anche online, in diretta, "
-        + "da computer, tablet e telefono."
+      titolo: EVENTO.invito || "Segui il convegno in diretta",
+      sotto: soloOnline
+        ? "Next Generation Business del " + orario.giornoBreve + " si segue online, in diretta, "
+          + "da computer, tablet e telefono."
+        : "Next Generation Business " + (EVENTO.citta || "") + " si segue anche online, in diretta, "
+          + "da computer, tablet e telefono."
     },
     oggi: {
       titolo: "Oggi in diretta dalle " + orario.inizio,
-      sotto: "Il convegno di Napoli si segue online: si entra con la propria email "
+      sotto: cosa + " si segue online: si entra con la propria email "
         + "e la password ricevuta via email."
     },
     in_onda: {
       titolo: "Siamo in diretta: accedi",
-      sotto: "Il convegno di Napoli è in corso: entra con la tua email "
+      sotto: cosa + " è in corso: entra con la tua email "
         + "e la password ricevuta via email."
     },
     // l'orario di ripresa c'e' solo se il gestore l'ha scritto
     pausa: {
       titolo: "La diretta è in pausa",
       sotto: function (ripresa) {
-        return (ripresa ? "Il convegno di Napoli riprende alle " + ripresa + " (ora italiana). "
-          : "Il convegno di Napoli riprende a breve. ")
+        return (ripresa ? cosa + " riprende alle " + ripresa + " (ora italiana). "
+          : cosa + " riprende a breve. ")
           + "Intanto puoi già entrare con la tua email e la password ricevuta via email.";
       }
     }
@@ -284,9 +295,13 @@
     // chi e' iscritto in presenza e non potra' venire: sotto i pulsanti, per non spingere
     // «Accedi alla diretta» fuori dallo schermo dei telefoni piccoli (il collegamento si
     // scrive dopo, con setAttribute)
-    + '<p class="dirp-presenza">' + iconPersona + '<span><b>Iscritto in presenza ma non puoi venire?</b> '
-    + '<a class="dirp-iscriviti" href="">Iscriviti alla diretta</a>, anche con la stessa email, e annulla il posto '
-    + 'in sala da &laquo;Modifica o annulla&raquo; nella tua email.</span></p>'
+    + '<p class="dirp-presenza">' + iconPersona + (soloOnline
+      ? '<span><b>Non sei ancora iscritto?</b> '
+        + '<a class="dirp-iscriviti" href="">Iscriviti al webinar</a>: la partecipazione &egrave; gratuita, '
+        + 'le credenziali per la diretta arrivano per email.</span></p>'
+      : '<span><b>Iscritto in presenza ma non puoi venire?</b> '
+        + '<a class="dirp-iscriviti" href="">Iscriviti alla diretta</a>, anche con la stessa email, e annulla il posto '
+        + 'in sala da &laquo;Modifica o annulla&raquo; nella tua email.</span></p>')
     + '<div class="dirp-dismiss"><button type="button" data-dirp-never>Non mostrare pi&ugrave;</button></div>'
     + '</div></div>';
 
@@ -401,7 +416,7 @@
     if (cta) cta.addEventListener("click", function () {
       ss(false, SS_SEEN, "1");
       if (typeof window.gtag === "function") {
-        window.gtag("event", "click_popup", { pagina: "Diretta Napoli" });
+        window.gtag("event", "click_popup", { pagina: "Diretta " + (EVENTO.citta || "") });
       }
     });
 
@@ -410,7 +425,7 @@
     if (iscriviti) iscriviti.addEventListener("click", function () {
       ss(false, SS_SEEN, "1");
       if (typeof window.gtag === "function") {
-        window.gtag("event", "click_popup_iscrizione", { pagina: "Diretta Napoli" });
+        window.gtag("event", "click_popup_iscrizione", { pagina: "Diretta " + (EVENTO.citta || "") });
       }
     });
 

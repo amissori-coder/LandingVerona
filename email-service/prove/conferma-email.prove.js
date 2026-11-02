@@ -38,7 +38,11 @@
        volte), un secondo tentativo solo per gli errori che passano, e
        "Promemoria:" davanti all'oggetto quando e' il promemoria;
      - lo stato che legge la pagina ('inviata', 'errore', 'in-attesa')
-       vale per l'indirizzo di adesso, non per uno corretto dopo.
+       vale per l'indirizzo di adesso, non per uno corretto dopo;
+     - il webinar del 10 dicembre 2026: in attesa come Milano, la mail
+       con il pulsante vestita da webinar, dopo il clic il solo file del
+       calendario (niente PDF: e' online), e ogni esito di rimandaConferma
+       dice la pagina della scheda, per il modulo dei contatti giusto.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -448,6 +452,58 @@ const token = () => NL.firmaConfermaEmail(ID);
         esigi(dati.get('iscrizioni/m').confermaInAttesa === true, 'con `attesa` la scheda torna nel giro automatico');
         const senza = await CONF.spedisciConferma(db, 'nessuno', { nome: 'Senza' }, {});
         esigi(!senza.ok && !dati.has('iscrizioni/nessuno'), 'senza indirizzo non parte e non scrive niente');
+    });
+
+    await prova('Il webinar: in attesa come Milano, la mail vestita da webinar, l\'invito online con il solo calendario, e il rinvio dice l\'evento', async () => {
+        azzera();
+        const W = 'Webinar 10 Dicembre 2026 - Iscrizione';
+        const web = { pagina: W, email: 'web@x.it', nome: 'Wanda', cognome: 'Web', azienda: 'Web srl', data: '20/11/2026 10:00:00', modalita: 'online' };
+        esigi(CONF.inAttesaDiConferma(web) === true && CONF.inAttesaDiConferma(Object.assign({}, web, { emailConfermata: { quando: 1, come: 'mail' } })) === false, 'dal sito e senza clic: in attesa; confermata: no');
+        esigi(CONF.inAttesaDiConferma(Object.assign({}, web, { inserito: { da: 'x', quando: 1 } })) === false && CONF.inAttesaDiConferma(Object.assign({}, web, { annullato: { quando: 1 } })) === false, 'inserita a mano o annullata: no');
+        const d = CONF.dettagliEvento(W);
+        esigi(d.online === true && d.quando === 'Giovedì 10 dicembre 2026' && d.orario === 'Dalle 15.00 alle 17.00' && d.luogo === 'Online, in diretta sul sito' && d.indirizzo === ''
+            && d.inizio === '2026-12-10T15:00:00+01:00' && d.fine === '2026-12-10T17:00:00+01:00' && d.url === 'https://nextgenerationbusiness.it/webinar_dicembre_2026/',
+            'i dettagli del webinar: online, con orario e pagina, senza indirizzo');
+        esigi(CONF.dettagliEvento('Milano 26 Febbraio 2027 - Iscrizione').online === false && CONF.dettagliEvento(PAGINA).online === false && !('online' in CONF.dettagliEvento('Boh')), 'Milano e Napoli non sono online');
+        // la mail con il pulsante
+        const link = NL.linkConfermaEmail('w');
+        const m = MNGB.confermaSito(web, NL.linkCompleta('w'), link);
+        esigi(m.oggetto === 'Richiesta di conferma - Next Generation Business, Webinar 10 Dicembre 2026' && /Webinar &middot; 10 dicembre 2026/.test(m.html)
+            && /Merito creditizio e revisione legale/.test(m.html) && /Online, in diretta/.test(m.html), 'la testata del webinar');
+        esigi(/Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta<\/td>/.test(m.html) && /webinar_dicembre_2026/.test(m.html), 'e il piede, con la sua pagina');
+        esigi(m.testo.split('\n\n')[1] === 'Gentile Wanda Web, la tua iscrizione al webinar Next Generation Business del 10 dicembre 2026 è stata registrata.',
+            'il sommario parla del webinar, per data, senza "per la partecipazione online"', m.testo.split('\n\n')[1]);
+        esigi(m.html.indexOf('href="' + link.replace(/&/g, '&amp;') + '"') > 0 && !/pdf/i.test(m.html + m.testo), 'con il pulsante, e senza PDF');
+        // gli allegati dell'invito: online, solo il calendario
+        const all = CONF.allegatiInvito('w', web);
+        esigi(all.length === 1 && all[0].filename === 'Next-Generation-Business-Webinar.ics' && /^text\/calendar/.test(all[0].contentType), 'per chi segue online il solo file .ics, nessun PDF', JSON.stringify(all.map(a => a.filename)));
+        const ics = String(all[0].content);
+        esigi(/DTSTART:20261210T140000Z/.test(ics) && /DTEND:20261210T160000Z/.test(ics) && /SUMMARY:Next Generation Business - Webinar/.test(ics) && /webinar_dicembre_2026/.test(ics), 'il calendario ha ora e collegamento del webinar');
+        // la conferma: la diretta e' avvisata, l'invito parte con il calendario
+        dati.set('iscrizioni/w', Object.assign({}, web));
+        const r = await CONF.conferma(db, { d: 'w', t: NL.firmaConfermaEmail('w') });
+        esigi(r.corpo.ok && r.corpo.online === true && r.corpo.invito === true && r.corpo.evento === 'Webinar 10 Dicembre 2026', 'confermata: online, invito partito, l\'evento per la pagina');
+        esigi(avvisiDiretta.length === 1 && avvisiDiretta[0].pagina === W && avvisiDiretta[0].email === 'web@x.it', 'la diretta e\' avvisata');
+        esigi(posta.length === 1 && posta[0].subject === 'Indirizzo confermato - Next Generation Business, Webinar 10 Dicembre 2026' && /Webinar &middot; 10 dicembre 2026/.test(posta[0].html)
+            && (posta[0].attachments || []).length === 1 && /\.ics$/.test(posta[0].attachments[0].filename) && !/pdf/i.test(posta[0].html + posta[0].text),
+            'la mail dell\'indirizzo confermato: vestita da webinar, con il solo calendario', posta[0] && posta[0].subject);
+        // rimandaConferma dice sempre la pagina della scheda: e' da li' che si sceglie il modulo dei contatti
+        azzera();
+        dati.set('iscrizioni/wc', Object.assign({}, web, { emailConfermata: { quando: 1, come: 'mail' } }));
+        dati.set('iscrizioni/wn', Object.assign({}, ROSSI));
+        dati.set('iscrizioni/wa', Object.assign({}, web, { mailConferma: { quando: Date.now() - 10000, ok: true, errore: '', a: 'web@x.it' } }));
+        dati.set('iscrizioni/wi', Object.assign({}, web));
+        const rc = await CONF.rimandaConferma(db, 'wc');
+        esigi(rc.esito === 'confermata' && rc.pagina === W, 'gia\' confermata: "confermata", con la pagina');
+        const rn = await CONF.rimandaConferma(db, 'wn');
+        esigi(rn.esito === 'fuori' && rn.pagina === PAGINA, 'un evento senza conferma (Napoli): "fuori", con la pagina');
+        const ra = await CONF.rimandaConferma(db, 'wa');
+        esigi(ra.esito === 'attesa' && ra.attesa > 0 && ra.attesa <= 120 && ra.ultimoOk === true && ra.pagina === W, 'dentro i due minuti: "attesa", con la pagina');
+        const ri = await CONF.rimandaConferma(db, 'wi');
+        esigi(ri.esito === 'inviata' && ri.a === 'web@x.it' && ri.pagina === W && posta.length === 1 && /Webinar 10 Dicembre 2026/.test(posta[0].subject),
+            'rimandata: "inviata", con l\'indirizzo e la pagina, e la mail e\' quella del webinar');
+        const rx = await CONF.rimandaConferma(db, 'manca');
+        esigi(rx.esito === 'assente' && !('pagina' in rx), 'una scheda che non c\'e\': "assente", senza pagina');
     });
 
     await prova('Lo stato della mail vale per l\'indirizzo di adesso', async () => {

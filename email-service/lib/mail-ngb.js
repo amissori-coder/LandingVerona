@@ -52,6 +52,14 @@ function nomeEvento(pagina) {
     const p = String(pagina || '').split(' - ')[0].trim();
     return p || 'Next Generation Business';
 }
+/* Come si nomina l'evento in una frase: un convegno per citta' ("il convegno
+   Next Generation Business di Milano 26 Febbraio 2027"), un webinar per data
+   ("il webinar Next Generation Business del 10 dicembre 2026"). */
+function tipoEvento(pagina) {
+    const evento = nomeEvento(pagina);
+    const m = /^webinar\s+(.+)$/i.exec(evento);
+    return m ? { tipo: 'webinar', di: 'del ' + m[1].toLowerCase() } : { tipo: 'convegno', di: 'di ' + evento };
+}
 
 /* ============================================================
    LA GRAFICA DELLA PAGINA DELL'EVENTO
@@ -76,6 +84,16 @@ const TEMI_EVENTO = [
         dati: [['Data', 'Venerdì 26 febbraio 2027'], ['Orario', '8.30 - 18.00'], ['Sede', 'Excelsior Hotel Gallia, Milano']],
         piede: 'Milano &middot; 26 febbraio 2027 &middot; Excelsior Hotel Gallia',
         pagina: 'https://nextgenerationbusiness.it/milano_febbraio_2027/'
+    },
+    {
+        // il webinar del 10 dicembre 2026: stessi colori (webinar_dicembre_2026/styles.css e' la copia di Milano)
+        se: /webinar/i,
+        notte: '#08213A', filetto: '#2B4560', azzurro: '#7DB8EE', azzurroChiaro: '#B9DAF7', suNotte: '#C9D6E3',
+        occhiello: 'Webinar &middot; 10 dicembre 2026',
+        tema: 'Merito creditizio e revisione legale',
+        dati: [['Data', 'Giovedì 10 dicembre 2026'], ['Orario', '15.00 - 17.00'], ['Dove', 'Online, in diretta']],
+        piede: 'Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta',
+        pagina: 'https://nextgenerationbusiness.it/webinar_dicembre_2026/'
     }
 ];
 function temaEvento(pagina) {
@@ -433,8 +451,9 @@ function confermaSito(dati, link, linkConferma) {
        un clic. Senza collegamento (le mail composte prima) resta com'era. */
     const oggetto = (linkConferma ? 'Richiesta di conferma - ' : 'Iscrizione ricevuta - ') + 'Next Generation Business, ' + evento;
     const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
-    const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
-        + (online ? ' per la partecipazione online' : '') + '.';
+    const te = tipoEvento(dati.pagina);
+    const sommario = saluto + ' la tua iscrizione al ' + te.tipo + ' Next Generation Business ' + te.di + ' è stata registrata'
+        + (online && te.tipo !== 'webinar' ? ' per la partecipazione online' : '') + '.';
     const attesa = online && dati && dati.listaAttesa === true;
     /* Con il collegamento di conferma la mail e' il PRIMO passo: la richiesta
        e' ricevuta, il posto arriva con l'invito dopo la conferma. Senza (le
@@ -566,7 +585,8 @@ function confermaVariazioni(dati, link) {
     const evento = nomeEvento(dati.pagina);
     const oggetto = 'Iscrizione aggiornata - Next Generation Business, ' + evento;
     const saluto = 'Gentile ' + (dati.intestatario || 'ospite') + ',';
-    const sommario = saluto + ' abbiamo ricevuto i dati e aggiornato la tua iscrizione al convegno di ' + evento + '. Ecco come risulta adesso.';
+    const te = tipoEvento(dati.pagina);
+    const sommario = saluto + ' abbiamo ricevuto i dati e aggiornato la tua iscrizione al ' + te.tipo + ' ' + te.di + '. Ecco come risulta adesso.';
     const partecipanti = (dati.attivi || []).map((p, i) => {
         const chi = ((p.nome || '') + ' ' + (p.cognome || '')).trim() || 'partecipante ' + (i + 1);
         return rigaBox('Partecipante ' + (i + 1), chi + (p.azienda ? ' - ' + p.azienda : ''));
@@ -1132,7 +1152,8 @@ function cosaCambiaAderente(p) {
 function riepilogoSerale(d, link) {
     const ev = d.ev || {};
     const giornoTesto = d.giornoTesto;
-    const pagina = (ev.nome || 'Milano') + ' 26 Febbraio 2027';
+    // il titolo corto dell'evento (iscrizione-verificata.js EVENTI, `pagina`); senza, la forma di Milano
+    const pagina = ev.pagina || ((ev.nome || 'Milano') + ' 26 Febbraio 2027');
     const t = d.t || null;
     const az = d.az || null;
     const ads = (d.ad || []).filter(x => x && x.c);
@@ -1229,8 +1250,16 @@ function riepilogoSerale(d, link) {
         testoAd += (testoAd ? '\n' : 'ADERENTI\n') + d.adNota;
     }
 
-    const CHIUSURA = 'Per le aziende l\'iscrizione vale dopo la conferma dell\'email; per gli aderenti non c\'è la conferma dell\'email: l\'iscrizione vale dall\'invio del modulo, e all\'iscritto parte subito la mail con la quota e i dati di fatturazione (se non è partita, lo trovi scritto sotto il suo nome).';
-    const DOVE = 'Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», evento di ' + (ev.nome || 'Milano') + ', trovi l\'elenco completo delle aziende (da lì si rimanda la mail di conferma a chi è in attesa) e, in «Aderenti» › «Apri le iscrizioni», gli aderenti, dove si segnano le fatture emesse.';
+    /* Gli aderenti ci sono solo dove l'evento ha le quote (Milano): `conAderenti`
+       lo dice chi chiama (api/riepilogo-iscrizioni.js); senza il dato, come
+       prima, si parla anche di loro. Un webinar non ne ha: le frasi si fermano
+       alle aziende. */
+    const conAderenti = d.conAderenti !== false;
+    const CHIUSURA = 'Per le aziende l\'iscrizione vale dopo la conferma dell\'email'
+        + (conAderenti ? '; per gli aderenti non c\'è la conferma dell\'email: l\'iscrizione vale dall\'invio del modulo, e all\'iscritto parte subito la mail con la quota e i dati di fatturazione (se non è partita, lo trovi scritto sotto il suo nome).' : '.');
+    // l'evento con il suo titolo corto («Webinar 10 Dicembre 2026», «Milano 26 Febbraio 2027»), non "evento di Webinar"
+    const DOVE = 'Nell\'area riservata, alla voce «Iscrizioni Eventi NGB», evento «' + (ev.pagina || ev.nome || 'Milano') + '», trovi l\'elenco completo delle aziende (da lì si rimanda la mail di conferma a chi è in attesa)'
+        + (conAderenti ? ' e, in «Aderenti» › «Apri le iscrizioni», gli aderenti, dove si segnano le fatture emesse.' : '.');
     const MOTIVO = 'Riepilogo automatico per gli organizzatori: parte a mezzanotte quando ci sono conferme nuove o iscrizioni in attesa delle aziende, o iscrizioni nuove o corrette degli aderenti.';
 
     // una parte che non c'e' (non letta, gia' mandata) non ha numeri: niente zeri che direbbero il falso

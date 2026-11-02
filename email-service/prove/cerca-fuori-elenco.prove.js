@@ -41,6 +41,9 @@ function ritaglia(apertura, apre, chiude) {
 }
 const pezzi = [
     ritaglia('const SEZIONI_MODALITA = [', '[', ']') + ';',
+    // modalitaDi passa da sezioniDi e modalitaPredefinita (un evento solo online non ha la sala)
+    ritaglia('function sezioniDi(', '{', '}'),
+    ritaglia('function modalitaPredefinita(', '{', '}'),
     ritaglia('function modalitaDi(', '{', '}'),
     ritaglia('function fuoriElenco(', '{', '}'),
     ritaglia('function soloIscritti(', '{', '}'),

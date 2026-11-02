@@ -10,25 +10,32 @@
    rete-prove.js/statoDiretta, e ogni richiesta viene contata.
    Date e ore si spostano con page.clock.
 
+   L'evento in diretta e' il webinar del 10 dicembre 2026, dalle 15.00
+   alle 17.00 (ora solare: +01:00), configurato in assets/diretta-stato.js:
+   la finestra sul sito si apre 7 giorni prima, il 3 dicembre alle 15.00;
+   lo stato si legge dalle 12.00 alle 20.00 del 10 dicembre.
+
    COSA DIMOSTRANO.
    1. NGBDiretta (assets/diretta-stato.js): fasi e finestre dell'evento
       nei minuti di confine, giorno di Roma calcolato con Intl anche
-      per chi visita da un altro fuso, condizione() per ogni stato
-      (compresi 'pausa', lo sforamento oltre la fine e il 'terminato'
-      letto prima dell'inizio), orario leggibile, una sola richiesta in
-      volo, cache di 60 secondi, lettura fallita = null, lettura chiusa
-      dopo 'terminato'.
+      per chi visita da un altro fuso (d'inverno e con l'ora legale),
+      condizione() per ogni stato (compresi 'pausa', lo sforamento oltre
+      la fine e il 'terminato' letto prima dell'inizio), orario leggibile,
+      una sola richiesta in volo, cache di 60 secondi, lettura fallita =
+      null, lettura chiusa dopo 'terminato'.
    2. Home (assets/diretta-popup.js e la pillola #dirPillola). Le novita'
       (bando-tipo Mimit e Cassazione 7134) non sono piu' una finestra
       all'entrata ma il riquadro «Sotto la lente» in testa alla colonna
       degli approfondimenti: il popup della diretta e' l'unico della home.
-      - 20 settembre, fuori finestra: nessun popup (ne' della diretta ne'
+      - 20 novembre, fuori finestra: nessun popup (ne' della diretta ne'
         delle novita') ne' pillola, il riquadro «Sotto la lente» c'e';
         nessuna richiesta; la pillola compare da sola quando si apre la
-        finestra;
-      - 26 settembre: compare il popup della diretta con i suoi testi
-        (si entra con la propria email e la password ricevuta via email;
-        "Non trovi l'email? Controlla nella cartella Spam o Promozioni..."),
+        finestra (3 dicembre, 14.59 -> 15.00);
+      - 5 dicembre: compare il popup della diretta con i testi del webinar
+        ("Segui il webinar in diretta"; si entra con la propria email e la
+        password ricevuta via email; "Non trovi l'email? Controlla nella
+        cartella Spam o Promozioni..."; la riga "Non sei ancora iscritto?
+        Iscriviti al webinar" verso il modulo della pagina del webinar),
         ed e' l'unico; ricaricando la pagina nella stessa sessione non
         ricompare; la pillola c'e', sotto il popup e sopra ogni contenuto;
         nessuna richiesta allo stato;
@@ -37,38 +44,52 @@
       - "Non mostrare più": in una nuova sessione (nuova scheda, stesso
         localStorage) non ricompare (e nessun altro popup), ma la pillola
         resta, in primo piano;
-      - 2 ottobre alle 10 in onda: "Siamo in diretta: accedi" e
+      - 10 dicembre alle 15.30 in onda: "Siamo in diretta: accedi" e
         l'indicatore IN DIRETTA nel popup e nella pillola, UNA
         richiesta; la pillola segue lo stato da sola ogni minuto; in
-        pausa: "La diretta è in pausa" con l'orario di ripresa, niente
-        IN DIRETTA; alle 8 "Oggi in diretta dalle 9.00"; alle 17.45 in
-        onda oltre l'orario: niente popup ma pillola IN DIRETTA, che si
-        spegne a "terminato"; alle 19 dopo la fine: niente popup, niente
-        pillola, una richiesta e poi basta; alle 21: nessuna richiesta;
-        diretta terminata in anticipo: non si prenota piu';
+        pausa: "La diretta è in pausa" con l'orario di ripresa (o "riprende
+        a breve"), niente IN DIRETTA; alle 8 "Oggi in diretta dalle 15.00"
+        senza richieste (lo stato si legge dalle 12), alle 13 con una
+        richiesta; alle 17.15 in onda oltre l'orario: niente popup ma pillola IN
+        DIRETTA, che si spegne a "terminato"; alle 18.30 dopo la fine:
+        niente popup, niente pillola, una richiesta e poi basta; alle 21:
+        nessuna richiesta; diretta terminata in anticipo (16.30): non si
+        prenota piu';
       - prefers-reduced-motion: niente animazioni ne' transizioni;
       - telefono: popup e pillola stanno nello schermo, niente
         scorrimento orizzontale; gli avvisi del sito (l'esito del modulo
         newsletter) passano sopra la pillola;
-      - la finestra della diretta che si apre a sessione iniziata (25
-        settembre, 8.58 -> 9.01): alle 8.58 nessun popup; alle 9.01 la
+      - la finestra della diretta che si apre a sessione iniziata (3
+        dicembre, 14.58 -> 15.01): alle 14.58 nessun popup; alle 15.01 la
         pillola compare da sola e, tornando sulla home, il popup della
         diretta (il primo della sessione).
-   3. Pagina di Napoli: voce "Diretta" nel menu subito prima di "Save
-      the date" (anche su telefono, a menu aperto, e nel menu a tendina
-      fino a 1199px), pillola "Diretta" accanto all'hamburger fuori dal
-      menu a scomparsa (telefono e tablet, anche a 320px), sezione "Segui
-      la diretta" dopo la hero con il pulsante verso /diretta/ e il testo
-      sull'accesso (la propria email e la password ricevuta via email,
-      Spam o Promozioni; nessun nome utente, nessuna data d'invio
-      promessa; la frase dello spam anche nella conferma dell'iscrizione);
-      l'indicatore IN DIRETTA solo in onda, "in pausa"
-      in pausa, con ricontrollo ogni 60 s (una richiesta per pagina, non
-      una per indicatore); dopo la fine "La diretta si è conclusa" e voce
-      di menu e pillola nascoste, anche se si sfora e poi si termina;
-      menu su una riga senza sovrapporsi al marchio da 1200px in su; fra
-      1000 e 1199px menu a tendina finche' c'e' la voce Diretta, e di nuovo
-      su una riga (come prima della diretta) dopo la fine.
+   3. Pagina del webinar (/webinar_dicembre_2026/, costruita sulla pagina
+      di Milano): voce "Diretta" per ultima nel menu, dopo "Iscrizioni"
+      (anche su telefono, a menu aperto), pillola "Diretta" accanto
+      all'hamburger fuori dal menu a scomparsa (fino a 960px: tablet e
+      telefono, anche a 320px), sezione "Segui il webinar in diretta" dopo
+      la hero con il pulsante verso /diretta/ e il testo sull'accesso (la
+      propria email e la password ricevuta via email, Spam o Promozioni;
+      nessun nome utente, nessuna data d'invio promessa; la frase dello
+      spam anche nella conferma dell'iscrizione, il cui modulo oggi e'
+      nascosto: <body data-iscrizioni="chiuse">); prima della finestra
+      (20 novembre) sezione, voce e pillola restano nascoste anche con la
+      diretta accesa sul sito, e compaiono da sole quando la finestra si
+      apre a pagina aperta; l'indicatore IN DIRETTA solo in onda, "in
+      pausa" in pausa, con ricontrollo ogni 60 s (una richiesta per
+      pagina, non una per indicatore); dopo la fine "Il webinar si è
+      concluso" e voce di menu e pillola nascoste, anche se si sfora e poi
+      si termina; menu su una riga senza sovrapporsi al marchio da 961px
+      in su, con o senza la voce Diretta; fino a 960px menu a tendina con
+      la pillola nella barra.
+      La pagina di Napoli, conclusa a mano (<html data-diretta="conclusa">,
+      senza diretta-stato.js): nessuna sezione, voce di menu o pillola e
+      nessuna richiesta, nemmeno con il webinar in onda; window.NGBDiretta
+      non esiste.
+   4. La diretta nascosta sul sito (PUBBLICA = false): niente popup,
+      pillola, voce di menu e sezione, nessuna richiesta nemmeno il giorno
+      dell'evento in onda; ?diretta=prova la mostra solo a quel browser e
+      ?diretta=pubblico la toglie; con PUBBLICA = true tutto compare.
    Screenshot in risultati/screenshot-sito/.
    Esce con 1 se qualcosa e' rosso.
 
@@ -90,9 +111,12 @@ const PORTA_API = Number(process.env.PORTA_API || 3690);
 const PORTA_STATICO = Number(process.env.PORTA_STATICO || 8690);
 const SITO = 'http://127.0.0.1:' + PORTA_STATICO;
 const HOME = SITO + '/';
+const WEBINAR = SITO + '/webinar_dicembre_2026/';
 const NAPOLI = SITO + '/napoli_ottobre_2026/';
 const SCREENSHOT = path.resolve(__dirname, 'risultati/screenshot-sito');
-const CHROMIUM = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// il Chromium di chi ha scritto le prove; se manca, quello installato
+// (il collegamento /opt/pw-browsers/chromium); altrimenti quello di Playwright
+const CHROMIUM = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => fs.existsSync(p));
 const RADICE = path.resolve(__dirname, '../..');
 fs.mkdirSync(SCREENSHOT, { recursive: true });
 
@@ -164,9 +188,9 @@ async function visitatore(opzioni, stato, diretta) {
             v.richieste.push(url);
             if (!v.stato) return { ok: false };
             const r = {
-                ok: true, id: 'napoli-2026', titolo: 'Next Generation Business 2026 · Napoli', stato: v.stato,
-                inizio: Date.parse('2026-10-02T09:00:00+02:00'), fine: Date.parse('2026-10-02T17:30:00+02:00'),
-                paginaEvento: '/napoli_ottobre_2026/'
+                ok: true, id: 'webinar-2026-12-10', titolo: 'Webinar, 10 dicembre 2026', stato: v.stato,
+                inizio: Date.parse('2026-12-10T15:00:00+01:00'), fine: Date.parse('2026-12-10T17:00:00+01:00'),
+                paginaEvento: '/webinar_dicembre_2026/'
             };
             if (v.ripresa) r.ripresa = v.ripresa;
             return r;
@@ -270,7 +294,10 @@ async function pillola(page) {
             href: a.getAttribute('href'),
             rett: { sinistra: Math.round(b.left), destra: Math.round(b.right), alto: Math.round(b.top), basso: Math.round(b.bottom), altezza: Math.round(b.height) },
             finestra: { larghezza: window.innerWidth, altezza: window.innerHeight },
-            chiSopra: !sopra ? '' : a.contains(sopra) ? 'pillola' : sopra.closest('#dirPromo') ? 'popup' : 'altro'
+            chiSopra: !sopra ? '' : a.contains(sopra) ? 'pillola' : sopra.closest('#dirPromo') ? 'popup' : 'altro',
+            // chi e' davvero (per leggere il rosso): tag e classi dell'elemento sopra
+            sopraChi: !sopra ? '' : sopra.tagName.toLowerCase() + (sopra.className ? '.' + String(sopra.className).trim().replace(/\s+/g, '.') : '')
+                + (sopra.closest('.ngb-fin-velo') ? ' nella finestra del prossimo evento (.ngb-fin-velo di event-banner.js)' : '')
         };
     });
 }
@@ -278,12 +305,13 @@ async function pillola(page) {
 /* ============================================================ */
 (async () => {
     const server = await accendiSito();
-    browser = await chromium.launch(fs.existsSync(CHROMIUM) ? { executablePath: CHROMIUM } : {});
+    browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
     try {
         await provaFile();
         await provaNGBDiretta();
         await provaHome();
-        await provaNapoli();
+        await provaWebinar();
+        await provaNapoliConclusa();
         await provaNascosta();
     } finally {
         await browser.close();
@@ -318,40 +346,60 @@ async function provaFile() {
     const testa = stato.slice(0, stato.indexOf('(function')).replace(/\s*\n\s*\*\s*/g, ' ');
     vero(testa.includes('se cambi data o orario in Gestione, aggiorna anche qui; d\'inverno +01:00'),
         'diretta-stato.js: in cima l\'avviso "se cambi data o orario in Gestione, aggiorna anche qui; d\'inverno +01:00"');
+    // l'evento configurato: il webinar, con le date in ora solare (+01:00)
+    vero(/id: "webinar-2026-12-10"/.test(stato) && /inizio: "2026-12-10T15:00:00\+01:00"/.test(stato) && /fine: "2026-12-10T17:00:00\+01:00"/.test(stato),
+        'diretta-stato.js: EVENTO e\' il webinar del 10 dicembre 2026, 15.00-17.00, scritto con +01:00 (ora solare)');
     vero(/timeZone: FUSO/.test(stato) && /var FUSO = "Europe\/Rome"/.test(stato), 'diretta-stato.js: il giorno di Roma con Intl (timeZone Europe/Rome)');
     vero(/#dirPillola\{[^}]*z-index:9990;/.test(stato), 'pillola: z-index 9990, sotto gli avvisi del sito (9998-9999) e sopra la barra (1000)');
+    const webinar = fs.readFileSync(path.join(RADICE, 'webinar_dicembre_2026/index.html'), 'utf8');
+    vero(/<section class="diretta-fascia" id="diretta"[^>]*\bdata-diretta-pubblica hidden>/.test(webinar)
+        && /id="navDirettaPillola" data-diretta-aperta hidden>/.test(webinar) && /<a href="\/diretta\/" class="nav-diretta" id="navDiretta" data-diretta-aperta hidden>/.test(webinar),
+        'webinar: sezione della diretta e le due voci "Diretta" del menu scritte con hidden (nascoste finche\' diretta-stato.js non le mostra)');
+    vero(/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" defer><\/script>\s*<script src="script\.js(\?v=\w+)?"><\/script>\s*<\/body>/.test(webinar),
+        'webinar: diretta-stato.js (defer) in fondo alla pagina, subito prima di script.js');
+    // Napoli e' conclusa a mano: non legge piu' lo stato (che ora e' quello del webinar)
     const napoli = fs.readFileSync(path.join(RADICE, 'napoli_ottobre_2026/index.html'), 'utf8');
-    vero(/styles\.css\?v=20/.test(napoli), 'Napoli: versione del foglio di stile aggiornata (?v=20, con la diretta nascosta)');
+    vero(/<html lang="it" data-diretta="conclusa">/.test(napoli) && !/<script src="\/assets\/diretta-stato\.js/.test(napoli),
+        'Napoli: <html data-diretta="conclusa"> scritto a mano e diretta-stato.js non piu\' caricato');
     vero(/<section class="diretta-fascia" id="diretta"[^>]*\bdata-diretta-pubblica hidden>/.test(napoli)
         && /id="navDirettaPillola" data-diretta-aperta hidden>/.test(napoli) && /<li data-diretta-aperta hidden><a href="\/diretta\/" class="nav-diretta"/.test(napoli),
-        'Napoli: sezione della diretta e le due voci "Diretta" del menu scritte con hidden (nascoste finche\' diretta-stato.js non le mostra)');
+        'Napoli: gli agganci della diretta restano nel markup, con hidden');
     const robots = fs.readFileSync(path.join(RADICE, 'robots.txt'), 'utf8');
     vero(/^Disallow: \/diretta\/$/m.test(robots), 'robots.txt: Disallow: /diretta/');
     const pubblica = (/var PUBBLICA = (true|false);/.exec(stato) || [])[1];
     vero(pubblica === 'true' || pubblica === 'false', 'diretta-stato.js: l\'interruttore PUBBLICA c\'e\' (oggi: ' + pubblica + (pubblica === 'false' ? ', diretta nascosta sul sito' : ', diretta accesa sul sito') + ')');
-    vero(/<script src="\/assets\/diretta-stato\.js(\?v=\w+)?" defer><\/script>\s*<\/body>/.test(napoli), 'Napoli: diretta-stato.js caricato in fondo alla pagina');
     // niente trattini lunghi nei testi scritti per la diretta
-    const sezione = napoli.slice(napoli.indexOf('<!-- Segui la diretta'), napoli.indexOf('<!-- L\'Evento -->'));
-    const barra = napoli.slice(napoli.indexOf('<nav class="navbar"'), napoli.indexOf('</nav>'));
-    const lunghi = [['diretta-popup.js', popup], ['diretta-stato.js', stato], ['sezione di Napoli', sezione], ['barra di Napoli', barra]]
+    const iSezione = webinar.indexOf('<!-- Segui il webinar in diretta'), fSezione = webinar.indexOf('<!-- Il webinar -->'),
+        iBarra = webinar.indexOf('<header class="nav" id="navbar">'), fBarra = webinar.indexOf('</header>');
+    vero(iSezione > 0 && fSezione > iSezione && iBarra > 0 && fBarra > iBarra, 'webinar: la sezione "Segui il webinar in diretta" e la barra di navigazione si trovano nel file');
+    const sezione = webinar.slice(iSezione, fSezione);
+    const barra = webinar.slice(iBarra, fBarra);
+    const lunghi = [['diretta-popup.js', popup], ['diretta-stato.js', stato], ['sezione del webinar', sezione], ['barra del webinar', barra]]
         .filter(([, t]) => /[–—]/.test(t)).map(([n]) => n);
-    uguale(lunghi, [], 'nessun trattino lungo nei testi della diretta (popup, pillola, sezione e menu di Napoli)');
+    uguale(lunghi, [], 'nessun trattino lungo nei testi della diretta (popup, pillola, sezione e menu del webinar)');
     // si entra con l'email: niente "nome utente" e nessuna data d'invio delle credenziali promessa
-    const conNome = [['diretta-popup.js', popup], ['pagina di Napoli', napoli]].filter(([, t]) => /nome utente/i.test(t)).map(([n]) => n);
-    uguale(conNome, [], 'nessun "nome utente" nel popup e nella pagina di Napoli');
-    vero(!/nei giorni precedenti/i.test(napoli), 'Napoli: nessuna data d\'invio delle credenziali promessa («nei giorni precedenti»)');
-    const conferma = napoli.slice(napoli.indexOf('<div id="formSuccess"'), napoli.indexOf('</div>', napoli.indexOf('class="success-detail"')));
-    vero(/«Conferma il tuo indirizzo»/.test(conferma) && /Nella diretta si entra con la propria email e la password che riceverai via email\./.test(conferma)
-        && /Non trovi l’email\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro\./.test(conferma),
-        'Napoli: la conferma dell\'iscrizione chiede di confermare l\'indirizzo, dice come si entra (email e password) e dove cercare l\'email (Spam o Promozioni)');
+    const conNome = [['diretta-popup.js', popup], ['pagina del webinar', webinar]].filter(([, t]) => /nome utente/i.test(t)).map(([n]) => n);
+    uguale(conNome, [], 'nessun "nome utente" nel popup e nella pagina del webinar');
+    vero(!/nei giorni precedenti/i.test(webinar), 'webinar: nessuna data d\'invio delle credenziali promessa («nei giorni precedenti»)');
+    // la conferma dell'iscrizione (il modulo e' nascosto finche' le iscrizioni
+    // sono chiuse, ma i testi sono gia' nel file)
+    const interruttore = (/<body [^>]*data-iscrizioni="(chiuse|aperte)"/.exec(webinar) || [])[1];
+    vero(interruttore === 'chiuse' || interruttore === 'aperte', 'webinar: l\'interruttore delle iscrizioni <body data-iscrizioni> c\'e\' (oggi: ' + interruttore + ')');
+    const intro = (/<p class="fatto-intro" id="fattoIntro"[^>]*>([\s\S]*?)<\/p>/.exec(webinar) || [])[1] || '';
+    const credenziali = (/<span id="passoCredenzialiTesto">([\s\S]*?)<\/span>/.exec(webinar) || [])[1] || '';
+    vero(/Per completare l'iscrizione conferma il tuo indirizzo email dal pulsante nella mail che ti abbiamo appena inviato\./.test(intro)
+        && /Le credenziali per seguire la diretta arrivano per email\./.test(intro),
+        'webinar: la conferma dell\'iscrizione chiede di confermare l\'indirizzo e dice che le credenziali arrivano per email, senza promettere quando');
+    uguale(credenziali.trim(), 'Arrivano per email: l\'email con cui ti sei iscritto e una password personale. Non le trovi? Controlla nella cartella Spam o Promozioni.',
+        'webinar: il passo delle credenziali dice come si entra (email e password) e dove cercare l\'email (Spam o Promozioni)');
 }
 
 /* ---------- 1. NGBDiretta ---------- */
 async function provaNGBDiretta() {
     console.log('\n[NGBDiretta: date, finestre, condizioni, cache]');
     const v = await visitatore(COMPUTER, 'programmato');
-    const p = await v.scheda('2026-10-02T10:00:00+02:00');
-    await p.goto(NAPOLI);
+    const p = await v.scheda('2026-12-10T15:30:00+01:00');
+    await p.goto(WEBINAR);
     const esiti = await p.evaluate(() => {
         const D = window.NGBDiretta;
         const f = s => D.fase(new Date(s));
@@ -360,70 +408,73 @@ async function provaNGBDiretta() {
         return {
             evento: D.EVENTO,
             servizio: D.SERVIZIO,
-            fasi: [f('2026-09-20T10:00:00+02:00'), f('2026-09-25T08:59:59+02:00'), f('2026-09-25T09:00:00+02:00'),
-                f('2026-10-01T23:59:59+02:00'), f('2026-10-02T00:00:00+02:00'), f('2026-10-02T17:29:59+02:00'),
-                f('2026-10-02T17:30:00+02:00'), f('2026-10-03T10:00:00+02:00')],
-            giorno: [g('2026-10-02T05:59:59+02:00'), g('2026-10-02T06:00:00+02:00'), g('2026-10-02T20:29:59+02:00'),
-                g('2026-10-02T20:30:00+02:00')],
+            fasi: [f('2026-11-20T10:00:00+01:00'), f('2026-12-03T14:59:59+01:00'), f('2026-12-03T15:00:00+01:00'),
+                f('2026-12-09T23:59:59+01:00'), f('2026-12-10T00:00:00+01:00'), f('2026-12-10T16:59:59+01:00'),
+                f('2026-12-10T17:00:00+01:00'), f('2026-12-11T10:00:00+01:00')],
+            giorno: [g('2026-12-10T11:59:59+01:00'), g('2026-12-10T12:00:00+01:00'), g('2026-12-10T19:59:59+01:00'),
+                g('2026-12-10T20:00:00+01:00')],
             // stesso istante scritto in UTC: il fuso del visitatore non conta
-            utc: f('2026-10-01T22:00:00Z') + '/' + f('2026-10-01T21:59:59Z'),
-            giorniRoma: [D.giornoRoma(Date.parse('2026-10-01T21:59:59Z')), D.giornoRoma(Date.parse('2026-10-01T22:00:00Z')),
-                // d'inverno Roma e' a +01:00: la mezzanotte e' alle 23 UTC
-                D.giornoRoma(Date.parse('2026-12-01T22:30:00Z')), D.giornoRoma(Date.parse('2026-12-01T23:00:00Z'))],
+            utc: f('2026-12-09T23:00:00Z') + '/' + f('2026-12-09T22:59:59Z'),
+            // d'inverno Roma e' a +01:00: la mezzanotte e' alle 23 UTC...
+            giorniRoma: [D.giornoRoma(Date.parse('2026-12-09T22:59:59Z')), D.giornoRoma(Date.parse('2026-12-09T23:00:00Z')),
+                // ...e con l'ora legale (+02:00) alle 22 UTC
+                D.giornoRoma(Date.parse('2026-10-01T21:59:59Z')), D.giornoRoma(Date.parse('2026-10-01T22:00:00Z'))],
             condizioni: {
-                'fuori': c('2026-09-20T10:00:00+02:00', 'in_onda'),
-                'prima': c('2026-09-28T10:00:00+02:00'),
-                'oggi 8.00, programmato': c('2026-10-02T08:00:00+02:00', 'programmato'),
-                'oggi 8.00, terminato (una prova del gestore)': c('2026-10-02T08:00:00+02:00', 'terminato'),
-                'oggi 8.30, gia\' in onda': c('2026-10-02T08:30:00+02:00', 'in_onda'),
-                'oggi 10.00, lettura fallita': c('2026-10-02T10:00:00+02:00', null),
-                'oggi 10.00, in onda': c('2026-10-02T10:00:00+02:00', 'in_onda'),
-                'oggi 11.00, pausa': c('2026-10-02T11:00:00+02:00', 'pausa'),
-                'oggi 16.00, terminato': c('2026-10-02T16:00:00+02:00', 'terminato'),
-                '17.45, ancora in onda': c('2026-10-02T17:45:00+02:00', 'in_onda'),
-                '17.45, in pausa': c('2026-10-02T17:45:00+02:00', 'pausa'),
-                '17.45, programmato': c('2026-10-02T17:45:00+02:00', 'programmato'),
-                '17.45, lettura fallita': c('2026-10-02T17:45:00+02:00', null),
-                '20.30, ancora in onda': c('2026-10-02T20:30:00+02:00', 'in_onda'),
-                '3 ottobre': c('2026-10-03T10:00:00+02:00', null)
+                'fuori': c('2026-11-20T10:00:00+01:00', 'in_onda'),
+                'prima': c('2026-12-05T10:00:00+01:00'),
+                'oggi 8.00, programmato': c('2026-12-10T08:00:00+01:00', 'programmato'),
+                'oggi 8.00, terminato (una prova del gestore)': c('2026-12-10T08:00:00+01:00', 'terminato'),
+                'oggi 14.30, gia\' in onda': c('2026-12-10T14:30:00+01:00', 'in_onda'),
+                'oggi 15.30, lettura fallita': c('2026-12-10T15:30:00+01:00', null),
+                'oggi 15.30, in onda': c('2026-12-10T15:30:00+01:00', 'in_onda'),
+                'oggi 16.00, pausa': c('2026-12-10T16:00:00+01:00', 'pausa'),
+                'oggi 16.30, terminato': c('2026-12-10T16:30:00+01:00', 'terminato'),
+                '17.15, ancora in onda': c('2026-12-10T17:15:00+01:00', 'in_onda'),
+                '17.15, in pausa': c('2026-12-10T17:15:00+01:00', 'pausa'),
+                '17.15, programmato': c('2026-12-10T17:15:00+01:00', 'programmato'),
+                '17.15, lettura fallita': c('2026-12-10T17:15:00+01:00', null),
+                '20.30, ancora in onda': c('2026-12-10T20:30:00+01:00', 'in_onda'),
+                '11 dicembre': c('2026-12-11T10:00:00+01:00', null)
             },
             orario: D.orario()
         };
     });
-    uguale(esiti.evento.id + '|' + esiti.evento.citta + '|' + esiti.evento.mostraDaGiorni + '|' + esiti.evento.urlDiretta + '|' + esiti.evento.pagina,
-        'napoli-2026|Napoli|7|/diretta/|/napoli_ottobre_2026/', 'EVENTO configurato in cima al file (id, citta\', giorni, indirizzi)');
+    const e = esiti.evento;
+    uguale([e.id, e.citta, e.cosa, e.invito, e.soloOnline, e.mostraDaGiorni, e.urlDiretta, e.pagina, e.urlIscrizione].join('|'),
+        'webinar-2026-12-10|Webinar|Il webinar|Segui il webinar in diretta|true|7|/diretta/|/webinar_dicembre_2026/|/webinar_dicembre_2026/#iscrizioni',
+        'EVENTO configurato in cima al file (id, parola corta, come si chiama nelle frasi, invito, solo online, giorni, indirizzi)');
     uguale(esiti.servizio, 'https://revilaw-email.vercel.app/api/diretta-stato', 'SERVIZIO: l\'endpoint pubblico con cache');
     uguale(esiti.fasi, ['fuori', 'fuori', 'prima', 'prima', 'oggi', 'oggi', 'dopo', 'dopo'],
-        'fase(): fuori fino a 7 giorni prima delle 9.00, prima, oggi dalla mezzanotte di Roma, dopo dalle 17.30');
-    uguale(esiti.giorno, [false, true, true, false], 'eGiorno(): lettura da 3 ore prima dell\'inizio a 3 ore dopo la fine prevista');
+        'fase(): fuori fino a 7 giorni prima delle 15.00, prima, oggi dalla mezzanotte di Roma, dopo dalle 17.00');
+    uguale(esiti.giorno, [false, true, true, false], 'eGiorno(): lettura da 3 ore prima dell\'inizio (12.00) a 3 ore dopo la fine prevista (20.00)');
     uguale(esiti.utc, 'oggi/prima', 'il giorno dell\'evento comincia alla mezzanotte di Roma');
-    uguale(esiti.giorniRoma, ['2026-10-01', '2026-10-02', '2026-12-01', '2026-12-02'], 'giornoRoma(): mezzanotte di Roma con l\'ora legale e d\'inverno (Intl)');
+    uguale(esiti.giorniRoma, ['2026-12-09', '2026-12-10', '2026-10-01', '2026-10-02'], 'giornoRoma(): mezzanotte di Roma d\'inverno e con l\'ora legale (Intl)');
     uguale(esiti.condizioni, {
         'fuori': 'fuori',
         'prima': 'prima',
         'oggi 8.00, programmato': 'oggi',
         'oggi 8.00, terminato (una prova del gestore)': 'oggi',
-        'oggi 8.30, gia\' in onda': 'in_onda',
-        'oggi 10.00, lettura fallita': 'oggi',
-        'oggi 10.00, in onda': 'in_onda',
-        'oggi 11.00, pausa': 'pausa',
-        'oggi 16.00, terminato': 'conclusa',
-        '17.45, ancora in onda': 'in_onda',
-        '17.45, in pausa': 'pausa',
-        '17.45, programmato': 'conclusa',
-        '17.45, lettura fallita': 'conclusa',
+        'oggi 14.30, gia\' in onda': 'in_onda',
+        'oggi 15.30, lettura fallita': 'oggi',
+        'oggi 15.30, in onda': 'in_onda',
+        'oggi 16.00, pausa': 'pausa',
+        'oggi 16.30, terminato': 'conclusa',
+        '17.15, ancora in onda': 'in_onda',
+        '17.15, in pausa': 'pausa',
+        '17.15, programmato': 'conclusa',
+        '17.15, lettura fallita': 'conclusa',
         '20.30, ancora in onda': 'conclusa',
-        '3 ottobre': 'conclusa'
+        '11 dicembre': 'conclusa'
     }, 'condizione(): da orario e stato (pausa, sforamento, terminato prima dell\'inizio, 3 ore dopo la fine)');
-    uguale(esiti.orario, { giorno: 'venerdì 2 ottobre 2026', inizio: '9.00', fine: '17.30', giornoBreve: '2 ottobre' }, 'orario() leggibile come nel resto del sito');
+    uguale(esiti.orario, { giorno: 'giovedì 10 dicembre 2026', inizio: '15.00', fine: '17.00', giornoBreve: '10 dicembre' }, 'orario() leggibile come nel resto del sito');
 
     await p.waitForTimeout(300);
     const primaDiLeggere = v.richieste.length;
-    vero(primaDiLeggere === 1 && /\/api\/diretta-stato\?evento=napoli-2026$/.test(v.richieste[0]),
+    vero(primaDiLeggere === 1 && /\/api\/diretta-stato\?evento=webinar-2026-12-10$/.test(v.richieste[0]),
         'la pagina chiede lo stato una volta, con il solo parametro evento (' + v.richieste[0] + ')');
     // cinque letture insieme a cache vuota: una sola richiesta in volo
     const cinque = await p.evaluate(() => new Promise(ok => {
-        sessionStorage.removeItem('ngbDirettaStato_napoli-2026');
+        sessionStorage.removeItem('ngbDirettaStato_webinar-2026-12-10');
         const risposte = [];
         for (let i = 0; i < 5; i++) window.NGBDiretta.leggi(d => { risposte.push(d && d.stato); if (risposte.length === 5) ok(risposte); });
     }));
@@ -432,25 +483,30 @@ async function provaNGBDiretta() {
     const ancora = await p.evaluate(() => new Promise(ok => window.NGBDiretta.leggi(d => ok(d && d.stato))));
     uguale([ancora, v.richieste.length - primaDiLeggere], ['programmato', 1], 'una nuova lettura entro 60 s viene dalla cache (sessionStorage), senza rete');
     await p.clock.runFor(61 * 1000);
+    /* Il ricontrollo del minuto (segui) ha appena chiesto lo stato: si aspetta
+       che la sua risposta sia arrivata, altrimenti la lettura "fallita" qui
+       sotto si accoda alla sua richiesta in volo e ne eredita lo stato buono
+       (una corsa che su una macchina lenta si vedeva come due rossi). */
+    await p.waitForTimeout(500);
     let dopo = v.richieste.length;
     v.stato = null; // il servizio risponde { ok:false }
     const fallita = await p.evaluate(() => new Promise(ok => {
-        sessionStorage.removeItem('ngbDirettaStato_napoli-2026');
+        sessionStorage.removeItem('ngbDirettaStato_webinar-2026-12-10');
         window.NGBDiretta.leggi(d => ok(d));
     }));
     uguale(fallita, null, 'risposta { ok:false } del servizio: cb(null)');
     vero(v.richieste.length === dopo + 1, 'anche la lettura fallita e\' una sola richiesta (e resta in cache: niente raffiche)');
 
     // 'pausa' con l'orario di ripresa: accettato e ripulito
-    v.stato = 'pausa'; v.ripresa = '14:30';
+    v.stato = 'pausa'; v.ripresa = '16:10';
     const pausa = await p.evaluate(() => new Promise(ok => {
-        sessionStorage.removeItem('ngbDirettaStato_napoli-2026');
+        sessionStorage.removeItem('ngbDirettaStato_webinar-2026-12-10');
         window.NGBDiretta.leggi(d => ok(d && [d.stato, d.ripresa]));
     }));
-    uguale(pausa, ['pausa', '14.30'], 'stato "pausa" accettato, con la ripresa scritta come nel sito (14.30)');
-    v.ripresa = '<b>14</b>';
+    uguale(pausa, ['pausa', '16.10'], 'stato "pausa" accettato, con la ripresa scritta come nel sito (16.10)');
+    v.ripresa = '<b>16</b>';
     const sporca = await p.evaluate(() => new Promise(ok => {
-        sessionStorage.removeItem('ngbDirettaStato_napoli-2026');
+        sessionStorage.removeItem('ngbDirettaStato_webinar-2026-12-10');
         window.NGBDiretta.leggi(d => ok(d && d.ripresa));
     }));
     uguale(sporca, '', 'una ripresa che non e\' un orario si scarta');
@@ -459,32 +515,32 @@ async function provaNGBDiretta() {
     // 'terminato' a evento cominciato chiude la lettura
     v.stato = 'terminato';
     await p.evaluate(() => new Promise(ok => {
-        sessionStorage.removeItem('ngbDirettaStato_napoli-2026');
+        sessionStorage.removeItem('ngbDirettaStato_webinar-2026-12-10');
         window.NGBDiretta.leggi(() => ok());
     }));
     dopo = v.richieste.length;
     v.stato = 'in_onda';
     await p.clock.runFor(5 * MINUTO);
     const chiusa = await p.evaluate(() => new Promise(ok => window.NGBDiretta.leggi(d => ok(d && d.stato))));
-    uguale([chiusa, v.richieste.length - dopo], ['terminato', 0], 'dopo "terminato" (letto alle 10) nessuna richiesta, nemmeno a cache scaduta');
+    uguale([chiusa, v.richieste.length - dopo], ['terminato', 0], 'dopo "terminato" (letto alle 15.30) nessuna richiesta, nemmeno a cache scaduta');
     vero(v.errori.length === 0, 'nessun errore JavaScript nella pagina' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
     await v.ctx.close();
 
     // un visitatore da New York: il giorno dell'evento resta quello di Roma
     const ny = await visitatore(Object.assign({}, COMPUTER, { timezoneId: 'America/New_York' }), 'programmato');
-    const q = await ny.scheda('2026-10-01T22:30:00Z'); // 18.30 a New York, 0.30 del 2 ottobre a Roma
-    await q.goto(NAPOLI);
+    const q = await ny.scheda('2026-12-09T23:30:00Z'); // 18.30 a New York, 0.30 del 10 dicembre a Roma
+    await q.goto(WEBINAR);
     const daNy = await q.evaluate(() => [new Date().getDate(), window.NGBDiretta.fase(), window.NGBDiretta.giornoRoma(Date.now())]);
-    uguale(daNy, [1, 'oggi', '2026-10-02'], 'chi visita da New York il 1 ottobre alle 18.30 (0.30 a Roma) e\' gia\' nel giorno dell\'evento');
+    uguale(daNy, [9, 'oggi', '2026-12-10'], 'chi visita da New York il 9 dicembre alle 18.30 (0.30 a Roma) e\' gia\' nel giorno dell\'evento');
     await ny.ctx.close();
 }
 
 /* ---------- 2. la home ---------- */
 async function provaHome() {
-    console.log('\n[home: 20 settembre, fuori finestra]');
+    console.log('\n[home: 20 novembre, fuori finestra]');
     {
         const v = await visitatore(COMPUTER);
-        const p = await v.scheda('2026-09-20T10:00:00+02:00');
+        const p = await v.scheda('2026-11-20T10:00:00+01:00');
         await p.goto(HOME);
         await quiete(p);
         uguale(await nelDom(p), [], 'nessun popup: ne\' della diretta ne\' delle novita\'');
@@ -498,31 +554,31 @@ async function provaHome() {
     console.log('\n[home: la finestra si apre a pagina aperta]');
     {
         const v = await visitatore(COMPUTER);
-        const p = await v.scheda('2026-09-25T08:59:20+02:00');
+        const p = await v.scheda('2026-12-03T14:59:20+01:00');
         await p.goto(HOME);
         await p.waitForTimeout(500);
-        uguale((await pillola(p)).visibile, false, 'alle 8.59 del 25 settembre ancora niente pillola');
+        uguale((await pillola(p)).visibile, false, 'alle 14.59 del 3 dicembre ancora niente pillola');
         await passa(p, MINUTO);
         const pl = await pillola(p);
-        uguale([pl.visibile, pl.testo], [true, 'Diretta Napoli 2 ottobre'], 'dalle 9.00 (7 giorni prima) la pillola compare da sola, senza ricaricare');
+        uguale([pl.visibile, pl.testo], [true, 'Diretta Webinar 10 dicembre'], 'dalle 15.00 (7 giorni prima) la pillola compare da sola, senza ricaricare');
         uguale(v.richieste.length, 0, 'senza nessuna richiesta allo stato');
         await v.ctx.close();
     }
 
-    /* La finestra della diretta si apre il 25 settembre alle 9.00. Prima
+    /* La finestra della diretta si apre il 3 dicembre alle 15.00. Prima
        la home non apre nessun popup (le novita' sono nella pagina, nel
-       riquadro «Sotto la lente»): chi torna sulla home dopo le 9.00, nella
+       riquadro «Sotto la lente»): chi torna sulla home dopo le 15.00, nella
        stessa scheda, vede il popup della diretta, il primo della sessione. */
     console.log('\n[home: la finestra si apre a sessione iniziata]');
     {
         const v = await visitatore(COMPUTER);
-        const p = await v.scheda('2026-09-25T08:58:00+02:00');
+        const p = await v.scheda('2026-12-03T14:58:00+01:00');
         await p.goto(HOME);
         await quiete(p);
-        uguale([await nelDom(p), await p.evaluate(() => window.NGBDiretta.fase())], [[], 'fuori'], 'alle 8.58 del 25 settembre nessun popup, la finestra della diretta non e\' ancora aperta');
+        uguale([await nelDom(p), await p.evaluate(() => window.NGBDiretta.fase())], [[], 'fuori'], 'alle 14.58 del 3 dicembre nessun popup, la finestra della diretta non e\' ancora aperta');
         uguale(await p.evaluate(() => sessionStorage.getItem('dirPromoSeen')), null, 'il popup della diretta non risulta visto');
         await passa(p, 3 * MINUTO);
-        uguale((await pillola(p)).visibile, true, 'alle 9.01 la finestra si apre: compare la pillola');
+        uguale((await pillola(p)).visibile, true, 'alle 15.01 la finestra si apre: compare la pillola');
         await p.reload();
         vero(await aspettaPopup(p, 'dirPromo'), 'tornando sulla home nella stessa sessione, a finestra aperta: compare il popup della diretta');
         uguale([await p.evaluate(() => window.NGBDiretta.fase()), await nelDom(p)], ['prima', ['dirPromo']], 'ed e\' l\'unico');
@@ -536,10 +592,10 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 26 settembre, nella finestra (computer)]');
+    console.log('\n[home: 5 dicembre, nella finestra (computer)]');
     {
         const v = await visitatore(COMPUTER);
-        const p = await v.scheda('2026-09-26T10:00:00+02:00');
+        const p = await v.scheda('2026-12-05T10:00:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         await scatta(p, 'popup-home-computer-prima');
@@ -547,12 +603,18 @@ async function provaHome() {
             const r = document.getElementById('dirPromo');
             const card = r.querySelector('.dirp-card');
             const q = s => r.querySelector(s);
+            // il popup senza la riga per chi non e' iscritto (che parla di credenziali)
+            const copia = r.cloneNode(true);
+            const riga = copia.querySelector('.dirp-presenza');
+            if (riga) riga.remove();
             return {
                 ruolo: card.getAttribute('role') + '|' + card.getAttribute('aria-modal') + '|' + card.getAttribute('aria-labelledby'),
                 titoloId: q('h2').id,
                 eyebrow: q('.dirp-eyebrow').textContent.trim(),
                 titolo: q('h2').textContent,
+                sotto: q('.dirp-sub').textContent,
                 corpo: r.textContent.replace(/\s+/g, ' '),
+                corpoSenzaRiga: copia.textContent.replace(/\s+/g, ' '),
                 cta: q('.dirp-cta').getAttribute('href') + '|' + q('.dirp-cta').textContent.trim(),
                 programma: q('.dirp-programma').getAttribute('href') + '|' + q('.dirp-programma').textContent.trim(),
                 posta: (q('.dirp-info a[href^="mailto:"]') || {}).href || '',
@@ -561,35 +623,44 @@ async function provaHome() {
                 mai: q('[data-dirp-never]').textContent.trim(),
                 chiudi: r.querySelectorAll('[data-dirp-close]').length,
                 focus: document.activeElement === card,
+                attivo: (a => a ? a.tagName.toLowerCase() + (a.id ? '#' + a.id : '') + (a.className ? '.' + String(a.className).trim().replace(/\s+/g, '.') : '') : 'nessuno')(document.activeElement),
+                // altre finestre modali aperte insieme al popup (la finestra del
+                // prossimo evento di assets/event-banner.js, .ngb-fin-velo)
+                altreFinestre: Array.from(document.querySelectorAll('.ngb-fin-velo, [role="dialog"]')).filter(el => !el.closest('#dirPromo'))
+                    .map(el => el.tagName.toLowerCase() + '.' + String(el.className).trim().replace(/\s+/g, '.')),
                 sessione: ['dirPromoSeen', 'btPromoSeen', 'fcdPromoSeen'].map(k => sessionStorage.getItem(k)).join(',')
             };
         });
         uguale(t.ruolo, 'dialog|true|dirPromoTitle', 'dialogo modale accessibile (role, aria-modal, aria-labelledby)');
         uguale(t.titoloId, 'dirPromoTitle', 'il titolo e\' quello indicato da aria-labelledby');
-        uguale(t.eyebrow, 'Diretta Napoli · 2 ottobre 2026', 'occhiello "Diretta Napoli · 2 ottobre 2026"');
-        uguale(t.titolo, 'Segui il convegno in diretta', 'titolo dei giorni prima');
+        uguale(t.eyebrow, 'Diretta Webinar · 10 dicembre 2026', 'occhiello "Diretta Webinar · 10 dicembre 2026"');
+        uguale(t.titolo, 'Segui il webinar in diretta', 'titolo dei giorni prima "Segui il webinar in diretta"');
+        uguale(t.sotto, 'Next Generation Business del 10 dicembre si segue online, in diretta, da computer, tablet e telefono.',
+            'sottotitolo: "Next Generation Business del 10 dicembre si segue online, in diretta, da computer, tablet e telefono."');
         vero(/iscritti online entrano nella diretta con la propria email e la password ricevuta via email/.test(t.corpo),
             'spiega che gli iscritti online entrano con la propria email e la password ricevuta via email');
         vero(/Non trovi l’email\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness\.it/.test(t.corpo),
             '"Non trovi l’email? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness.it"');
-        vero(!/nome utente|credenziali/i.test(t.corpo + ' ' + t.sotto), 'nessun "nome utente" e nessuna "credenziali" nel popup');
+        vero(!/nome utente|credenziali/i.test(t.corpoSenzaRiga),
+            'nessun "nome utente" e nessuna "credenziali" nel popup: si entra con email e password (solo la riga per chi non e\' iscritto dice che le credenziali arrivano per email)');
         uguale(t.posta, 'mailto:info@nextgenerationbusiness.it', 'l\'indirizzo dell\'assistenza e\' un collegamento email');
-        vero(/Venerdì 2 ottobre 2026, dalle 9\.00 alle 17\.30/.test(t.corpo), 'giorno e orario dell\'evento');
+        vero(/Giovedì 10 dicembre 2026, dalle 15\.00 alle 17\.00/.test(t.corpo), 'giorno e orario dell\'evento');
         uguale(t.cta, '/diretta/|Accedi alla diretta', 'pulsante "Accedi alla diretta" verso /diretta/');
-        // chi e' iscritto in presenza e non potra' venire: una nuova iscrizione, per la diretta
+        // il webinar e' solo online: la riga sotto i pulsanti parla a chi non si e' ancora iscritto
         const presenza = await p.evaluate(() => {
             const li = document.querySelector('#dirPromo .dirp-presenza');
             const a = li && li.querySelector('a.dirp-iscriviti');
             return li ? { testo: li.textContent.replace(/\s+/g, ' ').trim(), href: a && a.getAttribute('href'), link: a && a.textContent, svg: !!li.querySelector('svg[aria-hidden="true"]') } : null;
         });
-        uguale(presenza && presenza.testo, 'Iscritto in presenza ma non puoi venire? Iscriviti alla diretta, anche con la stessa email, e annulla il posto in sala da «Modifica o annulla» nella tua email.',
-            'la riga per chi e\' iscritto in presenza: nuova iscrizione per la diretta, anche con la stessa email, e il posto in sala da annullare');
-        uguale(presenza && [presenza.href, presenza.link, presenza.svg], ['/napoli_ottobre_2026/#accreditamento', 'Iscriviti alla diretta', true], '«Iscriviti alla diretta» porta al modulo della pagina di Napoli');
-        uguale(t.programma, '/napoli_ottobre_2026/#programma|Programma dell’evento', 'collegamento secondario al programma dell\'evento');
+        uguale(presenza && presenza.testo, 'Non sei ancora iscritto? Iscriviti al webinar: la partecipazione è gratuita, le credenziali per la diretta arrivano per email.',
+            'la riga per chi non e\' ancora iscritto (evento solo online, niente posti in sala): partecipazione gratuita, credenziali per email');
+        uguale(presenza && [presenza.href, presenza.link, presenza.svg], ['/webinar_dicembre_2026/#iscrizioni', 'Iscriviti al webinar', true], '«Iscriviti al webinar» porta al modulo della pagina del webinar');
+        uguale(t.programma, '/webinar_dicembre_2026/#programma|Programma dell’evento', 'collegamento secondario al programma dell\'evento');
         vero(t.live && t.pausa, 'nessun indicatore IN DIRETTA ne\' "In pausa" prima del giorno dell\'evento');
         uguale(t.mai, 'Non mostrare più', '"Non mostrare più" con l\'accento');
         vero(t.chiudi >= 3, 'chiusura da sfondo, X e "Chiudi"');
-        vero(t.focus, 'all\'apertura il focus va sul dialogo');
+        vero(t.focus, 'all\'apertura il focus va sul dialogo', 'il fuoco ce l\'ha ' + t.attivo);
+        uguale(t.altreFinestre, [], 'nessun\'altra finestra aperta insieme al popup della diretta (la finestra del prossimo evento di event-banner.js gli cede la precedenza)');
         uguale(t.sessione, '1,1,1', 'all\'apertura segna come visti anche btPromoSeen e fcdPromoSeen (le chiavi dei vecchi popup dei bandi)');
         uguale(await nelDom(p), ['dirPromo'], 'nessun altro popup: le novita\' sono nella pagina');
         uguale(v.richieste.length, 0, 'nessuna richiesta allo stato fuori dal giorno dell\'evento');
@@ -617,7 +688,7 @@ async function provaHome() {
 
         // la pillola: in basso a sinistra, sopra i contenuti della pagina
         pl = await pillola(p);
-        uguale([pl.visibile, pl.testo, pl.href, pl.stato], [true, 'Diretta Napoli 2 ottobre', '/diretta/', 'prima'], 'pillola fissa "Diretta Napoli · 2 ottobre" verso /diretta/');
+        uguale([pl.visibile, pl.testo, pl.href, pl.stato], [true, 'Diretta Webinar 10 dicembre', '/diretta/', 'prima'], 'pillola fissa "Diretta Webinar · 10 dicembre" verso /diretta/');
         vero(pl.rett.sinistra <= 24 && pl.finestra.altezza - pl.rett.basso <= 24, 'in basso a sinistra (' + pl.rett.sinistra + 'px dal bordo, ' + (pl.finestra.altezza - pl.rett.basso) + 'px dal fondo)');
         vero(pl.rett.altezza >= 44, 'alta almeno 44px, facile da toccare (' + pl.rett.altezza + 'px)');
         let sempreSopra = pl.chiSopra === 'pillola';
@@ -643,10 +714,10 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 26 settembre, clic sullo sfondo]');
+    console.log('\n[home: 5 dicembre, clic sullo sfondo]');
     {
         const v = await visitatore(COMPUTER);
-        const p = await v.scheda('2026-09-26T10:00:00+02:00');
+        const p = await v.scheda('2026-12-05T10:00:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         await p.mouse.click(12, 12);
@@ -658,13 +729,13 @@ async function provaHome() {
     console.log('\n[home: "Non mostrare più" e nuova sessione]');
     {
         const v = await visitatore(COMPUTER);
-        const p = await v.scheda('2026-09-26T10:00:00+02:00');
+        const p = await v.scheda('2026-12-05T10:00:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         await p.click('[data-dirp-never]');
         await p.waitForTimeout(700);
         uguale(await popupPresenti(p), [], '"Non mostrare più" chiude il popup');
-        uguale(await p.evaluate(() => localStorage.getItem('dirPromoHidden_napoli-2026')), '1', 'la scelta resta in localStorage per questo evento');
+        uguale(await p.evaluate(() => localStorage.getItem('dirPromoHidden_webinar-2026-12-10')), '1', 'la scelta resta in localStorage per questo evento');
         uguale((await pillola(p)).visibile, true, 'la pillola resta: "Non mostrare più" riguarda solo il popup');
         await p.close();
         const p2 = await v.scheda(); // nuova scheda = nuova sessione, stesso localStorage (orologio del contesto)
@@ -672,14 +743,14 @@ async function provaHome() {
         await quiete(p2);
         uguale(await nelDom(p2), [], 'nella nuova sessione il popup della diretta non ricompare (e nessun altro popup)');
         const pl = await pillola(p2);
-        uguale([pl.visibile, pl.chiSopra], [true, 'pillola'], 'la pillola c\'e\' anche nella nuova sessione, in primo piano');
+        uguale([pl.visibile, pl.chiSopra], [true, 'pillola'], 'la pillola c\'e\' anche nella nuova sessione, in primo piano' + (pl.chiSopra === 'pillola' ? '' : ' (sopra di lei: ' + pl.sopraChi + ')'));
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 10, in onda (computer)]');
+    console.log('\n[home: 10 dicembre ore 15.30, in onda (computer)]');
     {
         const v = await visitatore(COMPUTER, 'in_onda');
-        const p = await v.scheda('2026-10-02T10:00:00+02:00');
+        const p = await v.scheda('2026-12-10T15:30:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         await scatta(p, 'popup-home-computer-in-diretta');
@@ -688,6 +759,7 @@ async function provaHome() {
             const live = r.querySelector('.dirp-live');
             return {
                 titolo: r.querySelector('h2').textContent,
+                sotto: r.querySelector('.dirp-sub').textContent,
                 live: !live.hidden && live.getBoundingClientRect().width > 0 ? live.textContent.trim() : '',
                 eyebrow: r.querySelector('.dirp-eyebrow').hidden,
                 pausa: r.querySelector('.dirp-pausa').hidden,
@@ -695,20 +767,21 @@ async function provaHome() {
             };
         });
         uguale(t.titolo, 'Siamo in diretta: accedi', 'titolo "Siamo in diretta: accedi"');
+        uguale(t.sotto, 'Il webinar è in corso: entra con la tua email e la password ricevuta via email.', 'sottotitolo: "Il webinar è in corso: entra con la tua email e la password ricevuta via email."');
         uguale(t.live, 'IN DIRETTA', 'indicatore rosso IN DIRETTA visibile');
-        vero(await p.isVisible('#dirPromo .dirp-presenza a.dirp-iscriviti'), 'anche in onda c\'e\' «Iscriviti alla diretta» per chi era iscritto in presenza');
+        vero(await p.isVisible('#dirPromo .dirp-presenza a.dirp-iscriviti'), 'anche in onda c\'e\' «Iscriviti al webinar» per chi non e\' ancora iscritto');
         vero(t.eyebrow && t.pausa, 'al posto dell\'occhiello (e niente "In pausa")');
         uguale(v.richieste.length, 1, 'una sola richiesta allo stato (popup e pillola insieme)');
         uguale(await nelDom(p), ['dirPromo'], 'nessun altro popup');
         await chiudiPopup(p);
         let pl = await pillola(p);
-        uguale([pl.visibile, pl.testo, pl.stato, pl.chiSopra], [true, 'IN DIRETTA Napoli', 'in_onda', 'pillola'], 'la pillola dice IN DIRETTA');
+        uguale([pl.visibile, pl.testo, pl.stato, pl.chiSopra], [true, 'IN DIRETTA Webinar', 'in_onda', 'pillola'], 'la pillola dice IN DIRETTA');
         await scatta(p, 'pillola-home-computer-in-diretta', { clip: { x: 0, y: 900 - 140, width: 520, height: 140 } });
         // la pillola segue lo stato da sola, una richiesta al minuto
         v.stato = 'pausa';
         await passa(p, MINUTO);
         pl = await pillola(p);
-        uguale([pl.testo, pl.stato], ['Diretta Napoli In pausa', 'pausa'], 'dopo un minuto, in pausa: "Diretta Napoli · In pausa", niente IN DIRETTA');
+        uguale([pl.testo, pl.stato], ['Diretta Webinar In pausa', 'pausa'], 'dopo un minuto, in pausa: "Diretta Webinar · In pausa", niente IN DIRETTA');
         uguale(v.richieste.length, 2, 'con una richiesta in piu\'');
         await scatta(p, 'pillola-home-computer-pausa', { clip: { x: 0, y: 900 - 140, width: 520, height: 140 } });
         v.stato = 'in_onda';
@@ -724,11 +797,11 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 11, in pausa]');
+    console.log('\n[home: 10 dicembre ore 16, in pausa]');
     {
         const v = await visitatore(COMPUTER, 'pausa');
-        v.ripresa = '11:30';
-        const p = await v.scheda('2026-10-02T11:00:00+02:00');
+        v.ripresa = '16:10';
+        const p = await v.scheda('2026-12-10T16:00:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         const t = await p.evaluate(() => {
@@ -743,7 +816,7 @@ async function provaHome() {
             };
         });
         uguale(t.titolo, 'La diretta è in pausa', 'titolo "La diretta è in pausa"');
-        uguale(t.sotto, 'Il convegno di Napoli riprende alle 11.30 (ora italiana). Intanto puoi già entrare con la tua email e la password ricevuta via email.',
+        uguale(t.sotto, 'Il webinar riprende alle 16.10 (ora italiana). Intanto puoi già entrare con la tua email e la password ricevuta via email.',
             'con l\'orario di ripresa, in ora italiana');
         uguale([t.pausa, t.live, t.stato], ['In pausa', false, 'pausa'], 'scritta "In pausa" e niente indicatore IN DIRETTA');
         await scatta(p, 'popup-home-computer-pausa');
@@ -751,29 +824,59 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 8, non ancora in onda]');
+    console.log('\n[home: 10 dicembre ore 16, in pausa senza orario di ripresa]');
+    {
+        const v = await visitatore(COMPUTER, 'pausa');
+        const p = await v.scheda('2026-12-10T16:00:00+01:00');
+        await p.goto(HOME);
+        vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
+        uguale(await p.evaluate(() => document.querySelector('#dirPromo .dirp-sub').textContent),
+            'Il webinar riprende a breve. Intanto puoi già entrare con la tua email e la password ricevuta via email.',
+            'senza orario scritto dal gestore: "Il webinar riprende a breve."');
+        await v.ctx.close();
+    }
+
+    console.log('\n[home: 10 dicembre ore 8, non ancora in onda]');
     {
         const v = await visitatore(COMPUTER, 'programmato');
-        const p = await v.scheda('2026-10-02T08:00:00+02:00');
+        const p = await v.scheda('2026-12-10T08:00:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         const t = await p.evaluate(() => ({
             titolo: document.querySelector('#dirPromo h2').textContent,
+            sotto: document.querySelector('#dirPromo .dirp-sub').textContent,
             live: document.querySelector('#dirPromo .dirp-live').hidden
         }));
-        uguale(t.titolo, 'Oggi in diretta dalle 9.00', 'titolo "Oggi in diretta dalle 9.00"');
+        uguale(t.titolo, 'Oggi in diretta dalle 15.00', 'titolo "Oggi in diretta dalle 15.00"');
+        uguale(t.sotto, 'Il webinar si segue online: si entra con la propria email e la password ricevuta via email.', 'sottotitolo: "Il webinar si segue online: si entra con la propria email e la password ricevuta via email."');
         vero(t.live, 'niente indicatore IN DIRETTA');
         await chiudiPopup(p);
         const pl = await pillola(p);
-        uguale([pl.visibile, pl.testo, pl.stato], [true, 'Diretta Napoli oggi dalle 9.00', 'oggi'], 'pillola "Diretta Napoli · oggi dalle 9.00"');
-        uguale(v.richieste.length, 1, 'una sola richiesta allo stato');
+        uguale([pl.visibile, pl.testo, pl.stato], [true, 'Diretta Webinar oggi dalle 15.00', 'oggi'], 'pillola "Diretta Webinar · oggi dalle 15.00"');
+        uguale(v.richieste.length, 0, 'nessuna richiesta allo stato: la lettura comincia 3 ore prima dell\'inizio (alle 12)');
+        await passa(p, 2 * MINUTO);
+        uguale(v.richieste.length, 0, 'nemmeno dopo due minuti');
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 17.45, si sfora oltre la fine prevista]');
+    console.log('\n[home: 10 dicembre ore 13, nella finestra di lettura, non ancora in onda]');
+    {
+        const v = await visitatore(COMPUTER, 'programmato');
+        const p = await v.scheda('2026-12-10T13:00:00+01:00');
+        await p.goto(HOME);
+        vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
+        uguale(await p.evaluate(() => [document.querySelector('#dirPromo h2').textContent, document.querySelector('#dirPromo .dirp-live').hidden]),
+            ['Oggi in diretta dalle 15.00', true], 'titolo "Oggi in diretta dalle 15.00", niente indicatore IN DIRETTA');
+        await chiudiPopup(p);
+        uguale((await pillola(p)).stato, 'oggi', 'pillola "oggi"');
+        uguale(v.richieste.length, 1, 'una sola richiesta allo stato (dalle 12 si legge, popup e pillola insieme)');
+        await v.ctx.close();
+    }
+
+    console.log('\n[home: 10 dicembre ore 17.15, si sfora oltre la fine prevista]');
     {
         const v = await visitatore(COMPUTER, 'in_onda');
-        const p = await v.scheda('2026-10-02T17:45:00+02:00');
+        const p = await v.scheda('2026-12-10T17:15:00+01:00');
         await p.goto(HOME);
         await quiete(p);
         uguale(await nelDom(p), [], 'il popup della diretta si e\' spento all\'orario previsto: nessun popup');
@@ -789,10 +892,10 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 19, dopo la fine]');
+    console.log('\n[home: 10 dicembre ore 18.30, dopo la fine]');
     {
         const v = await visitatore(COMPUTER, 'terminato');
-        const p = await v.scheda('2026-10-02T19:00:00+02:00');
+        const p = await v.scheda('2026-12-10T18:30:00+01:00');
         await p.goto(HOME);
         await quiete(p);
         uguale(await nelDom(p), [], 'nessun popup: quello della diretta si e\' spento da solo');
@@ -804,10 +907,10 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 21, oltre le 3 ore dopo la fine]');
+    console.log('\n[home: 10 dicembre ore 21, oltre le 3 ore dopo la fine]');
     {
         const v = await visitatore(COMPUTER, 'in_onda');
-        const p = await v.scheda('2026-10-02T21:00:00+02:00');
+        const p = await v.scheda('2026-12-10T21:00:00+01:00');
         await p.goto(HOME);
         await quiete(p);
         uguale(await nelDom(p), [], 'nessun popup');
@@ -818,10 +921,10 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    console.log('\n[home: 2 ottobre ore 16, diretta gia\' terminata]');
+    console.log('\n[home: 10 dicembre ore 16.30, diretta gia\' terminata]');
     {
         const v = await visitatore(COMPUTER, 'terminato');
-        const p = await v.scheda('2026-10-02T16:00:00+02:00');
+        const p = await v.scheda('2026-12-10T16:30:00+01:00');
         await p.goto(HOME);
         await p.waitForLoadState('load');
         await p.waitForTimeout(QUIETE_MS);
@@ -838,7 +941,7 @@ async function provaHome() {
     console.log('\n[home: prefers-reduced-motion]');
     {
         const v = await visitatore(Object.assign({ reducedMotion: 'reduce' }, COMPUTER), 'in_onda');
-        const p = await v.scheda('2026-10-02T10:00:00+02:00');
+        const p = await v.scheda('2026-12-10T15:30:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         const m = await p.evaluate(() => {
@@ -858,7 +961,7 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    for (const [nome, quando, stato] of [['prima', '2026-09-26T10:00:00+02:00', null], ['in-diretta', '2026-10-02T10:00:00+02:00', 'in_onda']]) {
+    for (const [nome, quando, stato] of [['prima', '2026-12-05T10:00:00+01:00', null], ['in-diretta', '2026-12-10T15:30:00+01:00', 'in_onda']]) {
         console.log('\n[home: telefono, ' + nome + ']');
         const v = await visitatore(TELEFONO, stato);
         const p = await v.scheda(quando);
@@ -877,15 +980,15 @@ async function provaHome() {
             const riga = document.querySelector('#dirPromo .dirp-presenza').getBoundingClientRect();
             return { visibile: b.top >= c.top && b.bottom <= c.bottom && b.bottom <= window.innerHeight, basso: Math.round(b.bottom), schermo: window.innerHeight, riga: riga.height > 0 && riga.top >= b.bottom };
         });
-        vero(cta.visibile && cta.riga, 'la riga per chi e\' in presenza sta sotto i pulsanti: «Accedi alla diretta» resta visibile senza scorrere (fondo a ' + cta.basso + ' px su ' + cta.schermo + ')');
-        uguale(r.titolo, stato ? 'Siamo in diretta: accedi' : 'Segui il convegno in diretta', 'titolo giusto');
+        vero(cta.visibile && cta.riga, 'la riga per chi non e\' iscritto sta sotto i pulsanti: «Accedi alla diretta» resta visibile senza scorrere (fondo a ' + cta.basso + ' px su ' + cta.schermo + ')');
+        uguale(r.titolo, stato ? 'Siamo in diretta: accedi' : 'Segui il webinar in diretta', 'titolo giusto');
         await p.tap('#dirPromo .dirp-close');
         await p.waitForTimeout(700);
         uguale(await popupPresenti(p), [], 'la X chiude il popup');
         const pl = await pillola(p);
         vero(pl.visibile && pl.chiSopra === 'pillola' && pl.rett.sinistra >= 12 && pl.rett.destra <= pl.finestra.larghezza - 12 &&
             pl.rett.basso <= pl.finestra.altezza - 12 && pl.rett.altezza >= 44,
-            'la pillola sta nello schermo, in primo piano, alta ' + (pl.rett && pl.rett.altezza) + 'px (' + pl.testo + ')');
+            'la pillola sta nello schermo, in primo piano, alta ' + (pl.rett && pl.rett.altezza) + 'px (' + pl.testo + ')' + (pl.chiSopra === 'pillola' ? '' : ' (sopra di lei: ' + pl.sopraChi + ')'));
         vero(await senzaScorrimentoOrizzontale(p), 'e non fa scorrere la pagina di lato');
         await scatta(p, 'pillola-home-telefono-' + nome);
         /* Gli avvisi del sito passano sopra la pillola: sul telefono l'esito
@@ -909,13 +1012,14 @@ async function provaHome() {
         await v.ctx.close();
     }
 
-    /* Un telefono da 360 px (Android): la riga per chi e' in presenza non deve
-       spingere «Accedi alla diretta» fuori dallo schermo. Poi il tocco su
-       «Iscriviti alla diretta» porta al modulo della pagina di Napoli. */
-    console.log('\n[home: telefono da 360 px, «Iscriviti alla diretta»]');
+    /* Un telefono da 360 px (Android): la riga per chi non e' iscritto non
+       deve spingere «Accedi alla diretta» fuori dallo schermo. Poi il tocco su
+       «Iscriviti al webinar» porta alle iscrizioni della pagina del webinar
+       (oggi chiuse: si vede l'avviso, il modulo no). */
+    console.log('\n[home: telefono da 360 px, «Iscriviti al webinar»]');
     {
         const v = await visitatore({ viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, null);
-        const p = await v.scheda('2026-09-26T10:00:00+02:00');
+        const p = await v.scheda('2026-12-05T10:00:00+01:00');
         await p.goto(HOME);
         vero(await aspettaPopup(p, 'dirPromo'), 'compare il popup della diretta');
         await scatta(p, 'popup-home-telefono-360');
@@ -927,22 +1031,28 @@ async function provaHome() {
         vero(m.dentro && m.visibile, '360 px: il riquadro sta nello schermo e «Accedi alla diretta» si vede senza scorrere (fondo a ' + m.basso + ' px su ' + m.schermo + ')');
         vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
         await p.tap('#dirPromo a.dirp-iscriviti');
-        await p.waitForURL(/\/napoli_ottobre_2026\/#accreditamento$/, { timeout: 15000 });
+        await p.waitForURL(/\/webinar_dicembre_2026\/#iscrizioni$/, { timeout: 15000 });
         await p.waitForLoadState('load');
-        vero(await p.locator('#accreditamento').count() === 1, '«Iscriviti alla diretta» apre la pagina di Napoli sul modulo (#accreditamento)');
+        vero(await p.locator('#iscrizioni').count() === 1, '«Iscriviti al webinar» apre la pagina del webinar sulle iscrizioni (#iscrizioni)');
+        const isc = await p.evaluate(() => {
+            const vis = el => !!el && !el.hidden && el.getBoundingClientRect().height > 0;
+            return { interruttore: document.body.getAttribute('data-iscrizioni'), avviso: vis(document.getElementById('iscrizioniChiuse')), modulo: vis(document.getElementById('moduloIscrizione')) };
+        });
+        vero(isc.interruttore === 'aperte' ? isc.modulo && !isc.avviso : isc.interruttore === 'chiuse' && isc.avviso && !isc.modulo,
+            'le iscrizioni sono "' + isc.interruttore + '": ' + (isc.interruttore === 'aperte' ? 'si vede il modulo' : 'si vede l\'avviso «Le iscrizioni apriranno a breve», non il modulo'));
         uguale(await p.evaluate(() => sessionStorage.getItem('dirPromoSeen')), '1', 'e il popup conta come visto');
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
     }
 }
 
-/* ---------- 3. la pagina di Napoli ---------- */
-async function statoNapoli(page) {
+/* ---------- 3. la pagina del webinar ---------- */
+async function statoWebinar(page) {
     return page.evaluate(() => {
         const vis = el => !!el && !el.hidden && el.getBoundingClientRect().width > 0 && getComputedStyle(el).display !== 'none' &&
             !el.closest('[hidden]');
         const nav = document.getElementById('navDiretta');
-        const btn = document.getElementById('btnDirettaNapoli');
+        const btn = document.getElementById('btnDiretta');
         const pil = document.getElementById('navDirettaPillola');
         const sez = document.getElementById('diretta');
         const titolo = Array.from(sez.querySelectorAll('h2 span')).filter(vis).map(s => s.textContent.trim()).join('');
@@ -954,7 +1064,8 @@ async function statoNapoli(page) {
             pausaPulsante: vis(btn.querySelector('.indicatore-pausa')),
             // solo le parti che si vedono ("Diretta", "IN DIRETTA", "Diretta in pausa")
             testoMenu: Array.from(nav.children).filter(vis).map(e => e.textContent.trim()).join(' '),
-            voceMenu: !nav.closest('li').hidden,
+            // la voce e' un collegamento del menu senza <li>: hidden sta su di lei
+            voceMenu: !nav.hidden,
             voceVisibile: vis(nav),
             pillolaAccesa: !pil.hidden,
             pillolaVisibile: vis(pil),
@@ -967,30 +1078,119 @@ async function statoNapoli(page) {
     });
 }
 
-async function provaNapoli() {
-    console.log('\n[Napoli: 26 settembre (computer)]');
+// il menu esteso (sopra i 960px): voci su una riga, senza toccare il marchio
+async function menuWebinar(page) {
+    return page.evaluate(() => {
+        const r = el => el.getBoundingClientRect();
+        const menu = r(document.getElementById('navMenu'));
+        const marchio = r(document.querySelector('.nav-brand'));
+        const voci = Array.from(document.querySelectorAll('#navMenu > a')).filter(a => r(a).width > 0);
+        const centri = voci.map(a => { const b = r(a); return b.top + b.height / 2; });
+        const pil = document.getElementById('navDirettaPillola');
+        return {
+            hamburger: getComputedStyle(document.getElementById('navToggle')).display !== 'none',
+            voci: voci.length,
+            // una riga = tutte le voci con il centro alla stessa altezza
+            // (la pillola Diretta e' piu' alta dei collegamenti di testo)
+            righe: voci.length && Math.max.apply(null, centri) - Math.min.apply(null, centri) < 6 ? 1 : 2,
+            margine: Math.round(menu.left - marchio.right),
+            fuori: menu.right > window.innerWidth,
+            diretta: r(document.getElementById('navDiretta')).width > 0,
+            pillola: !pil.hidden && getComputedStyle(pil).display !== 'none' && r(pil).width > 0
+        };
+    });
+}
+
+// la pillola accanto all'hamburger (fino a 960px): dove sta e cosa dice
+async function barra(page) {
+    return page.evaluate(() => {
+        const r = el => el.getBoundingClientRect();
+        const pil = document.getElementById('navDirettaPillola');
+        const b = r(pil), t = r(document.getElementById('navToggle')), m = r(document.querySelector('.nav-brand'));
+        const centro = x => x.top + x.height / 2;
+        // chi risponde al tocco 5px sopra e sotto la pillola (area allargata)
+        const sopra = document.elementFromPoint(b.left + b.width / 2, b.top - 5);
+        const sotto = document.elementFromPoint(b.left + b.width / 2, b.bottom + 5);
+        return {
+            visibile: !pil.hidden && getComputedStyle(pil).display !== 'none' && b.width > 0,
+            testo: pil.innerText.replace(/\s+/g, ' ').trim().toUpperCase(),
+            href: pil.getAttribute('href'),
+            fuoriDalMenu: !document.getElementById('navMenu').contains(pil),
+            menuChiuso: !document.getElementById('navMenu').classList.contains('active'),
+            accanto: b.right <= t.left && t.left - b.right <= 24 && Math.abs(centro(b) - centro(t)) <= 4,
+            staccataDalMarchio: b.left >= m.right + 8,
+            dentro: b.left >= 0 && b.right <= window.innerWidth,
+            tocco: pil.contains(sopra) && pil.contains(sotto) ? Math.round(b.height + 10) : Math.round(b.height),
+            altezza: Math.round(b.height)
+        };
+    });
+}
+
+async function provaWebinar() {
+    /* Prima della finestra (da 7 giorni prima) la pagina spiega gia' come si
+       partecipa: sezione, voce di menu e pillola restano nascoste anche con
+       la diretta accesa sul sito, e compaiono da sole all'apertura. */
+    console.log('\n[webinar: 20 novembre, fuori finestra (computer e telefono)]');
+    for (const [nome, opzioni] of [['computer', COMPUTER], ['telefono', TELEFONO]]) {
+        const v = await visitatore(opzioni, 'in_onda');
+        const p = await v.scheda('2026-11-20T10:00:00+01:00');
+        await p.goto(WEBINAR);
+        await passa(p, 2 * MINUTO);
+        const s = await statoWebinar(p);
+        const m = await menuWebinar(p);
+        uguale([s.html, s.voceMenu, s.pillolaAccesa, m.pillola, await p.isVisible('#diretta')], ['fuori', false, false, false, false],
+            nome + ': <html data-diretta="fuori">, sezione, voce "Diretta" e pillola nascoste anche con la diretta accesa sul sito');
+        uguale(v.richieste.length, 0, nome + ': nessuna richiesta allo stato (2 minuti)');
+        if (nome === 'computer') vero(!m.hamburger && m.voci === 4 && m.righe === 1, 'computer: le 4 voci del menu su una riga, senza Diretta');
+        else vero(m.hamburger, 'telefono: l\'hamburger, senza pillola accanto');
+        vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
+        await v.ctx.close();
+    }
+
+    console.log('\n[webinar: la finestra si apre a pagina aperta (3 dicembre, 14.58 -> 15.01)]');
     {
         const v = await visitatore(COMPUTER, 'programmato');
-        const p = await v.scheda('2026-09-26T10:00:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-03T14:58:00+01:00');
+        await p.goto(WEBINAR);
+        await p.waitForTimeout(600);
+        let s = await statoWebinar(p);
+        uguale([s.html, s.voceMenu, await p.isVisible('#diretta')], ['fuori', false, false], 'alle 14.58 ancora niente');
+        await passa(p, 3 * MINUTO);
+        s = await statoWebinar(p);
+        uguale([s.html, s.voceMenu, s.voceVisibile, await p.isVisible('#diretta'), s.titolo], ['prima', true, true, true, 'Segui il webinar in diretta'],
+            'alle 15.01 sezione e voce "Diretta" compaiono da sole, senza ricaricare');
+        uguale(v.richieste.length, 0, 'senza nessuna richiesta allo stato');
+        await v.ctx.close();
+    }
+
+    console.log('\n[webinar: 5 dicembre (computer)]');
+    {
+        const v = await visitatore(COMPUTER, 'programmato');
+        const p = await v.scheda('2026-12-05T10:00:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForTimeout(600);
         const s = await p.evaluate(() => {
             const nav = document.getElementById('navDiretta');
-            const li = nav && nav.closest('li');
             const sez = document.getElementById('diretta');
-            const btn = document.getElementById('btnDirettaNapoli');
+            const btn = document.getElementById('btnDiretta');
             const vis = el => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+            const voci = Array.from(document.querySelectorAll('#navMenu > a'));
+            const iscriviti = sez.querySelector('.diretta-note a[href^="#"]');
             return {
                 // innerText: solo quello che si vede (l'indicatore spento non conta)
                 nav: nav ? nav.getAttribute('href') + '|' + nav.className + '|' + nav.innerText.replace(/\s+/g, ' ').trim() : '',
                 navVisibile: nav ? vis(nav) : false,
-                primaDiSave: !!(li && li.nextElementSibling && li.nextElementSibling.querySelector('a.nav-cta') &&
-                    /Save the date/i.test(li.nextElementSibling.textContent)),
+                // il menu: collegamenti semplici (niente <ul>/<li>), con Diretta per ultima
+                voci: voci.map(a => a.innerText.replace(/\s+/g, ' ').trim()),
+                ultima: voci[voci.length - 1] === nav,
                 pillolaTelefono: getComputedStyle(document.getElementById('navDirettaPillola')).display,
                 sezione: sez ? sez.tagName + '|' + (sez.previousElementSibling && sez.previousElementSibling.id) + '|' + (sez.nextElementSibling && sez.nextElementSibling.id) : '',
+                // textContent: innerText darebbe il maiuscolo del foglio di stile
+                occhiello: sez ? sez.querySelector('.diretta-occhiello').textContent.replace(/\s+/g, ' ').trim() : '',
                 titolo: sez ? sez.querySelector('h2').innerText.trim() : '',
                 testo: sez ? sez.innerText.replace(/\s+/g, ' ') : '',
                 posta: sez ? Array.from(sez.querySelectorAll('.diretta-note a[href^="mailto:"]')).map(a => a.getAttribute('href')) : [],
+                iscriviti: iscriviti ? iscriviti.getAttribute('href') + '|' + iscriviti.textContent.trim() : '',
                 btn: btn ? btn.getAttribute('href') + '|' + btn.querySelector('.btn-diretta-testo').textContent.trim() + '|' + sez.contains(btn) : '',
                 btnVisibile: btn ? vis(btn) : false,
                 indicatori: document.querySelectorAll('.indicatore-live').length,
@@ -1000,18 +1200,23 @@ async function provaNapoli() {
         });
         uguale(s.nav, '/diretta/|nav-diretta|Diretta', 'voce di menu "Diretta" verso /diretta/ (a.nav-diretta#navDiretta)');
         vero(s.navVisibile, 'la voce Diretta si vede nel menu esteso');
-        vero(s.primaDiSave, 'la voce Diretta sta subito prima di "Save the date"');
+        uguale(s.voci, ['Il webinar', 'Programma', 'Come partecipare', 'Iscrizioni', 'Diretta'], 'il menu: Il webinar, Programma, Come partecipare, Iscrizioni e Diretta');
+        vero(s.ultima, 'la voce Diretta e\' l\'ultima del menu, subito dopo "Iscrizioni"');
         uguale(s.pillolaTelefono, 'none', 'col menu esteso la pillola accanto all\'hamburger non serve (nascosta)');
         uguale(s.sezione, 'SECTION|hero|evento', 'sezione #diretta subito dopo la hero e prima di #evento');
-        uguale(s.titolo, 'Segui la diretta', 'titolo "Segui la diretta"');
-        vero(/Gli iscritti online entrano con la propria email e la password ricevuta via email/.test(s.testo),
-            'il testo spiega che gli iscritti online entrano con la propria email e la password ricevuta via email');
+        uguale(s.occhiello, 'Diretta online · 10 dicembre 2026', 'occhiello "Diretta online · 10 dicembre 2026"');
+        uguale(s.titolo, 'Segui il webinar in diretta', 'titolo "Segui il webinar in diretta"');
+        vero(/Giovedì 10 dicembre, dalle 15\.00 alle 17\.00, il webinar si segue online, in diretta, da computer, tablet o telefono\./.test(s.testo),
+            'giorno e orario del webinar, che si segue online da computer, tablet o telefono');
+        vero(/Gli iscritti entrano con la propria email e la password ricevuta via email\./.test(s.testo),
+            'il testo spiega che gli iscritti entrano con la propria email e la password ricevuta via email');
         vero(/Non trovi l’email con la password\? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness\.it/.test(s.testo),
             '"Non trovi l’email con la password? Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro, oppure scrivi a info@nextgenerationbusiness.it"');
         vero(!/nome utente|nei giorni precedenti/i.test(s.testo), 'nessun "nome utente" e nessuna data d\'invio promessa nella sezione');
         uguale(s.posta, ['mailto:info@nextgenerationbusiness.it'], 'l\'indirizzo dell\'assistenza e\' un collegamento email');
-        vero(!/si è conclusa/.test(s.testo), 'nessuna traccia del testo di fine diretta');
-        uguale(s.btn, '/diretta/|Accedi alla diretta|true', 'pulsante #btnDirettaNapoli "Accedi alla diretta" verso /diretta/');
+        uguale(s.iscriviti, '#iscrizioni|Iscriviti al webinar', 'la nota "Non ti sei ancora iscritto?" porta alle iscrizioni della pagina (#iscrizioni)');
+        vero(!/si è concluso/.test(s.testo), 'nessuna traccia del testo di fine webinar');
+        uguale(s.btn, '/diretta/|Accedi alla diretta|true', 'pulsante #btnDiretta "Accedi alla diretta" verso /diretta/');
         vero(s.btnVisibile, 'il pulsante si vede');
         uguale([s.indicatori, s.pause], [3, 3], 'tre indicatori IN DIRETTA e tre "in pausa": nel menu, sulla pillola e sul pulsante');
         vero(s.nascosti, 'indicatori spenti fuori dal giorno dell\'evento');
@@ -1021,82 +1226,82 @@ async function provaNapoli() {
         uguale(v.richieste.length, 0, 'nemmeno dopo tre minuti di pagina aperta');
         vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
         await inCima(p);
-        await scatta(p, 'napoli-menu-computer', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
+        await scatta(p, 'webinar-menu-computer', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
         await p.locator('#diretta').scrollIntoViewIfNeeded();
         await p.waitForTimeout(300);
-        await scatta(p, 'napoli-sezione-computer');
+        await scatta(p, 'webinar-sezione-computer');
         // gli errori si contano prima di uscire: la pagina /diretta/ non e' oggetto di questa prova
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
-        await Promise.all([p.waitForURL(/\/diretta\/$/), p.click('#btnDirettaNapoli')]);
+        await Promise.all([p.waitForURL(/\/diretta\/$/), p.click('#btnDiretta')]);
         vero(new URL(p.url()).pathname === '/diretta/', 'il pulsante porta davvero a /diretta/');
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: 2 ottobre ore 10, in onda (computer)]');
+    console.log('\n[webinar: 10 dicembre ore 15.30, in onda (computer)]');
     {
         const v = await visitatore(COMPUTER, 'in_onda');
-        const p = await v.scheda('2026-10-02T10:00:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-10T15:30:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForFunction(() => document.documentElement.getAttribute('data-diretta') === 'in_onda', null, { timeout: 5000 }).catch(() => {});
-        const s = await statoNapoli(p);
+        const s = await statoWebinar(p);
         vero(s.menu && s.pulsante, 'indicatore IN DIRETTA acceso nel menu e sul pulsante');
         vero(!s.pausaMenu && !s.pausaPulsante, 'niente "in pausa"');
         uguale(s.testoMenu, 'IN DIRETTA', 'in onda la voce di menu dice IN DIRETTA');
         uguale([s.html, s.letto], ['in_onda', 'in_onda'], 'condizione in <html data-diretta>, stato letto in data-diretta-stato');
         uguale(v.richieste.length, 1, 'una sola richiesta per pagina (non una per indicatore)');
         await inCima(p);
-        await scatta(p, 'napoli-menu-computer-in-diretta', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
+        await scatta(p, 'webinar-menu-computer-in-diretta', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
         await p.locator('#diretta').scrollIntoViewIfNeeded();
         await p.waitForTimeout(300);
-        await scatta(p, 'napoli-sezione-computer-in-diretta');
+        await scatta(p, 'webinar-sezione-computer-in-diretta');
         await p.reload();
         await p.waitForTimeout(800);
-        vero((await statoNapoli(p)).menu, 'ricaricando entro 60 s l\'indicatore resta acceso...');
+        vero((await statoWebinar(p)).menu, 'ricaricando entro 60 s l\'indicatore resta acceso...');
         uguale(v.richieste.length, 1, '...senza nuove richieste (cache della sessione)');
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: 2 ottobre, ricontrollo ogni 60 secondi (in onda, pausa, fine)]');
+    console.log('\n[webinar: 10 dicembre, ricontrollo ogni 60 secondi (in onda, pausa, fine)]');
     {
         const v = await visitatore(COMPUTER, 'programmato');
-        const p = await v.scheda('2026-10-02T10:00:00+02:00'); // partenza in ritardo
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-10T15:30:00+01:00'); // partenza in ritardo
+        await p.goto(WEBINAR);
         await p.waitForTimeout(800);
-        let s = await statoNapoli(p);
-        vero(!s.menu && !s.pulsante && !s.pausaMenu && s.html === 'oggi' && s.letto === 'programmato', 'alle 10, ancora programmato: indicatori spenti');
+        let s = await statoWebinar(p);
+        vero(!s.menu && !s.pulsante && !s.pausaMenu && s.html === 'oggi' && s.letto === 'programmato', 'alle 15.30, ancora programmato: indicatori spenti');
         uguale(s.testoMenu, 'Diretta', 'la voce di menu dice Diretta');
         uguale(v.richieste.length, 1, 'una richiesta all\'apertura');
         v.stato = 'in_onda'; // il gestore preme "Vai in onda"
         await p.clock.runFor(30 * 1000);
         uguale(v.richieste.length, 1, 'dopo 30 s ancora nessun ricontrollo');
         await passa(p, 31 * 1000);
-        s = await statoNapoli(p);
+        s = await statoWebinar(p);
         vero(s.menu && s.pulsante, 'dopo 60 s l\'indicatore si accende da solo, senza ricaricare');
         uguale(v.richieste.length, 2, 'con una sola richiesta in piu\'');
         v.stato = 'pausa';
         await passa(p, MINUTO);
-        s = await statoNapoli(p);
+        s = await statoWebinar(p);
         vero(!s.menu && !s.pulsante && s.pausaMenu && s.pausaPulsante && s.html === 'pausa', 'in pausa: niente IN DIRETTA, "in pausa" nel menu e sul pulsante');
         uguale(s.testoMenu.toLowerCase(), 'diretta in pausa', 'la voce di menu dice "Diretta in pausa"');
         await inCima(p);
-        await scatta(p, 'napoli-menu-computer-pausa', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
+        await scatta(p, 'webinar-menu-computer-pausa', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
         await p.locator('#diretta').scrollIntoViewIfNeeded();
         await p.waitForTimeout(300);
-        await scatta(p, 'napoli-sezione-computer-pausa');
+        await scatta(p, 'webinar-sezione-computer-pausa');
         v.stato = null; // il servizio non risponde bene
         await passa(p, MINUTO);
-        s = await statoNapoli(p);
+        s = await statoWebinar(p);
         uguale([s.html, s.letto, s.pausaPulsante], ['pausa', 'pausa', true], 'una lettura fallita non cambia quello che si vede');
         v.stato = 'in_onda';
         await passa(p, MINUTO);
-        s = await statoNapoli(p);
+        s = await statoWebinar(p);
         vero(s.menu && s.pulsante && !s.pausaMenu, 'si riprende: di nuovo IN DIRETTA');
         v.stato = 'terminato';
         await passa(p, MINUTO);
-        s = await statoNapoli(p);
+        s = await statoWebinar(p);
         vero(!s.menu && !s.pulsante && s.html === 'conclusa', 'a diretta terminata gli indicatori si spengono da soli');
-        uguale([s.titolo, s.conclusa, s.voceMenu, s.pulsanteVisibile], ['La diretta si è conclusa', true, false, false],
-            'e la sezione dice "La diretta si è conclusa", senza pulsante ne\' voce di menu');
+        uguale([s.titolo, s.conclusa, s.voceMenu, s.pulsanteVisibile], ['Il webinar si è concluso', true, false, false],
+            'e la sezione dice "Il webinar si è concluso", senza pulsante ne\' voce di menu');
         uguale(v.richieste.length, 6, 'una richiesta al minuto, non di piu\'');
         await passa(p, 3 * MINUTO);
         uguale(v.richieste.length, 6, 'letto "terminato", la lettura si chiude');
@@ -1104,168 +1309,128 @@ async function provaNapoli() {
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: si sfora oltre le 17.30, poi "Termina"]');
+    console.log('\n[webinar: si sfora oltre le 17.00, poi "Termina"]');
     {
         const v = await visitatore(COMPUTER, 'in_onda');
-        const p = await v.scheda('2026-10-02T17:45:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-10T17:15:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForTimeout(800);
-        let s = await statoNapoli(p);
-        vero(s.menu && s.pulsante && s.voceMenu && s.titolo === 'Segui la diretta', 'alle 17.45 ancora in onda: IN DIRETTA, pulsante e voce di menu restano');
+        let s = await statoWebinar(p);
+        vero(s.menu && s.pulsante && s.voceMenu && s.titolo === 'Segui il webinar in diretta', 'alle 17.15 ancora in onda: IN DIRETTA, pulsante e voce di menu restano');
         v.stato = 'terminato';
         await passa(p, MINUTO);
-        s = await statoNapoli(p);
-        uguale([s.html, s.titolo, s.voceMenu, s.pulsanteVisibile], ['conclusa', 'La diretta si è conclusa', false, false], 'a "Termina": la diretta si e\' conclusa');
+        s = await statoWebinar(p);
+        uguale([s.html, s.titolo, s.voceMenu, s.pulsanteVisibile], ['conclusa', 'Il webinar si è concluso', false, false], 'a "Termina": il webinar si e\' concluso');
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: dopo la fine]');
+    console.log('\n[webinar: dopo la fine]');
     {
         const v = await visitatore(COMPUTER, 'terminato');
-        const p = await v.scheda('2026-10-02T19:00:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-10T18:30:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForTimeout(800);
-        const s = await statoNapoli(p);
+        const s = await statoWebinar(p);
         uguale([s.html, s.titolo, s.conclusa, s.voceMenu, s.voceVisibile, s.pulsanteVisibile],
-            ['conclusa', 'La diretta si è conclusa', true, false, false, false], 'alle 19: "La diretta si è conclusa", voce di menu e pulsante nascosti');
+            ['conclusa', 'Il webinar si è concluso', true, false, false, false], 'alle 18.30: "Il webinar si è concluso", voce di menu e pulsante nascosti');
         const testo = await p.evaluate(() => document.getElementById('diretta').innerText.replace(/\s+/g, ' '));
-        vero(/Grazie a tutti quelli che hanno seguito online il convegno/.test(testo) && /scrivi a info@nextgenerationbusiness\.it/.test(testo), 'un grazie e il contatto per informazioni');
+        vero(/Grazie a tutti quelli che hanno seguito il webinar di giovedì 10 dicembre\./.test(testo) && /Per informazioni scrivi a info@nextgenerationbusiness\.it\./.test(testo),
+            'un grazie e il contatto per informazioni');
         vero(!/Accedi alla diretta/.test(testo), 'nessun invito ad accedere');
         uguale(v.richieste.length, 1, 'una richiesta (si legge fino a 3 ore dopo la fine)');
         await p.clock.runFor(3 * MINUTO);
         uguale(v.richieste.length, 1, 'e poi basta: "terminato" chiude la lettura');
         vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
         await inCima(p);
-        await scatta(p, 'napoli-menu-computer-conclusa', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
+        await scatta(p, 'webinar-menu-computer-conclusa', { clip: { x: 0, y: 0, width: 1440, height: 90 } });
         await p.locator('#diretta').scrollIntoViewIfNeeded();
         await p.waitForTimeout(300);
-        await scatta(p, 'napoli-sezione-computer-conclusa');
+        await scatta(p, 'webinar-sezione-computer-conclusa');
         await v.ctx.close();
     }
-    for (const [quando, descrizione] of [['2026-10-02T20:45:00+02:00', 'alle 20.45 (oltre 3 ore dopo la fine), anche se il servizio dicesse in onda'],
-        ['2026-10-03T10:00:00+02:00', 'il 3 ottobre']]) {
+    for (const [quando, descrizione] of [['2026-12-10T20:30:00+01:00', 'alle 20.30 (oltre 3 ore dopo la fine), anche se il servizio dicesse in onda'],
+        ['2026-12-11T10:00:00+01:00', 'l\'11 dicembre']]) {
         const v = await visitatore(COMPUTER, 'in_onda');
         const p = await v.scheda(quando);
-        await p.goto(NAPOLI);
+        await p.goto(WEBINAR);
         await p.waitForTimeout(800);
-        const s = await statoNapoli(p);
+        const s = await statoWebinar(p);
         await p.clock.runFor(2 * MINUTO);
-        vero(s.html === 'conclusa' && s.titolo === 'La diretta si è conclusa' && !s.voceMenu && !s.menu && v.richieste.length === 0,
-            descrizione + ': conclusa, senza nessuna richiesta');
+        vero(s.html === 'conclusa' && s.titolo === 'Il webinar si è concluso' && !s.voceMenu && !s.menu && v.richieste.length === 0,
+            descrizione + ': concluso, senza nessuna richiesta');
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: larghezze del menu esteso]');
+    console.log('\n[webinar: larghezze del menu esteso]');
     for (const stato of ['programmato', 'in_onda', 'pausa']) {
-        for (const larghezza of [1200, 1280, 1440, 1920]) {
+        for (const larghezza of [961, 1024, 1100, 1280, 1440, 1920]) {
             const v = await visitatore({ viewport: { width: larghezza, height: 800 } }, stato);
-            const p = await v.scheda('2026-10-02T10:00:00+02:00');
-            await p.goto(NAPOLI);
+            const p = await v.scheda('2026-12-10T15:30:00+01:00');
+            await p.goto(WEBINAR);
             await p.waitForFunction(s => document.documentElement.getAttribute('data-diretta-stato') === s, stato, { timeout: 5000 }).catch(() => {});
-            const m = await p.evaluate(() => {
-                const menu = document.getElementById('navMenu').getBoundingClientRect();
-                const marchio = document.querySelector('.nav-brand-group').getBoundingClientRect();
-                const img = document.querySelector('.logo-mark-img').getBoundingClientRect();
-                // una riga = tutte le voci con il centro alla stessa altezza
-                // (le pillole sono piu' alte dei collegamenti di testo)
-                const centri = Array.from(document.querySelectorAll('#navMenu > li')).map(li => { const b = li.getBoundingClientRect(); return b.top + b.height / 2; });
-                const righe = Math.max.apply(null, centri) - Math.min.apply(null, centri) < 6 ? 1 : 2;
-                return { margine: Math.round(menu.left - Math.max(marchio.right, img.right)), righe, fuori: menu.right > window.innerWidth };
-            });
-            vero(m.margine >= 20 && m.righe === 1 && !m.fuori, larghezza + 'px, ' + stato + ': menu su una riga, ' + m.margine + 'px di margine dal marchio');
+            const m = await menuWebinar(p);
+            vero(!m.hamburger && m.voci === 5 && m.righe === 1 && !m.fuori && m.margine >= 20 && m.diretta && !m.pillola,
+                larghezza + 'px, ' + stato + ': le 5 voci (con Diretta) su una riga, niente hamburger ne\' pillola, ' + m.margine + 'px di margine dal marchio');
             await v.ctx.close();
         }
     }
-    {
-        const v = await visitatore({ viewport: { width: 1100, height: 800 } }, 'in_onda');
-        const p = await v.scheda('2026-10-02T10:00:00+02:00');
-        await p.goto(NAPOLI);
-        await p.waitForTimeout(800);
-        const primo = await p.evaluate(() => [getComputedStyle(document.getElementById('navToggle')).display,
-            (document.getElementById('navDirettaPillola').innerText || '').trim()]);
-        await p.click('#navToggle');
-        const vis = await p.locator('#navDiretta').isVisible();
-        uguale([primo, vis], [['flex', 'IN DIRETTA'], true], '1100px (tablet orizzontale): menu a tendina con la pillola IN DIRETTA accanto, e aperto mostra la voce Diretta');
-        await v.ctx.close();
-    }
 
-    /* Fra 1000 e 1199px il menu a tendina serve solo finche' c'e' la voce
-       Diretta: dopo la fine la voce sparisce e il menu torna su una riga,
-       com'era prima della diretta (portatili da 1024px, iPad in orizzontale). */
-    console.log('\n[Napoli: fra 1000 e 1199px, prima e dopo la fine]');
-    async function menuNapoli(page) {
-        return page.evaluate(() => {
-            const menu = document.getElementById('navMenu').getBoundingClientRect();
-            const marchio = document.querySelector('.nav-brand-group').getBoundingClientRect();
-            const img = document.querySelector('.logo-mark-img').getBoundingClientRect();
-            const voci = Array.from(document.querySelectorAll('#navMenu > li')).filter(li => li.getBoundingClientRect().width > 0);
-            const centri = voci.map(li => { const b = li.getBoundingClientRect(); return b.top + b.height / 2; });
-            return {
-                hamburger: getComputedStyle(document.getElementById('navToggle')).display !== 'none',
-                voci: voci.length,
-                righe: voci.length && Math.max.apply(null, centri) - Math.min.apply(null, centri) < 6 ? 1 : 2,
-                margine: Math.round(menu.left - Math.max(marchio.right, img.right)),
-                fuori: menu.right > window.innerWidth,
-                diretta: !!document.getElementById('navDiretta').getBoundingClientRect().width
-            };
-        });
-    }
-    for (const larghezza of [1000, 1024, 1100, 1199]) {
-        for (const [quando, stato, descrizione] of [['2026-10-02T19:00:00+02:00', 'terminato', 'alle 19 del 2 ottobre'], ['2026-10-03T10:00:00+02:00', 'in_onda', 'il 3 ottobre']]) {
+    /* Sopra i 960px il menu e' sempre su una riga: con la voce Diretta nella
+       finestra dell'evento, senza dopo la fine (come prima della diretta). */
+    console.log('\n[webinar: sopra i 960px, prima e dopo la fine]');
+    for (const larghezza of [961, 1024, 1100, 1199]) {
+        for (const [quando, stato, descrizione] of [['2026-12-10T18:30:00+01:00', 'terminato', 'alle 18.30 del 10 dicembre'], ['2026-12-11T10:00:00+01:00', 'in_onda', 'l\'11 dicembre']]) {
             const v = await visitatore({ viewport: { width: larghezza, height: 800 } }, stato);
             const p = await v.scheda(quando);
-            await p.goto(NAPOLI);
+            await p.goto(WEBINAR);
             await p.waitForFunction(() => document.documentElement.getAttribute('data-diretta') === 'conclusa', null, { timeout: 5000 }).catch(() => {});
-            const m = await menuNapoli(p);
-            vero(!m.hamburger && m.voci === 8 && m.righe === 1 && !m.fuori && m.margine >= 10 && !m.diretta,
-                larghezza + 'px, ' + descrizione + ' (diretta conclusa): niente hamburger, le 8 voci su una riga come prima, ' + m.margine + 'px dal marchio');
-            if (larghezza === 1024 && stato === 'terminato') await scatta(p, 'napoli-menu-1024-conclusa', { clip: { x: 0, y: 0, width: 1024, height: 90 } });
+            const m = await menuWebinar(p);
+            vero(!m.hamburger && m.voci === 4 && m.righe === 1 && !m.fuori && m.margine >= 20 && !m.diretta && !m.pillola,
+                larghezza + 'px, ' + descrizione + ' (diretta conclusa): niente hamburger, le 4 voci su una riga senza Diretta, ' + m.margine + 'px dal marchio');
+            if (larghezza === 1024 && stato === 'terminato') await scatta(p, 'webinar-menu-1024-conclusa', { clip: { x: 0, y: 0, width: 1024, height: 90 } });
             await v.ctx.close();
         }
         const v = await visitatore({ viewport: { width: larghezza, height: 800 } }, 'programmato');
-        const p = await v.scheda('2026-09-26T10:00:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-05T10:00:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForTimeout(800);
-        const m = await menuNapoli(p);
-        vero(m.hamburger && m.voci === 0, larghezza + 'px, 26 settembre (voce Diretta nel menu): menu a tendina, chiuso');
+        const m = await menuWebinar(p);
+        vero(!m.hamburger && m.voci === 5 && m.righe === 1 && !m.fuori && m.diretta && !m.pillola,
+            larghezza + 'px, 5 dicembre (voce Diretta nel menu): le 5 voci su una riga, niente hamburger ne\' pillola');
         await v.ctx.close();
     }
 
-    // la pillola accanto all'hamburger: dove sta e cosa dice
-    async function barra(page) {
-        return page.evaluate(() => {
-            const r = el => el.getBoundingClientRect();
-            const pil = document.getElementById('navDirettaPillola');
-            const b = r(pil), t = r(document.getElementById('navToggle')), m = r(document.querySelector('.nav-brand-group'));
-            const centro = x => x.top + x.height / 2;
-            // chi risponde al tocco 5px sopra e sotto la pillola (area allargata)
-            const sopra = document.elementFromPoint(b.left + b.width / 2, b.top - 5);
-            const sotto = document.elementFromPoint(b.left + b.width / 2, b.bottom + 5);
-            return {
-                visibile: !pil.hidden && getComputedStyle(pil).display !== 'none' && b.width > 0,
-                testo: pil.innerText.replace(/\s+/g, ' ').trim().toUpperCase(),
-                href: pil.getAttribute('href'),
-                fuoriDalMenu: !document.getElementById('navMenu').contains(pil),
-                menuChiuso: !document.getElementById('navMenu').classList.contains('active'),
-                accanto: b.right <= t.left && t.left - b.right <= 24 && Math.abs(centro(b) - centro(t)) <= 4,
-                staccataDalMarchio: b.left >= m.right + 8,
-                dentro: b.left >= 0 && b.right <= window.innerWidth,
-                tocco: pil.contains(sopra) && pil.contains(sotto) ? Math.round(b.height + 10) : Math.round(b.height),
-                altezza: Math.round(b.height)
-            };
-        });
+    /* Fino a 960px (tablet) il menu e' a tendina: l'hamburger, con la pillola
+       Diretta accanto nella barra; la voce del menu si vede solo a menu aperto. */
+    console.log('\n[webinar: fino a 960px, menu a tendina con la pillola nella barra]');
+    for (const larghezza of [960, 820, 768]) {
+        const v = await visitatore({ viewport: { width: larghezza, height: 800 } }, 'in_onda');
+        const p = await v.scheda('2026-12-10T15:30:00+01:00');
+        await p.goto(WEBINAR);
+        await p.waitForFunction(() => document.documentElement.getAttribute('data-diretta') === 'in_onda', null, { timeout: 5000 }).catch(() => {});
+        const primo = await p.evaluate(() => [getComputedStyle(document.getElementById('navToggle')).display,
+            (document.getElementById('navDirettaPillola').innerText || '').trim()]);
+        const b = await barra(p);
+        const chiusa = await p.locator('#navDiretta').isVisible();
+        await p.click('#navToggle');
+        await p.waitForTimeout(300);
+        const aperta = await p.locator('#navDiretta').isVisible();
+        uguale([primo, b.visibile && b.dentro && b.accanto && b.staccataDalMarchio, chiusa, aperta], [['flex', 'IN DIRETTA'], true, false, true],
+            larghezza + 'px (tablet): hamburger con la pillola IN DIRETTA accanto, dentro lo schermo; la voce Diretta si vede solo a menu aperto');
+        if (larghezza === 820) await scatta(p, 'webinar-menu-820-aperto');
+        await v.ctx.close();
     }
 
     const scenari = [
-        ['', '2026-09-26T10:00:00+02:00', 'programmato', 'DIRETTA'],
-        ['-in-diretta', '2026-10-02T10:00:00+02:00', 'in_onda', 'IN DIRETTA'],
-        ['-pausa', '2026-10-02T11:00:00+02:00', 'pausa', 'IN PAUSA']
+        ['', '2026-12-05T10:00:00+01:00', 'programmato', 'DIRETTA'],
+        ['-in-diretta', '2026-12-10T15:30:00+01:00', 'in_onda', 'IN DIRETTA'],
+        ['-pausa', '2026-12-10T16:00:00+01:00', 'pausa', 'IN PAUSA']
     ];
     for (const [nome, quando, stato, scritta] of scenari) {
-        console.log('\n[Napoli: telefono, ' + stato + ']');
+        console.log('\n[webinar: telefono, ' + stato + ']');
         const v = await visitatore(TELEFONO, stato);
         const p = await v.scheda(quando);
-        await p.goto(NAPOLI);
+        await p.goto(WEBINAR);
         await p.waitForTimeout(900);
         const b = await barra(p);
         vero(b.visibile && b.fuoriDalMenu && b.menuChiuso && b.href === '/diretta/', 'a menu chiuso la pillola "Diretta" e\' nella barra, fuori dal menu a scomparsa, verso /diretta/');
@@ -1275,26 +1440,28 @@ async function provaNapoli() {
         vero(b.tocco >= 48, 'area di tocco di almeno ' + b.tocco + 'px (pillola alta ' + b.altezza + 'px)');
         vero(!(await p.locator('#navDiretta').isVisible()), 'a menu chiuso la voce del menu non ingombra la barra');
         await inCima(p);
-        await scatta(p, 'napoli-barra-telefono' + nome, { clip: { x: 0, y: 0, width: 390, height: 90 } });
+        await scatta(p, 'webinar-barra-telefono' + nome, { clip: { x: 0, y: 0, width: 390, height: 90 } });
         await p.tap('#navToggle');
         await p.waitForTimeout(300);
         const m = await p.evaluate(() => {
             const a = document.getElementById('navDiretta').getBoundingClientRect();
-            const cta = document.querySelector('#navMenu a.nav-cta').getBoundingClientRect();
-            return { visibile: a.width > 0 && a.height >= 40, dentro: a.left >= 0 && a.right <= window.innerWidth && a.bottom <= window.innerHeight, sopra: a.bottom <= cta.top, largo: a.width > window.innerWidth * 0.8 };
+            const voci = Array.from(document.querySelectorAll('#navMenu > a'));
+            const iscrizioni = voci.find(x => /Iscrizioni/.test(x.textContent)).getBoundingClientRect();
+            return { visibile: a.width > 0 && a.height >= 40, dentro: a.left >= 0 && a.right <= window.innerWidth && a.bottom <= window.innerHeight,
+                sotto: a.top >= iscrizioni.bottom, largo: a.width > window.innerWidth * 0.8, ultima: voci[voci.length - 1].id === 'navDiretta' };
         });
         vero(m.visibile && m.dentro, 'a menu aperto la voce Diretta si vede, grande, dentro lo schermo');
-        vero(m.sopra && m.largo, 'pulsante largo quanto il menu, subito sopra "Save the date"');
-        const s = await statoNapoli(p);
+        vero(m.sotto && m.largo && m.ultima, 'pulsante largo quanto il menu, in fondo, sotto "Iscrizioni"');
+        const s = await statoWebinar(p);
         vero(stato === 'in_onda' ? (s.menu && s.pulsante && s.pillola) : (!s.menu && !s.pulsante && !s.pillola),
             'indicatore IN DIRETTA ' + (stato === 'in_onda' ? 'acceso' : 'spento') + ' su menu, pillola e pulsante');
         vero(stato === 'pausa' ? (s.pausaMenu && s.pausaPulsante) : (!s.pausaMenu && !s.pausaPulsante), '"in pausa" ' + (stato === 'pausa' ? 'acceso' : 'spento'));
-        await scatta(p, 'napoli-menu-telefono' + nome);
+        await scatta(p, 'webinar-menu-telefono' + nome);
         await p.tap('#navToggle');
         await p.locator('#diretta').scrollIntoViewIfNeeded();
         await p.evaluate(() => window.scrollBy({ top: -70, behavior: 'instant' })); // sotto la barra fissa
         await p.waitForTimeout(300);
-        await scatta(p, 'napoli-sezione-telefono' + nome);
+        await scatta(p, 'webinar-sezione-telefono' + nome);
         vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         if (stato === 'programmato') {
@@ -1305,49 +1472,87 @@ async function provaNapoli() {
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: telefono stretto (320px)]');
+    console.log('\n[webinar: telefono stretto (320px)]');
     for (const [stato, scritta] of [['in_onda', 'IN DIRETTA'], ['pausa', 'IN PAUSA']]) {
         const v = await visitatore(TELEFONO_STRETTO, stato);
-        const p = await v.scheda('2026-10-02T11:00:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-10T16:00:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForTimeout(900);
         const b = await barra(p);
         vero(b.visibile && b.accanto && b.staccataDalMarchio && b.dentro && b.testo.endsWith(scritta),
             '320px, ' + stato + ': marchio, pillola ' + scritta + ' e hamburger su una riga, senza sovrapporsi');
         vero(await senzaScorrimentoOrizzontale(p), '320px, ' + stato + ': niente scorrimento orizzontale');
-        if (stato === 'pausa') await scatta(p, 'napoli-barra-telefono-320-pausa', { clip: { x: 0, y: 0, width: 320, height: 90 } });
+        if (stato === 'pausa') await scatta(p, 'webinar-barra-telefono-320-pausa', { clip: { x: 0, y: 0, width: 320, height: 90 } });
         await v.ctx.close();
     }
 
-    console.log('\n[Napoli: telefono, dopo la fine]');
+    console.log('\n[webinar: telefono, dopo la fine]');
     {
         const v = await visitatore(TELEFONO, 'terminato');
-        const p = await v.scheda('2026-10-02T19:00:00+02:00');
-        await p.goto(NAPOLI);
+        const p = await v.scheda('2026-12-10T18:30:00+01:00');
+        await p.goto(WEBINAR);
         await p.waitForTimeout(900);
-        const s = await statoNapoli(p);
-        uguale([s.html, s.pillolaAccesa, s.pillolaVisibile, s.voceMenu, s.titolo], ['conclusa', false, false, false, 'La diretta si è conclusa'],
-            'pillola accanto all\'hamburger e voce di menu nascoste, sezione "La diretta si è conclusa"');
+        const s = await statoWebinar(p);
+        uguale([s.html, s.pillolaAccesa, s.pillolaVisibile, s.voceMenu, s.titolo], ['conclusa', false, false, false, 'Il webinar si è concluso'],
+            'pillola accanto all\'hamburger e voce di menu nascoste, sezione "Il webinar si è concluso"');
         await inCima(p);
-        await scatta(p, 'napoli-barra-telefono-conclusa', { clip: { x: 0, y: 0, width: 390, height: 90 } });
+        await scatta(p, 'webinar-barra-telefono-conclusa', { clip: { x: 0, y: 0, width: 390, height: 90 } });
         await p.locator('#diretta').scrollIntoViewIfNeeded();
         await p.evaluate(() => window.scrollBy({ top: -70, behavior: 'instant' }));
         await p.waitForTimeout(300);
-        await scatta(p, 'napoli-sezione-telefono-conclusa');
+        await scatta(p, 'webinar-sezione-telefono-conclusa');
         vero(await senzaScorrimentoOrizzontale(p), 'niente scorrimento orizzontale');
         vero(v.errori.length === 0, 'nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
         await v.ctx.close();
     }
 }
 
+/* ---------- 3b. la pagina di Napoli, conclusa a mano ---------- */
+/* Napoli non carica piu' diretta-stato.js (che ora descrive il webinar):
+   <html data-diretta="conclusa"> e' scritto nel file, gli agganci restano
+   nel markup con hidden e nessuno li tocca. Anche con il webinar in onda la
+   pagina non mostra niente della diretta e non chiede lo stato. */
+async function provaNapoliConclusa() {
+    console.log('\n[Napoli, conclusa: nessun aggancio e nessuna richiesta, anche con il webinar in onda]');
+    for (const [nome, opzioni] of [['computer-1100', { viewport: { width: 1100, height: 800 } }], ['telefono', TELEFONO]]) {
+        const v = await visitatore(opzioni, 'in_onda');
+        const p = await v.scheda('2026-12-10T15:30:00+01:00');
+        await p.goto(NAPOLI);
+        await passa(p, 2 * MINUTO);
+        const s = await p.evaluate(() => {
+            const vis = el => !!el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+            const nav = document.getElementById('navDiretta');
+            return {
+                attributo: document.documentElement.getAttribute('data-diretta'),
+                sezione: vis(document.getElementById('diretta')),
+                voce: vis(nav && nav.closest('li')),
+                pillola: vis(document.getElementById('navDirettaPillola')),
+                hamburger: getComputedStyle(document.getElementById('navToggle')).display !== 'none',
+                script: !!document.querySelector('script[src*="diretta-stato"]'),
+                ngb: typeof window.NGBDiretta
+            };
+        });
+        uguale([s.attributo, s.sezione, s.voce, s.pillola], ['conclusa', false, false, false],
+            nome + ': <html data-diretta="conclusa"> scritto a mano, niente sezione "Segui la diretta", voce "Diretta" ne\' pillola');
+        uguale([s.script, s.ngb], [false, 'undefined'], nome + ': diretta-stato.js non e\' caricato e window.NGBDiretta non esiste');
+        uguale(v.richieste.length, 0, nome + ': nessuna richiesta allo stato in 2 minuti, con il webinar in onda');
+        if (nome === 'telefono') vero(s.hamburger, 'telefono: l\'hamburger c\'e\', senza pillola accanto');
+        else vero(!s.hamburger, '1100px: menu su una riga, niente hamburger (come prima della diretta)');
+        vero(v.errori.length === 0, nome + ': nessun errore JavaScript' + (v.errori.length ? ': ' + v.errori.join(' | ') : ''));
+        await inCima(p);
+        await scatta(p, 'napoli-conclusa-' + nome, { clip: { x: 0, y: 0, width: opzioni.viewport.width, height: 90 } });
+        await v.ctx.close();
+    }
+}
+
 /* ---------- 4. la diretta nascosta sul sito (PUBBLICA) ---------- */
-async function vistaNapoli(page) {
+async function vistaWebinar(page) {
     return page.evaluate(() => {
         const vis = el => !!el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
         return {
             attributo: document.documentElement.getAttribute('data-diretta'),
             sezione: vis(document.getElementById('diretta')),
-            voce: vis(document.getElementById('navDiretta') && document.getElementById('navDiretta').closest('li')),
+            voce: vis(document.getElementById('navDiretta')),
             pillola: vis(document.getElementById('navDirettaPillola')),
             hamburger: getComputedStyle(document.getElementById('navToggle')).display !== 'none'
         };
@@ -1355,9 +1560,9 @@ async function vistaNapoli(page) {
 }
 async function provaNascosta() {
     console.log('\n[la diretta nascosta sul sito: PUBBLICA = false]');
-    // home, 26 settembre (dentro la finestra): niente popup ne' pillola, nessuna richiesta
+    // home, 5 dicembre (dentro la finestra): niente popup ne' pillola, nessuna richiesta
     const v1 = await visitatore(COMPUTER, 'programmato', { prova: false, pubblica: false });
-    const h1 = await v1.scheda('2026-09-26T10:00:00+02:00');
+    const h1 = await v1.scheda('2026-12-05T10:00:00+01:00');
     await h1.goto(HOME);
     await passa(h1, QUIETE_MS);
     const n1 = await h1.evaluate(() => ({ cond: window.NGBDiretta && window.NGBDiretta.condizione(), vis: window.NGBDiretta && window.NGBDiretta.visibile, pianificato: !!window.__dirPromoPlanned }));
@@ -1365,55 +1570,56 @@ async function provaNascosta() {
     uguale(await nelDom(h1).then(l => l.filter(x => x === 'dirPromo')), [], 'home: nessun popup della diretta');
     vero(!(await pillola(h1)).presente, 'home: nessuna pillola della diretta');
     await scatta(h1, 'nascosta-home');
-    // Napoli, 2 ottobre alle 10, in onda: niente voce, pillola, sezione; nessuna richiesta
-    const n2 = await v1.scheda('2026-10-02T10:00:00+02:00');
-    await n2.goto(NAPOLI);
+    // webinar, 10 dicembre alle 15.30, in onda: niente voce, pillola, sezione; nessuna richiesta
+    const n2 = await v1.scheda('2026-12-10T15:30:00+01:00');
+    await n2.goto(WEBINAR);
     await passa(n2, 2 * MINUTO);
-    const s2 = await vistaNapoli(n2);
+    const s2 = await vistaWebinar(n2);
     vero(s2.attributo === 'nascosta' && !s2.sezione && !s2.voce && !s2.pillola,
-        'Napoli il 2 ottobre in onda: niente sezione "Segui la diretta", niente voce "Diretta" ne\' pillola nel menu', JSON.stringify(s2));
+        'webinar il 10 dicembre in onda: niente sezione "Segui il webinar in diretta", niente voce "Diretta" ne\' pillola nel menu', JSON.stringify(s2));
     uguale(v1.richieste.length, 0, 'nessuna richiesta allo stato della diretta, nemmeno il giorno dell\'evento in onda (2 minuti)');
     await inCima(n2);
-    await scatta(n2, 'nascosta-napoli');
-    // fra 1000 e 1199px il menu resta su una riga, come prima della diretta
-    await n2.setViewportSize({ width: 1100, height: 800 });
+    await scatta(n2, 'nascosta-webinar');
+    // fino a 960px il menu e' a tendina: l'hamburger c'e', la pillola accanto no
+    await n2.setViewportSize({ width: 960, height: 800 });
     await n2.waitForTimeout(200);
-    vero(!(await vistaNapoli(n2)).hamburger, 'Napoli a 1100px: menu su una riga, niente hamburger (come prima della diretta)');
+    const s2b = await vistaWebinar(n2);
+    vero(s2b.hamburger && !s2b.pillola, 'webinar a 960px: menu a tendina con l\'hamburger, senza la pillola "Diretta" accanto');
     vero(v1.errori.length === 0, 'nessun errore nelle pagine' + (v1.errori.length ? ': ' + v1.errori.join(' | ') : ''));
     await v1.ctx.close();
 
     console.log('\n[?diretta=prova: la vede solo questo browser, finche\' non si chiede ?diretta=pubblico]');
     const v2 = await visitatore(COMPUTER, 'programmato', { prova: false, pubblica: false });
-    const h2 = await v2.scheda('2026-09-26T10:00:00+02:00');
+    const h2 = await v2.scheda('2026-12-05T10:00:00+01:00');
     await h2.goto(HOME + '?diretta=prova');
     vero(await aspettaPopup(h2, 'dirPromo'), 'home?diretta=prova: il popup della diretta compare');
     vero((await pillola(h2)).visibile, 'e la pillola');
     vero(await h2.evaluate(() => localStorage.getItem('ngbDirettaProva') === '1'), 'il browser se lo ricorda (localStorage)');
-    const n3 = await v2.scheda('2026-09-26T10:00:00+02:00');
-    await n3.goto(NAPOLI);
+    const n3 = await v2.scheda('2026-12-05T10:00:00+01:00');
+    await n3.goto(WEBINAR);
     await passa(n3, 1000);
-    const s3 = await vistaNapoli(n3);
-    vero(s3.attributo === 'prima' && s3.sezione && s3.voce, 'poi Napoli senza parametro: sezione e voce "Diretta" visibili (in prova)', JSON.stringify(s3));
-    const n4 = await v2.scheda('2026-09-26T10:00:00+02:00');
-    await n4.goto(NAPOLI + '?diretta=pubblico');
+    const s3 = await vistaWebinar(n3);
+    vero(s3.attributo === 'prima' && s3.sezione && s3.voce, 'poi il webinar senza parametro: sezione e voce "Diretta" visibili (in prova)', JSON.stringify(s3));
+    const n4 = await v2.scheda('2026-12-05T10:00:00+01:00');
+    await n4.goto(WEBINAR + '?diretta=pubblico');
     await passa(n4, 1000);
-    const s4 = await vistaNapoli(n4);
-    vero(s4.attributo === 'nascosta' && !s4.sezione && !s4.voce && !s4.pillola, 'Napoli?diretta=pubblico: di nuovo come la vedono tutti (nascosta)', JSON.stringify(s4));
+    const s4 = await vistaWebinar(n4);
+    vero(s4.attributo === 'nascosta' && !s4.sezione && !s4.voce && !s4.pillola, 'webinar?diretta=pubblico: di nuovo come la vedono tutti (nascosta)', JSON.stringify(s4));
     vero(await n4.evaluate(() => localStorage.getItem('ngbDirettaProva') === null), 'e il browser non se lo ricorda piu\'');
     vero(v2.errori.length === 0, 'nessun errore nelle pagine' + (v2.errori.length ? ': ' + v2.errori.join(' | ') : ''));
     await v2.ctx.close();
 
     console.log('\n[PUBBLICA = true: tutto compare per tutti, senza prova]');
     const v3 = await visitatore(COMPUTER, 'programmato', { prova: false, pubblica: true });
-    const h3 = await v3.scheda('2026-09-26T10:00:00+02:00');
+    const h3 = await v3.scheda('2026-12-05T10:00:00+01:00');
     await h3.goto(HOME);
     vero(await aspettaPopup(h3, 'dirPromo'), 'home: il popup della diretta compare');
     vero((await pillola(h3)).visibile, 'e la pillola');
-    const n5 = await v3.scheda('2026-09-26T10:00:00+02:00');
-    await n5.goto(NAPOLI);
+    const n5 = await v3.scheda('2026-12-05T10:00:00+01:00');
+    await n5.goto(WEBINAR);
     await passa(n5, 1000);
-    const s5 = await vistaNapoli(n5);
-    vero(s5.attributo === 'prima' && s5.sezione && s5.voce, 'Napoli: sezione "Segui la diretta" e voce "Diretta" visibili', JSON.stringify(s5));
+    const s5 = await vistaWebinar(n5);
+    vero(s5.attributo === 'prima' && s5.sezione && s5.voce, 'webinar: sezione "Segui il webinar in diretta" e voce "Diretta" visibili', JSON.stringify(s5));
     vero(v3.errori.length === 0, 'nessun errore nelle pagine' + (v3.errori.length ? ': ' + v3.errori.join(' | ') : ''));
     await v3.ctx.close();
 }

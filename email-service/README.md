@@ -2075,6 +2075,21 @@ email**, **una sola per numero**, **un codice invito per due iscrizioni al
 massimo**. Gli eventi con queste regole stanno in `EVENTI`, in cima al modulo:
 per un evento nuovo basta una riga.
 
+Il **webinar del 10 dicembre 2026** (`/webinar_dicembre_2026/#iscrizioni`,
+pagina `Webinar 10 Dicembre 2026 - Iscrizione`, chiave `webinar-2026-12-10`)
+ha la stessa riga, con tre cose in piu': `riprese: false` (nessuno e' ripreso,
+`iscrizione-nuova` non chiede il consenso alle riprese), `soloOnline: true`
+(non c'e' una sala: una scheda senza modalita' vale "online" per i promemoria
+e i totali, `sezionePredefinita`, come nell'area riservata) e `contatti:
+'webinar-2026'` (il collegamento «scrivici dal modulo» delle risposte,
+`linkModuloMail`, apre il modulo dei contatti con il webinar gia' scelto:
+`contatti/?t=mail&evento=webinar-2026`). Il modulo manda `modalita: "online"`
+per tutti e non ha il codice invito. Le mail (conferma, sollecito, riepilogo
+di mezzanotte) dicono «il webinar del 10 dicembre 2026» invece di «il convegno
+di ...» (`tipoEvento` in `lib/mail-ngb.js`, `online: true` in
+`DETTAGLI_EVENTO` di `lib/conferma-email.js`), e la conferma dell'indirizzo
+non allega il PDF: solo il file per l'agenda.
+
 - **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
   italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda
   se email o numero sono gia' iscritti (risponde `409` con `campo`): a un

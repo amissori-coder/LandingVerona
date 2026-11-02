@@ -150,7 +150,7 @@ const LINK_NUOVO = F.WEBTV + '/riserva/master.m3u8';
 const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento '
     + 'per scegliere una nuova password. Controlla anche nella cartella Spam o Promozioni.';
 const FRASE_ISCRIZIONE = 'Non sei ancora iscritto? Iscriviti qui.';
-const MODULO_ISCRIZIONE = '/napoli_ottobre_2026/#accreditamento';
+const MODULO_ISCRIZIONE = '/webinar_dicembre_2026/#iscrizioni'; // il valore di `iscrizione` in diretta/config.js
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -161,10 +161,12 @@ const pausa = ms => new Promise(r => setTimeout(r, ms));
    rimando 301 del player finto sfuggiva alle regole e andava verso
    l'Azoto vero; ora lo segue instradaAzoto, e questa e' la rete di
    sicurezza). */
-const LANCIO = {
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+// il Chromium di chi ha scritto le prove; se manca, quello installato (il
+// collegamento /opt/pw-browsers/chromium); altrimenti quello di Playwright
+const CHROMIUM = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => fs.existsSync(p));
+const LANCIO = Object.assign(CHROMIUM ? { executablePath: CHROMIUM } : {}, {
     args: ['--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
-};
+});
 
 /* ---------- esito delle prove ---------- */
 let verdi = 0, rossi = 0;
@@ -319,14 +321,18 @@ const PROGRAMMA = [
     ['13.30', 'Lunch buffet e networking'], ['14.30', 'Rating di Legalità'], ['15.00', 'Banche'],
     ['15.50', 'Invitalia e MCC · Bagnoli e America\'s Cup 2027'], ['16.40', 'Sessione Questions and Answers'], ['17.10', 'Chiusura dei lavori']
 ].map(([ora, titolo]) => ({ ora, titolo }));
-const INIZIO = Date.parse('2026-10-02T09:00:00+02:00');
-const FINE = Date.parse('2026-10-02T17:30:00+02:00');
+// Le date del finto evento stanno nel futuro: il conto alla rovescia della
+// vista di attesa si confronta con l'orologio vero. Sono quelle del webinar
+// del 10 dicembre 2026 (ora solare, +01:00); titolo, sede e programma restano
+// materiale di prova e non li controlla nessuno.
+const INIZIO = Date.parse('2026-12-10T15:00:00+01:00');
+const FINE = Date.parse('2026-12-10T17:00:00+01:00');
 
 function eventoIniziale(T) {
     return {
         titolo: 'Next Generation Business 2026 · Napoli',
         luogo: 'Napoli · Hotel Eurostars Excelsior',
-        data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30',
+        data: '2026-12-10', oraInizio: '15:00', oraFine: '17:00',
         inizio: T.fromMillis(INIZIO), fine: T.fromMillis(FINE),
         videoId: '', videoAggiornato: T.now(),
         stato: 'programmato', statoAggiornato: T.now(),
@@ -869,7 +875,7 @@ function eventoIniziale(T) {
             const b = await leggi();
             vero(a.join() !== b.join(), 'il conto non scorre');
             vero((await p.locator('#programma li').count()) === PROGRAMMA.length, 'voci del programma');
-            vero(/2 ottobre 2026.*9\.00.*17\.30.*ora italiana/.test(await p.textContent('#attesa-quando')), 'data: ' + await p.textContent('#attesa-quando'));
+            vero(/10 dicembre 2026.*15\.00.*17\.00.*ora italiana/.test(await p.textContent('#attesa-quando')), 'data: ' + await p.textContent('#attesa-quando'));
             vero(/inizia tra/.test(await p.textContent('#attesa-titolo')), 'titolo di attesa');
             vero(!(await visibile(p, '#stato-evento')) || /programma/i.test(await p.textContent('#stato-evento')), 'bollino in attesa');
             await foto(p, 'attesa-computer', true);

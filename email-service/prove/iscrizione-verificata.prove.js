@@ -47,7 +47,11 @@
        (`attesaRimanda`, lo stesso freno di "rimanda-conferma");
      - chi si riscrive mentre la sua iscrizione aspetta la conferma
        legge dove cercare la mail e dove scriverci, e la mail riparte;
-       a chi ha confermato resta il messaggio di sempre.
+       a chi ha confermato resta il messaggio di sempre;
+     - il webinar del 10 dicembre 2026 ha lo stesso flusso di Milano
+       (codice SMS, conferma dell'email, unicita' per evento) ma non
+       chiede il consenso alle riprese, e il modulo dei contatti a cui
+       rimandano i messaggi porta il suo evento (&evento=webinar-2026).
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -661,6 +665,78 @@ prova('Senza il consenso alle riprese non ci si iscrive', async () => {
     const si = await iscrivi({ email: 'riprese@studio.it', telefono: '3477778888', smsToken: v.token });
     const s = schede().find(x => x.email === 'riprese@studio.it');
     esigi(si.corpo.ok && s && s.consensoRiprese && s.consensoRiprese.come === 'modulo', 'con il consenso passa, e il consenso resta sulla scheda');
+});
+
+prova('Il webinar: lo stesso flusso di Milano, senza il consenso alle riprese, e il modulo dei contatti con il suo evento', async () => {
+    const WEBINAR = 'Webinar 10 Dicembre 2026 - Iscrizione';
+    const ev = V.eventoDi(WEBINAR);
+    const mi = V.eventoDi(PAGINA);
+    esigi(ev && ev.chiave === 'webinar-2026-12-10' && ev.filtro === 'webinar' && ev.nome === 'Webinar' && ev.pagina === 'Webinar 10 Dicembre 2026' && ev.contatti === 'webinar-2026' && ev.riprese === false,
+        'eventoDi riconosce il modulo del webinar: chiave, filtro, titolo corto, evento dei contatti, niente riprese', JSON.stringify(ev));
+    esigi(V.eventoDi('Webinar 10 Dicembre 2026') === ev && V.eventoDi('  webinar 10 DICEMBRE 2026 - Sponsor e relatori') === ev && V.eventoDi('Milano 26 Febbraio 2027') === mi,
+        'anche dal titolo corto delle iscrizioni inserite a mano');
+    esigi(ev.fine === Date.parse('2026-12-10T17:00:00+01:00'), 'finisce il 10 dicembre 2026 alle 17 (ora di Milano)');
+    esigi(mi.pagina === 'Milano 26 Febbraio 2027' && mi.contatti === 'milano-2027' && mi.riprese !== false, 'Milano ha il suo titolo corto e il suo evento dei contatti, e chiede ancora le riprese');
+    esigi(V.linkModuloMail(ev) === 'https://nextgenerationbusiness.it/contatti/?t=mail&evento=webinar-2026' && V.linkModuloMail(mi) === 'https://nextgenerationbusiness.it/contatti/?t=mail&evento=milano-2027'
+        && V.linkModuloMail(null) === V.LINK_MODULO_MAIL && V.linkModuloMail({}) === 'https://nextgenerationbusiness.it/contatti/?t=mail',
+        'il collegamento al modulo dei contatti porta l\'evento; senza evento resta quello di sempre');
+    esigi(/&evento=webinar-2026$/.test(V.msgInAttesa('email', false, ev)) && /&evento=webinar-2026$/.test(V.msgInAttesa('telefono', true, ev))
+        && /&evento=milano-2027$/.test(V.msgInAttesa('email', false, mi)) && /\?t=mail$/.test(V.msgInAttesa('email', false)),
+        'il messaggio a chi si riscrive finisce con il modulo del suo evento');
+
+    // il codice SMS parte e si verifica anche dal modulo del webinar
+    sms = [];
+    const a = await chiama({ azione: 'sms-invia', pagina: WEBINAR, telefono: '348 111 2233', email: 'web@studio.it' });
+    esigi(a.stato === 200 && a.corpo.ok && sms.length === 1, 'sms-invia accetta il modulo del webinar', JSON.stringify(a.corpo));
+    const b = await chiama({ azione: 'sms-verifica', pagina: WEBINAR, telefono: '3481112233', codice: ultimoCodice() });
+    esigi(b.stato === 200 && b.corpo.ok && b.corpo.token, 'e sms-verifica rende la firma del numero', JSON.stringify(b.corpo));
+    avanza(61 * 1000);
+    const altrove = await iscrivi({ email: 'web@studio.it', telefono: '3481112233', smsToken: b.corpo.token });
+    esigi(altrove.stato === 400 && altrove.corpo.smsKo, 'la firma del webinar non vale per il modulo di Milano');
+
+    // senza il consenso alle riprese al webinar si passa: nessuno e' ripreso
+    sms = [];
+    const r = await iscrivi({ pagina: WEBINAR, email: 'Web@Studio.it', telefono: '3481112233', smsToken: b.corpo.token, riprese: false, modalita: 'online', azienda: 'Web srl' });
+    esigi(r.stato === 200 && r.corpo.ok && r.corpo.azienda === 'Web srl' && r.corpo.stato && r.corpo.stato.d && r.corpo.sms === true && r.corpo.smsTipo === 'inviata',
+        'iscritta al webinar senza il consenso alle riprese, con la firma dello stato e l\'SMS partito', JSON.stringify(r.corpo));
+    const s = schede().find(x => x.email === 'web@studio.it');
+    esigi(s && s.pagina === WEBINAR && s.modalita === 'online' && !('consensoRiprese' in s) && s.telefonoNumero === '+393481112233' && s.telefonoVerificato && s.telefonoVerificato.come === 'sms' && s.confermaInAttesa === true,
+        'la scheda: online, cellulare verificato, nel giro delle conferme, nessun consenso alle riprese', JSON.stringify(s));
+    esigi(spedite.length === 1 && spedite[0].subject === 'Richiesta di conferma - Next Generation Business, Webinar 10 Dicembre 2026' && /Webinar &middot; 10 dicembre 2026/.test(spedite[0].html),
+        'parte la mail con il pulsante, vestita da webinar', spedite[0] && spedite[0].subject);
+    esigi(sms.length === 1 && sms[0].tag === 'conferma-email', 'e l\'SMS "conferma la tua email"');
+    esigi(dati.has('iscrizioniUniche/webinar-2026-12-10|email|web@studio.it') && dati.has('iscrizioniUniche/webinar-2026-12-10|tel|+393481112233'),
+        'i documenti di unicita\' portano la chiave del webinar');
+    const st = r.corpo.stato;
+
+    // la stessa persona resta libera per Milano: l'unicita' e' per evento
+    const mil = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3481112233', email: 'web@studio.it' });
+    esigi(mil.stato === 200 && mil.corpo.ok, 'email e numero del webinar restano liberi per Milano: l\'unicita\' e\' per evento', JSON.stringify(mil.corpo));
+    // e a Milano senza il consenso alle riprese ancora no
+    const vM = await verificaNumero('3481112244', 'milano-riprese@studio.it');
+    const noM = await iscrivi({ email: 'milano-riprese@studio.it', telefono: '3481112244', smsToken: vM.token, riprese: false });
+    esigi(noM.stato === 400 && noM.corpo.campo === 'riprese' && !schede().some(x => x.email === 'milano-riprese@studio.it'), 'a Milano senza consenso alle riprese ancora no');
+
+    // chi si riscrive al webinar mentre aspetta la conferma legge il modulo del webinar
+    sms = [];
+    const pre = await chiama({ azione: 'sms-invia', pagina: WEBINAR, telefono: '3481112255', email: 'web@studio.it' });
+    esigi(pre.stato === 409 && pre.corpo.campo === 'email' && /non è ancora confermato/.test(pre.corpo.msg) && /&evento=webinar-2026$/.test(pre.corpo.msg) && sms.length === 0,
+        'chi si riscrive al webinar: manca la conferma, e il modulo dei contatti ha il webinar gia\' scelto', pre.corpo.msg);
+    await chiama({ azione: 'sms-invia', pagina: WEBINAR, telefono: '3481112255', email: 'altro-web@studio.it' });
+    const b2 = await chiama({ azione: 'sms-verifica', pagina: WEBINAR, telefono: '3481112255', codice: ultimoCodice() });
+    avanza(2 * 60 * 1000);   // i due minuti dalla mail dell'iscrizione
+    const r2 = await iscrivi({ pagina: WEBINAR, email: 'web@studio.it', telefono: '3481112255', smsToken: b2.corpo.token, modalita: 'online' });
+    esigi(r2.stato === 409 && r2.corpo.campo === 'email' && /ti abbiamo appena rimandato la mail di conferma/.test(r2.corpo.msg) && /&evento=webinar-2026$/.test(r2.corpo.msg)
+        && spedite.length === 1 && spedite[0].to === 'web@studio.it' && /Webinar 10 Dicembre 2026/.test(spedite[0].subject),
+        'riscrivendosi con il numero verificato: la mail del webinar riparte, e il messaggio finisce con il modulo del webinar', r2.corpo.msg);
+
+    // "rimandala": finiti i rinvii del giorno, il messaggio rimanda al modulo del webinar
+    const rimanda = () => chiama({ azione: 'rimanda-conferma', d: st.d, t: st.t });
+    for (let i = 0; i < 4; i++) { avanza(121 * 1000); await rimanda(); }
+    avanza(121 * 1000);
+    const sesta = await rimanda();
+    esigi(sesta.stato === 429 && /più volte/.test(sesta.corpo.msg) && /\/contatti\/\?t=mail&evento=webinar-2026$/.test(sesta.corpo.msg),
+        'il sesto rinvio del giorno: "scrivici dal modulo", con il webinar gia\' scelto', JSON.stringify(sesta.corpo));
 });
 
 /* Le colonne del file da cui e' stata caricata l'azienda invitata passano,

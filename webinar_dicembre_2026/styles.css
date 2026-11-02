@@ -1,0 +1,2212 @@
+/* ============================================================
+   Next Generation Business · Milano, 26 febbraio 2027
+   Foglio di stile della sola pagina di Milano.
+   Palette del save the date: blu Revilaw e azzurro.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --blu-notte: #08213A;
+    --blu-scuro: #0E2E4F;
+    --blu: #164068;
+    --blu-medio: #2A5A85;
+    --azzurro: #7DB8EE;
+    --azzurro-chiaro: #B9DAF7;
+    --azzurro-tenue: #EAF3FC;
+    --bianco: #FFFFFF;
+    --carta: #F5F7FA;
+    --linea: #DCE3EC;
+    --testo: #14243A;
+    --testo-tenue: #556274;
+    --font-titoli: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-testo: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --raggio: 10px;
+    --ombra: 0 1px 2px rgba(8, 33, 58, 0.04), 0 8px 24px rgba(8, 33, 58, 0.06);
+    --ombra-forte: 0 2px 4px rgba(8, 33, 58, 0.06), 0 24px 48px rgba(8, 33, 58, 0.14);
+    --larghezza: 1140px;
+    --altezza-nav: 72px;
+}
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: var(--altezza-nav);
+    overflow-x: clip;
+}
+
+body {
+    font-family: var(--font-testo);
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--testo);
+    background: var(--bianco);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; text-decoration: none; }
+ul, ol { list-style: none; }
+
+.wrap {
+    width: 100%;
+    max-width: var(--larghezza);
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+:focus-visible {
+    outline: 2px solid var(--azzurro);
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+
+.salta {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: 200;
+    background: var(--bianco);
+    color: var(--blu-notte);
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+.salta:focus { top: 12px; }
+
+/* ---------------------------------------------------------- testi comuni */
+
+.etichetta {
+    display: inline-block;
+    font-family: var(--font-titoli);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--blu-medio);
+    margin-bottom: 14px;
+}
+
+.titolo {
+    font-family: var(--font-titoli);
+    font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--blu-notte);
+}
+.titolo em {
+    font-style: normal;
+    color: var(--blu-medio);
+}
+
+.testata {
+    text-align: center;
+    margin-bottom: 48px;
+}
+
+.sezione {
+    padding: 104px 0;
+}
+.sezione-grigia { background: var(--carta); }
+
+/* ---------------------------------------------------------- bottoni */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 28px;
+    border-radius: 6px;
+    font-family: var(--font-titoli);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1.5px solid transparent;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.btn:hover { transform: translateY(-1px); }
+
+.btn-chiaro {
+    background: var(--bianco);
+    color: var(--blu-notte);
+}
+.btn-chiaro:hover { background: var(--azzurro-chiaro); }
+
+.btn-linea {
+    color: var(--bianco);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+.btn-linea:hover { border-color: var(--bianco); background: rgba(255, 255, 255, 0.06); }
+
+.btn-scuro {
+    background: var(--blu);
+    color: var(--bianco);
+}
+.btn-scuro:hover { background: var(--blu-notte); }
+
+.link-freccia {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-titoli);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--blu);
+    border-bottom: 1.5px solid var(--azzurro);
+    padding-bottom: 4px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+.link-freccia svg { width: 16px; height: 16px; }
+.link-freccia:hover { color: var(--blu-notte); border-color: var(--blu-notte); }
+
+/* ---------------------------------------------------------- navigazione */
+
+.nav {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 100;
+    height: var(--altezza-nav);
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.nav.scrolled {
+    background: rgba(8, 33, 58, 0.94);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.nav-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.nav-back {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: var(--bianco);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.nav-back svg { width: 16px; height: 16px; }
+.nav-back:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.5); }
+.nav-logo img { height: 34px; width: auto; }
+
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+.nav-menu a {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+    transition: color 0.2s ease;
+}
+.nav-menu a:hover { color: var(--bianco); }
+.nav-menu a.nav-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: 6px;
+    background: var(--bianco);
+    color: var(--blu-notte);
+    font-weight: 600;
+}
+.nav-cta svg { width: 15px; height: 15px; }
+.nav-menu a.nav-cta:hover { background: var(--azzurro-chiaro); color: var(--blu-notte); }
+
+.nav-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+.nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--bianco);
+    border-radius: 2px;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.nav-toggle.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle.active span:nth-child(2) { opacity: 0; }
+.nav-toggle.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ---------------------------------------------------------- apertura */
+
+.hero {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    padding: calc(var(--altezza-nav) + 56px) 0 80px;
+    background: var(--blu-notte);
+    color: var(--bianco);
+    overflow: hidden;
+    isolation: isolate;
+}
+.hero-sfondo {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        radial-gradient(60% 55% at 50% 0%, rgba(125, 184, 238, 0.22) 0%, rgba(125, 184, 238, 0) 70%),
+        radial-gradient(50% 50% at 100% 100%, rgba(42, 90, 133, 0.55) 0%, rgba(42, 90, 133, 0) 70%),
+        linear-gradient(180deg, var(--blu-notte) 0%, var(--blu-scuro) 100%);
+}
+/* Reticolo leggero, come le linee del save the date */
+.hero-sfondo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 72px 72px;
+    background-position: center top;
+    -webkit-mask-image: radial-gradient(70% 70% at 50% 40%, #000 0%, transparent 100%);
+    mask-image: radial-gradient(70% 70% at 50% 40%, #000 0%, transparent 100%);
+}
+
+.hero-corpo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.hero-occhiello {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-titoli);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--azzurro-chiaro);
+    padding: 8px 16px;
+    border: 1px solid rgba(185, 218, 247, 0.3);
+    border-radius: 100px;
+    margin-bottom: 32px;
+}
+
+.hero-titolo {
+    font-family: var(--font-titoli);
+    font-size: clamp(2.6rem, 7vw, 5.6rem);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    max-width: 14ch;
+    text-wrap: balance;
+}
+.hero-titolo span { color: var(--azzurro); }
+
+.hero p.hero-tema {
+    margin-top: 24px;
+    max-width: 34ch;
+    font-family: var(--font-titoli);
+    font-size: clamp(1.1rem, 2vw, 1.45rem);
+    font-weight: 500;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.82);
+    text-align: center !important;
+    text-align-last: center;
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+}
+
+.hero-dati {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    margin-top: 48px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hero-dati > div {
+    padding: 18px 36px;
+}
+.hero-dati > div + div { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.hero-dati dt {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 4px;
+}
+.hero-dati dd {
+    font-family: var(--font-titoli);
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.conto {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin-top: 36px;
+}
+.conto > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 56px;
+}
+.conto span {
+    font-family: var(--font-titoli);
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.conto small {
+    margin-top: 6px;
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+}
+.conto > p {
+    font-family: var(--font-titoli);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: center !important;
+}
+
+.hero-azioni {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 40px;
+}
+
+/* ---------------------------------------------------------- l'evento */
+
+.evento-griglia {
+    display: grid;
+    grid-template-columns: 5fr 6fr;
+    gap: 72px;
+    align-items: start;
+}
+.evento-testo p {
+    color: var(--testo-tenue);
+    font-size: 1.04rem;
+}
+.evento-testo p + p { margin-top: 16px; }
+.evento-testo strong { color: var(--testo); }
+.evento-testo p.firma {
+    margin-top: 24px;
+    padding-left: 16px;
+    border-left: 3px solid var(--azzurro);
+    font-family: var(--font-titoli);
+    font-weight: 700;
+    color: var(--blu);
+}
+
+.percorso {
+    display: grid;
+    /* cinque tappe: Verona, Roma, Napoli, il webinar e Milano */
+    grid-template-columns: repeat(5, 1fr);
+    margin-top: 72px;
+    border-top: 1px solid var(--linea);
+}
+.percorso li {
+    position: relative;
+    padding-top: 22px;
+}
+.percorso li::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 0;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--bianco);
+    border: 2px solid var(--linea);
+}
+.percorso li.percorso-qui::before {
+    background: var(--blu);
+    border-color: var(--blu);
+    box-shadow: 0 0 0 5px rgba(22, 64, 104, 0.12);
+}
+.percorso a,
+.percorso-qui {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.percorso-citta {
+    font-family: var(--font-titoli);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--testo-tenue);
+    transition: color 0.2s ease;
+}
+.percorso-data {
+    font-size: 0.85rem;
+    color: #8792A2;
+}
+.percorso a:hover .percorso-citta { color: var(--blu); }
+.percorso-qui .percorso-citta { color: var(--blu-notte); }
+.percorso-qui .percorso-data { color: var(--blu-medio); font-weight: 600; }
+
+/* ---------------------------------------------------------- programma */
+
+.giornata {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+.momento {
+    background: var(--bianco);
+    border: 1px solid var(--linea);
+    border-radius: var(--raggio);
+    padding: 40px;
+    box-shadow: var(--ombra);
+}
+.momento-testa {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--linea);
+}
+.momento-num {
+    font-family: var(--font-titoli);
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--blu);
+}
+.momento-quando {
+    font-family: var(--font-titoli);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--blu-medio);
+}
+.momento h3 {
+    font-family: var(--font-titoli);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--blu-notte);
+}
+.momento p.momento-intro {
+    margin-top: 8px;
+    color: var(--testo-tenue);
+    text-align: left !important;
+}
+.momento-temi {
+    margin-top: 24px;
+}
+.momento-temi li {
+    position: relative;
+    padding: 12px 0 12px 20px;
+    border-top: 1px solid var(--linea);
+    font-weight: 600;
+    color: var(--testo);
+    text-align: left !important;
+}
+.momento-temi li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -3px;
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    background: var(--azzurro);
+    transform: rotate(45deg);
+}
+.momento-temi a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: rgba(42, 90, 133, 0.3);
+    text-underline-offset: 4px;
+    transition: text-decoration-color 0.2s ease, color 0.2s ease;
+}
+.momento-temi a:hover { color: var(--blu); text-decoration-color: var(--blu); }
+
+.momento-scuro {
+    background: var(--blu);
+    border-color: var(--blu);
+    color: var(--bianco);
+}
+.momento-scuro .momento-testa,
+.momento-scuro .momento-temi li { border-color: rgba(255, 255, 255, 0.16); }
+.momento-scuro .momento-num { color: var(--bianco); }
+.momento-scuro .momento-quando { color: var(--azzurro-chiaro); }
+.momento-scuro h3 { color: var(--bianco); }
+.momento-scuro p.momento-intro { color: rgba(255, 255, 255, 0.75); }
+.momento-scuro .momento-temi li { color: var(--bianco); }
+.momento-scuro .momento-temi a { text-decoration-color: rgba(255, 255, 255, 0.35); }
+.momento-scuro .momento-temi a:hover { color: var(--azzurro-chiaro); text-decoration-color: var(--azzurro-chiaro); }
+
+.pranzo {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-top: 24px;
+    padding: 28px 40px;
+    background: var(--bianco);
+    border: 1px solid var(--linea);
+    border-radius: var(--raggio);
+}
+.pranzo-icona {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--azzurro-tenue);
+    color: var(--blu);
+}
+.pranzo-icona svg { width: 24px; height: 24px; }
+.pranzo h3 {
+    font-family: var(--font-titoli);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--blu-notte);
+    margin-bottom: 2px;
+}
+.pranzo p { color: var(--testo-tenue); }
+.pranzo-nota { color: var(--blu-medio); font-weight: 600; white-space: nowrap; }
+
+.sezione p.avvertenza {
+    margin-top: 28px;
+    font-size: 0.875rem;
+    color: #7A8596;
+    text-align: center !important;
+    text-align-last: center;
+}
+
+/* ---------------------------------------------------------- sede */
+
+.sede-griglia {
+    display: grid;
+    grid-template-columns: 5fr 7fr;
+    gap: 64px;
+    align-items: stretch;
+}
+.sede-info { display: flex; flex-direction: column; align-items: flex-start; }
+.elenco-dati {
+    width: 100%;
+    margin: 32px 0;
+}
+.elenco-dati > div {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    border-top: 1px solid var(--linea);
+}
+.elenco-dati > div:last-child { border-bottom: 1px solid var(--linea); }
+.elenco-dati dt {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #7A8596;
+    padding-top: 3px;
+}
+.elenco-dati dd { color: var(--testo); font-weight: 500; }
+
+.sede-mappa {
+    min-height: 420px;
+    border-radius: var(--raggio);
+    overflow: hidden;
+    border: 1px solid var(--linea);
+    box-shadow: var(--ombra);
+    background: var(--carta);
+}
+.sede-mappa iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    border: 0;
+    filter: saturate(0.8);
+}
+
+/* ---------------------------------------------------------- iscrizioni */
+
+.sezione-blu {
+    background:
+        radial-gradient(50% 80% at 50% 0%, rgba(125, 184, 238, 0.16) 0%, rgba(125, 184, 238, 0) 70%),
+        var(--blu-notte);
+    color: var(--bianco);
+}
+.iscrizioni {
+    max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+.iscrizioni .titolo { color: var(--bianco); margin-top: 20px; }
+
+.stato {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    background: rgba(125, 184, 238, 0.12);
+    border: 1px solid rgba(125, 184, 238, 0.35);
+    font-family: var(--font-titoli);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--azzurro-chiaro);
+}
+.stato-punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--azzurro);
+    animation: pulsa 2.4s ease-in-out infinite;
+}
+@keyframes pulsa {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(125, 184, 238, 0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(125, 184, 238, 0); }
+}
+
+.iscrizioni p.iscrizioni-testo {
+    margin-top: 16px;
+    max-width: 58ch;
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.75);
+    text-align: center !important;
+    text-align-last: center;
+}
+
+/* "Evento in presenza": una riga centrata con l'icona, senza riquadro */
+.presenza {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 32px;
+}
+.presenza svg { width: 28px; height: 28px; flex-shrink: 0; color: var(--azzurro); }
+.presenza p { margin: 0; font-size: 1.05rem; color: var(--bianco); text-align: center !important; text-align-last: center; }
+.presenza strong { color: var(--bianco); }
+
+.vantaggi {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 28px;
+    margin-top: 28px;
+}
+.vantaggi li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+}
+.vantaggi li::before {
+    content: '';
+    width: 14px;
+    height: 8px;
+    border-left: 2px solid var(--azzurro);
+    border-bottom: 2px solid var(--azzurro);
+    transform: rotate(-45deg) translateY(-2px);
+}
+
+/* "Mail di conferma non ricevuta?": sotto il modulo, una scheda blu piu'
+   chiara del fondo della sezione, con il bordo azzurro, perche' si veda
+   subito. Tutta la scheda e' il collegamento al modulo contatti. Titolo e
+   descrizione stanno su una riga: dove la sezione e' stretta la freccia si
+   toglie per lasciare loro lo spazio. */
+.iscrizioni .mail-non-ricevuta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    margin-top: 20px;
+    padding: 20px 22px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--blu) 0%, var(--blu-medio) 100%);
+    border: 1px solid rgba(125, 184, 238, 0.45);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    color: var(--bianco);
+    text-align: left;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+/* dopo l'invio script.js la nasconde: il display qui sopra vincerebbe su hidden */
+.iscrizioni .mail-non-ricevuta[hidden] { display: none; }
+.iscrizioni .mail-non-ricevuta:hover {
+    transform: translateY(-2px);
+    border-color: var(--azzurro);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.3);
+}
+.iscrizioni .mail-non-ricevuta:focus-visible { outline: 2px solid var(--azzurro-chiaro); outline-offset: 3px; }
+.mail-non-ricevuta-icona {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--bianco);
+    color: var(--blu);
+}
+.mail-non-ricevuta-icona svg { width: 22px; height: 22px; }
+.mail-non-ricevuta-corpo { flex: 1; min-width: 0; }
+/* righe corte: giustificate o sillabate (testo.css) si leggerebbero male */
+.mail-non-ricevuta .mail-non-ricevuta-titolo,
+.mail-non-ricevuta .mail-non-ricevuta-desc {
+    display: block;
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+    text-align: left !important;
+}
+.mail-non-ricevuta .mail-non-ricevuta-titolo {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--bianco);
+    margin-bottom: 3px;
+}
+.mail-non-ricevuta .mail-non-ricevuta-desc {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.78);
+}
+.mail-non-ricevuta-freccia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: var(--bianco);
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.mail-non-ricevuta-freccia svg { width: 16px; height: 16px; transition: transform 0.2s ease; }
+.mail-non-ricevuta:hover .mail-non-ricevuta-freccia { background: var(--bianco); color: var(--blu); }
+.mail-non-ricevuta:hover .mail-non-ricevuta-freccia svg { transform: translateX(2px); }
+@media (max-width: 480px) {
+    .iscrizioni .mail-non-ricevuta { gap: 14px; padding: 18px; }
+    .mail-non-ricevuta-icona { width: 44px; height: 44px; }
+    .mail-non-ricevuta-freccia { display: none; }
+}
+/* i telefoni piu' stretti (360 px): un po' meno di margini e di corpo, e
+   titolo e descrizione restano comunque su una riga */
+@media (max-width: 380px) {
+    .iscrizioni .mail-non-ricevuta { gap: 12px; padding: 16px; }
+    .mail-non-ricevuta-icona { width: 40px; height: 40px; border-radius: 11px; }
+    .mail-non-ricevuta-icona svg { width: 20px; height: 20px; }
+    .mail-non-ricevuta .mail-non-ricevuta-titolo { font-size: 1rem; }
+    .mail-non-ricevuta .mail-non-ricevuta-desc { font-size: 0.86rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .iscrizioni .mail-non-ricevuta,
+    .mail-non-ricevuta-freccia svg { transition: none; }
+    .iscrizioni .mail-non-ricevuta:hover,
+    .mail-non-ricevuta:hover .mail-non-ricevuta-freccia svg { transform: none; }
+}
+
+/* "Per informazioni": un'etichetta e due pillole (il modulo delle domande e
+   l'indirizzo), su una riga a schermo largo. Su schermo stretto si va a capo
+   fra un pezzo e l'altro, mai dentro una pillola. */
+.iscrizioni .iscrizioni-avviso {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px 14px;
+    margin-top: 36px;
+    padding-top: 28px;
+    width: 100%;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.iscrizioni-avviso-etichetta {
+    font-size: 1.02rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.72);
+    white-space: nowrap;
+}
+.iscrizioni-avviso-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--bianco);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.iscrizioni-avviso-link svg { width: 18px; height: 18px; flex: none; color: var(--azzurro-chiaro); }
+.iscrizioni-avviso-link:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--bianco); }
+.iscrizioni-avviso-link:focus-visible { outline: 2px solid var(--azzurro-chiaro); outline-offset: 3px; }
+/* sul telefono l'etichetta sta sopra e le pillole sotto, ognuna intera */
+@media (max-width: 560px) {
+    .iscrizioni-avviso-etichetta { flex-basis: 100%; text-align: center; }
+    .iscrizioni-avviso-link { font-size: 0.95rem; padding: 9px 16px; }
+}
+
+/* ---------------------------------------------------------- modulo di iscrizione */
+
+.passi {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    margin-top: 28px;
+}
+.passi li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--raggio);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: left !important;
+}
+.passi-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--azzurro);
+    color: var(--blu-notte);
+    font-family: var(--font-titoli);
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+
+/* la nota per chi non e' un'azienda: accanto ai passi, stesso vetro, filo azzurro a sinistra */
+.accredito-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px 20px;
+    border-radius: var(--raggio);
+    background: rgba(125, 184, 238, 0.08);
+    border: 1px solid rgba(125, 184, 238, 0.28);
+    border-left: 3px solid var(--azzurro);
+    text-align: left;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+.accredito-nota svg { flex-shrink: 0; width: 26px; height: 26px; margin-top: 1px; color: var(--azzurro); }
+.accredito-nota p { margin: 0; }
+.accredito-nota strong { color: var(--bianco); }
+.accredito-nota-titolo {
+    margin-bottom: 2px !important;
+    font-family: var(--font-titoli);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--bianco);
+}
+@media (max-width: 560px) {
+    .accredito-nota { padding: 14px 16px; gap: 12px; }
+}
+
+.modulo-involucro {
+    width: 100%;
+    margin-top: 32px;
+    padding: 40px;
+    border-radius: 14px;
+    background: var(--bianco);
+    color: var(--testo);
+    box-shadow: var(--ombra-forte);
+    text-align: left;
+}
+.modulo-blocco {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 20px;
+    margin: 0 0 28px;
+    padding: 0 0 28px;
+    border: 0;
+    border-bottom: 1px solid var(--linea);
+    min-width: 0;
+}
+.modulo-blocco legend {
+    grid-column: 1 / -1;
+    float: left;
+    width: 100%;
+    margin-bottom: 18px;
+    font-family: var(--font-titoli);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--blu);
+}
+.modulo-blocco legend .facoltativo { letter-spacing: 0; text-transform: none; }
+.campo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.campo[hidden] { display: none; }
+.campo-largo { grid-column: 1 / -1; }
+.campo label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--testo);
+}
+.facoltativo { font-weight: 400; color: var(--testo-tenue); }
+.campo input,
+.campo select {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    background: var(--carta);
+    color: var(--testo);
+    font: inherit;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+/* Lo stesso aspetto su iPhone, Android e computer: senza, Safari aggiunge
+   un'ombra interna e angoli suoi, e le tendine hanno ognuna la sua freccia.
+   Il testo resta a 16px: sotto, l'iPhone ingrandisce la pagina a ogni tocco. */
+.campo input,
+.campo select {
+    -webkit-appearance: none;
+    appearance: none;
+    font-size: 16px;
+    line-height: 1.3;
+    scroll-margin-top: calc(var(--altezza-nav) + 24px);
+    scroll-margin-bottom: 120px;
+}
+.campo select {
+    padding-right: 40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23164068' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 12px 8px;
+}
+.campo select::-ms-expand { display: none; }
+.campo input:focus,
+.campo select:focus {
+    outline: none;
+    border-color: var(--blu-medio);
+    background: var(--bianco);
+    box-shadow: 0 0 0 3px rgba(42, 90, 133, 0.15);
+}
+.campo input[readonly] { background: var(--azzurro-tenue); border-color: var(--azzurro-chiaro); }
+/* L'azienda portata dal codice invito: oltre al fondo dei campi fermi, il
+   lucchetto a destra e il cursore che dice "qui non si scrive". Le regole
+   sono quelle singole e non "background", e stanno dopo :focus: cosi' il
+   lucchetto resta anche quando il campo prende il fuoco. */
+.campo input.campo-bloccato {
+    padding-right: 42px;
+    cursor: not-allowed;
+    background-color: var(--azzurro-tenue);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='16' viewBox='0 0 14 16'%3E%3Crect x='1.5' y='7' width='11' height='8' rx='1.5' fill='none' stroke='%23164068' stroke-width='1.6'/%3E%3Cpath d='M4 7V4.8a3 3 0 0 1 6 0V7' fill='none' stroke='%23164068' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 14px 16px;
+}
+.campo input.errore,
+.campo select.errore { border-color: #B1213B; background: #FDF3F5; }
+.campo-codice { text-transform: uppercase; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; }
+.campo-codice::placeholder { text-transform: none; letter-spacing: 0; }
+.campo-riga { display: flex; gap: 10px; }
+.campo-riga input { flex: 1; min-width: 0; }
+.campo-nota { font-size: 0.8rem; color: var(--testo-tenue); text-align: left !important; }
+.campo-nota[hidden] { display: none; }
+/* la casella di sicurezza: occupa spazio solo quando Cloudflare chiede un clic */
+.captcha { margin-top: 0; }
+.captcha--visibile { margin-top: 10px; }
+.captcha[hidden] { display: none; }
+.campo-ok { font-size: 0.82rem; font-weight: 600; color: #1F6B57; }
+.campo-ok:empty, .campo-errore:empty { display: none; }
+.campo-errore { font-size: 0.82rem; color: #B1213B; text-align: left !important; }
+
+.btn-modulo {
+    flex-shrink: 0;
+    min-height: 46px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--blu);
+    color: var(--bianco);
+    font-family: var(--font-titoli);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+.btn-modulo:hover { background: var(--blu-scuro); }
+/* /assets/testo.css fa ereditare l'allineamento ai pulsanti: questi restano centrati */
+.btn-modulo { text-align: center !important; }
+.btn-modulo:disabled { opacity: 0.5; cursor: default; }
+.btn-modulo:focus-visible,
+.link-modulo:focus-visible { outline: 2px solid var(--blu-medio); outline-offset: 2px; }
+.link-modulo {
+    align-self: flex-start;
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    color: var(--blu-medio);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.link-modulo:disabled { color: var(--testo-tenue); text-decoration: none; cursor: default; }
+.link-modulo[hidden] { display: none; }
+
+.interessi {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 20px;
+}
+.spunta {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--testo);
+    cursor: pointer;
+    text-align: left !important;
+}
+.spunta input {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--blu);
+}
+.spunta a { color: var(--blu-medio); text-decoration: underline; }
+.modulo-consensi { display: flex; flex-direction: column; gap: 10px; }
+
+.modulo-invio { margin-top: 28px; text-align: center; }
+.btn-invio { width: 100%; cursor: pointer; }
+.btn-invio:disabled { opacity: 0.6; cursor: default; }
+.btn-invio [hidden] { display: none; }
+.modulo-errore { margin-top: 14px; font-size: 0.88rem; color: #B1213B; }
+.modulo-errore:empty { display: none; }
+.iscrizioni .modulo-nota,
+.modulo-nota { margin-top: 14px; font-size: 0.82rem; color: var(--testo-tenue); text-align: center !important; text-align-last: center; }
+
+/* la conferma dopo l'invio: testo giustificato come il resto del sito */
+.fatto { outline: none; }
+.fatto[hidden] { display: none; }
+.fatto-testa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--blu-notte);
+    margin-bottom: 28px;
+}
+.fatto-logo { width: 150px; height: auto; }
+.fatto-evento {
+    font-family: var(--font-titoli);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--testo-tenue);
+    text-align: right !important;
+    line-height: 1.6;
+}
+.fatto-occhiello { color: var(--blu-medio); }
+.fatto-titolo {
+    margin-top: 10px;
+    font-family: var(--font-titoli);
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--blu-notte);
+    text-align: left !important;
+}
+.fatto p, .fatto-passo span, .fatto dd {
+    text-align: justify !important;
+    text-align-last: left;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+}
+.fatto-intro { margin-top: 14px; font-size: 1rem; line-height: 1.65; color: var(--testo); }
+.fatto-passi { margin-top: 28px; border-top: 1px solid var(--linea); }
+.fatto-passo {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--linea);
+}
+.fatto-passo div { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.fatto-passo strong { font-family: var(--font-titoli); font-size: 0.92rem; color: var(--blu-notte); }
+.fatto-passo span { font-size: 0.88rem; line-height: 1.55; color: var(--testo-tenue); }
+.fatto-passo b { color: var(--testo); font-weight: 600; word-break: break-all; }
+.fatto-segno {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--linea);
+    color: var(--testo-tenue);
+    background: var(--bianco);
+}
+.fatto-segno svg { width: 15px; height: 15px; }
+.fatto-passo--ok .fatto-segno { background: #1F6B57; border-color: #1F6B57; color: var(--bianco); }
+.fatto-passo--attesa .fatto-segno { border-color: var(--blu-medio); color: var(--blu-medio); background: var(--azzurro-tenue); }
+.fatto-passo--attesa strong { color: var(--blu-medio); }
+/* il riepilogo come una tabella da documento: filetto blu notte in testa,
+   righe separate da un filetto sottile (come la mail e l'invito in PDF) */
+.fatto-riepilogo {
+    margin-top: 28px;
+    border-top: 2px solid var(--blu-notte);
+}
+.fatto-riepilogo > div {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--linea);
+}
+.fatto-riepilogo dt {
+    font-family: var(--font-titoli);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--testo-tenue);
+    padding-top: 2px;
+}
+.fatto-riepilogo dd { font-size: 0.95rem; font-weight: 700; color: var(--blu-notte); }
+.fatto-azioni { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.fatto-nota { margin-top: 22px; font-size: 0.84rem; line-height: 1.6; color: var(--testo-tenue); }
+.fatto-nota a { color: var(--blu-medio); text-decoration: underline; }
+/* in fondo alla conferma, il doppione del pulsante per rimandare la mail
+   (script.js lo tiene uguale a quello del passo della mail) */
+.fatto-rimanda-fondo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    margin-top: 22px;
+    padding: 16px 18px;
+    border-radius: 10px;
+    background: var(--azzurro-tenue);
+    border: 1px solid var(--azzurro-chiaro);
+}
+.fatto-rimanda-fondo[hidden] { display: none; }
+.fatto-rimanda-fondo .fatto-rimanda-fondo-domanda {
+    flex: 1 1 240px;
+    font-weight: 700;
+    color: var(--blu-notte);
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+    text-align: left !important;
+}
+.fatto-rimanda-fondo .btn-modulo { text-align: center !important; text-align-last: center; }
+.fatto-rimanda-fondo .btn-modulo[hidden] { display: none; }
+/* l'esito puo' contenere un indirizzo lungo senza spazi: va a capo dentro
+   il riquadro invece di uscirne */
+.fatto-rimanda-fondo .fatto-rimanda-esito {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    flex: 1 1 100%;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--testo);
+    text-align: left !important;
+}
+.fatto-rimanda-fondo .fatto-rimanda-esito.ko { color: #B1213B; }
+/* sotto il passo della mail: dove cercarla, lo stato dell'invio, il
+   pulsante per rimandarla e il modulo per scriverci */
+.fatto-passo .fatto-mail { gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--linea); }
+.fatto-mail[hidden] { display: none; }
+/* le parole in neretto qui sono cartelle, non indirizzi: si spezzano solo fra le parole */
+.fatto-passo .fatto-mail-dove b { word-break: normal; }
+.fatto-passo .fatto-mail-dove { overflow-wrap: anywhere; }
+.fatto-passo .fatto-mail-stato {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #FFF6E5;
+    border: 1px solid #F0D9A8;
+    color: #6B4A00;
+    font-weight: 600;
+    text-align: left !important;
+}
+.fatto-passo .fatto-mail-stato[hidden] { display: none; }
+.fatto-passo .fatto-rimanda { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.fatto-rimanda .btn-modulo[hidden] { display: none; }
+/* /assets/testo.css fa ereditare l'allineamento ai pulsanti, e qui il riquadro e' giustificato */
+.fatto-rimanda .btn-modulo { text-align: center !important; text-align-last: center; }
+.fatto-passo .fatto-rimanda-esito { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; color: var(--testo); text-align: left !important; }
+.fatto-passo .fatto-rimanda-esito.ko { color: #B1213B; }
+.fatto-rimanda-esito:empty { display: none; }
+.fatto-mail-modulo {
+    align-self: flex-start;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--blu-medio);
+    text-decoration: underline;
+}
+.fatto-mail-modulo:hover { color: var(--blu); }
+.fatto-mail-modulo:focus-visible { outline: 2px solid var(--blu-medio); outline-offset: 2px; }
+
+/* ---------------------------------------------------------- save the date */
+
+.scarica {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 80px;
+    align-items: center;
+    max-width: 960px;
+}
+.scarica-anteprima {
+    display: block;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: var(--ombra-forte);
+    transform: rotate(-2deg);
+    transition: transform 0.3s ease;
+}
+.scarica-anteprima:hover { transform: rotate(0deg) translateY(-4px); }
+.scarica-testo > p {
+    margin-top: 16px;
+    color: var(--testo-tenue);
+    font-size: 1.04rem;
+}
+.elenco-dati--riga { margin: 28px 0 32px; }
+.elenco-dati--riga > div { grid-template-columns: 120px 1fr; padding: 12px 0; }
+
+/* ---------------------------------------------------------- promotore */
+
+.promotore {
+    padding: 64px 0;
+    border-top: 1px solid var(--linea);
+    text-align: center;
+}
+.promotore .wrap { display: flex; flex-direction: column; align-items: center; }
+.promotore .etichetta { color: #7A8596; margin-bottom: 20px; }
+.promotore img { height: 56px; width: auto; transition: opacity 0.2s ease; }
+.promotore a:hover img { opacity: 0.8; }
+
+/* ---------------------------------------------------------- piè di pagina */
+
+.footer {
+    background: var(--blu-notte);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 56px 0 32px;
+    font-size: 0.875rem;
+}
+.footer-alto {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.footer p.footer-nome {
+    font-family: var(--font-titoli);
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--bianco);
+    text-align: left !important;
+}
+.footer p.footer-evento { margin-top: 4px; text-align: left !important; }
+.footer-link {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px 28px;
+}
+.footer-link a { transition: color 0.2s ease; }
+.footer-link a:hover { color: var(--bianco); }
+.footer-bottom {
+    padding-top: 28px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+.footer-bottom p + p { margin-top: 6px; }
+.footer-bottom a { color: rgba(255, 255, 255, 0.7); }
+.footer-bottom a:hover { color: var(--bianco); }
+
+/* ---------------------------------------------------------- comparsa */
+
+.fade-in {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fade-in.visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .fade-in { opacity: 1; transform: none; transition: none; }
+    .stato-punto { animation: none; }
+    .btn:hover, .scarica-anteprima:hover { transform: none; }
+}
+
+/* ---------------------------------------------------------- tablet */
+
+@media (max-width: 960px) {
+    .nav-toggle { display: flex; }
+    .nav-menu {
+        position: absolute;
+        top: var(--altezza-nav);
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 8px 24px 24px;
+        background: var(--blu-notte);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 24px 40px rgba(0, 0, 0, 0.25);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px);
+        transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+    }
+    .nav-menu.active { opacity: 1; visibility: visible; transform: none; }
+    .nav-menu a { padding: 14px 0; font-size: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    .nav-menu a.nav-cta { margin-top: 16px; justify-content: center; padding: 14px 16px; border-bottom: 0; }
+    .nav:has(.nav-menu.active) { background: var(--blu-notte); }
+
+    .evento-griglia,
+    .sede-griglia { grid-template-columns: 1fr; gap: 32px; }
+    .giornata { grid-template-columns: 1fr; }
+    .scarica { grid-template-columns: 260px 1fr; gap: 48px; }
+}
+
+/* ---------------------------------------------------------- telefono */
+
+@media (max-width: 720px) {
+    :root { --altezza-nav: 64px; }
+    .wrap { padding: 0 16px; }
+    .sezione { padding: 72px 0; }
+    .nav-logo img { height: 28px; }
+
+    .hero { padding: calc(var(--altezza-nav) + 40px) 0 56px; }
+    .hero-occhiello { margin-bottom: 24px; font-size: 0.66rem; }
+    .hero-dati {
+        grid-template-columns: 1fr;
+        width: 100%;
+        margin-top: 36px;
+    }
+    .hero-dati > div { padding: 14px 0; }
+    .hero-dati > div + div { border-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+    .conto { gap: 16px; margin-top: 28px; }
+    .conto span { font-size: 1.5rem; }
+    .conto small { font-size: 0.6rem; letter-spacing: 0.12em; }
+    .hero-azioni { flex-direction: column; width: 100%; }
+    .hero-azioni .btn { width: 100%; }
+
+    .percorso { grid-template-columns: 1fr 1fr; row-gap: 28px; margin-top: 48px; border-top: 0; }
+    .percorso li { border-top: 1px solid var(--linea); }
+
+    .momento { padding: 28px 24px; }
+    .pranzo { flex-direction: column; align-items: flex-start; padding: 24px; gap: 16px; }
+    .pranzo-nota { white-space: normal; }
+
+    .elenco-dati > div { grid-template-columns: 1fr; gap: 2px; }
+    .sede-mappa, .sede-mappa iframe { min-height: 300px; }
+
+
+    .passi { grid-template-columns: 1fr; }
+    .modulo-involucro { padding: 24px 16px; border-radius: 12px; }
+    /* sul telefono: campi alti quanto un dito, e caselle grandi da toccare */
+    .campo input, .campo select, .btn-modulo { min-height: 50px; }
+    .modulo-blocco { gap: 16px; }
+    .interessi { gap: 8px; }
+    .interessi .spunta {
+        padding: 12px 14px;
+        border: 1px solid var(--linea);
+        border-radius: 10px;
+        background: var(--bianco);
+        align-items: center;
+        min-height: 48px;
+    }
+    .interessi .spunta:has(input:checked) { border-color: var(--blu-medio); background: var(--azzurro-tenue); }
+    .spunta input { width: 22px; height: 22px; margin-top: 0; }
+    .modulo-consensi .spunta { padding: 6px 0; }
+    .btn-invio { min-height: 56px; }
+    .link-modulo { padding: 10px 0; }
+    .modulo-blocco { grid-template-columns: 1fr; }
+    .interessi { grid-template-columns: 1fr; }
+    .campo-riga { flex-direction: column; }
+    .btn-modulo { width: 100%; }
+    .fatto-testa { flex-direction: column; align-items: flex-start; }
+    .fatto-evento { text-align: left !important; }
+    .fatto-titolo { font-size: 1.3rem; }
+    .fatto-riepilogo > div { grid-template-columns: 1fr; gap: 2px; }
+    .fatto-azioni .btn { width: 100%; }
+
+    .scarica { grid-template-columns: 1fr; gap: 40px; }
+    .scarica-anteprima { max-width: 240px; margin: 0 auto; }
+    .scarica .btn { width: 100%; }
+    .elenco-dati--riga > div { grid-template-columns: 120px 1fr; }
+
+    .footer-alto { flex-direction: column; }
+    .footer-link { justify-content: flex-start; }
+}
+
+/* ---------------------------------------------------------- allineamenti
+   /assets/testo.css giustifica paragrafi, voci e dd in tutto il sito:
+   qui i dati brevi e le frasi a effetto restano allineati come disegnati. */
+.hero-dati dd,
+.hero-dati dt { text-align: center !important; text-align-last: center; -webkit-hyphens: manual !important; hyphens: manual !important; }
+.elenco-dati dd,
+.vantaggi li,
+.percorso li,
+.evento-testo p.firma,
+.pranzo p { text-align: left !important; -webkit-hyphens: manual !important; hyphens: manual !important; }
+
+@media (max-width: 720px) {
+    .evento-testo p,
+    .scarica-testo > p,
+    .fatto-passo .fatto-mail-dove { text-align: left !important; }
+}
+
+/* ---------------------------------------------------------- anteprima degli approfondimenti */
+
+.btn-tenue {
+    background: var(--carta);
+    color: var(--blu-notte);
+    border-color: var(--linea);
+    cursor: pointer;
+}
+.btn-tenue:hover { background: var(--azzurro-tenue); border-color: var(--azzurro-chiaro); }
+
+.anteprima {
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    background: var(--bianco);
+    color: var(--testo);
+    box-shadow: 0 32px 80px rgba(8, 33, 58, 0.35);
+    overflow: auto;
+}
+.anteprima::backdrop {
+    background: rgba(8, 33, 58, 0.6);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+.anteprima[open] { animation: anteprima-entra 0.25s ease; }
+@keyframes anteprima-entra {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
+.anteprima-immagine {
+    aspect-ratio: 1200 / 630;
+    background: linear-gradient(135deg, var(--blu-notte), var(--blu));
+}
+.anteprima-immagine img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.anteprima-immagine img.caricata { opacity: 1; }
+
+.anteprima-corpo { padding: 28px 32px 32px; }
+.anteprima-corpo .etichetta { margin-bottom: 8px; }
+.anteprima-titolo {
+    font-family: var(--font-titoli);
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--blu-notte);
+}
+.anteprima p.anteprima-testo {
+    margin-top: 10px;
+    color: var(--testo-tenue);
+    font-size: 0.95rem;
+    text-align: left !important;
+}
+.anteprima p.anteprima-testo:empty { display: none; }
+.anteprima.in-caricamento .anteprima-titolo,
+.anteprima.in-caricamento .anteprima-testo { opacity: 0.55; }
+.anteprima p.anteprima-domanda {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--linea);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--testo);
+    text-align: left !important;
+}
+.anteprima-azioni {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}
+.anteprima-azioni .btn { min-height: 46px; padding: 0 20px; font-size: 0.76rem; }
+
+.anteprima-chiudi {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(8, 33, 58, 0.55);
+    color: var(--bianco);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.anteprima-chiudi svg { width: 18px; height: 18px; }
+.anteprima-chiudi:hover { background: rgba(8, 33, 58, 0.85); }
+
+@media (max-width: 520px) {
+    .anteprima-corpo { padding: 22px 20px 24px; }
+    .anteprima-azioni { flex-direction: column-reverse; }
+    .anteprima-azioni .btn { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .anteprima[open] { animation: none; }
+}
+
+/* ---------------------------------------------------------- l'hotel del save the date */
+
+/* Il disegno dell'Excelsior Hotel Gallia preso dal volantino: bianco su
+   blu, come sta li', in un riquadro accanto ai dati della sede. */
+.sede-illustrazione {
+    width: 100%;
+    margin: 24px 0 0;
+    padding: 28px 28px 0;
+    border-radius: var(--raggio);
+    background:
+        radial-gradient(70% 90% at 50% 0%, rgba(125, 184, 238, 0.25) 0%, rgba(125, 184, 238, 0) 70%),
+        linear-gradient(160deg, var(--blu-notte) 0%, var(--blu-scuro) 55%, var(--blu) 100%);
+    overflow: hidden;
+}
+.sede-illustrazione img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* ---------------------------------------------------------- come partecipare (webinar) */
+/* Al posto della sede: a sinistra i dati (dove, quando, accesso, cosa
+   serve), a destra i quattro passi in colonna, su fondo chiaro. */
+.partecipare-griglia {
+    display: grid;
+    grid-template-columns: 6fr 5fr;
+    gap: 64px;
+    align-items: start;
+}
+.partecipare-passi {
+    background: #F4F8FB;
+    border: 1px solid #E2E8F0;
+    border-left: 3px solid #2A5A85;
+    border-radius: var(--raggio, 12px);
+    padding: 28px 28px 24px;
+}
+.partecipare-passi h3 {
+    font-family: var(--font-titoli, 'Montserrat', sans-serif);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--blu-notte, #0A2844);
+    margin: 0 0 18px;
+}
+.partecipare-passi .passi {
+    grid-template-columns: 1fr;
+    margin-top: 0;
+}
+.partecipare-passi .passi li {
+    background: #FFFFFF;
+    border-color: #E2E8F0;
+    color: #1E293B;
+    font-size: 0.95rem;
+}
+
+/* ---------------------------------------------------------- iscrizioni non ancora aperte */
+/* la pillola «Iscrizioni in apertura»: punto fermo e grigio, senza il battito di «aperte» */
+.stato--chiuse .stato-punto {
+    animation: none;
+    background: var(--testo-tenue);
+}
+/* L'avviso al posto del modulo, finche' <body data-iscrizioni="chiuse">:
+   stesso vetro dei passi, icona dell'orologio, testo a sinistra. */
+.iscrizioni-chiuse {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    width: 100%;
+    margin-top: 32px;
+    padding: 24px 26px;
+    border-radius: var(--raggio, 12px);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    text-align: left;
+}
+/* script.js la nasconde quando le iscrizioni si aprono: il display qui sopra vincerebbe su hidden */
+.iscrizioni-chiuse[hidden] { display: none; }
+.iscrizioni-chiuse svg {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    color: var(--azzurro, #7DB8EE);
+}
+.iscrizioni-chiuse p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: left !important;
+}
+.iscrizioni-chiuse-titolo {
+    font-family: var(--font-titoli, 'Montserrat', sans-serif);
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: #FFFFFF !important;
+    margin-bottom: 6px !important;
+}
+.iscrizioni-chiuse a {
+    color: #FFFFFF;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+@media (max-width: 900px) {
+    .partecipare-griglia {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+}
+@media (max-width: 480px) {
+    .iscrizioni-chiuse {
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px 18px;
+    }
+}
+
+/* ---------------------------------------------------------- diretta */
+/* Voce di menu, pillola e fascia "Segui il webinar in diretta": lo stesso
+   meccanismo della pagina di Napoli, con i colori di questa pagina. Lo
+   stato lo scrive /assets/diretta-stato.js in <html data-diretta="prima|
+   oggi|in_onda|pausa|conclusa">: l'indicatore rosso IN DIRETTA
+   (.indicatore-live) mentre si e' in onda, "in pausa" (.indicatore-pausa)
+   durante una pausa; dopo la fine voce e pillola spariscono
+   ([data-diretta-aperta]) e la fascia dice che il webinar si e' concluso
+   ([data-diretta-conclusa]). Tutto parte nascosto (hidden) e compare solo
+   nella finestra del webinar. */
+
+/* L'attributo hidden deve vincere sul display dei componenti qui sotto. */
+.indicatore-live[hidden],
+.indicatore-pausa[hidden],
+[data-diretta-aperta][hidden],
+[data-diretta-conclusa][hidden],
+[data-diretta-pubblica][hidden] {
+    display: none !important;
+}
+
+.indicatore-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 100px;
+    background: #C8203F;
+    color: var(--bianco);
+    font-family: var(--font-testo);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(200, 32, 63, 0.35);
+}
+.indicatore-live-punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bianco);
+    flex-shrink: 0;
+    animation: direttaPunto 1.6s ease-out infinite;
+}
+@keyframes direttaPunto {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.75); }
+    70%  { box-shadow: 0 0 0 7px rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* "In pausa": niente rosso ne' pulsazioni, due barre ambra davanti alla scritta */
+.indicatore-pausa {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 100px;
+    background: #FCEFD2;
+    border: 1px solid #EFC56B;
+    color: #6B4400;
+    font-family: var(--font-testo);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.indicatore-pausa::before {
+    content: '';
+    box-sizing: border-box;
+    width: 9px;
+    height: 10px;
+    border-left: 3px solid #D08A0E;
+    border-right: 3px solid #D08A0E;
+    flex-shrink: 0;
+}
+
+/* --- Voce di menu: pillola rossa piena, si distingue dalle altre voci --- */
+.nav-menu a.nav-diretta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1.5px solid #C8203F;
+    border-radius: 100px;
+    background: #C8203F;
+    color: var(--bianco);
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+.nav-menu a.nav-diretta:hover,
+.nav-menu a.nav-diretta:focus-visible {
+    background: #A8182F;
+    border-color: #A8182F;
+    color: var(--bianco);
+}
+.nav-menu a.nav-diretta:focus-visible {
+    outline: 2px solid var(--bianco);
+    outline-offset: 2px;
+}
+
+/* pallino bianco fisso davanti a "Diretta": in onda diventa quello che
+   pulsa, dentro l'indicatore */
+.nav-diretta-testo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.nav-diretta-testo::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--bianco);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22);
+    flex-shrink: 0;
+}
+
+/* in onda la pillola si accende e dice solo IN DIRETTA; in pausa dice
+   "Diretta in pausa", con le due barre al posto del pallino. Valgono per la
+   voce di menu e per la pillola accanto all'hamburger. */
+.nav-menu a.nav-diretta .indicatore-live,
+.nav-pillola-diretta .indicatore-live {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 0.78rem;
+    letter-spacing: 1.2px;
+}
+.nav-menu a.nav-diretta .indicatore-pausa,
+.nav-pillola-diretta .indicatore-pausa {
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font-size: inherit;
+    font-weight: 500;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    opacity: 0.9;
+}
+.nav-menu a.nav-diretta .indicatore-pausa::before,
+.nav-pillola-diretta .indicatore-pausa::before {
+    display: none;
+}
+html[data-diretta="in_onda"] .nav-diretta-testo {
+    display: none;
+}
+html[data-diretta="pausa"] .nav-diretta-testo::before {
+    box-sizing: border-box;
+    width: 8px;
+    height: 9px;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    border-left: 2.5px solid var(--bianco);
+    border-right: 2.5px solid var(--bianco);
+}
+html[data-diretta="in_onda"] .nav-menu a.nav-diretta,
+html[data-diretta="in_onda"] .nav-pillola-diretta {
+    background: #C8203F;
+    border-color: #C8203F;
+    animation: direttaAlone 2.2s ease-out infinite;
+}
+@keyframes direttaAlone {
+    0%   { box-shadow: 0 0 0 0 rgba(200, 32, 63, 0.55); }
+    70%  { box-shadow: 0 0 0 10px rgba(200, 32, 63, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(200, 32, 63, 0); }
+}
+
+/* --- Pillola "Diretta" accanto all'hamburger ---
+   Col menu a scomparsa (fino a 960px, vedi sotto) la voce Diretta resta
+   nascosta finche' non si apre il menu: questa pillola la tiene a un
+   tocco, nella barra, fuori dal menu. Sopra i 960px non serve. */
+.nav-pillola-diretta {
+    display: none;
+}
+
+/* --- Fascia "Segui il webinar in diretta", subito dopo la hero --- */
+.diretta-fascia {
+    position: relative;
+    padding: 64px 0;
+    background: var(--bianco);
+    scroll-margin-top: var(--altezza-nav);
+}
+.diretta-riquadro {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 48px;
+    padding: 44px 48px;
+    border-radius: var(--raggio);
+    background: linear-gradient(135deg, var(--blu-notte) 0%, var(--blu) 55%, var(--blu-medio) 100%);
+    color: var(--bianco);
+    box-shadow: var(--ombra-forte);
+}
+/* filo rosso in alto e alone chiaro in un angolo */
+.diretta-riquadro::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #C8203F, #E05A74 45%, rgba(224, 90, 116, 0));
+}
+.diretta-riquadro::after {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -90px;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(125, 184, 238, 0.26), rgba(125, 184, 238, 0) 68%);
+    pointer-events: none;
+}
+.diretta-testo,
+.diretta-azione {
+    position: relative;
+    z-index: 1;
+}
+.diretta-occhiello {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 6px 13px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--azzurro-chiaro);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+}
+.diretta-occhiello svg {
+    color: var(--azzurro);
+    flex-shrink: 0;
+}
+.diretta-titolo {
+    font-family: var(--font-titoli);
+    font-size: clamp(1.7rem, 3.2vw, 2.3rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--bianco);
+    margin-bottom: 14px;
+}
+.diretta-testo p {
+    font-size: 0.97rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.78);
+}
+.diretta-testo p + p {
+    margin-top: 10px;
+}
+.diretta-testo strong {
+    color: var(--bianco);
+    font-weight: 600;
+}
+.diretta-testo a,
+.diretta-note a {
+    color: var(--bianco);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+}
+.diretta-testo a:hover,
+.diretta-note a:hover {
+    color: var(--azzurro-chiaro);
+}
+.diretta-azione {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+}
+.btn-diretta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 18px 26px;
+    border-radius: 6px;
+    border: 2px solid var(--bianco);
+    background: var(--bianco);
+    color: var(--blu-notte);
+    font-family: var(--font-titoli);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+    transition: background 0.3s ease, color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+.btn-diretta svg {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+.btn-diretta:hover,
+.btn-diretta:focus-visible {
+    background: transparent;
+    color: var(--bianco);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+}
+.btn-diretta:hover svg {
+    transform: translateX(3px);
+}
+.btn-diretta:focus-visible {
+    outline: 2px solid var(--azzurro);
+    outline-offset: 3px;
+}
+/* in onda il pulsante si accende di rosso intorno */
+html[data-diretta="in_onda"] .btn-diretta {
+    animation: direttaAlone 2.2s ease-out infinite;
+}
+/* dopo la fine resta solo il testo: una colonna */
+html[data-diretta="conclusa"] .diretta-riquadro {
+    grid-template-columns: minmax(0, 1fr);
+}
+.diretta-note {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-left: 2px;
+}
+.diretta-note li {
+    position: relative;
+    padding-left: 16px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.7);
+}
+.diretta-note li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--azzurro);
+}
+
+/* Menu a tendina (fino a 960px): la voce Diretta diventa un pulsante largo
+   quanto il menu, in fondo; e nella barra, a menu chiuso, compare la
+   pillola accanto all'hamburger (spinta a destra, subito prima). */
+@media (max-width: 960px) {
+    .nav-menu a.nav-diretta {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        margin-top: 16px;
+        padding: 13px 22px;
+        border-bottom: 0;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .nav-pillola-diretta {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+        min-height: 38px;
+        padding: 7px 15px;
+        border: 1.5px solid #C8203F;
+        border-radius: 100px;
+        background: #C8203F;
+        color: var(--bianco);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        line-height: 1.2;
+        text-transform: uppercase;
+        white-space: nowrap;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    }
+    /* area di tocco piu' grande della pillola, senza allargare la barra */
+    .nav-pillola-diretta::after {
+        content: '';
+        position: absolute;
+        inset: -7px -5px;
+    }
+    .nav-pillola-diretta:hover,
+    .nav-pillola-diretta:focus-visible {
+        background: #A8182F;
+        border-color: #A8182F;
+        color: var(--bianco);
+    }
+    .nav-pillola-diretta:focus-visible {
+        outline: 2px solid var(--bianco);
+        outline-offset: 2px;
+    }
+    /* In pausa la pillola dice solo IN PAUSA, con le due barre: "Diretta in
+       pausa" non starebbe nella barra dei telefoni. "Diretta" resta per i
+       lettori di schermo. */
+    html[data-diretta="pausa"] .nav-pillola-diretta .nav-diretta-testo {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+    .nav-pillola-diretta .indicatore-pausa {
+        font-weight: 700;
+        opacity: 1;
+    }
+    .nav-pillola-diretta .indicatore-pausa::before {
+        display: block;
+        border-left-color: var(--bianco);
+        border-right-color: var(--bianco);
+    }
+    .diretta-riquadro {
+        grid-template-columns: 1fr;
+        gap: 28px;
+        padding: 36px 32px;
+    }
+}
+/* telefoni stretti: la pillola si fa piu' compatta e la barra resta in una
+   riga (marchio, pillola, hamburger) */
+@media (max-width: 380px) {
+    .nav-wrap { gap: 12px; }
+    .nav-pillola-diretta {
+        padding: 7px 11px;
+        font-size: 0.74rem;
+        letter-spacing: 0.3px;
+    }
+}
+@media (max-width: 560px) {
+    .diretta-fascia { padding: 40px 0; }
+    .diretta-riquadro { padding: 30px 22px 26px; }
+    .diretta-testo p { font-size: 0.92rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .indicatore-live-punto,
+    html[data-diretta="in_onda"] .nav-menu a.nav-diretta,
+    html[data-diretta="in_onda"] .nav-pillola-diretta,
+    html[data-diretta="in_onda"] .btn-diretta { animation: none; }
+}

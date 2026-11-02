@@ -90,6 +90,7 @@ const TEMI = {
     altro: 'Altro'
 };
 const EVENTI = {
+    'webinar-2026': 'Webinar, 10 dicembre 2026',
     'milano-2027': 'Milano, 26 febbraio 2027',
     'milano-2027-aderenti': 'Milano 2027, cena e meeting degli aderenti',
     'napoli-2026': 'Napoli, 1-2 ottobre 2026',

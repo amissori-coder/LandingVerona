@@ -93,13 +93,21 @@ const DETTAGLI_EVENTO = [
       programma: 'Convegno, networking lunch e incontri B2B one-to-one',
       // inizio e fine con il fuso: servono all'evento da aggiungere in agenda
       inizio: '2027-02-26T08:30:00+01:00', fine: '2027-02-26T18:00:00+01:00',
-      url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/' }
+      url: 'https://nextgenerationbusiness.it/milano_febbraio_2027/' },
+    /* Il webinar: solo online, nessun indirizzo. `online: true` lo dice a chi
+       scrive le mail (il sollecito parla di webinar, non di convegno). */
+    { se: /webinar/i, quando: 'Giovedì 10 dicembre 2026', orario: 'Dalle 15.00 alle 17.00', luogo: 'Online, in diretta sul sito', indirizzo: '',
+      tema: 'Merito creditizio e revisione legale',
+      programma: 'Webinar in diretta: il merito creditizio e la revisione legale',
+      online: true,
+      inizio: '2026-12-10T15:00:00+01:00', fine: '2026-12-10T17:00:00+01:00',
+      url: 'https://nextgenerationbusiness.it/webinar_dicembre_2026/' }
 ];
 function dettagliEvento(pagina) {
     const d = DETTAGLI_EVENTO.find(x => x.se.test(String(pagina || '')));
     return d ? {
         quando: d.quando, orario: d.orario, luogo: d.luogo, indirizzo: d.indirizzo, tema: d.tema, programma: d.programma,
-        inizio: d.inizio, fine: d.fine, url: d.url
+        inizio: d.inizio, fine: d.fine, url: d.url, online: d.online === true
     } : {};
 }
 /* Il trasporto, con i TEMPI MASSIMI. Senza, nodemailer aspetta due minuti
@@ -671,18 +679,19 @@ async function rimandaConferma(db, idDoc, opz) {
         const s = await tx.get(rif);
         if (!s.exists) return { esito: 'assente' };
         const x = s.data() || {};
-        if (confermata(x)) return { esito: 'confermata' };
+        // `pagina`: l'evento della scheda, per chi deve dire a quale modulo dei contatti rimandare
+        if (confermata(x)) return { esito: 'confermata', pagina: x.pagina };
         // gli eventi che chiedono la conferma: la regola sta in iscrizione-verificata
-        if (!require('./iscrizione-verificata').eventoDi(x.pagina) || !inAttesaDiConferma(x)) return { esito: 'fuori' };
+        if (!require('./iscrizione-verificata').eventoDi(x.pagina) || !inAttesaDiConferma(x)) return { esito: 'fuori', pagina: x.pagina };
         const f = frenoRimanda(x, ora);
-        if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk };
+        if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk, pagina: x.pagina };
         const invii = f.invii.concat([ora]);
         tx.set(rif, { rimandaConferma: { invii: invii, ultimo: ora }, invioInCorsoFino: ora + INVIO_IN_CORSO_MS }, { merge: true });
         return { esito: 'ok', scheda: x };
     });
     if (r.esito !== 'ok') return r;
     const e = await spedisciConferma(db, idDoc, r.scheda, { via: opz.via || 'rimanda', attesa: true });
-    return { esito: e.ok ? 'inviata' : 'errore', a: e.a, errore: e.errore };
+    return { esito: e.ok ? 'inviata' : 'errore', a: e.a, errore: e.errore, pagina: r.scheda.pagina };
 }
 
 module.exports = {

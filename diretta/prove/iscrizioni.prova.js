@@ -151,6 +151,8 @@ function argomento(nome, predefinito) {
 }
 const PORTA_FS = Number(argomento('firestore', 8330));
 const PORTA_AUTH = Number(argomento('auth', 9330));
+// il server di posta finto del sito (vedi smtpFinto): dice sempre di no
+const PORTA_SMTP = PORTA_FS + 9;
 const PROGETTO = 'demo-ngb-eventi';
 const PROGETTO_STUDIO = 'demo-studio-prova';
 const RISULTATI = path.resolve(__dirname, 'risultati');
@@ -174,8 +176,8 @@ Object.assign(process.env, {
     DIRETTA_MAX_GIORNO: '0',
     // il progetto dello studio: una chiave finta (l'emulatore non la chiede, firebase-admin si')
     FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ project_id: PROGETTO_STUDIO, private_key: privateKey, client_email: 'prova@' + PROGETTO_STUDIO + '.iam.gserviceaccount.com' }),
-    // la conferma del sito non parte: nessun server di posta su questa porta
-    SMTP_HOST: '127.0.0.1', SMTP_PORT: '9', SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna',
+    // la conferma del sito non parte: un server di posta finto che risponde 554 (smtpFinto, qui sotto)
+    SMTP_HOST: '127.0.0.1', SMTP_PORT: String(PORTA_SMTP), SMTP_USER: 'nessuno', SMTP_PASS: 'nessuna',
     /* La riconciliazione (lib/diretta-riconcilia.js) gira in ogni giro del
        cron: fino alla prova 19 le schede sono tutte "troppo recenti" (un
        giorno di attesa) e non la tocca nessuno, cosi' le prove di prima
@@ -185,6 +187,15 @@ Object.assign(process.env, {
 ['DIRETTA_POSTA_ERRORE_ACCOUNT', 'DIRETTA_POSTA_RITARDO_MS', 'DIRETTA_POSTA_RIFIUTA', 'DIRETTA_POSTA_INCERTA', 'DIRETTA_POSTA_ERRORE_MESSAGGIO',
     'DIRETTA_FIREBASE_SERVICE_ACCOUNT', 'APP_BASE_URL', 'BREVO_API_KEY',
     'DIRETTA_MODULO_RETE_ORA', 'DIRETTA_MODULO_ORA', 'DIRETTA_MODULO_PERCENTO'].forEach(k => { delete process.env[k]; });
+
+/* ---------- il server di posta finto del sito ----------
+   Risponde 554 al saluto e chiude: la mail di conferma del sito non parte
+   e lib/conferma-email.js NON fa il secondo tentativo (un 5xx non e'
+   «transitorio»). Prima qui c'era una porta chiusa: ECONNREFUSED e'
+   transitorio, il servizio aspettava 1,5 s e riprovava, e il modulo
+   rispondeva dopo un secondo e mezzo, oltre la soglia della prova 9. */
+const smtpFinto = net.createServer(s => { s.on('error', () => {}); s.end('554 5.7.1 Nessun invio dalle prove\r\n'); });
+smtpFinto.listen(PORTA_SMTP, '127.0.0.1');
 
 /* ---------- i log: tutto quello che il servizio scrive, per controllarlo alla fine ---------- */
 const righeLog = [];
@@ -357,12 +368,17 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         };
 
         titolo('Preparazione: gli eventi della diretta');
+        /* Le date degli eventi sono relative a oggi: un evento gia' finito
+           non riceve iscrizioni dal modulo (eventoDelModulo lo scarta), e
+           con le date fisse di Napoli la prova smetteva di passare dopo il 2
+           ottobre 2026. */
+        const giornoFra = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
         const EV = {
-            titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli', data: '2026-10-02', oraInizio: '09:00', oraFine: '17:30',
+            titolo: 'Next Generation Business 2026 · Napoli', luogo: 'Napoli', data: giornoFra(30), oraInizio: '09:00', oraFine: '17:30',
             paginaEvento: '/napoli_ottobre_2026/', unSoloDispositivo: false, promemoria: { giornoPrima: false, oraPrima: false }
         };
         const napoli = await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'napoli-2026' }, EV));
-        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'milano-2026' }, EV, { titolo: 'Evento di Milano', data: '2026-11-20', paginaEvento: '/milano_2026/' }));
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'milano-2026' }, EV, { titolo: 'Evento di Milano', data: giornoFra(48), paginaEvento: '/milano_2026/' }));
         vero(napoli.iscrizioniAutomatiche === false, 'Napoli e Milano create; a Napoli l\'invio automatico e\' spento di base');
 
         /* ---------- 1 ---------- */
@@ -548,7 +564,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
 
         /* ---------- 12 ---------- */
         titolo('12. Quale pagina conta: vince il percorso, l\'etichetta solo senza');
-        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'roma-2026' }, EV, { titolo: 'Evento di Roma', data: '2026-12-01', paginaEvento: '/roma_aprile_2026/' }));
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: 'roma-2026' }, EV, { titolo: 'Evento di Roma', data: giornoFra(60), paginaEvento: '/roma_aprile_2026/' }));
         await D.cambiaIscrizioni(ctx, { idEvento: 'roma-2026', iscrizioniAutomatiche: true });
         await iscrivi({ nome: 'Pia', cognome: 'Percorso', email: 'pia.percorso@esempio.it', pagina: 'Roma 16 Aprile 2026 - Iscrizione', percorso: '/napoli_ottobre_2026/' });
         const pPia = await profiloDi('pia.percorso@esempio.it');
@@ -859,7 +875,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             return s.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.ricevuto.toMillis() - b.ricevuto.toMillis());
         };
         const torinoDi = g => (g && g.riconciliazione && g.riconciliazione.eventi.find(e => e.idEvento === TORINO)) || {};
-        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: TORINO }, EV, { titolo: 'Evento di Torino', data: '2026-11-05', paginaEvento: '/torino_novembre_2026/' }));
+        await D.salvaEvento(ctx, Object.assign({ nuovo: true, id: TORINO }, EV, { titolo: 'Evento di Torino', data: giornoFra(33), paginaEvento: '/torino_novembre_2026/' }));
         await iscriviTorino({ nome: 'Tina', cognome: 'Prima', email: 'tina.prima@esempio.it' });
         vero(!(await profiloDi('tina.prima@esempio.it')) && (await schedaDi('tina.prima@esempio.it')).length === 1,
             'Tina si iscrive online a Torino con l\'interruttore ancora spento: la scheda del sito c\'e\', l\'account della diretta no');
@@ -1195,6 +1211,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         console.error = erroreVero;
         logVero('\n' + verdi + ' verdi, ' + rossi + ' rossi');
         await fermaEmulatori(emulatori);
+        try { smtpFinto.close(); } catch (_) { /* gia' chiuso */ }
         process.exit(rossi ? 1 : 0);
     }
 })();

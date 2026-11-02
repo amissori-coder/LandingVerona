@@ -407,7 +407,7 @@ function pagineDelSito() {
         const t = fs.readFileSync(f, 'utf8');
         for (const x of t.matchAll(/'([^'\n]{1,200})'/g)) if (DOMANDE.paginaCheckUp(x[1])) pagine.set(x[1], path.relative(SITO, f));
     }
-    for (const p of [...pagine.keys()]) if (!DOMANDE.paginaCheckUp(p) || /verona|roma|napoli|milano/i.test(p)) pagine.delete(p);
+    for (const p of [...pagine.keys()]) if (!DOMANDE.paginaCheckUp(p) || /verona|roma|napoli|milano|webinar/i.test(p)) pagine.delete(p);
     return pagine;
 }
 
