@@ -51,7 +51,8 @@
    - Un accesso riuscito restituisce subito il tentativo della rete
      (tentativiIp/{rete}_{finestra}: inCorso torna a 0, falliti 0).
    - 100 accessi CONTEMPORANEI sbagliati da una rete, con 100 nomi
-     diversi: al massimo 40 arrivano alla verifica, poi la rete aspetta
+     diversi, con DIRETTA_TETTO_IP=40 (300 di base): al massimo 40 arrivano
+     alla verifica, poi la rete aspetta
      (anche con la password giusta), mentre da un'altra rete si entra.
    - 60 "password dimenticata" CONTEMPORANEE da una rete, per 60 persone
      diverse: al massimo 20 email; tutte le richieste contate.
@@ -245,7 +246,9 @@ async function avviaServer() {
         DIRETTA_POSTA_FINTA: POSTA,
         DIRETTA_ADMIN_EMAILS: GESTORE,
         DIRETTA_EMULATORE: '1',
-        DIRETTA_PROGETTO: PROGETTO
+        DIRETTA_PROGETTO: PROGETTO,
+        // il tetto di errori per rete e' 300 di base (webinar 2026): qui 40, per esercitarlo con cento tentativi
+        DIRETTA_TETTO_IP: '40'
     });
     const figlio = spawn(process.execPath, [path.join(__dirname, 'server-locale.js'),
         '--api', String(PORTA_API), '--statico', String(PORTA_STATICO), '--firestore', String(PORTA_FS), '--auth', String(PORTA_AUTH)], {

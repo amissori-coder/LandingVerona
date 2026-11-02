@@ -254,10 +254,11 @@ Progetto Vercel di sempre (`revilaw-email`, cartella `email-service`) →
 | `DIRETTA_PAUSA_MS` | `300` | pausa fra un gruppo di email e il successivo |
 | `DIRETTA_MAX_GIORNO` | `0` (nessun tetto) | tetto di email della diretta al giorno: impostalo se il piano Brevo ha un limite giornaliero (§4) |
 | `DIRETTA_AUTH_AL_SECONDO` | `8` | quante modifiche agli account Firebase al secondo (creazione, nuove password): tiene lontani i limiti di Google; non serve cambiarlo |
+| `DIRETTA_TETTO_IP` | `300` | quante password sbagliate ogni quarto d'ora dalla stessa rete (stesso IP; per IPv6 la stessa /64) prima che tutta la rete aspetti da 5 a 15 minuti (§8). Era 40 fino a Napoli: con una sede aziendale da centinaia di persone dietro un solo IP, 40 errori arrivano in pochi minuti e fermano anche chi ha la password giusta. Si cambia anche il giorno dell'evento, senza rilascio (§12.1) |
 | `DIRETTA_MODULO_PERCENTO` | `60` | la parte del tetto giornaliero (`DIRETTA_MAX_GIORNO`) che possono usare le password fatte partire dal modulo pubblico del sito: oltre, restano in coda e partono il giorno dopo; il resto è del gestore (credenziali, promemoria) e delle reimpostazioni (che si fermano all'80 %). Senza tetto giornaliero non conta (§4) |
 | `DIRETTA_PROMEMORIA_PERCENTO` | `70` | la parte del tetto giornaliero (`DIRETTA_MAX_GIORNO`) che possono usare i promemoria in più programmati dalla scheda *Email* (§6.9): chi non ci sta lo riceve il giorno dopo, se l'evento non è finito; il resto resta alle credenziali e a «Password dimenticata?». Senza tetto giornaliero non conta |
-| `DIRETTA_MODULO_RETE_ORA` | `10` | quante iscrizioni dal modulo del sito all'ora fanno partire la password da sole, contate quando la persona conferma il suo indirizzo, dalla stessa rete di chi clicca (stesso IP; per IPv6 la stessa /64): oltre, la password la mandi tu (§7) |
-| `DIRETTA_MODULO_ORA` | `60` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole al clic sulla conferma (1440 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola. Vale anche per la riconciliazione, che oltre questo limite aspetta l'ora dopo (§7) |
+| `DIRETTA_MODULO_RETE_ORA` | `50` | quante iscrizioni dal modulo del sito all'ora fanno partire la password da sole, contate quando la persona conferma il suo indirizzo, dalla stessa rete di chi clicca (stesso IP; per IPv6 la stessa /64): oltre, la password la mandi tu (§7). Era 10 fino a Napoli: alzato per il webinar da 2.000 (§12.1) |
+| `DIRETTA_MODULO_ORA` | `300` | quante iscrizioni dal modulo del sito all'ora, in tutto, fanno partire la password da sole al clic sulla conferma (7.200 al giorno al massimo): oltre, come sopra. `0` = nessuna password parte da sola. Vale anche per la riconciliazione, che oltre questo limite aspetta l'ora dopo (§7). Era 60 fino a Napoli: alzato per il webinar da 2.000 (§12.1) |
 | `DIRETTA_RICONCILIA_ATTESA_MS` | `120000` | quanto aspetta la riconciliazione (§7) prima di rileggere una scheda del modulo appena arrivata: nel frattempo la sta lavorando il modulo. Non serve cambiarlo |
 
 **Già presenti, riusate così come sono**: `SMTP_HOST`, `SMTP_PORT`,
@@ -596,6 +597,55 @@ Azoto regge.
 > Grazie.
 
 La domanda 8 l'abbiamo aggiunta noi dopo aver letto il codice del player (§5.1).
+
+### 5.8.1 La lettera per il webinar da 2.000 (relatori su Zoom)
+
+Per il webinar del [data] i relatori intervengono da una riunione Zoom gestita
+da [organizzatore], e il video arriva al pubblico dal canale di Azoto come a
+Napoli: Zoom manda il segnale ad Azoto via RTMP (la «trasmissione su servizio
+di streaming personalizzato», che l'amministratore dell'account Zoom deve
+attivare e che si configura con indirizzo e chiave dati da Azoto) e la nostra
+pagina mostra il canale. La licenza Zoom conta solo per chi sta sul palco: la
+capienza del pubblico è quella del canale di Azoto. Le domande da mandare,
+con data e numeri aggiornati:
+
+> Buongiorno,
+> il [data] trasmetteremo sul nostro sito, https://nextgenerationbusiness.it,
+> un webinar per circa 2.000 persone collegate insieme, con il vostro player
+> sul canale che già usiamo (quello di Napoli). I relatori interverranno da
+> una riunione Zoom: il segnale vi arriverebbe via RTMP dalla trasmissione
+> verso servizio esterno di Zoom. Vi chiediamo:
+>
+> 1. Il nostro canale regge 2.000 spettatori contemporanei? Qual è il numero
+>    massimo di spettatori previsto dal nostro contratto e, se è inferiore,
+>    quale taglio serve e a che costo?
+> 2. Quale banda in uscita garantite per il canale (a 720p sono circa 6 Gbit/s
+>    di picco e 7-8 TB in 3 ore) e da quanti server o nodi è servita?
+> 3. Al nostro «Vai in onda» 2.000 pagine aprono il player nello stesso
+>    istante: la pagina del player e il flusso reggono 2.000 avvii simultanei?
+> 4. Ingresso RTMP per il nostro canale: indirizzo del server e chiave da
+>    inserire in Zoom, parametri consigliati (risoluzione, bitrate, intervallo
+>    dei fotogrammi chiave), e una seconda chiave o un'origine di riserva se
+>    la prima cade.
+> 5. Qual è il ritardo rispetto al vivo con il segnale che arriva da Zoom?
+> 6. Ci date il link diretto HLS (.m3u8) in https con CORS per
+>    nextgenerationbusiness.it, e un link di riserva su un'origine diversa?
+> 7. Potete limitare il player al nostro dominio e togliere il logo?
+> 8. Il peer-to-peer swarmcloud del player resta attivo? Quanto traffico
+>    scarica davvero dagli spettatori su eventi simili? Si può spegnere per il
+>    nostro evento? Potete fissare le versioni delle librerie (oggi @latest)?
+> 9. In caso di errore il player si ricarica da solo ogni secondo: con 2.000
+>    player è una raffica sui vostri server; avete un'attesa crescente?
+> 10. Possiamo fare una prova con la diretta accesa da Zoom qualche giorno
+>     prima, e avere un referente tecnico reperibile il giorno dell'evento?
+>
+> Grazie.
+
+Le risposte 1-4 decidono se si possono promettere 2.000 posti online. Il
+listino pubblico di Azoto vende il canale a slot da 500, 1.000 e 5.000
+spettatori: se il canale di Napoli è da 1.000, per 2.000 serve il taglio
+superiore. Senza una conferma, la stessa pagina funziona in modalità B con un
+altro fornitore HLS (§11), ma la capienza va comunque comprata da qualcuno.
 
 ### 5.9 Provare su iPhone, iPad e Safari (a mano)
 
@@ -1036,8 +1086,8 @@ genera una password nuova**: quella vecchia non la conosce più nessuno.
   l'email resta in coda e parte appena possibile. Accendilo dopo aver caricato
   e inviato la prima lista. Il modulo è pubblico, quindi ha dei **limiti**,
   contati al clic (è lì che parte l'email): al massimo
-  `DIRETTA_MODULO_RETE_ORA` (10) all'ora dalla stessa rete e
-  `DIRETTA_MODULO_ORA` (60) all'ora in tutto fanno partire la password da
+  `DIRETTA_MODULO_RETE_ORA` (50) all'ora dalla stessa rete e
+  `DIRETTA_MODULO_ORA` (300) all'ora in tutto fanno partire la password da
   sole; oltre, la password resta **"da inviare"**, con il motivo scritto
   accanto nell'elenco dei partecipanti: la mandi tu con "Invia le credenziali"
   o "Invia ora". Su Vercel il modulo del sito e la pagina della conferma **non
@@ -1185,11 +1235,16 @@ Promozioni e segna il mittente come sicuro."
 - **Tentativi**: dopo 5 password sbagliate di fila dallo stesso dispositivo o
   rete, attesa crescente (30 s, 1 min, 2 min… fino a 15 min). In più un tetto
   largo per email da qualunque provenienza (50 errori all'ora) e uno per
-  rete: al massimo 40 password sbagliate ogni quarto d'ora (finestre fisse:
-  :00, :15, :30, :45), poi tutta la rete aspetta almeno 5 minuti. Il tentativo
+  rete: al massimo `DIRETTA_TETTO_IP` password sbagliate ogni quarto d'ora
+  (300 di base; finestre fisse: :00, :15, :30, :45), poi tutta la rete aspetta
+  almeno 5 minuti, e comunque fino alla fine del quarto d'ora. Fino a Napoli
+  il tetto era 40: con una sede aziendale da centinaia di persone dietro un
+  solo IP, 40 errori arrivano in pochi minuti e fermano anche chi ha la
+  password giusta; dal webinar del 2026 è 300 e si cambia da Vercel senza
+  rilascio (§3, §12.1). Il tentativo
   si conta **prima** della verifica, quindi i limiti reggono anche a raffiche
-  di richieste simultanee (la prova: su 100 tentativi simultanei ne arrivano
-  alla verifica 40); gli accessi riusciti restituiscono subito il loro
+  di richieste simultanee (la prova, con il tetto a 40: su 100 tentativi
+  simultanei ne arrivano alla verifica 40); gli accessi riusciti restituiscono subito il loro
   tentativo, e se molte persone della stessa rete entrano nello stesso secondo
   al massimo si aspetta qualche secondo e compare "riprova", mai un blocco. Il
   blocco non è solo sul nome, apposta: altrimenti chiunque potrebbe tenere
@@ -1771,3 +1826,96 @@ copiato, resta apribile da chiunque finché è acceso).
   diretto, i **link firmati a tempo** (§5.5: la gestione e il servizio sono già
   pronti per nginx e Akamai; per un altro sistema di firma si aggiunge uno schema
   in `email-service/lib/diretta-firma.js`).
+
+### 12.1 Il webinar da 2.000 (novembre 2026): che cosa è cambiato e che cosa verificare
+
+Il prossimo evento è un webinar per circa 2.000 persone: il doppio di quanto la
+piattaforma era stata dimensionata per Napoli (§9), con i relatori su Zoom e il
+video distribuito da Azoto come a Napoli (§5.8.1). L'analisi del 2 novembre
+2026 sul codice dice che a 2.000 la piattaforma regge con due ritocchi, già
+fatti in questo ramo, e una serie di verifiche che può fare solo chi ha le
+chiavi dei servizi.
+
+**Già cambiato in questo ramo**
+
+- Il tetto di password sbagliate per rete passa da 40 a 300 ogni quarto d'ora
+  ed è la variabile `DIRETTA_TETTO_IP` (§3, §8): con 40, una sede da 150
+  persone dietro un solo IP, o 4-5 colleghi che insistono con l'email
+  sbagliata, bloccavano tutta la sede per 5-15 minuti, anche chi aveva la
+  password giusta. La prova `accesso.prova.js` lo mette a 40 per esercitarlo.
+- Le password automatiche dal modulo del sito passano da 60 a 300 all'ora in
+  tutto e da 10 a 50 all'ora per rete (`DIRETTA_MODULO_ORA`,
+  `DIRETTA_MODULO_RETE_ORA`, §3, §7): con i valori di Napoli, dopo una
+  newsletter la maggior parte delle password restava «da inviare» a mano.
+- Nessun'altra modifica: a 2.000 gli elenchi della gestione restano sotto i
+  4,5 MB delle risposte di Vercel, il documento degli ascolti sotto i 700 KB,
+  le credenziali partono in 10-20 minuti e il promemoria dell'ora prima arriva
+  a tutti entro mezz'ora.
+
+**Da verificare, in ordine**
+
+1. [ ] **Azoto**: manda la lettera del §5.8.1 e ottieni per iscritto la
+   capienza del contratto, la banda, la tenuta della pagina del player con
+   2.000 avvii insieme e l'ingresso RTMP per Zoom. Senza la risposta non
+   promettere 2.000 posti online.
+2. [ ] **Zoom**: chi ospita la riunione dei relatori deve far attivare
+   dall'amministratore del suo account la trasmissione su servizio di
+   streaming personalizzato e inserire indirizzo RTMP e chiave di Azoto; una
+   prova dal vivo qualche giorno prima.
+3. [ ] **Progetto Firebase dello studio** (`revilaw-incarichi`, quello delle
+   iscrizioni dal sito): in console controlla il piano. È documentato sul
+   piano gratuito (50.000 letture al giorno) e l'area riservata rilegge tutto
+   l'archivio a ogni iscrizione: con qualche centinaio di iscrizioni al giorno
+   la quota può finire e fermare conferme, area riservata e la creazione degli
+   account della diretta. Se è ancora gratuito, passa a Blaze con un avviso di
+   budget (costa centesimi).
+4. [ ] **Progetto `ngb-eventi`**: alza l'avviso di budget da 10 a 20 €: un
+   webinar di 3 ore da 2.000 costa 2-4 $ di Firestore, una giornata intera
+   3-6 $.
+5. [ ] **Vercel**: *Settings → Functions*: la regione delle funzioni deve
+   essere europea (Firestore è in `eur3` e ogni accesso fa otto andate e
+   ritorno verso Firestore) e Fluid compute acceso; il piano resta Pro. Dopo
+   l'unione di questo ramo fai *Redeploy*. Le variabili nuove hanno già i
+   valori giusti nel codice: impostale su Vercel solo se vuoi valori diversi.
+6. [ ] **Brevo**: il piano del mese dell'evento deve coprire circa 6.500 email
+   della diretta (credenziali e due promemoria) più quelle del sito: una
+   fascia da 10-20 mila al mese. Indirizzi puliti: oltre il 2 % di rimbalzi
+   Brevo sospende l'account a metà invio. Se il modulo raccoglie il
+   cellulare, imposta `SMS_MAX_GIORNO` o togli l'SMS dal sollecito di
+   conferma.
+7. [ ] **Assistenza**: un numero presidiato da due persone con accesso alla
+   gestione, scritto in `DIRETTA_ASSISTENZA_TELEFONO` e in `diretta/config.js`
+   (`assistenza.telefono`): a 2.000 iscritti sono 60-100 persone con problemi
+   di accesso nei 45 minuti prima dell'inizio. Nel copione: «Troppi
+   tentativi» può dipendere dalla rete dell'ufficio, cambiare rete aiuta.
+8. [ ] **Copia dei dati**: il backup notturno copia solo il progetto dello
+   studio. La sera prima e subito dopo «Termina»: *Esporta* dalla gestione
+   (presenze e accessi) e, se possibile, un'esportazione di Firestore e degli
+   utenti di `ngb-eventi` dalla console.
+9. [ ] **Nuovo evento**: crea l'evento in gestione (identificativo, date,
+   player, promemoria) e aggiorna `EVENTO` in `assets/diretta-stato.js` (id,
+   titolo, date con il fuso `+01:00`, pagina dell'evento), `iscrizione` in
+   `diretta/config.js` e l'etichetta della pagina nel modulo (`PAGINA_NGB`),
+   come ai passi 1 e 14.
+10. [ ] **Prova generale la settimana prima**: 300-500 accessi veri
+    (dipendenti, soci) con la diretta accesa da Zoom via Azoto, possibilmente
+    con un gruppo di 20-30 persone dalla stessa rete aziendale; guarda nei log
+    di Vercel se compare `TOO_MANY_ATTEMPTS_TRY_LATER` (le verifiche delle
+    password partono tutte dagli IP di Vercel: è l'unico limite di Google che
+    non si prova in locale).
+11. [ ] **Nei giorni prima**: manda le credenziali 2-3 giorni prima e non
+    lasciare code di credenziali attive nelle due ore prima dell'inizio,
+    altrimenti il promemoria dell'ora prima parte in ritardo. Niente
+    promemoria dal sito per gli iscritti online: usa quelli della diretta
+    (§6.9).
+
+**Se un giorno si andrà a 10.000.** Oltre a quanto sopra servono tre
+interventi medi: paginare o comprimere le risposte grandi della gestione e
+dell'area riservata (esportazione, ascolti, elenco partecipanti ed elenco
+iscrizioni superano i 4,5 MB delle risposte di Vercel), rendere configurabili
+le connessioni email e anticipare il promemoria dell'ora prima (con 10.000
+persone le credenziali richiedono 1-2 ore e il promemoria non finisce in
+tempo) e spezzare il documento degli ascolti (i tratti per persona superano i
+700 KB). In più le attese casuali alla partenza del video e nei
+ricollegamenti, tarate per mille persone, e una banda video di 25-30 Gbit/s
+che oggi nessun fornitore ha confermato per iscritto.

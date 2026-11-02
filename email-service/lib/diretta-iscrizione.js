@@ -161,13 +161,14 @@
    si contano AL CLIC (e' li' che parte l'email; la rete e' quella di chi
    clicca): l'iscrizione senza conferma non manda niente e non conta:
      - per RETE (C.improntaIp dell'IP del visitatore, per IPv6 la /64):
-       DIRETTA_MODULO_RETE_ORA, 10 all'ora di base. Un ufficio che
-       iscrive tutti i colleghi insieme ci sta quasi sempre; chi prova
-       a riempire la coda da una rete sola no;
-     - in tutto: DIRETTA_MODULO_ORA, 60 all'ora di base (1440 al giorno
-       al massimo): piu' di quanti se ne iscrivono in un'ora anche
-       subito dopo una newsletter, molto meno di un'ondata da tante
-       reti. 0 vuol dire "nessuna password parte da sola".
+       DIRETTA_MODULO_RETE_ORA, 50 all'ora di base (era 10 fino a
+       Napoli). Un ufficio che iscrive tutti i colleghi insieme ci sta;
+       chi prova a riempire la coda da una rete sola no;
+     - in tutto: DIRETTA_MODULO_ORA, 300 all'ora di base (7.200 al giorno
+       al massimo; era 60 fino a Napoli): regge l'ondata dell'ora dopo
+       una newsletter a qualche migliaio di contatti, molto meno di
+       un'ondata da tante reti. 0 vuol dire "nessuna password parte da
+       sola".
    Oltre il limite l'account si crea lo stesso (la persona e' iscritta),
    ma la voce resta 'da inviare' con il motivo per il gestore: la
    password la manda lui con «Invia le credenziali» o «Invia ora». Il
@@ -225,8 +226,8 @@ const MOTIVO_TRATTENUTA = 'Iscritta dal modulo del sito quando il limite orario 
     + 'la password non è partita da sola. Mandala tu con «Invia le credenziali» (o «Invia ora»).';
 
 // i limiti del modulo pubblico (vedi I LIMITI DEL MODULO PUBBLICO)
-function maxRete() { return C.intero('DIRETTA_MODULO_RETE_ORA', 10); }
-function maxOra() { return C.intero('DIRETTA_MODULO_ORA', 60); }
+function maxRete() { return C.intero('DIRETTA_MODULO_RETE_ORA', 50); }
+function maxOra() { return C.intero('DIRETTA_MODULO_ORA', 300); }
 
 // lib/diretta-accesso.js si carica solo quando serve (waitUntil e i contatori a finestra)
 function accesso() { return require('./diretta-accesso'); }
