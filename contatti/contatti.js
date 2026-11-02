@@ -129,7 +129,9 @@
 
     /* Il collegamento puo' portare gia' tema, evento e motivo
        (?tema=eventi&evento=milano-2027&motivo=mail-non-ricevuta), oppure la
-       forma corta degli SMS e delle mail, ?t=mail. Dall'indirizzo si
+       forma corta degli SMS e delle mail, ?t=mail, con `evento` quando il
+       servizio sa di quale evento si tratta (?t=mail&evento=webinar-2026;
+       senza, Milano). Dall'indirizzo si
        leggono SOLO queste scelte, mai dati della persona: l'indirizzo
        della pagina finisce nelle statistiche. */
     function applicaScelte(tema, evento, motivo) {
@@ -147,7 +149,8 @@
     }
     function scelteDa(ricerca) {
         const q = new URLSearchParams(ricerca || '');
-        if (q.get('t') === 'mail') return ['eventi', 'milano-2027', 'mail-non-ricevuta'];
+        // ?t=mail: il collegamento corto delle risposte del servizio; `evento` dice di quale evento (senza, Milano)
+        if (q.get('t') === 'mail') return ['eventi', q.get('evento') || 'milano-2027', 'mail-non-ricevuta'];
         return [String(q.get('tema') || ''), String(q.get('evento') || ''), String(q.get('motivo') || '')];
     }
 

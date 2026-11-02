@@ -16458,6 +16458,13 @@
         { id: 'b2b', nome: 'Solo incontri B2B', breve: 'solo B2B', sala: false, fuoriElenco: true, dove: 'fra gli invitati ai soli incontri B2B', vai: 'Sposta fra gli invitati ai soli incontri B2B' }
     ];
     function sezioneDef(id) { return SEZIONI_MODALITA.find(x => x.id === id) || SEZIONI_MODALITA[0]; }
+    /* UN EVENTO SOLO ONLINE (il webinar: `soloOnline` in EVENTI_DEF) non ha
+       sezioni in sala: le tendine non le offrono, e una riga senza modalita'
+       - o con una sezione della sala, che li' non esiste - vale "online",
+       non "in presenza". Passano di qui le tendine dell'elenco e della
+       finestra "Aggiungi iscrizione" e modalitaDi, cosi' la regola e' una. */
+    function sezioniDi(ev) { return SEZIONI_MODALITA.filter(x => !(ev && ev.soloOnline && x.sala)); }
+    function modalitaPredefinita(ev) { return ev && ev.soloOnline ? 'online' : 'presenza'; }
     /* Nomi e aziende A VIDEO scritti tutti allo stesso modo ("MARIO ROSSI" ->
        "Mario Rossi", "verdi srl" -> "Verdi S.r.l."), con la stessa regola
        delle mail (promemoria-eventi.js). Il dato salvato non cambia. */
@@ -16475,8 +16482,9 @@
         const scelta = String(p.modalita || (r && r.modalita) || '').toLowerCase();
         /* Il valore vuoto, e qualunque valore che non sia una sezione vera,
            valgono "in presenza": fino all'evento di Napoli il modulo non
-           chiedeva nulla e le iscrizioni erano tutte in sala. */
-        return SEZIONI_MODALITA.some(x => x.id === scelta) ? scelta : 'presenza';
+           chiedeva nulla e le iscrizioni erano tutte in sala. In un evento
+           solo online valgono "online" (modalitaPredefinita). */
+        return sezioniDi(ev).some(x => x.id === scelta) ? scelta : modalitaPredefinita(ev);
     }
     /* Chi occupa un posto in sala. Sono TRE sezioni su quattro - ospiti,
        aderenti Revilaw, sponsor e relatori - e nessuno dei tre conteggi, preso
@@ -18804,7 +18812,7 @@
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
             const cellaModalita = segnaR
                 ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '') + '">'
-                + SEZIONI_MODALITA.map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
+                + sezioniDi(ev).map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
                 + '</select>' + hintM + hintC + '</td>'
                 : '<td data-label="Modalità"><span class="ev-sez-' + md + '">' + esc(NOMI_MODALITA[md]) + '</span>'
                 /* lo spazio prima del riquadro non e' decorativo: senza, nella
@@ -19096,7 +19104,7 @@
                non sono un dato piu' delicato dell'elenco, ed e' la scheda che
                risponde alla domanda "questa azienda dov'e' finita?". Compare
                dove esistono, cioe' negli eventi con gli inviti B2B. */
-            + ((!ev.tutti && ev.manuale)
+            + ((!ev.tutti && ev.manuale && !ev.soloOnline)
                 ? '<button class="btn btn-sm btn-ghost" id="ev-solo-b2b">Incontri B2B</button>' : '')
             /* IL RICHIAMO DOPO IL CONVEGNO. Sta accanto alla scheda degli
                incontri perche' nasce da li': si guarda chi ha prenotato, si
@@ -19104,14 +19112,14 @@
                convegno passato: proporlo mentre la giornata si prepara
                vorrebbe dire offrire di rifare un incontro che non si e'
                ancora tenuto. */
-            + ((!ev.tutti && ev.manuale && puoAggiungereIscrizioni() && eventoPassato(ev))
+            + ((!ev.tutti && ev.manuale && !ev.soloOnline && puoAggiungereIscrizioni() && eventoPassato(ev))
                 ? '<button class="btn btn-sm btn-secondary" id="ev-richiamo">Programma nuovi incontri</button>' : '');
         /* I DUE NUMERI DI CHI IN ELENCO NON C'E'. Si leggono senza aprire
            niente: un pulsante da solo non dice se vale la pena premerlo, e
            "nessun cancellato" e' gia' una risposta. Compaiono solo quando c'e'
            qualcosa da dire, altrimenti il riquadro si riempie di zeri. */
         const quantiSoloB2B = (_evIscrizioni || []).filter(r => fuoriElenco(modalitaDi(ev, r))).length;
-        const cRichiamo = (!ev.tutti && ev.manuale && puoAggiungereIscrizioni() && eventoPassato(ev))
+        const cRichiamo = (!ev.tutti && ev.manuale && !ev.soloOnline && puoAggiungereIscrizioni() && eventoPassato(ev))
             ? contiRichiamo(ev) : { scritti: 0 };
         const statoIscrizioni = (admin
             ? rigaBl('Accessi', '<b>' + cfg.abilitati.length + '</b> utenti oltre all\'amministratore')
@@ -19397,12 +19405,12 @@
         const tingiModalita = (el, v) => SEZIONI_MODALITA.forEach(x => el.classList.toggle(x.id, x.id === v));
         $vista().querySelectorAll('.ev-modalita').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
-            const scelta = SEZIONI_MODALITA.some(x => x.id === s.value) ? s.value : 'presenza';
+            const scelta = sezioniDi(ev).some(x => x.id === s.value) ? s.value : modalitaPredefinita(ev);
             tingiModalita(s, scelta);
             EventiPresenze.imposta(ev.id, id, { modalita: scelta }, () => {
                 if (vistaCorrente !== 'eventi') return;
                 const p = EventiPresenze.di(ev.id, id) || {};
-                const vero = (p.modalita || 'presenza');
+                const vero = (p.modalita || modalitaPredefinita(ev));
                 if (s.value !== vero) { s.value = vero; tingiModalita(s, vero); }
                 /* La posta sotto la tendina si rifa' SUBITO. Cambiando sezione
                    l'avviso della sezione lasciata decade (lo fa il servizio, e
@@ -20799,7 +20807,7 @@
                l'online invece non ha un posto riservato e la mail lo dice. */
             + '<div class="campo"><label for="ni-modalita">Partecipazione</label>'
             + '<select id="ni-modalita">'
-            + SEZIONI_MODALITA.map(x => '<option value="' + x.id + '">' + esc(x.nome) + '</option>').join('')
+            + sezioniDi(ev).map(x => '<option value="' + x.id + '">' + esc(x.nome) + '</option>').join('')
             + '</select>'
             + '<div class="hint" id="ni-modalita-nota"></div></div>'
             // il nome della piattaforma non in elenco: compare scegliendo "Altra
@@ -20837,8 +20845,8 @@
         const d0 = new Date();
         const dataIscrizione = p2(d0.getDate()) + '/' + p2(d0.getMonth() + 1) + '/' + d0.getFullYear()
             + ' ' + p2(d0.getHours()) + ':' + p2(d0.getMinutes()) + ':' + p2(d0.getSeconds());
-        // la sezione scelta; un valore inatteso vale "in presenza", come dappertutto
-        const modalitaScelta = () => SEZIONI_MODALITA.some(x => x.id === v('ni-modalita')) ? v('ni-modalita') : 'presenza';
+        // la sezione scelta; un valore inatteso vale "in presenza" (online in un evento solo online), come dappertutto
+        const modalitaScelta = () => sezioniDi(ev).some(x => x.id === v('ni-modalita')) ? v('ni-modalita') : modalitaPredefinita(ev);
         const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.confermaEvento({
             nome: v('ni-nome'), cognome: v('ni-cognome'),
             modalita: modalitaScelta(),
@@ -20856,8 +20864,6 @@
            finestra che cambia il TESTO della mail, e chi la usa deve saperlo
            prima di premere Salva, non scoprirlo dall'anteprima. */
         const selModalita = document.getElementById('ni-modalita');
-        // un evento solo online nasce con «Online» gia' scelto: in sala non c'e' nessuno
-        if (ev.soloOnline && selModalita) selModalita.value = 'online';
         const notaModalita = () => {
             const n = document.getElementById('ni-modalita-nota');
             if (!n) return;
@@ -22037,7 +22043,8 @@
        la sua risposta non arriverebbe mai - e a guardarla sembrerebbe rotta. */
     let _agB2BAttese = [];
     function caricaAgendaB2B(ev, poi, forza) {
-        if (!ev || !ev.manuale) { if (poi) poi(null); return; }
+        // in un evento solo online non ci sono tavoli: niente agenda da leggere
+        if (!ev || !ev.manuale || ev.soloOnline) { if (poi) poi(null); return; }
         if (!Cloud.attivo) {
             _agB2BMsg = 'Accesso al database non attivo: l\'agenda degli incontri non si puo\' leggere.';
             if (poi) poi(null);
@@ -22125,8 +22132,10 @@
                 + (dalle && alle ? ', ' + esc(dalle) + '-' + esc(alle) : '')
                 + (avvisi ? ' &middot; <span class="hint">' + avvisi + ' da sistemare</span>' : '')));
         }
-        // --- i tavoli ---
-        if (!a) {
+        // --- i tavoli (non in un evento solo online: la riga resterebbe "da leggere" per sempre) ---
+        if (ev.soloOnline) {
+            // niente tavoli
+        } else if (!a) {
             righe.push(rigaBl('Tavoli B2B', esc(_agB2BMsg || 'da leggere...')));
         } else {
             const attive = a.aree.filter(x => x.attiva);
@@ -22147,14 +22156,14 @@
         if (!gravi && conflitti.length) guai.push(conflitti.length + ' orari da chiudere');
         if (aperte) guai.push('<b>' + aperte + '</b> richiest' + (aperte === 1 ? 'a' : 'e') + ' B2B');
         if (guai.length) righe.push(rigaBl('Da guardare', '<span class="ev-ko">' + guai.join(' &middot; ') + '</span>'));
-        const puoInvitare = ev.manuale && puoAggiungereIscrizioni();
+        const puoInvitare = ev.manuale && !ev.soloOnline && puoAggiungereIscrizioni();
         const prenotatiSlot = (a ? a.aree.reduce((n, x) => n + (x.occupati || 0), 0) : 0);
         return gruppoEv({
-            id: 'ev-giornata-blocco', titolo: 'La giornata', spiega: 'programma e incontri B2B',
+            id: 'ev-giornata-blocco', titolo: 'La giornata', spiega: ev.soloOnline ? 'il programma della diretta' : 'programma e incontri B2B',
             stato: righe.join(''),
             azioni: '<button class="btn btn-sm ' + (gravi || aperte ? 'btn-primary' : 'btn-secondary') + '" id="ev-giornata">Apri la giornata</button>'
                 + (puoInvitare ? '<button class="btn btn-sm btn-secondary" id="ev-b2b">Inviti B2B</button>' : '')
-                + (a ? '<button class="btn btn-sm btn-ghost" id="ev-b2b-elenco">Riepilogo B2B'
+                + ((a && !ev.soloOnline) ? '<button class="btn btn-sm btn-ghost" id="ev-b2b-elenco">Riepilogo B2B'
                     + (prenotatiSlot ? ' (' + prenotatiSlot + ')' : '') + '</button>' : '')
         });
     }
@@ -28133,7 +28142,8 @@
             + (dest.caricato ? '<details class="pm-elenco"><summary>Elenco dei destinatari ' + (serie === 'online' ? 'online' : 'in sala') + ' (' + lista.length + ')</summary>' + elencoPersoneHtml(lista, conSezione) + '</details>' : '')
             + '</section>';
         return '<div class="pm-riepilogo">'
-            + tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala), dest.conti.sala)
+            // in un evento solo online la sala non c'e': ne' la tessera ne' la serie "In sala"
+            + (ev.soloOnline ? '' : tessera('Destinatari in sala', dest.sala.length, esc(dettaglioSala), dest.conti.sala))
             + tessera('Destinatari online', dest.online.length, 'sezione Online', dest.conti.online)
             + '<div class="pm-riepilogo-azioni"><button class="btn btn-sm btn-secondary" id="pm-scarica-dest"' + (dest.caricato ? '' : ' disabled') + '>Scarica i destinatari (CSV)</button>'
             + '<div class="hint">In testata si contano i <b>posti</b>; qui gli <b>indirizzi</b> a cui parte la mail: una per iscrizione, niente agli assenti e a chi non ha un\'email valida. Fa eccezione la mail <b>dopo l\'evento</b> (il ringraziamento), che va anche a chi è segnato assente. Gli invitati ai soli incontri B2B non sono in nessuno dei due conti.'
@@ -28141,7 +28151,7 @@
                 + ' <b>in attesa di conferma mail</b>: ' + (dest.inAttesa === 1 ? 'riceve' : 'ricevono') + ' da quando l\'indirizzo è confermato.' : '')
             + '</div>'
             + '</div></div>'
-            + sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true)
+            + (ev.soloOnline ? '' : sezione('sala', 'In sala', 'ospiti in presenza, aderenti Revilaw, sponsor e relatori', dest.sala, true))
             + sezione('online', 'Online', 'chi segue la diretta', dest.online, false);
     }
     function collegaElencoPromemoria(ev, radice) {

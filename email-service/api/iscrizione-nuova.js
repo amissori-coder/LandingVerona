@@ -1729,7 +1729,8 @@ module.exports = async (req, res) => {
             if (!idR || !NL.firmaStatoValida(idR, testo(body.t, 80))) { res.status(403).json({ ok: false }); return; }
             initAdmin(leggiServiceAccount());
             const r = await CONFERMA.rimandaConferma(admin.firestore(), idR, { via: 'rimanda' });
-            const PIU = ' Se non arriva, scrivici dal modulo: ' + VERIFICATA.LINK_MODULO_MAIL;
+            // il collegamento al modulo dei contatti con l'evento della scheda (rimandaConferma lo rende in `pagina`)
+            const PIU = ' Se non arriva, scrivici dal modulo: ' + VERIFICATA.linkModuloMail(VERIFICATA.eventoDi(r.pagina));
             if (r.esito === 'inviata') { res.status(200).json({ ok: true, inviata: true, a: r.a }); return; }
             if (r.esito === 'assente') { res.status(404).json({ ok: false, msg: 'Iscrizione non trovata.' }); return; }
             if (r.esito === 'confermata') {
@@ -2089,7 +2090,7 @@ module.exports = async (req, res) => {
                     } catch (e) {
                         console.error('Mail di conferma non rimandata a chi si riscrive:', String((e && e.message) || e).slice(0, 200));
                     }
-                    msg = VERIFICATA.msgInAttesa(r.campo, rimandata);
+                    msg = VERIFICATA.msgInAttesa(r.campo, rimandata, evVerificato);
                 }
                 res.status(409).json({ ok: false, campo: r.campo, codiceKo: r.campo === 'codice', msg: msg });
                 return;

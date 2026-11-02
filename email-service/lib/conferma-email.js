@@ -679,18 +679,19 @@ async function rimandaConferma(db, idDoc, opz) {
         const s = await tx.get(rif);
         if (!s.exists) return { esito: 'assente' };
         const x = s.data() || {};
-        if (confermata(x)) return { esito: 'confermata' };
+        // `pagina`: l'evento della scheda, per chi deve dire a quale modulo dei contatti rimandare
+        if (confermata(x)) return { esito: 'confermata', pagina: x.pagina };
         // gli eventi che chiedono la conferma: la regola sta in iscrizione-verificata
-        if (!require('./iscrizione-verificata').eventoDi(x.pagina) || !inAttesaDiConferma(x)) return { esito: 'fuori' };
+        if (!require('./iscrizione-verificata').eventoDi(x.pagina) || !inAttesaDiConferma(x)) return { esito: 'fuori', pagina: x.pagina };
         const f = frenoRimanda(x, ora);
-        if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk };
+        if (f.esito) return { esito: f.esito, attesa: f.attesa, ultimoOk: f.ultimoOk, pagina: x.pagina };
         const invii = f.invii.concat([ora]);
         tx.set(rif, { rimandaConferma: { invii: invii, ultimo: ora }, invioInCorsoFino: ora + INVIO_IN_CORSO_MS }, { merge: true });
         return { esito: 'ok', scheda: x };
     });
     if (r.esito !== 'ok') return r;
     const e = await spedisciConferma(db, idDoc, r.scheda, { via: opz.via || 'rimanda', attesa: true });
-    return { esito: e.ok ? 'inviata' : 'errore', a: e.a, errore: e.errore };
+    return { esito: e.ok ? 'inviata' : 'errore', a: e.a, errore: e.errore, pagina: r.scheda.pagina };
 }
 
 module.exports = {
