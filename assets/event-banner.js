@@ -446,6 +446,29 @@
 
         function monta() {
             if (!document.body) return;
+            /* IL POPUP DELLA DIRETTA HA LA PRECEDENZA. Nella settimana dell'evento
+               trasmesso in diretta (assets/diretta-popup.js) la home apre il suo
+               popup, e lo dice subito con window.__dirPromoPlanned: questa
+               finestra allora non si apre, perche' due finestre modali insieme
+               si coprirebbero a vicenda (quella sotto prenderebbe il fuoco e
+               resterebbe a coprire la pagina, e la pillola della diretta, dopo
+               la chiusura dell'altra). Si segna come vista per questa sessione,
+               come se fosse stata chiusa: tornando in home non deve comparire
+               al posto del popup.
+               E per tutta la FINESTRA DELLA DIRETTA (da 7 giorni prima alla
+               fine, assets/diretta-stato.js: fase 'prima' e 'oggi', quando in
+               home ci sono popup e pillola) non si apre nemmeno se il popup non
+               c'e' piu' (gia' visto, «Non mostrare più»): coprirebbe la pillola
+               fissa della diretta, che deve restare a un tocco. diretta-stato.js
+               e' caricato dopo questo file ma prima di questo setTimeout.
+               Fuori da quella finestra, in una sessione nuova, la finestra si
+               riapre come sempre. */
+            const D = window.NGBDiretta;
+            const faseDiretta = (D && D.visibile && typeof D.fase === 'function') ? D.fase() : 'fuori';
+            if (window.__dirPromoPlanned || faseDiretta === 'prima' || faseDiretta === 'oggi') {
+                try { window.sessionStorage.setItem(chiave, '1'); } catch (_) { }
+                return;
+            }
             primaDiAprire = document.activeElement;
             document.body.appendChild(velo);
             document.documentElement.style.overflow = 'hidden';
