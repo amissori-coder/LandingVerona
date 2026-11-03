@@ -1905,7 +1905,11 @@ chiavi dei servizi.
    webinar» dal 3 dicembre (7 giorni prima), ma non sa mai se si è in onda e
    le credenziali non partono: crealo per tempo. La pagina di Napoli non
    legge più lo stato (ha `data-diretta="conclusa"` scritto a mano), come ai
-   passi 1 e 14.
+   passi 1 e 14. Il webinar è **su invito** (`riservato: true` in `EVENTO`):
+   in home niente popup né pillola, nella pagina di accesso alla diretta
+   niente «Iscriviti qui» (`iscrizione` vuoto in `diretta/config.js`); gli
+   agganci della diretta restano nella pagina del webinar, che si raggiunge
+   solo dal collegamento mandato per email.
 10. [ ] **Prova generale la settimana prima**: 300-500 accessi veri
     (dipendenti, soci) con la diretta accesa da Zoom via Azoto, possibilmente
     con un gruppo di 20-30 persone dalla stessa rete aziendale; guarda nei log
