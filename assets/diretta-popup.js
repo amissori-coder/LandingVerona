@@ -47,6 +47,10 @@
   // file si aggiornano insieme.)
   if (!D || !D.EVENTO || typeof D.condizione !== "function") return;
   var EVENTO = D.EVENTO;
+  // Un evento SU INVITO (EVENTO.riservato in diretta-stato.js) in home non si
+  // annuncia: niente popup, a nessuna ora. La pagina dell'evento la vede solo
+  // chi ha il collegamento, e li' gli agganci della diretta ci sono.
+  if (EVENTO.riservato) return;
   var SHOW_DELAY_MS = 900;
   // Il giorno dell'evento il testo dipende dallo stato: si aspetta la
   // risposta al massimo per questo tempo dopo il ritardo normale, poi si

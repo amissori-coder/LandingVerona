@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <!-- Pagina SU INVITO: si raggiunge SOLO dal collegamento che si manda per
+         email a chi e' invitato. Non va indicizzata, non e' nella sitemap, non
+         ha link dal resto del sito (home, banner degli eventi, percorso di
+         Milano, tendina dei contatti) ed e' esclusa in robots.txt, come le
+         pagine riservate di Milano. Anche la diretta non la annuncia: in home
+         niente popup ne' pillola (assets/diretta-stato.js, EVENTO.riservato) e
+         nella pagina di accesso alla diretta niente «Iscriviti qui»
+         (diretta/config.js, iscrizione vuoto). -->
+    <meta name="robots" content="noindex, nofollow">
 
     <!-- Primary Meta Tags -->
     <title>Merito creditizio e revisione legale, webinar 10 dicembre 2026 | Revilaw</title>
@@ -11,7 +20,6 @@
     <meta name="description" content="Webinar gratuito in diretta: giovedì 10 dicembre 2026 dalle 15.00 alle 17.00. Merito creditizio e revisione legale, per imprenditori, amministratori e responsabili finanziari. Iscrizioni in apertura.">
     <meta name="keywords" content="Next Generation Business webinar, merito creditizio, revisione legale, rating bancario, adeguati assetti, revisore legale, banche e imprese, webinar dicembre 2026, Revilaw">
     <meta name="author" content="Revilaw S.p.A.">
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="index, follow">
     <meta name="language" content="Italian">
     <meta name="theme-color" content="#164068">
@@ -27,8 +35,8 @@
     <meta property="og:url" content="https://nextgenerationbusiness.it/webinar_dicembre_2026/">
     <meta property="og:title" content="Merito creditizio e revisione legale, webinar 10 dicembre 2026 | Revilaw">
     <meta property="og:description" content="Webinar gratuito in diretta: giovedì 10 dicembre 2026 dalle 15.00 alle 17.00. Merito creditizio e revisione legale, per imprenditori, amministratori e responsabili finanziari. Iscrizioni in apertura.">
-    <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og/webinar_dicembre_2026.jpg?v=71e08721a4">
-    <meta property="og:image:secure_url" content="https://nextgenerationbusiness.it/assets/og/webinar_dicembre_2026.jpg?v=71e08721a4">
+    <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og/webinar_dicembre_2026.jpg?v=b8e8c36560">
+    <meta property="og:image:secure_url" content="https://nextgenerationbusiness.it/assets/og/webinar_dicembre_2026.jpg?v=b8e8c36560">
     <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="2400">
     <meta property="og:image:height" content="1260">
@@ -42,7 +50,7 @@
     <meta name="twitter:url" content="https://nextgenerationbusiness.it/webinar_dicembre_2026/">
     <meta name="twitter:title" content="Merito creditizio e revisione legale, webinar 10 dicembre 2026 | Revilaw">
     <meta name="twitter:description" content="Webinar gratuito in diretta: giovedì 10 dicembre 2026 dalle 15.00 alle 17.00. Merito creditizio e revisione legale, per imprenditori, amministratori e responsabili finanziari. Iscrizioni in apertura.">
-    <meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og/webinar_dicembre_2026.jpg?v=71e08721a4">
+    <meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og/webinar_dicembre_2026.jpg?v=b8e8c36560">
     <meta name="twitter:image:alt" content="Merito creditizio e revisione legale, webinar 10 dicembre 2026">
 
     <!-- Fonts -->
@@ -374,7 +382,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
                 <div>
                     <p class="iscrizioni-chiuse-titolo">Le iscrizioni apriranno a breve</p>
-                    <p>Il modulo comparir&agrave; su questa pagina. Per essere avvisato dell'apertura, iscriviti alla <a href="../#newsletterForm">newsletter di Next Generation Business</a> oppure scrivici a <a href="mailto:info@nextgenerationbusiness.it?subject=Webinar%2010%20dicembre%202026%20-%20iscrizioni">info@nextgenerationbusiness.it</a>.</p>
+                    <p>Il modulo comparir&agrave; su questa pagina: ti avviseremo per email all'indirizzo a cui &egrave; arrivato l'invito. Per informazioni scrivici a <a href="mailto:info@nextgenerationbusiness.it?subject=Webinar%2010%20dicembre%202026%20-%20iscrizioni">info@nextgenerationbusiness.it</a>.</p>
                 </div>
             </div>
 
@@ -711,7 +719,7 @@
 
     <!-- Stato della diretta (voce di menu, pillola, fascia "Segui il webinar"):
          un file solo per tutto il sito, con le date del webinar dentro. -->
-    <script src="/assets/diretta-stato.js?v=20261102a" defer></script>
+    <script src="/assets/diretta-stato.js?v=20261103a" defer></script>
     <script src="script.js?v=1"></script>
 </body>
 </html>

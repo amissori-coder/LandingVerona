@@ -39,7 +39,10 @@
            perche' la pagina lo mostra PRIMA dell'accesso, quando non legge
            ancora Firestore. Un percorso del sito (/...) oppure un indirizzo
            https://; vuoto o tolto: la frase non compare. */
-        iscrizione: '/webinar_dicembre_2026/#iscrizioni',
+        /* Vuoto per il webinar del 10 dicembre 2026: e' su invito, e la pagina
+           di accesso non deve dire a chi passa di qui dove ci si iscrive. Per
+           Napoli era '/napoli_ottobre_2026/#accreditamento'. */
+        iscrizione: '',
         emulatori: null,
         prove: null
     };

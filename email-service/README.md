@@ -2088,7 +2088,12 @@ per tutti e non ha il codice invito. Le mail (conferma, sollecito, riepilogo
 di mezzanotte) dicono «il webinar del 10 dicembre 2026» invece di «il convegno
 di ...» (`tipoEvento` in `lib/mail-ngb.js`, `online: true` in
 `DETTAGLI_EVENTO` di `lib/conferma-email.js`), e la conferma dell'indirizzo
-non allega il PDF: solo il file per l'agenda.
+non allega il PDF: solo il file per l'agenda. La pagina è **su invito**:
+non compare sul sito (noindex, fuori dalla sitemap, nessun collegamento,
+niente popup della diretta in home) e la raggiunge solo chi riceve il
+collegamento per email; nell'area riservata sta fra i «Moduli riservati»
+dell'evento, e nella tendina del modulo dei contatti la voce del webinar
+compare solo arrivando da `?evento=webinar-2026`.
 
 - **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
   italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda

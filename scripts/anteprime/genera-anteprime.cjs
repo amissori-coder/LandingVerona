@@ -70,7 +70,7 @@ const ETICHETTE = {
     'napoli_ottobre_2026': 'Evento · Napoli',
     'roma_aprile_2026': 'Evento · Roma',
     'verona_marzo_2026': 'Evento · Verona',
-    'webinar_dicembre_2026': 'Evento · Webinar online',
+    'webinar_dicembre_2026': 'Su invito · Webinar online',
     'chi_siamo': 'Chi siamo',
     'contatti': 'Domande e contatti',
     'approfondimenti': 'Approfondimenti per argomento',

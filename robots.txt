@@ -46,6 +46,10 @@ Disallow: /milano_febbraio_2027/aderenti/
 # collegamento mandato a loro.
 Disallow: /milano_febbraio_2027/sponsor_relatori/
 
+# Il webinar del 10 dicembre 2026 e' su invito: la pagina si raggiunge solo
+# dal collegamento mandato per email (noindex anche nella pagina).
+Disallow: /webinar_dicembre_2026/
+
 # Accredito al desk di Napoli: si apre dal QR sul cartello in sala, il
 # giorno dell'evento, e non ha senso fuori da li'.
 Disallow: /p26/

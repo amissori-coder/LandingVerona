@@ -1135,8 +1135,9 @@ prova('Il webinar: solo online, con la conferma dell\'email, senza sala ne\' ade
     esigi(WEBINAR.filtro === 'webinar' && WEBINAR.pagina === 'Webinar 10 Dicembre 2026' && WEBINAR.giorno === '2026-12-10' && WEBINAR.urlPagina === '/webinar_dicembre_2026/',
         'con il filtro, il titolo della pagina, il giorno e la pagina del sito', JSON.stringify([WEBINAR.filtro, WEBINAR.pagina, WEBINAR.giorno, WEBINAR.urlPagina]));
     esigi(WEBINAR.luogo === 'Online, in diretta sul sito' && WEBINAR.indirizzo === '', 'il luogo e\' la diretta, senza indirizzo');
-    esigi(!WEBINAR.moduliRiservati && !WEBINAR.invito && !WEBINAR.iscrizioniPerCodice && A.EVENTI_CON_ADERENTI.indexOf(WEBINAR.id) < 0 && !A.evHaAderenti(WEBINAR),
-        'niente moduli riservati, inviti, codici o aderenti');
+    esigi(Array.isArray(WEBINAR.moduliRiservati) && WEBINAR.moduliRiservati.length === 1 && WEBINAR.moduliRiservati[0].via === '/webinar_dicembre_2026/'
+        && !WEBINAR.invito && !WEBINAR.iscrizioniPerCodice && A.EVENTI_CON_ADERENTI.indexOf(WEBINAR.id) < 0 && !A.evHaAderenti(WEBINAR),
+        'un solo modulo riservato (la pagina su invito), niente inviti PEC, codici o aderenti');
     esigi(!MILANO.soloOnline && !NAPOLI.soloOnline, 'Milano e Napoli hanno la sala');
     esigi(A.EVENTI_DEF.map(e => e.id).join(',').indexOf('napoli-2026-10-02,webinar-2026-12-10,milano-2027-02-26') >= 0, 'sta fra Napoli e Milano, in ordine di data');
 });

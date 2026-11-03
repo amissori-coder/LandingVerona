@@ -69,10 +69,18 @@ prova('Milano elenca i due moduli riservati, e sono pagine vere e riservate', ()
     });
     const servizio = fs.readFileSync(path.join(RADICE, 'email-service', 'lib', 'iscrizioni-aderenti.js'), 'utf8');
     esigi(servizio.indexOf("pagina: '/milano_febbraio_2027/aderenti/'") >= 0, 'l\'indirizzo degli aderenti e\' quello del servizio');
-    const altri = EVENTI_DEF.filter(e => e.id !== MILANO.id && e.moduliRiservati);
+    // oltre a Milano solo il webinar (la sua pagina su invito, controllata sotto); le pagine riservate esistono e non si indicizzano
+    const altri = EVENTI_DEF.filter(e => e.id !== MILANO.id && e.id !== 'webinar-2026-12-10' && e.moduliRiservati);
     esigi(!altri.length, 'gli altri eventi non ne dichiarano', altri.map(e => e.id).join(', '));
-    // il webinar: tutti si iscrivono dalla stessa pagina, online
-    esigi(WEBINAR && WEBINAR.soloOnline === true && !WEBINAR.moduliRiservati, 'il webinar del 10 dicembre 2026 non ha moduli riservati: e\' solo online, una pagina per tutti');
+    (WEBINAR && WEBINAR.moduliRiservati || []).forEach(x => {
+        const file = path.join(RADICE, x.via.replace(/^\//, ''), 'index.html');
+        const html = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+        esigi(/<meta name="robots" content="noindex, nofollow">/.test(html) && !/<meta name="robots" content="index/.test(html) && /<form/.test(html), x.via + ' esiste, ha il modulo e non si indicizza');
+    });
+    // il webinar: su invito, la sua pagina e' il modulo riservato (non e' sul sito)
+    esigi(WEBINAR && WEBINAR.soloOnline === true && Array.isArray(WEBINAR.moduliRiservati) && WEBINAR.moduliRiservati.length === 1
+        && WEBINAR.moduliRiservati[0].via === '/webinar_dicembre_2026/' && /invito/i.test(WEBINAR.moduliRiservati[0].per),
+        'il webinar del 10 dicembre 2026 ha un modulo riservato: la sua pagina, su invito, che sul sito non compare');
 });
 
 prova('Il riquadro: un modulo per riga, con "Apri" e "Copia" verso il sito', () => {
@@ -93,7 +101,7 @@ prova('Il riquadro: un modulo per riga, con "Apri" e "Copia" verso il sito', () 
 
 prova('Dove non ci sono moduli riservati il riquadro non c\'e\'', () => {
     esigi(moduliRiservatiHtml(EVENTI_DEF.find(e => e.id === 'napoli-2026-10-02')) === '', 'un evento senza');
-    esigi(moduliRiservatiHtml(WEBINAR) === '', 'il webinar');
+    esigi(/\/webinar_dicembre_2026\//.test(moduliRiservatiHtml(WEBINAR)) && /Iscrizione al webinar/.test(moduliRiservatiHtml(WEBINAR)), 'il webinar: il riquadro con il collegamento della pagina su invito');
     esigi(moduliRiservatiHtml(EVENTI_DEF.find(e => e.tutti)) === '', 'il riepilogo');
     esigi(moduliRiservatiHtml(Object.assign({}, MILANO, { tutti: true })) === '', 'mai nel riepilogo');
     esigi(moduliRiservatiHtml(null) === '', 'nessun evento');

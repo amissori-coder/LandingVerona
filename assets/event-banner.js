@@ -31,16 +31,10 @@
     //            facts), nota, pdf (save the date, relative to the site),
     //            anteprima (immagine del save the date, mostrata a sinistra).
     //            The window opens once per browser session.
+    /* Il webinar del 10 dicembre 2026 (webinar_dicembre_2026/) NON e' qui:
+       e' su invito, la pagina si raggiunge solo dal collegamento mandato per
+       email e sul sito non compare da nessuna parte. */
     const NGB_EVENTS = [
-        {
-            city: 'Online',
-            date: '2026-12-10',
-            title: 'Merito creditizio e revisione legale',
-            tagline: 'Webinar',
-            meta: 'Gio 10 dicembre 2026 &middot; 15.00 - 17.00 &middot; online, iscrizioni in apertura',
-            url: 'webinar_dicembre_2026/',
-            pagePath: 'webinar_dicembre_2026'
-        },
         {
             city: 'Milano',
             date: '2027-02-26',
@@ -465,7 +459,9 @@
                riapre come sempre. */
             const D = window.NGBDiretta;
             const faseDiretta = (D && D.visibile && typeof D.fase === 'function') ? D.fase() : 'fuori';
-            if (window.__dirPromoPlanned || faseDiretta === 'prima' || faseDiretta === 'oggi') {
+            // un evento su invito (EVENTO.riservato) in home non mostra niente: la finestra si apre come sempre
+            const direttaInHome = !!(D && D.EVENTO && !D.EVENTO.riservato);
+            if (window.__dirPromoPlanned || (direttaInHome && (faseDiretta === 'prima' || faseDiretta === 'oggi'))) {
                 try { window.sessionStorage.setItem(chiave, '1'); } catch (_) { }
                 return;
             }
