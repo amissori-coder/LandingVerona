@@ -71,6 +71,12 @@
     // solo online: niente posti in sala, il popup non parla a chi e'
     // iscritto in presenza e non potra' venire (riga "dirp-presenza")
     soloOnline: true,
+    // SU INVITO: la pagina dell'evento si raggiunge solo dal collegamento
+    // mandato per email, e il sito non la annuncia. In home niente popup
+    // (diretta-popup.js) ne' pillola fissa, e la finestra del prossimo evento
+    // (event-banner.js) si apre come sempre. Nella pagina dell'evento voce di
+    // menu, pillola e fascia «Segui il webinar» ci sono: la vede chi la apre.
+    riservato: true,
     inizio: "2026-12-10T15:00:00+01:00",
     fine: "2026-12-10T17:00:00+01:00",
     // il popup e la pillola della home compaiono da tanti giorni prima
@@ -530,7 +536,8 @@
   function agganciaPagina() {
     // la pillola si costruisce solo se puo' ancora servire: finita la
     // finestra di lettura non si accenderebbe piu'
-    var vuolePillola = VISIBILE && !!(QUESTO_SCRIPT && QUESTO_SCRIPT.hasAttribute("data-pillola")) && Date.now() < FINE_LETTURA;
+    // niente pillola per un evento su invito (EVENTO.riservato): la home non lo annuncia
+    var vuolePillola = VISIBILE && !EVENTO.riservato && !!(QUESTO_SCRIPT && QUESTO_SCRIPT.hasAttribute("data-pillola")) && Date.now() < FINE_LETTURA;
     var aggiornaPillola = vuolePillola ? creaPillola() : null;
     var live = document.querySelectorAll(".indicatore-live");
     var pausa = document.querySelectorAll(".indicatore-pausa");

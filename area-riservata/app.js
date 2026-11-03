@@ -15570,16 +15570,22 @@
            poi la conferma dell'email (confermaEmail), senza consenso alle
            riprese ne' PDF. Le credenziali della diretta partono dal modulo di
            iscrizione quando l'evento della diretta esiste in gestione
-           (diretta/README.md, §12.1). La pagina pubblica e' chiusa
-           (<body data-iscrizioni="chiuse"> in webinar_dicembre_2026): si apre
-           cambiando quel valore in "aperte", senza altre modifiche. */
+           (diretta/README.md, §12.1). La pagina e' SU INVITO: non compare sul
+           sito (noindex, fuori dalla sitemap, nessun link, niente popup della
+           diretta in home) e si raggiunge solo dal collegamento mandato per
+           email, che sta qui sotto fra i moduli riservati. Le iscrizioni sono
+           chiuse (<body data-iscrizioni="chiuse"> in webinar_dicembre_2026):
+           si aprono cambiando quel valore in "aperte", senza altre modifiche. */
         {
             id: 'webinar-2026-12-10', titolo: 'Webinar', quando: '10 dicembre 2026', giorno: '2026-12-10', filtro: 'webinar', pagina: 'Webinar 10 Dicembre 2026',
             manuale: true, luogo: 'Online, in diretta sul sito', indirizzo: '', urlPagina: '/webinar_dicembre_2026/',
             sottotitolo: 'Merito creditizio e revisione legale',
             soloOnline: true,
             confermaEmail: true,
-            nota: 'Le iscrizioni dal sito non sono ancora aperte (la pagina dice «Iscrizioni in apertura»). Quando si aprono, chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
+            moduliRiservati: [
+                { nome: 'Iscrizione al webinar', per: 'chi riceve l\'invito per email (la pagina non è sul sito)', via: '/webinar_dicembre_2026/' }
+            ],
+            nota: 'La pagina del webinar è su invito: non compare sul sito e si raggiunge solo dal collegamento mandato per email (lo trovi in «Moduli riservati»). Le iscrizioni non sono ancora aperte (la pagina dice «Iscrizioni in apertura»). Quando si aprono, chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
         },
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
