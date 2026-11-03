@@ -38,8 +38,12 @@
 
    COSA DIMOSTRA. Si entra con l'EMAIL: la pagina di accesso ha il campo
    «Email» (type=email, autocomplete=username, inputmode=email),
-   «Password», «Entra», «Password dimenticata?» e sotto, sempre, «Non sei
-   ancora iscritto? Iscriviti qui.» verso il modulo (config.iscrizione);
+   «Password», «Entra» e «Password dimenticata?»; la frase «Non sei ancora
+   iscritto? Iscriviti qui.» (sotto il pulsante, e sotto la risposta di
+   «Password dimenticata?») compare solo con un modulo in config.iscrizione:
+   oggi e' vuoto, il webinar del 10 dicembre 2026 e' su invito, e la frase
+   resta nascosta (hidden, collegamenti senza href); con un evento pubblico
+   tornerebbe, e queste prove andrebbero riadattate (lo dicono da sole);
    un testo che non e' un'email (il vecchio nome utente) non parte;
    «Email o password non corretti.»; accesso scrivendo
    "Mario.Rossi@Esempio.IT" (al servizio va mario.rossi@esempio.it, mai un
@@ -149,8 +153,17 @@ const LINK_NUOVO = F.WEBTV + '/riserva/master.m3u8';
 // i testi dell'accesso con l'email (contratto: si entra con l'email e la password ricevuta via email)
 const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento '
     + 'per scegliere una nuova password. Controlla anche nella cartella Spam o Promozioni.';
+/* La frase per chi non e' iscritto e il modulo a cui porta, `iscrizione` in
+   diretta/config.js (letto qui dal file). OGGI E' VUOTO: il webinar del 10
+   dicembre 2026 e' su invito e la pagina di accesso non deve dire dove ci si
+   iscrive, quindi la frase resta nascosta (hidden) e i collegamenti sono
+   senza href. Con un evento pubblico (per Napoli era
+   '/napoli_ottobre_2026/#accreditamento') «Iscriviti qui» ricompare con
+   quell'indirizzo, sotto il pulsante «Entra» e sotto la risposta di
+   «Password dimenticata?»: le prove della frase andrebbero riadattate, e lo
+   dicono da sole (controllano che il valore sia ancora vuoto). */
 const FRASE_ISCRIZIONE = 'Non sei ancora iscritto? Iscriviti qui.';
-const MODULO_ISCRIZIONE = '/webinar_dicembre_2026/#iscrizioni'; // il valore di `iscrizione` in diretta/config.js
+const MODULO_ISCRIZIONE = (/\n\s*iscrizione: '([^']*)'/.exec(fs.readFileSync(path.resolve(__dirname, '../config.js'), 'utf8')) || [])[1];
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -792,15 +805,18 @@ function eventoIniziale(T) {
             vero(inLinea === 0, 'script in linea nella pagina: ' + inLinea);
         });
 
-        await prova('accesso con l\'email: campo «Email» (type=email, autocomplete=username, inputmode=email), «Password», «Entra», «Password dimenticata?» e sotto il pulsante «Non sei ancora iscritto? Iscriviti qui.»', async () => {
+        await prova('accesso con l\'email: campo «Email» (type=email, autocomplete=username, inputmode=email), «Password», «Entra», «Password dimenticata?»; nessun «Non sei ancora iscritto? Iscriviti qui.» (iscrizione vuoto in config.js: il webinar e\' su invito)', async () => {
             const c = await p.evaluate(() => {
                 const e = document.getElementById('email');
                 const etichetta = document.querySelector('label[for="email"]');
+                const frase = document.getElementById('frase-iscrizione');
                 return {
                     tipo: e.type, auto: e.getAttribute('autocomplete'), tastiera: e.getAttribute('inputmode'), etichetta: etichetta && etichetta.textContent.trim(),
                     pw: document.getElementById('campo-password').type, entra: document.getElementById('btn-entra').textContent.trim(),
                     vecchio: !!document.querySelector('#campo-nome-utente, #aiuto-nome-utente, #campo-identificativo'),
-                    testi: document.getElementById('vista-accesso').innerText
+                    testi: document.getElementById('vista-accesso').innerText,
+                    // la frase dell'iscrizione: nel file, ma con hidden e senza indirizzo
+                    frase: { nelFile: !!frase, hidden: !!frase && frase.hidden, href: document.getElementById('link-iscrizione').getAttribute('href') }
                 };
             });
             vero(c.tipo === 'email' && c.auto === 'username' && c.tastiera === 'email' && c.etichetta === 'Email', 'campo email: ' + JSON.stringify(c).slice(0, 200));
@@ -808,13 +824,11 @@ function eventoIniziale(T) {
             vero(!c.vecchio && !/nome utente/i.test(c.testi), 'resta il nome utente nella pagina di accesso');
             vero(/Controlla nella cartella Spam o Promozioni e segna il mittente come sicuro/.test(c.testi), 'manca la frase dello spam');
             vero(await visibile(p, '#link-dimenticata') && (await p.textContent('#link-dimenticata')).trim() === 'Password dimenticata?', '«Password dimenticata?»');
-            vero(await visibile(p, '#frase-iscrizione'), 'frase dell\'iscrizione non visibile');
-            vero((await p.innerText('#frase-iscrizione')).trim() === FRASE_ISCRIZIONE, 'frase: «' + (await p.innerText('#frase-iscrizione')).trim() + '»');
-            vero((await p.textContent('#link-iscrizione')).trim() === 'Iscriviti qui' && await p.getAttribute('#link-iscrizione', 'href') === MODULO_ISCRIZIONE,
-                'collegamento: ' + await p.getAttribute('#link-iscrizione', 'href'));
-            const bEntra = await p.locator('#btn-entra').boundingBox();
-            const bFrase = await p.locator('#frase-iscrizione').boundingBox();
-            vero(bFrase.y > bEntra.y + bEntra.height, 'la frase non sta sotto il pulsante');
+            // con un evento pubblico qui si controllerebbero la frase, «Iscriviti qui» con l'href del modulo e il posto sotto «Entra»
+            vero(MODULO_ISCRIZIONE === '', 'config.js ha di nuovo un modulo di iscrizione (' + MODULO_ISCRIZIONE + '): con un evento pubblico «Iscriviti qui» ricompare, e questa prova va riadattata');
+            vero(c.frase.nelFile && c.frase.hidden && !(await visibile(p, '#frase-iscrizione')), 'la frase dell\'iscrizione si vede, o non ha hidden: ' + JSON.stringify(c.frase));
+            vero(c.frase.href === null, 'il collegamento «Iscriviti qui» ha un href: ' + c.frase.href);
+            vero(!c.testi.includes(FRASE_ISCRIZIONE) && !/Iscriviti qui/.test(c.testi), 'la pagina di accesso dice ancora dove ci si iscrive');
         });
 
         await prova('un testo che non è un indirizzo email (il vecchio nome utente): avviso, nessuna chiamata', async () => {
@@ -830,18 +844,17 @@ function eventoIniziale(T) {
             vero(quante('entra') === prima, 'la chiamata e\' partita con l\'email vuota');
         });
 
-        await prova('password sbagliata due volte: «Email o password non corretti.», sotto «Password dimenticata?» e la frase dell\'iscrizione', async () => {
+        await prova('password sbagliata due volte: «Email o password non corretti.», sotto «Password dimenticata?» (la frase dell\'iscrizione resta nascosta: iscrizione vuoto)', async () => {
             await p.fill('#email', 'mario.rossi@esempio.it');
             await p.fill('#campo-password', 'sbagliata1');
             await p.click('#btn-entra');
             await p.waitForFunction(() => /non corretti/.test(document.getElementById('msg-accesso').textContent));
             const m = await p.textContent('#msg-accesso');
             vero(/^Email o password non corretti\./.test(m), 'messaggio: ' + m);
-            vero(await visibile(p, '#link-dimenticata') && await visibile(p, '#frase-iscrizione'), '«Password dimenticata?» e la frase non visibili con l\'errore');
+            vero(await visibile(p, '#link-dimenticata') && !(await visibile(p, '#frase-iscrizione')), '«Password dimenticata?» non visibile con l\'errore, o la frase dell\'iscrizione comparsa');
             const bMsg = await p.locator('#msg-accesso').boundingBox();
             const bLink = await p.locator('#link-dimenticata').boundingBox();
-            const bFrase = await p.locator('#frase-iscrizione').boundingBox();
-            vero(bLink.y > bMsg.y && bFrase.y > bLink.y, 'ordine: errore, «Password dimenticata?», frase');
+            vero(bLink.y > bMsg.y, 'ordine: errore, «Password dimenticata?»');
             await foto(p, 'accesso-errore-computer');
             await p.fill('#campo-password', 'sbagliata2');
             await p.click('#btn-entra');
@@ -1150,7 +1163,7 @@ function eventoIniziale(T) {
             vero(!(await visibile(p, '#btn-esci')), 'Esci ancora visibile');
         });
 
-        await prova('password dimenticata con l\'email: stessa risposta sempre (Spam o Promozioni) e sotto «Non sei ancora iscritto? Iscriviti qui.», niente pagina nuova', async () => {
+        await prova('password dimenticata con l\'email: stessa risposta sempre (Spam o Promozioni), senza «Non sei ancora iscritto? Iscriviti qui.» (iscrizione vuoto), niente pagina nuova', async () => {
             await p.click('#link-dimenticata');
             await vistaE(p, 'dimenticata', 5000);
             const c0 = await p.evaluate(() => {
@@ -1174,19 +1187,18 @@ function eventoIniziale(T) {
             await p.waitForFunction(t => document.getElementById('msg-dimenticata').textContent === t, RISPOSTA_DIMENTICATA, { timeout: 10000 });
             const c = chiamate.filter(x => x.azione === 'password-dimenticata').pop();
             vero(c && c.email === 'mario.rossi@esempio.it' && c.identificativo === undefined, 'inviato: ' + JSON.stringify(c));
-            vero(await visibile(p, '#frase-iscrizione-dimenticata'), 'la frase dell\'iscrizione non compare con la risposta');
-            vero((await p.innerText('#frase-iscrizione-dimenticata')).trim() === FRASE_ISCRIZIONE, 'frase: ' + await p.innerText('#frase-iscrizione-dimenticata'));
-            vero(await p.getAttribute('#link-iscrizione-dimenticata', 'href') === MODULO_ISCRIZIONE, 'collegamento del modulo');
-            const bMsg = await p.locator('#msg-dimenticata').boundingBox();
-            const bFrase = await p.locator('#frase-iscrizione-dimenticata').boundingBox();
-            vero(bFrase.y > bMsg.y + bMsg.height - 1, 'la frase non sta sotto il messaggio');
+            // con un evento pubblico la frase comparirebbe qui, sotto la risposta, con «Iscriviti qui» verso il modulo: oggi iscrizione e' vuoto
+            vero(!(await visibile(p, '#frase-iscrizione-dimenticata')) && await p.getAttribute('#frase-iscrizione-dimenticata', 'hidden') !== null,
+                'la frase dell\'iscrizione compare con la risposta (iscrizione vuoto in config.js)');
+            vero(await p.getAttribute('#link-iscrizione-dimenticata', 'href') === null, 'il collegamento ha un href: ' + await p.getAttribute('#link-iscrizione-dimenticata', 'href'));
+            vero(!/Iscriviti qui/.test(await p.innerText('#vista-dimenticata')), 'la vista dice ancora dove ci si iscrive');
             await foto(p, 'dimenticata-computer');
             // chi non e' iscritto: la stessa, identica risposta
             await p.fill('#email-dimenticata', 'nessuno.iscritto@esempio.it');
             await p.click('#btn-invia-reset');
             await aspetta(() => chiamate.filter(x => x.azione === 'password-dimenticata').pop().email === 'nessuno.iscritto@esempio.it', 10000, 'la seconda richiesta');
             await p.waitForFunction(t => document.getElementById('msg-dimenticata').textContent === t, RISPOSTA_DIMENTICATA, { timeout: 10000 });
-            vero(await visibile(p, '#frase-iscrizione-dimenticata'), 'la frase dell\'iscrizione non compare per chi non e\' iscritto');
+            vero(!(await visibile(p, '#frase-iscrizione-dimenticata')), 'la frase dell\'iscrizione compare per chi non e\' iscritto');
             await p.click('#link-torna-accesso');
             await vistaE(p, 'accesso', 5000);
             await p.goto(SITO + '/diretta/?dimenticata=1');
@@ -1734,13 +1746,12 @@ function eventoIniziale(T) {
         const t = tel.page;
         await t.goto(SITO + '/diretta/?emulatori=1');
 
-        await prova('telefono: accesso con l\'email, la frase dell\'iscrizione sotto il pulsante, «Password dimenticata?» con Spam o Promozioni', async () => {
+        await prova('telefono: accesso con l\'email, senza la frase dell\'iscrizione (iscrizione vuoto), «Password dimenticata?» con Spam o Promozioni', async () => {
             await vistaE(t, 'accesso', 30000);
             vero(await t.inputValue('#email') === '', 'campo dell\'email già scritto su un telefono nuovo: ' + await t.inputValue('#email'));
             await t.fill('#email', 'mario.rossi@esempio.it');
-            vero(await visibile(t, '#frase-iscrizione'), 'frase dell\'iscrizione non visibile');
-            const hi = (await t.locator('#link-iscrizione').boundingBox()).height;
-            vero(hi >= 44, '«Iscriviti qui» alto ' + hi);
+            // con un evento pubblico qui si controllerebbe anche che «Iscriviti qui» sia alto almeno 44 px
+            vero(!(await visibile(t, '#frase-iscrizione')), 'frase dell\'iscrizione visibile (iscrizione vuoto in config.js)');
             const larghezza = await t.evaluate(() => document.documentElement.scrollWidth);
             vero(larghezza <= 390, 'la pagina scorre in orizzontale: ' + larghezza);
             const corpo = await t.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
@@ -1757,7 +1768,7 @@ function eventoIniziale(T) {
             vero(await t.inputValue('#email-dimenticata') === 'mario.rossi@esempio.it', 'email non ripresa');
             await t.tap('#btn-invia-reset');
             await t.waitForFunction(x => document.getElementById('msg-dimenticata').textContent === x, RISPOSTA_DIMENTICATA, { timeout: 10000 });
-            vero(await visibile(t, '#frase-iscrizione-dimenticata'), 'frase dell\'iscrizione non visibile');
+            vero(!(await visibile(t, '#frase-iscrizione-dimenticata')), 'frase dell\'iscrizione visibile');
             vero(await t.evaluate(() => document.documentElement.scrollWidth) <= 390, 'la pagina scorre in orizzontale');
             await foto(t, 'dimenticata-telefono', true);
             await t.tap('#link-torna-accesso');
