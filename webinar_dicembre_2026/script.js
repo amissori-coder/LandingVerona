@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
-    document.querySelectorAll('.momento, .pranzo, .percorso li, .sede-info, .partecipare-passi, .presenza, .iscrizioni-chiuse').forEach((el, index) => {
+    document.querySelectorAll('.scaletta-blocco, .programma-lato, .percorso li, .sede-info, .partecipare-passi, .presenza, .iscrizioni-chiuse').forEach((el, index) => {
         el.classList.add('fade-in');
         el.style.transitionDelay = `${(index % 4) * 0.08}s`;
         observer.observe(el);
