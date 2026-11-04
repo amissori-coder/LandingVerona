@@ -15574,8 +15574,8 @@
            sito (noindex, fuori dalla sitemap, nessun link, niente popup della
            diretta in home) e si raggiunge solo dal collegamento mandato per
            email, che sta qui sotto fra i moduli riservati. Le iscrizioni sono
-           chiuse (<body data-iscrizioni="chiuse"> in webinar_dicembre_2026):
-           si aprono cambiando quel valore in "aperte", senza altre modifiche. */
+           aperte dal 4 novembre 2026 (<body data-iscrizioni="aperte"> in
+           webinar_dicembre_2026): si chiudono rimettendo "chiuse". */
         {
             id: 'webinar-2026-12-10', titolo: 'Webinar', quando: '10 dicembre 2026', giorno: '2026-12-10', filtro: 'webinar', pagina: 'Webinar 10 Dicembre 2026',
             manuale: true, luogo: 'Online, in diretta sul sito', indirizzo: '', urlPagina: '/webinar_dicembre_2026/',
@@ -15585,7 +15585,7 @@
             moduliRiservati: [
                 { nome: 'Iscrizione al webinar', per: 'chi riceve l\'invito per email (la pagina non è sul sito)', via: '/webinar_dicembre_2026/' }
             ],
-            nota: 'La pagina del webinar è su invito: non compare sul sito e si raggiunge solo dal collegamento mandato per email (lo trovi in «Moduli riservati»). Le iscrizioni non sono ancora aperte (la pagina dice «Iscrizioni in apertura»). Quando si aprono, chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
+            nota: 'La pagina del webinar è su invito: non compare sul sito e si raggiunge solo dal collegamento mandato per email (lo trovi in «Moduli riservati»). Le iscrizioni sono aperte: chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
         },
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',

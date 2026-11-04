@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($('moduloInvolucro')) $('moduloInvolucro').hidden = false;
     if ($('mailNonRicevuta')) $('mailNonRicevuta').hidden = false;
     if ($('statoIscrizioni') && $('statoIscrizioni').lastChild) { $('statoIscrizioni').lastChild.textContent = 'Iscrizioni aperte'; $('statoIscrizioni').classList.remove('stato--chiuse'); }
-    if ($('heroIscrizioni')) $('heroIscrizioni').textContent = 'Iscriviti';
+    if ($('heroIscrizioni')) $('heroIscrizioni').textContent = 'Iscriviti al webinar';
     const chiama = (corpo) => fetch(SERVIZIO, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
