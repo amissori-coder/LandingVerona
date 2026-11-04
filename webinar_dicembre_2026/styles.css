@@ -924,7 +924,6 @@ ul, ol { list-style: none; }
     font-size: 0.9rem;
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.85);
-    text-align: left !important;
 }
 /* il numero grande in azzurro, come i quattro passi di «Come partecipare» */
 .passi-num {
@@ -1682,8 +1681,6 @@ ul, ol { list-style: none; }
     align-items: start;
     padding: 20px 0;
     border-top: 1px solid var(--linea);
-    text-align: left;
-    hyphens: manual;
 }
 .tappe li:last-child { border-bottom: 1px solid var(--linea); }
 .tappa-num {
@@ -1703,12 +1700,12 @@ ul, ol { list-style: none; }
     color: var(--blu-notte);
     margin-bottom: 4px;
 }
-.tappa-corpo span {
+/* la spiegazione e' un "-desc": assets/testo.css la giustifica e la sillaba come un paragrafo */
+.tappa-corpo .tappa-desc {
     display: block;
     font-size: 0.93rem;
     line-height: 1.6;
     color: var(--testo-tenue);
-    text-align: left;
 }
 
 /* ---------------------------------------------------------- iscrizioni non ancora aperte */
@@ -1742,7 +1739,6 @@ ul, ol { list-style: none; }
 .iscrizioni-chiuse p {
     margin: 0;
     color: rgba(255, 255, 255, 0.85);
-    text-align: left !important;
 }
 .iscrizioni-chiuse-titolo {
     font-family: var(--font-titoli, 'Montserrat', sans-serif);
@@ -2285,8 +2281,6 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     font-size: 0.98rem;
     line-height: 1.6;
     color: var(--testo-tenue);
-    text-align: left !important;
-    hyphens: manual;
 }
 .scaletta-voci { display: flex; flex-direction: column; }
 .scaletta-voci li {
@@ -2296,8 +2290,6 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     align-items: start;
     padding: 18px 0;
     border-bottom: 1px solid var(--linea);
-    text-align: left;
-    hyphens: manual;
 }
 .scaletta-ora {
     font-family: var(--font-titoli);
@@ -2315,14 +2307,14 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     color: var(--blu-notte);
     margin-bottom: 4px;
 }
-.scaletta-voci div > span {
+/* la spiegazione e' un "-desc": assets/testo.css la giustifica e la sillaba come un paragrafo */
+.scaletta-voci .scaletta-desc {
     display: block;
     font-size: 0.93rem;
     line-height: 1.6;
     color: var(--testo-tenue);
-    text-align: left;
 }
-.scaletta-voci div > span.scaletta-link-gruppo { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.scaletta-voci .scaletta-link-gruppo { display: flex; flex-wrap: wrap; gap: 0 18px; }
 .scaletta-link {
     display: inline-block;
     margin-top: 8px;
@@ -2341,8 +2333,6 @@ html[data-diretta="conclusa"] .diretta-riquadro {
 .lato-blocco {
     padding: 22px 0;
     border-top: 1px solid var(--linea);
-    text-align: left;
-    hyphens: manual;
 }
 .lato-blocco:last-child { border-bottom: 1px solid var(--linea); }
 .lato-blocco .etichetta { margin-bottom: 10px; }
@@ -2350,9 +2340,11 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     font-size: 0.95rem;
     line-height: 1.65;
     color: var(--testo);
-    text-align: left !important;
 }
 .lato-blocco a { color: var(--blu-medio); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+/* l'indirizzo email su una riga sua: dentro un paragrafo giustificato una parola cosi' lunga apre buchi fra le altre */
+.lato-blocco .lato-mail { display: inline-block; margin: 6px 0 10px; font-size: 0.95rem; }
+.lato-blocco p + p { margin-top: 6px; }
 .lato-blocco a:hover { color: var(--blu); }
 .lato-elenco { display: flex; flex-direction: column; gap: 10px; }
 .lato-elenco li {
@@ -2372,19 +2364,10 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     border-radius: 50%;
     background: var(--azzurro);
 }
-/* niente giustificazione ne' sillabazione automatica in questa sezione: le
-   righe sono corte e le parole spezzate si notano */
+/* Testo giustificato come in tutto il sito (assets/testo.css); i titoli
+   delle voci restano a sinistra, come ogni titolo. */
 .scaletta-testa h3,
-.scaletta-testa p,
-.scaletta-voci strong,
-.scaletta-voci div > span,
-.lato-blocco p,
-.lato-elenco li {
-    text-align: left !important;
-    text-align-last: left;
-    -webkit-hyphens: manual !important;
-    hyphens: manual !important;
-}
+.scaletta-voci strong { text-align: left; }
 @media (max-width: 960px) {
     .programma-griglia { grid-template-columns: 1fr; gap: 48px; }
 }
