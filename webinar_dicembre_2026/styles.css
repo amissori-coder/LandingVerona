@@ -916,29 +916,25 @@ ul, ol { list-style: none; }
 }
 .passi li {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border-radius: var(--raggio);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    font-size: 0.88rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    font-size: 0.9rem;
+    line-height: 1.5;
     color: rgba(255, 255, 255, 0.85);
     text-align: left !important;
 }
+/* il numero grande in azzurro, come i quattro passi di «Come partecipare» */
 .passi-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--azzurro);
-    color: var(--blu-notte);
+    display: block;
     font-family: var(--font-titoli);
     font-weight: 800;
-    font-size: 0.85rem;
+    font-size: 1.5rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--azzurro);
 }
 
 /* la nota per chi non e' un'azienda: accanto ai passi, stesso vetro, filo azzurro a sinistra */
@@ -1674,29 +1670,45 @@ ul, ol { list-style: none; }
     gap: 64px;
     align-items: start;
 }
-.partecipare-passi {
-    background: #F4F8FB;
-    border: 1px solid #E2E8F0;
-    border-left: 3px solid #2A5A85;
-    border-radius: var(--raggio, 12px);
-    padding: 28px 28px 24px;
+/* I quattro passi: niente riquadro, niente cerchi. Come la colonna di
+   sinistra: righe sottili, il numero grande in azzurro (lo stesso dei
+   "momenti" del programma), un titolo e una riga di spiegazione. */
+.partecipare-passi { padding-top: 4px; }
+.tappe { display: flex; flex-direction: column; }
+.tappe li {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 20px;
+    align-items: start;
+    padding: 20px 0;
+    border-top: 1px solid var(--linea);
+    text-align: left;
+    hyphens: manual;
 }
-.partecipare-passi h3 {
-    font-family: var(--font-titoli, 'Montserrat', sans-serif);
-    font-size: 1.15rem;
+.tappe li:last-child { border-bottom: 1px solid var(--linea); }
+.tappa-num {
+    font-family: var(--font-titoli);
+    font-size: 1.9rem;
     font-weight: 800;
-    color: var(--blu-notte, #0A2844);
-    margin: 0 0 18px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--azzurro);
+    padding-top: 2px;
 }
-.partecipare-passi .passi {
-    grid-template-columns: 1fr;
-    margin-top: 0;
+.tappa-corpo strong {
+    display: block;
+    font-family: var(--font-titoli);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--blu-notte);
+    margin-bottom: 4px;
 }
-.partecipare-passi .passi li {
-    background: #FFFFFF;
-    border-color: #E2E8F0;
-    color: #1E293B;
-    font-size: 0.95rem;
+.tappa-corpo span {
+    display: block;
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: var(--testo-tenue);
+    text-align: left;
 }
 
 /* ---------------------------------------------------------- iscrizioni non ancora aperte */
