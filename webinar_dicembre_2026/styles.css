@@ -2222,3 +2222,177 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     html[data-diretta="in_onda"] .nav-pillola-diretta,
     html[data-diretta="in_onda"] .btn-diretta { animation: none; }
 }
+
+/* ---------------------------------------------------------- programma (webinar) */
+/* La scaletta del pomeriggio al posto delle due schede: tre blocchi con il
+   numero grande in azzurro, la fascia oraria e, dentro, le voci con l'ora
+   a sinistra, un titolo, una riga di spiegazione e i collegamenti agli
+   approfondimenti. A destra, chi e' invitato, che cosa si porta a casa, le
+   domande e i relatori. Righe sottili, niente riquadri: come il resto. */
+.testata-programma .titolo { max-width: 22ch; margin-left: auto; margin-right: auto; }
+.testata-sotto {
+    max-width: 62ch;
+    margin: 18px auto 0;
+    font-size: 1.02rem;
+    line-height: 1.65;
+    color: var(--testo-tenue);
+    text-align: center !important;
+    text-align-last: center;
+}
+.programma-griglia {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: 72px;
+    align-items: start;
+}
+.scaletta { display: flex; flex-direction: column; gap: 44px; }
+.scaletta-testa {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 20px;
+    align-items: start;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--blu-notte);
+}
+.scaletta-num {
+    font-family: var(--font-titoli);
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--azzurro);
+    padding-top: 4px;
+}
+.scaletta-fascia {
+    display: block;
+    font-family: var(--font-titoli);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--blu-medio);
+    margin-bottom: 8px;
+}
+.scaletta-testa h3 {
+    font-family: var(--font-titoli);
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--blu-notte);
+    margin-bottom: 8px;
+}
+.scaletta-testa p {
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--testo-tenue);
+    text-align: left !important;
+    hyphens: manual;
+}
+.scaletta-voci { display: flex; flex-direction: column; }
+.scaletta-voci li {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 20px;
+    align-items: start;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--linea);
+    text-align: left;
+    hyphens: manual;
+}
+.scaletta-ora {
+    font-family: var(--font-titoli);
+    font-size: 0.98rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--blu);
+    padding-top: 1px;
+}
+.scaletta-voci strong {
+    display: block;
+    font-family: var(--font-titoli);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--blu-notte);
+    margin-bottom: 4px;
+}
+.scaletta-voci div > span {
+    display: block;
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: var(--testo-tenue);
+    text-align: left;
+}
+.scaletta-voci div > span.scaletta-link-gruppo { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.scaletta-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--blu-medio);
+    text-decoration: underline;
+    text-decoration-color: rgba(42, 90, 133, 0.35);
+    text-underline-offset: 3px;
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+.scaletta-link:hover { color: var(--blu); text-decoration-color: var(--blu); }
+.scaletta-blocco--chiusura .scaletta-testa { border-bottom: 1px solid var(--linea); }
+
+.programma-lato { padding-top: 6px; }
+.lato-blocco {
+    padding: 22px 0;
+    border-top: 1px solid var(--linea);
+    text-align: left;
+    hyphens: manual;
+}
+.lato-blocco:last-child { border-bottom: 1px solid var(--linea); }
+.lato-blocco .etichetta { margin-bottom: 10px; }
+.lato-blocco p {
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--testo);
+    text-align: left !important;
+}
+.lato-blocco a { color: var(--blu-medio); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.lato-blocco a:hover { color: var(--blu); }
+.lato-elenco { display: flex; flex-direction: column; gap: 10px; }
+.lato-elenco li {
+    position: relative;
+    padding-left: 18px;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--testo);
+}
+.lato-elenco li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--azzurro);
+}
+/* niente giustificazione ne' sillabazione automatica in questa sezione: le
+   righe sono corte e le parole spezzate si notano */
+.scaletta-testa h3,
+.scaletta-testa p,
+.scaletta-voci strong,
+.scaletta-voci div > span,
+.lato-blocco p,
+.lato-elenco li {
+    text-align: left !important;
+    text-align-last: left;
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+}
+@media (max-width: 960px) {
+    .programma-griglia { grid-template-columns: 1fr; gap: 48px; }
+}
+@media (max-width: 560px) {
+    .scaletta { gap: 36px; }
+    .scaletta-testa { grid-template-columns: 56px 1fr; gap: 14px; }
+    .scaletta-num { font-size: 2rem; }
+    .scaletta-testa h3 { font-size: 1.25rem; }
+    .scaletta-voci li { grid-template-columns: 56px 1fr; gap: 14px; padding: 16px 0; }
+    .scaletta-ora { font-size: 0.92rem; }
+}
