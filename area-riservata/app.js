@@ -15585,7 +15585,56 @@
             moduliRiservati: [
                 { nome: 'Iscrizione al webinar', per: 'chi riceve l\'invito per email (la pagina non è sul sito)', via: '/webinar_dicembre_2026/' }
             ],
-            nota: 'La pagina del webinar è su invito: non compare sul sito e si raggiunge solo dal collegamento mandato per email (lo trovi in «Moduli riservati»). Le iscrizioni sono aperte: chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
+            /* Il tetto per codice invito e' quello del servizio (MAX_PER_CODICE
+               in lib/iscrizione-verificata.js, che vale per ogni evento con le
+               iscrizioni verificate, webinar compreso): la PEC lo dice e il
+               modulo lo ricorda. Stesso numero di Milano, per la stessa
+               ragione. */
+            iscrizioniPerCodice: 2,
+            /* LA PEC DEL WEBINAR. Un webinar non ha una sala: la lettera comune
+               (invAperturaInvito) parla di sede, posti e registrazione in
+               presenza, e la versione "diretta" di una sala esaurita, che qui
+               non esiste. Quindi una lettera sua, come Milano: l'invito, il
+               codice subito dopo il primo capoverso, il tema e le tre domande
+               del programma, il tetto per codice, l'iscrizione con cellulare
+               ed email verificati. Il pulsante della pagina lo mette
+               invTestoSala prima di `saluti`. Con `soloOnline` la finestra
+               non propone la scelta sala/diretta (invVersioniDi). Lo
+               controlla prove/testo-invito-codice.prove.js. */
+            invito: {
+                oggetto: 'Invito - Next Generation Business, webinar del 10 dicembre 2026 - Revisione legale e merito creditizio',
+                lettera: [
+                    'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario',
+                    'Spettabile {ragione_sociale},',
+                    'abbiamo il piacere di invitarVi al webinar «Un bilancio affidabile vale di più: la revisione legale come leva '
+                        + 'per il credito», promosso da Revilaw S.p.A. nell\'ambito di Next Generation Business, che si terrà '
+                        + 'giovedì 10 dicembre 2026 dalle ore 15.00 alle ore 17.00, in diretta online. '
+                        + 'L\'invito è riservato: alla Vostra azienda è assegnato il seguente codice di accesso, da indicare nel modulo di iscrizione.',
+                    '{codice}',
+                    'Quando un\'impresa chiede credito, la banca legge i numeri prima di ascoltare le ragioni: bilanci, Centrale '
+                        + 'dei Rischi e flussi di cassa prospettici concorrono alla decisione e alle condizioni applicate. Un bilancio '
+                        + 'sottoposto a revisione legale offre a chi lo legge una garanzia in più sull\'affidabilità di quei numeri, '
+                        + 'e per l\'impresa può diventare una leva nel dialogo con le banche e con gli altri interlocutori finanziari.',
+                    'Il webinar affronta il tema in forma di dialogo, con esempi tratti dall\'esperienza delle imprese, intorno a tre '
+                        + 'domande: perché un\'impresa sana può incontrare difficoltà nell\'accesso al credito; in che modo un bilancio '
+                        + 'sottoposto a revisione rafforza la credibilità dell\'impresa; che cosa può aspettarsi un imprenditore dal '
+                        + 'revisore, anche oltre gli obblighi di legge. La parte finale è dedicata alle domande dei partecipanti: chi lo '
+                        + 'desidera può anticiparne una già nel modulo di iscrizione, e le domande arrivate con l\'iscrizione hanno la precedenza.',
+                    'L\'incontro apre il percorso verso il convegno nazionale di Next Generation Business, in programma a Milano il '
+                        + '26 febbraio 2027, dove questi temi saranno ripresi e approfonditi, insieme agli incontri individuali fra '
+                        + 'imprese e professionisti.',
+                    'Il codice di accesso è nominativo, valido solamente per la Vostra azienda e consente al massimo due '
+                        + 'iscrizioni: possono quindi utilizzarlo fino a due persone, ciascuna iscrivendosi con il proprio '
+                        + 'nominativo e recapiti personali (email e numero di cellulare). All\'iscrizione il numero di cellulare '
+                        + 'viene verificato con un codice SMS e l\'indirizzo email con un collegamento di conferma; le credenziali '
+                        + 'per seguire la diretta arrivano per email.',
+                    'La partecipazione è gratuita e non richiede spostamenti: bastano un computer o uno smartphone e una '
+                        + 'connessione. Le informazioni sul webinar e il modulo di iscrizione sono disponibili qui:'
+                ],
+                saluti: 'Nell\'auspicio di poterVi avere fra i partecipanti, restiamo a disposizione per ogni informazione '
+                    + 'e porgiamo i nostri più cordiali saluti.'
+            },
+            nota: 'La pagina del webinar è su invito: non compare sul sito e si raggiunge solo dal collegamento mandato per email (lo trovi in «Moduli riservati»). L\'invito parte da «Invii alle aziende»: il servizio assegna a ogni azienda un codice di accesso di 5 caratteri e lo mette nella PEC al posto di {codice}; chi lo scrive nel modulo risulta «azienda selezionata» e l\'azienda, nell\'elenco degli inviti, passa a «iscritta». Le iscrizioni sono aperte: chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Un\'iscrizione per email e per numero, due al massimo per codice invito. Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
         },
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
@@ -27490,6 +27539,14 @@
     function invVersionePredefinita(ev) {
         return ((ev && ev.invito && ev.invito.salaEsaurita) === true) ? 'diretta' : 'sala';
     }
+    /* Le versioni fra cui scegliere. Un evento SOLO ONLINE (il webinar) non
+       ha una sala che possa esaurirsi: la versione "diretta" promette una
+       lista d'attesa per un posto in presenza che non esiste, e la domanda
+       "quale invito" sparisce dalla finestra. Resta la lettera dell'evento
+       (invito.lettera), che per il webinar e' scritta apposta. */
+    function invVersioniDi(ev) {
+        return (ev && ev.soloOnline) ? INV_VERSIONI.filter(v => v.id === 'sala') : INV_VERSIONI;
+    }
 
     /* I RITMI DELL'INVIO PROGRAMMATO.
        Su un elenco da migliaia di aziende l'invio a mano non basta: la
@@ -28520,7 +28577,7 @@
                 + (testo ? '' : ' hidden') + '>' + testo + '</div>');
         }).join('');
         return gruppoEv({
-            titolo: 'Invii alle aziende', spiega: 'clienti e sponsor da portare in sala',
+            titolo: 'Invii alle aziende', spiega: ev.soloOnline ? 'clienti da invitare al webinar' : 'clienti e sponsor da portare in sala',
             stato: righe,
             azioni: INV_CAMPAGNE.map(camp => '<button class="btn btn-sm btn-secondary ev-inviti" data-campagna="'
                 + esc(camp.id) + '">' + esc(camp.breve) + '</button>').join('')
@@ -28874,7 +28931,8 @@
             if (/^https?:\/\/\S+$/.test(nudo)) {
                 return invPulsante(nudo, /richiesta_contatto/.test(nudo)
                     ? 'Richiedo di essere contattato'
-                    : 'Programma e registrazione');
+                    // al webinar ci si iscrive, non ci si registra: lo dice anche la lettera
+                    : (/\/webinar/.test(nudo) ? 'Programma e iscrizione' : 'Programma e registrazione'));
             }
 
             /* La riga dei destinatari interni, in cima: si stacca dal resto
@@ -31429,9 +31487,10 @@
            sponsorizzazione non serve - una sponsorizzazione non ha posti a
            sedere - e una domanda in piu' che non cambia niente e' una
            domanda a cui prima o poi qualcuno risponde male. */
-        const conVersioni = campI.id !== 'sponsor';
+        const versioni = invVersioniDi(ev);
+        const conVersioni = campI.id !== 'sponsor' && versioni.length > 1;
         let versione = conVersioni ? invVersionePredefinita(ev) : 'sala';
-        if (ricordato && ricordato.versione && INV_VERSIONI.some(v => v.id === ricordato.versione)) versione = ricordato.versione;
+        if (ricordato && ricordato.versione && conVersioni && versioni.some(v => v.id === ricordato.versione)) versione = ricordato.versione;
         // quante iscrizioni ammette un codice (a Milano due): lo ricorda l'aiuto sotto il testo
         const perCodice = invIscrizioniPerCodice(ev);
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
@@ -31531,7 +31590,7 @@
                non c'e'. */
             + (conVersioni && !secondo
                 ? '<div class="campo"><label>Quale invito</label>'
-                + INV_VERSIONI.map(v => versioneOpz(v, v.id === versione)).join('')
+                + versioni.map(v => versioneOpz(v, v.id === versione)).join('')
                 + '<div class="hint">' + (invVersionePredefinita(ev) === 'diretta'
                     ? 'Per questo evento la sala risulta <b>esaurita</b>, quindi si propone l\'invito alla diretta. '
                     : '')

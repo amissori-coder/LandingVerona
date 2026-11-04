@@ -561,6 +561,99 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter' && !campoTel.readOnly) { e.preventDefault(); inviaCodice(); }
     });
 
+    // ---------- il codice invito e l'azienda ----------
+    /* Facoltativo; se c'e' dev'essere uno di quelli spediti con la PEC, con
+       ancora un posto (vale per due iscrizioni). Riconosciuto, porta nel
+       modulo il nome dell'azienda a cui e' stato mandato, e il campo resta
+       fermo: e' quello che lega l'iscrizione all'elenco delle aziende
+       invitate. Se il servizio non risponde non si blocca nulla: il codice
+       si controlla di nuovo all'invio. Stessa logica del modulo di Milano. */
+    const campoCodice = $('codiceInvito');
+    const codiceOk = $('codiceInvitoOk');
+    const campoAzienda = $('azienda');
+    const aziendaNota = $('aziendaNota');
+    const ripulisci = v => String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+        .replace(/[IL]/g, '1').replace(/O/g, '0').slice(0, 5);
+    let statoCodice = { valore: '', esito: 'vuoto', azienda: '' };
+    let aziendaDalCodice = false;
+    /* Un controllo del codice fallito per la rete ('ignoto') si riprova UNA
+       volta all'invio: se il servizio ora risponde, il campo dell'azienda si
+       blocca col nome dell'invito come deve. Una volta sola, perche' un
+       servizio che continua a non rispondere non tenga ferma l'iscrizione
+       (il codice lo ricontrolla comunque il server). Si riazzera quando il
+       codice cambia. */
+    let codiceRiprovato = false;
+
+    /* Il campo fermo si deve VEDERE fermo: il lucchetto e il cursore lo
+       dicono a chi guarda; aria-readonly e la nota collegata a chi usa un
+       lettore di schermo. La nota si collega solo quando c'e'. */
+    function applicaAzienda(nome) {
+        if (nome) {
+            campoAzienda.value = nome;
+            campoAzienda.readOnly = true;
+            campoAzienda.classList.add('campo-bloccato');
+            campoAzienda.setAttribute('aria-readonly', 'true');
+            campoAzienda.setAttribute('aria-describedby', 'aziendaNota');
+            aziendaDalCodice = true;
+            aziendaNota.hidden = false;
+            errore('azienda', '');
+        } else if (aziendaDalCodice) {
+            campoAzienda.value = '';
+            campoAzienda.readOnly = false;
+            campoAzienda.classList.remove('campo-bloccato');
+            campoAzienda.removeAttribute('aria-readonly');
+            campoAzienda.removeAttribute('aria-describedby');
+            aziendaDalCodice = false;
+            aziendaNota.hidden = true;
+        }
+    }
+    function mostraCodice(esito, azienda) {
+        codiceOk.textContent = '';
+        errore('codiceInvito', '');
+        if (esito === 'buono') {
+            codiceOk.textContent = azienda ? '✓ Codice riconosciuto: invito a ' + azienda : '✓ Codice riconosciuto.';
+            applicaAzienda(azienda);
+            return;
+        }
+        applicaAzienda('');
+        if (esito === 'esaurito') errore('codiceInvito', 'Questo codice è già stato usato per due iscrizioni, il massimo previsto. Puoi iscriverti lasciando vuoto il campo, oppure scriverci a info@nextgenerationbusiness.it.');
+        else if (esito === 'cattivo') errore('codiceInvito', 'Questo codice non risulta fra quelli inviati. Ricontrollalo sul messaggio che hai ricevuto, oppure lascia il campo vuoto e iscriviti senza.');
+        else if (esito === 'corto') errore('codiceInvito', 'Il codice è di 5 caratteri.');
+    }
+    function verificaInvito() {
+        const c = ripulisci(campoCodice.value);
+        campoCodice.value = c;
+        if (!c) { statoCodice = { valore: '', esito: 'vuoto', azienda: '' }; mostraCodice('vuoto'); return Promise.resolve(true); }
+        if (c.length < 5) { statoCodice = { valore: c, esito: 'corto', azienda: '' }; mostraCodice('corto'); return Promise.resolve(false); }
+        if (statoCodice.valore === c && statoCodice.esito !== 'ignoto') {
+            mostraCodice(statoCodice.esito, statoCodice.azienda);
+            return Promise.resolve(statoCodice.esito === 'buono');
+        }
+        return chiama({ azione: 'verifica-codice', codice: c })
+            .then(d => {
+                if (d && d.ok) {
+                    statoCodice = { valore: c, esito: 'buono', azienda: String(d.azienda || '') };
+                } else {
+                    statoCodice = { valore: c, esito: d && d.motivo === 'esaurito' ? 'esaurito' : 'cattivo', azienda: '' };
+                }
+                mostraCodice(statoCodice.esito, statoCodice.azienda);
+                return statoCodice.esito === 'buono';
+            })
+            .catch(() => {
+                statoCodice = { valore: c, esito: 'ignoto', azienda: '' };
+                mostraCodice('vuoto');
+                return true;
+            });
+    }
+    campoCodice.addEventListener('blur', () => { verificaInvito(); });
+    campoCodice.addEventListener('input', () => {
+        codiceRiprovato = false;
+        const c = ripulisci(campoCodice.value);
+        if (campoCodice.value !== c) campoCodice.value = c;
+        if (c.length === 5) verificaInvito();
+        else if (statoCodice.esito !== 'vuoto' || aziendaDalCodice) { statoCodice = { valore: '', esito: 'vuoto', azienda: '' }; mostraCodice('vuoto'); }
+    });
+
     // ---------- il ruolo: da elenco, oppure "Altro" scritto a mano ----------
     const campoRuolo = $('ruolo');
     const gruppoRuoloAltro = $('gruppoRuoloAltro');
@@ -928,6 +1021,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (primo) { vaiA(primo); return; }
 
+        // il codice invito, se c'e', deve essere buono: lo si verifica adesso se non lo e' ancora
+        // (e se il controllo era fallito per la rete, lo si riprova una volta)
+        const codice = ripulisci(campoCodice.value);
+        if (codice && statoCodice.esito !== 'buono' && (statoCodice.esito !== 'ignoto' || !codiceRiprovato)) {
+            if (statoCodice.esito === 'ignoto') codiceRiprovato = true;
+            // pulsante fermo mentre si controlla: un secondo clic partirebbe senza aspettare
+            inAttesa(true);
+            verificaInvito().then(buono => {
+                inAttesa(false);
+                if (buono) { if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); }
+                else vaiA(campoCodice);
+            });
+            return;
+        }
+
         inAttesa(true);
         if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: document.title });
         const n = new Date();
@@ -947,6 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
             messaggio: valore('messaggio').slice(0, 600),
             profilo: valore('profilo'), settore: valore('settore'), dimensione: valore('dimensione'),
             interessi: interessi,
+            codiceInvito: codice,
             modalita: valore('modalita') || 'online',
             privacy: $('privacy').checked, marketing: $('marketing').checked,
             percorso: location.pathname
@@ -958,11 +1067,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (d && d.smsKo) { azzeraVerifica(); errore('telefono', msg); vaiA(campoTel); return; }
                 if (d && d.campo === 'telefono') { errore('telefono', msg); vaiA(campoTel); return; }
                 if (d && d.campo === 'email') { errore('email', msg); vaiA($('email')); return; }
+                if (d && d.codiceKo) {
+                    statoCodice = { valore: codice, esito: d.campo === 'codice' ? 'esaurito' : 'cattivo', azienda: '' };
+                    mostraCodice(statoCodice.esito);
+                    vaiA(campoCodice);
+                    return;
+                }
                 erroreInvio.textContent = msg;
                 return;
             }
-            /* L'azienda e' quella che il servizio ha SCRITTO: la schermata
-               deve dire quello che diranno la mail e l'elenco. */
+            /* L'azienda e' quella che il servizio ha SCRITTO: con un codice
+               riconosciuto e' quella dell'invito. La schermata deve dire
+               quello che diranno la mail e l'elenco. */
             riempiConferma({
                 nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
                 azienda: (d && d.azienda) || valore('azienda'), telefono: verificato.numero
