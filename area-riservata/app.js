@@ -18830,7 +18830,14 @@
                prendono il loro valore da valoreColonnaDi. */
             const celle = {};
             celle['b:data'] = cellaDataOra(r.data);
-            celle['b:nome'] = '<td class="cliente-cella' + (tm ? ' ' + tm : '') + '" data-label="Nome">' + esc(nomePersonaVisto(r)) + '</td>';
+            /* LA DOMANDA PER I RELATORI (il webinar: campo «Una domanda per i
+               relatori» del modulo, `messaggio` della scheda): sotto il nome,
+               per intero nel suggerimento, cosi' chi prepara la parte finale la
+               legge dall'elenco senza aprire niente. */
+            const domanda = String(r.messaggio || '').trim();
+            celle['b:nome'] = '<td class="cliente-cella' + (tm ? ' ' + tm : '') + '" data-label="Nome">' + esc(nomePersonaVisto(r))
+                + (domanda ? '<div class="hint ev-domanda" title="' + esc(domanda) + '">Domanda: &laquo;' + esc(domanda.length > 110 ? domanda.slice(0, 110).trim() + '…' : domanda) + '&raquo;</div>' : '')
+                + '</td>';
             /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
                spostarla d'azienda e' una decisione di chi organizza, non un
                dato dell'iscritto, e chi legge la tabella deve poterlo sapere

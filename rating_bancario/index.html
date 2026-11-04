@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- Primary Meta Tags -->
-    <title>Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw</title>
+    <title>Una prima lettura degli indicatori economico-finanziari della tua impresa | Revilaw</title>
     <script src="/assets/analytics.js" defer></script>
     <meta name="title" content="Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw">
-    <meta name="description" content="Simula il rating bancario della tua società: modello MCC del Fondo di Garanzia, DSCR, indici CNDCEC e Z-Score, calcolati nel browser dai dati di bilancio.">
+    <meta name="description" content="Una prima lettura degli indicatori economico-finanziari della tua impresa: simulazione del modello del Fondo di Garanzia PMI (MCC), DSCR, indici CNDCEC e Z-Score, calcolati nel browser dai dati di bilancio. Non è il rating della banca: serve a preparare il confronto con gli istituti di credito.">
     <meta name="keywords" content="rating bancario, merito creditizio, modello MCC, Fondo di Garanzia PMI, Mediocredito Centrale, DSCR, PFN EBITDA, indici di allerta CNDCEC, Z-Score, bancabilità, accesso al credito, rating advisory, Revilaw, Next Generation Business">
     <meta name="author" content="Revilaw S.p.A.">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -25,7 +25,7 @@
     <meta property="og:type" content="article">
     <meta property="og:site_name" content="Next Generation Business">
     <meta property="og:url" content="https://nextgenerationbusiness.it/rating_bancario/">
-    <meta property="og:title" content="Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw">
+    <meta property="og:title" content="Una prima lettura degli indicatori economico-finanziari della tua impresa | Revilaw">
     <meta property="og:description" content="Simula il rating bancario della tua società: modello MCC del Fondo di Garanzia, DSCR, indici CNDCEC e Z-Score, calcolati nel browser dai dati di bilancio.">
     <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og/rating_bancario.jpg?v=87471abff7">
     <meta property="og:image:type" content="image/jpeg">
@@ -951,6 +951,60 @@
             opacity: 1;
             transform: none;
         }
+
+        /* La precisazione sotto il sottotitolo dell'apertura: che cosa il simulatore e', e che cosa non e' */
+        .hero-precisazione {
+            max-width: 820px;
+            margin: 22px auto 0;
+            padding: 16px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-left: 3px solid #7DB8EE;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .hero-precisazione strong { color: #fff; }
+        /* Tre valutazioni diverse: simulazione, garanzia, delibera */
+        .tre-valutazioni {
+            max-width: 960px;
+            margin: 0 auto 40px;
+            padding: 28px 32px;
+            border: 1px solid #DCE3EC;
+            border-radius: 12px;
+            background: #fff;
+        }
+        .tre-valutazioni-testa h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #08213A;
+            margin: 0 0 6px;
+        }
+        .tre-valutazioni-testa p { margin: 0; color: #556274; font-size: 0.95rem; }
+        .tre-valutazioni-elenco { margin: 18px 0 0; }
+        .tre-valutazioni-elenco > div {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 18px;
+            padding: 14px 0;
+            border-top: 1px solid #DCE3EC;
+        }
+        .tre-valutazioni-elenco dt {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #164068;
+            padding-top: 2px;
+        }
+        .tre-valutazioni-elenco dd { margin: 0; color: #14243A; font-size: 0.95rem; line-height: 1.6; }
+        @media (max-width: 720px) {
+            .tre-valutazioni { padding: 22px 18px; }
+            .tre-valutazioni-elenco > div { grid-template-columns: 1fr; gap: 6px; }
+        }
     </style>
 </head>
 <body class="content-page theme-rating">
@@ -988,14 +1042,22 @@
         <div class="hero-bg-overlay"></div>
         <div class="container hero-content">
             <div class="hero-badge">Rating bancario e merito creditizio</div>
-            <h1>Conosci il tuo rating<br><span class="text-accent">prima che lo calcoli la banca</span></h1>
+            <h1>Una prima lettura degli indicatori<br><span class="text-accent">economico-finanziari della tua impresa</span></h1>
             <p class="hero-subtitle">
-                Ogni volta che un'impresa chiede credito, la banca la traduce in un numero: il <strong>rating</strong>.
-                Da quel numero dipendono l'esito della pratica, il prezzo del denaro e le garanzie richieste.
-                Il simulatore di questa pagina replica il <strong>modello di valutazione del Fondo di Garanzia PMI</strong>
-                (il rating MCC), completo del modulo andamentale se carichi la <strong>Centrale dei Rischi</strong>,
-                e lo affianca a un <strong>cruscotto di bancabilità</strong> con DSCR, indici della crisi CNDCEC e Z-Score:
-                bastano l'ultimo bilancio (anche in XBRL) e il PDF della CR, il calcolo avviene interamente nel tuo browser.
+                Ogni volta che un'impresa chiede credito, la banca ne valuta bilanci, Centrale dei Rischi e flussi di cassa
+                prospettici: sono le informazioni che concorrono alla sua decisione. Il simulatore di questa pagina applica il
+                <strong>modello di valutazione del Fondo di Garanzia PMI</strong> (il modello MCC), con il modulo andamentale se
+                carichi la <strong>Centrale dei Rischi</strong>, e lo affianca a un <strong>cruscotto di bancabilità</strong> con DSCR,
+                indici della crisi CNDCEC e Z-Score: bastano l'ultimo bilancio (anche in XBRL) e il PDF della CR, il calcolo
+                avviene interamente nel tuo browser.
+            </p>
+            <p class="hero-precisazione">
+                <strong>Che cosa è, e che cosa non è.</strong> Il simulatore offre una prima indicazione del profilo
+                economico-finanziario dell'impresa attraverso una simulazione del modello del Fondo di Garanzia PMI e alcuni
+                indicatori di analisi. Il risultato non coincide con il rating attribuito dalla banca, non certifica
+                l'ammissibilità alla garanzia pubblica e non garantisce la concessione di finanziamenti. La sua utilità consiste
+                nell'individuare aspetti da approfondire con un'analisi professionale, per preparare meglio il confronto con gli
+                istituti di credito.
             </p>
             <div class="hero-actions">
                 <a href="#simulatore" class="btn btn-primary">Vai al simulatore</a>
@@ -1597,16 +1659,31 @@
                 <span class="section-tag">Come leggerlo</span>
                 <h2>Dal numero <span class="text-accent">alle decisioni</span></h2>
                 <p class="section-desc">
-                    Il valore del simulatore non è il punteggio in sé, ma ciò che permette di decidere: quando chiedere
-                    credito, cosa sistemare prima, con quali argomenti presentarsi in banca.
+                    Il valore del simulatore non è il punteggio in sé, ma ciò che aiuta a decidere insieme a un professionista:
+                    quando chiedere credito, cosa sistemare prima, con quali argomenti presentarsi in banca.
                 </p>
+            </div>
+
+            <!-- TRE VALUTAZIONI DIVERSE: la simulazione non e' la garanzia e non e' la
+                 delibera. Sta prima delle fasce, perche' le fasce si leggono con
+                 questa distinzione in testa. -->
+            <div class="tre-valutazioni" aria-label="Tre valutazioni diverse">
+                <div class="tre-valutazioni-testa">
+                    <h3>Tre valutazioni diverse, da non confondere</h3>
+                    <p>Un risultato favorevole della simulazione non dimostra, da solo, né l'effettiva ammissione alla garanzia né la concessione del credito.</p>
+                </div>
+                <dl class="tre-valutazioni-elenco">
+                    <div><dt>Simulazione del modello MCC</dt><dd>Una stima orientativa basata sui dati inseriti e sulle componenti del modello implementate in questa pagina.</dd></div>
+                    <div><dt>Ammissibilità alla garanzia</dt><dd>Una valutazione che richiede la verifica delle condizioni applicabili alla specifica domanda, che il simulatore non compie.</dd></div>
+                    <div><dt>Delibera della banca</dt><dd>La decisione sul finanziamento richiesto, dopo l'istruttoria: capacità futura di rimborso, sostenibilità dei flussi di cassa, indebitamento complessivo, modello di business, importo e durata dell'operazione, coerenza con le politiche di rischio dell'istituto. Le linee guida EBA richiedono questo esame articolato: il punteggio è uno degli elementi.</dd></div>
+                </dl>
             </div>
 
             <div class="components-grid">
                 <article class="component-card">
                     <span class="component-number">Fasce 1 e 2</span>
                     <h3>Profilo solido</h3>
-                    <p>L'impresa accede al credito e alla garanzia pubblica senza attriti: è il momento di <strong>negoziare le condizioni</strong>, non di accettarle.</p>
+                    <p>La simulazione indica un profilo solido. Non è una promessa sull'esito dell'istruttoria, ma un buon punto di partenza per presentarsi in banca con i dati alla mano e <strong>discutere le condizioni</strong> con argomenti.</p>
                     <ul class="pillar-list">
                         <li>Confrontare gli spread applicati con il merito creditizio reale</li>
                         <li>Allungare le scadenze del debito finché il rating lo consente</li>
@@ -1616,7 +1693,7 @@
                 <article class="component-card">
                     <span class="component-number">Fascia 3</span>
                     <h3>Equilibrio da presidiare</h3>
-                    <p>Il credito arriva, ma a condizioni migliorabili: piccoli interventi sugli indici possono <strong>cambiare classe</strong> e prezzo del denaro.</p>
+                    <p>La simulazione indica un equilibrio da presidiare: interventi mirati sugli indici possono <strong>cambiare classe</strong> nella simulazione e dare argomenti in più nel confronto con la banca, che valuta anche quello che il modello non vede.</p>
                     <ul class="pillar-list">
                         <li>Ridurre il circolante che assorbe cassa e gonfia i debiti a breve</li>
                         <li>Riequilibrare fonti a breve e a medio-lungo termine</li>
@@ -1626,7 +1703,7 @@
                 <article class="component-card">
                     <span class="component-number">Fascia 4</span>
                     <h3>Zona di attenzione</h3>
-                    <p>L'accesso al credito è ancora possibile ma fragile: serve un <strong>piano di rafforzamento</strong> prima che il giudizio peggiori.</p>
+                    <p>Gli indicatori segnalano fragilità: prima di una nuova richiesta di credito serve un <strong>piano di rafforzamento</strong>, costruito con un professionista sui dati completi dell'impresa.</p>
                     <ul class="pillar-list">
                         <li>Intervenire su patrimonializzazione e capacità di generare MOL</li>
                         <li>Verificare DSCR prospettico e sostenibilità delle rate future</li>
@@ -1636,7 +1713,7 @@
                 <article class="component-card">
                     <span class="component-number">Fascia 5</span>
                     <h3>Area critica</h3>
-                    <p>La garanzia pubblica è preclusa e gli indicatori segnalano squilibri: è il terreno degli <strong>adeguati assetti</strong> e della diagnosi precoce.</p>
+                    <p>Nella simulazione il modello non ammetterebbe la garanzia pubblica e gli indicatori segnalano squilibri: è il terreno degli <strong>adeguati assetti</strong> e della diagnosi precoce, da affrontare con chi può leggere tutti i dati.</p>
                     <ul class="pillar-list">
                         <li>Verificare i segnali di crisi ex art. 3 del Codice della crisi</li>
                         <li>Costruire un piano di risanamento con flussi di cassa credibili</li>
@@ -1652,10 +1729,10 @@
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">Il metodo</span>
-                <h2>Oggi il tuo rating è questo: <span class="text-accent">vediamo come migliorarlo</span></h2>
+                <h2>Oggi gli indicatori dicono questo: <span class="text-accent">vediamo come migliorarli</span></h2>
                 <p class="section-desc">
-                    Il simulatore non è un punto di arrivo ma l'inizio di un percorso: si misura la classe di oggi,
-                    si interviene sulle cause, si misura di nuovo.
+                    Il simulatore non è un punto di arrivo ma l'inizio di un percorso: si legge la fotografia di oggi,
+                    si interviene sulle cause con un professionista, si misura di nuovo.
                 </p>
             </div>
 
@@ -1781,9 +1858,9 @@
             <div class="cta-wrapper">
                 <div class="cta-text">
                     <span class="section-tag">Il passo successivo</span>
-                    <h2>Dal rating simulato <span class="text-accent">al rating migliorato</span></h2>
+                    <h2>Dalla prima lettura <span class="text-accent">all'analisi professionale</span></h2>
                     <p>
-                        Il simulatore fotografa la situazione; migliorarla è un lavoro di <strong>rating advisory</strong>:
+                        Il simulatore dà una prima lettura; capire la situazione e migliorarla è un lavoro di <strong>rating advisory</strong>:
                         analisi del merito creditizio con i dati andamentali reali, piano di intervento sugli indicatori,
                         preparazione della documentazione per banche e Fondo di Garanzia. Se il risultato della simulazione
                         ti ha incuriosito o preoccupato, parliamone: un <strong>check-up riservato e senza impegno</strong>
@@ -3536,7 +3613,7 @@
             // Intestazione
             h += '<div class="pr-head">' +
                 '<div class="pr-brand"><strong>Next Generation Business</strong><br>A cura di Revilaw S.p.A., Società di Revisione Legale<br>Via XX Settembre, 9 - 37129 Verona (VR) &middot; nextgenerationbusiness.it</div>' +
-                '<div class="pr-title"><h1>Report di simulazione<br>del rating bancario</h1>' +
+                '<div class="pr-title"><h1>Report di simulazione:<br>una prima lettura degli indicatori</h1>' +
                 '<div class="pr-date">Generato il ' + oggi + '</div></div></div>';
 
             h += '<div class="pr-meta">' +
