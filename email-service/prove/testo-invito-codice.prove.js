@@ -33,7 +33,12 @@
      - senza tetto (Napoli e ogni altro evento) il testo resti
        quello di prima, parola per parola;
      - il pulsante "Programma e registrazione" porti alla pagina di
-       Milano e l'apertura dica sede e indirizzo.
+       Milano e l'apertura dica sede e indirizzo;
+     - il WEBINAR del 10 dicembre 2026 abbia la sua lettera: niente
+       sala, il codice da solo dopo il primo capoverso, il "due" del
+       servizio, le tre domande del programma, l'oggetto suo, il
+       pulsante "Programma e iscrizione" verso la sua pagina, e la
+       finestra non proponga la versione "diretta" (invVersioniDi).
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -85,13 +90,15 @@ const pezzi = [
     ritaglia('const INV_VERSIONI = [', '[', ']') + ';',
     ritaglia('function versioneDef(', '{', '}'),
     ritaglia('function invVersionePredefinita(', '{', '}'),
+    ritaglia('function invVersioniDi(', '{', '}'),
     ritaglia('function invOggettoPredefinito(', '{', '}'),
     // la campagna aperta nella finestra: qui quella degli inviti
     'let _invCampagna = \'invito\';'
 ].join('\n');
 const APPJS = new Function(pezzi + '\nreturn {'
     + ' EVENTI_DEF, SITO_PUBBLICO, invTestoSala, invTestoDiretta, invTestoInHtml,'
-    + ' invParagrafoCodice, invIscrizioniPerCodice, invInLettere, invOggettoPredefinito };')();
+    + ' invParagrafoCodice, invIscrizioniPerCodice, invInLettere, invOggettoPredefinito,'
+    + ' invVersionePredefinita, invVersioniDi, INV_VERSIONI };')();
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -280,6 +287,69 @@ prova('Una sola iscrizione, o piu di due: la frase si adatta', () => {
     const tutto = APPJS.invParagrafoCodice(MILANO, 'sala');
     esigi(/\n\n$/.test(tutto) && !/\n\n\n/.test(tutto), 'il blocco chiude con un solo a capo doppio, come gli altri capoversi');
     esigi(!/[–—]/.test(APPJS.invTestoSala(MILANO) + APPJS.invTestoDiretta(MILANO)), 'nessuna lineetta lunga');
+});
+
+/* ------------------------------------------------------------
+   IL WEBINAR: UNA LETTERA SENZA SALA
+   ------------------------------------------------------------
+   Un webinar non ha una sala: la lettera comune parla di sede e di
+   posti in presenza, e la versione "diretta" di una sala esaurita con
+   la lista d'attesa. Nessuna delle due va bene, e il tetto per codice
+   del servizio vale anche qui (le iscrizioni sono verificate). */
+const WEBINAR = APPJS.EVENTI_DEF.find(e => e.id === 'webinar-2026-12-10');
+
+prova('Il webinar e il servizio dicono lo stesso numero', () => {
+    esigi(!!WEBINAR && WEBINAR.soloOnline === true, 'il webinar c e in EVENTI_DEF ed e solo online');
+    const m = /const MAX_PER_CODICE = (\d+);/.exec(VERIFICATA);
+    esigi(m && WEBINAR.iscrizioniPerCodice === Number(m[1]),
+        'iscrizioniPerCodice del webinar = MAX_PER_CODICE del servizio', WEBINAR.iscrizioniPerCodice + ' / ' + (m && m[1]));
+});
+
+prova('La lettera del webinar: il codice subito dopo il primo capoverso, niente sala', () => {
+    const t = APPJS.invTestoSala(WEBINAR);
+    const p = capoversi(t);
+    esigi(p[0] === 'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario', 'la riga dei destinatari interni, in cima');
+    esigi(p[1] === 'Spettabile {ragione_sociale},', 'poi la ragione sociale');
+    esigi(/^abbiamo il piacere di invitarVi al webinar/.test(p[2]) && p[2].indexOf('giovedì 10 dicembre 2026 dalle ore 15.00 alle ore 17.00, in diretta online') >= 0,
+        'il primo capoverso dice giorno, orario e che e online', p[2]);
+    esigi(p.filter(x => x.indexOf('{codice}') >= 0).length === 1 && p[3] === '{codice}', 'il codice da solo, subito dopo il primo capoverso');
+    esigi(!/\b(sala|in presenza|poltron|sede|posti disponibili|lista d'attesa)\b/i.test(t), 'nessuna parola da convegno in sala', t.match(/\b(sala|in presenza|poltron|sede|posti disponibili|lista d'attesa)\b/i));
+    esigi(!/registra(rVi|zione)/.test(t), 'al webinar ci si iscrive, non ci si registra');
+    for (const dom of ['perché un\'impresa sana può incontrare difficoltà nell\'accesso al credito',
+        'in che modo un bilancio sottoposto a revisione rafforza la credibilità dell\'impresa',
+        'che cosa può aspettarsi un imprenditore dal revisore, anche oltre gli obblighi di legge']) {
+        esigi(t.indexOf(dom) >= 0, 'la domanda del programma: ' + dom.slice(0, 40) + '...');
+    }
+    esigi(t.indexOf('codice SMS') >= 0 && t.indexOf('collegamento di conferma') >= 0, 'dice le due verifiche: SMS ed email');
+    esigi(!/\n\n\n|^\s|\s$/.test(t), 'nessuna riga vuota doppia, niente spazi in testa o in coda');
+    esigi(!/[–—]/.test(t), 'nessuna lineetta lunga');
+});
+
+prova('Webinar: il "due" della lettera e quello del servizio', () => {
+    const n = APPJS.invInLettere(WEBINAR.iscrizioniPerCodice);
+    const p = capoversi(APPJS.invTestoSala(WEBINAR));
+    const frase = p.find(x => /consente al massimo/.test(x)) || '';
+    esigi(frase.indexOf('consente al massimo ' + n + ' iscrizioni: possono quindi utilizzarlo fino a ' + n + ' persone, ciascuna iscrivendosi') >= 0,
+        'la frase dice "' + n + ' iscrizioni" e "' + n + ' persone", come iscrizioniPerCodice', frase);
+    esigi(!/2 iscrizioni/.test(p.join('\n\n')), 'il numero e scritto in lettere');
+});
+
+prova('Webinar: l oggetto suo, la pagina sua, e una versione sola', () => {
+    esigi(APPJS.invOggettoPredefinito(WEBINAR) === 'Invito - Next Generation Business, webinar del 10 dicembre 2026 - Revisione legale e merito creditizio',
+        'l oggetto del webinar e quello proposto all apertura', APPJS.invOggettoPredefinito(WEBINAR));
+    esigi(APPJS.invVersionePredefinita(WEBINAR) === 'sala', 'la versione proposta e quella con la lettera dell evento');
+    const v = APPJS.invVersioniDi(WEBINAR);
+    esigi(v.length === 1 && v[0].id === 'sala', 'a un evento solo online si propone una versione sola: niente "sala esaurita"');
+    esigi(APPJS.invVersioniDi(MILANO) === APPJS.INV_VERSIONI && APPJS.invVersioniDi(NAPOLI).length === 2, 'agli eventi in sala restano tutte e due');
+    const atteso = 'https://nextgenerationbusiness.it/webinar_dicembre_2026/';
+    const t = APPJS.invTestoSala(WEBINAR);
+    const p = capoversi(t);
+    esigi(p.indexOf(atteso) === p.length - 2 && /^Nell'auspicio/.test(p[p.length - 1]), 'l indirizzo della pagina da solo su una riga, prima dei saluti');
+    const html = APPJS.invTestoInHtml(t);
+    esigi(html.indexOf('href="' + atteso + '"') >= 0 && html.indexOf('>Programma e iscrizione</a>') >= 0 && html.indexOf('registrazione</a>') < 0,
+        'e diventa il pulsante "Programma e iscrizione"');
+    esigi((html.match(/Codice riservato/g) || []).length === 1 && (html.match(/\{codice\}/g) || []).length === 1, 'un riquadro "Codice riservato" con il segnaposto');
+    esigi(APPJS.invTestoInHtml(APPJS.invTestoSala(MILANO)).indexOf('>Programma e registrazione</a>') >= 0, 'a Milano il pulsante resta "Programma e registrazione"');
 });
 
 console.log('\nIl codice nella PEC di invito\n');

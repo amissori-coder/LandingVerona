@@ -476,7 +476,7 @@
         <div class="wrap iscrizioni">
             <span class="stato stato--chiuse" id="statoIscrizioni"><span class="stato-punto" aria-hidden="true"></span>Iscrizioni in apertura</span>
             <h2 class="titolo">Iscriviti al webinar</h2>
-            <p class="iscrizioni-testo">Hai ricevuto l'invito per email: la partecipazione &egrave; gratuita e ci si iscrive da qui, in due minuti. Come ai nostri convegni servono due conferme: il <strong>cellulare</strong>, con un codice che arriva per SMS mentre compili, e l'<strong>indirizzo email</strong>, dal pulsante nella mail che ti mandiamo subito dopo. Le credenziali per seguire la diretta arrivano per email: la tua email e una password personale.</p>
+            <p class="iscrizioni-testo">Hai ricevuto l'invito per email: la partecipazione &egrave; gratuita e ci si iscrive da qui, in due minuti. Se l'invito riporta un <strong>codice di accesso</strong>, scrivilo nel campo dedicato: lega l'iscrizione alla tua azienda e vale per due persone. Come ai nostri convegni servono due conferme: il <strong>cellulare</strong>, con un codice che arriva per SMS mentre compili, e l'<strong>indirizzo email</strong>, dal pulsante nella mail che ti mandiamo subito dopo. Le credenziali per seguire la diretta arrivano per email: la tua email e una password personale.</p>
 
             <div class="presenza">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m10 8 4 2-4 2z"/></svg>
@@ -560,9 +560,25 @@
 
                     <fieldset class="modulo-blocco">
                         <legend>La tua azienda</legend>
+                        <!-- Il codice di accesso riservato alle aziende invitate con la PEC
+                             (lo assegna il servizio, azienda per azienda, quando l'invito
+                             parte dall'area riservata). Facoltativo: chi arriva dal
+                             collegamento della mail puo' non averlo. Se c'e', dev'essere
+                             uno di quelli spediti, vale per due iscrizioni e porta nel
+                             modulo il nome dell'azienda a cui e' stato mandato. -->
+                        <div class="campo campo-largo">
+                            <label for="codiceInvito">Codice invito <span class="facoltativo">(il codice di accesso riportato nell'invito alla tua azienda)</span></label>
+                            <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" class="campo-codice" enterkeyhint="next" aria-describedby="codiceInvitoNota">
+                            <!-- Detto qui, prima: la regola altrimenti si scopre solo quando
+                                 la terza persona della stessa azienda si vede rifiutare il codice. -->
+                            <span class="campo-nota" id="codiceInvitoNota">Vale per due iscrizioni: se partecipate in due, ognuno si iscrive con nome, email e cellulare propri.</span>
+                            <span class="campo-ok" id="codiceInvitoOk" role="status"></span>
+                            <span class="campo-errore" id="codiceInvitoError"></span>
+                        </div>
                         <div class="campo">
                             <label for="azienda">Azienda / Studio *</label>
                             <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization" autocapitalize="words" autocorrect="off" enterkeyhint="next">
+                            <span class="campo-nota" id="aziendaNota" hidden>Dal codice invito: è l'azienda invitata e non si può modificare.</span>
                             <span class="campo-errore" id="aziendaError"></span>
                         </div>
                         <div class="campo">
@@ -844,6 +860,6 @@
     <!-- Stato della diretta (voce di menu, pillola, fascia "Segui il webinar"):
          un file solo per tutto il sito, con le date del webinar dentro. -->
     <script src="/assets/diretta-stato.js?v=20261103a" defer></script>
-    <script src="script.js?v=2"></script>
+    <script src="script.js?v=3"></script>
 </body>
 </html>

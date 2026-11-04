@@ -2084,7 +2084,15 @@ e i totali, `sezionePredefinita`, come nell'area riservata) e `contatti:
 'webinar-2026'` (il collegamento «scrivici dal modulo» delle risposte,
 `linkModuloMail`, apre il modulo dei contatti con il webinar gia' scelto:
 `contatti/?t=mail&evento=webinar-2026`). Il modulo manda `modalita: "online"`
-per tutti e non ha il codice invito. Le mail (conferma, sollecito, riepilogo
+per tutti e ha il **codice invito** facoltativo come Milano (`codiceInvito`,
+`verifica-codice` appena scritto, azienda bloccata su quella dell'invito,
+`MAX_PER_CODICE` iscrizioni per codice): il codice lo assegna il servizio
+azienda per azienda quando la PEC parte da «Invii alle aziende»
+(`lib/invio-inviti.js`, `CODICI.assegna`, con `pagina: "Webinar 10 Dicembre
+2026"`, che e' l'inizio dell'etichetta del modulo: `CODICI.verifica` confronta
+il prefisso), e la lettera e' quella scritta sull'evento nell'area riservata
+(`invito.lettera` in `EVENTI_DEF`: senza sala, una versione sola,
+`invVersioniDi`). Le mail (conferma, sollecito, riepilogo
 di mezzanotte) dicono «il webinar del 10 dicembre 2026» invece di «il convegno
 di ...» (`tipoEvento` in `lib/mail-ngb.js`, `online: true` in
 `DETTAGLI_EVENTO` di `lib/conferma-email.js`), e la conferma dell'indirizzo
