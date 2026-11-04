@@ -2379,3 +2379,28 @@ html[data-diretta="conclusa"] .diretta-riquadro {
     .scaletta-voci li { grid-template-columns: 56px 1fr; gap: 14px; padding: 16px 0; }
     .scaletta-ora { font-size: 0.92rem; }
 }
+
+/* ---------------------------------------------------------- la domanda per i relatori (webinar) */
+.campo textarea {
+    width: 100%;
+    min-height: 104px;
+    padding: 12px 14px;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    background: var(--carta);
+    color: var(--testo);
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.45;
+    resize: vertical;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.campo textarea:focus {
+    outline: none;
+    border-color: var(--blu-medio);
+    background: var(--bianco);
+    box-shadow: 0 0 0 3px rgba(42, 90, 133, 0.15);
+}
+.campo textarea::placeholder { color: #8792A2; }

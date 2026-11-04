@@ -942,7 +942,9 @@ document.addEventListener('DOMContentLoaded', () => {
             data: data,
             nome: valore('nome'), cognome: valore('cognome'), email: valore('email'),
             telefono: valore('telefono'), smsToken: verificato.token,
-            azienda: valore('azienda'), ruolo: ruoloScelto(), messaggio: '',
+            azienda: valore('azienda'), ruolo: ruoloScelto(),
+            // la domanda per i relatori, se scritta
+            messaggio: valore('messaggio').slice(0, 600),
             profilo: valore('profilo'), settore: valore('settore'), dimensione: valore('dimensione'),
             interessi: interessi,
             modalita: valore('modalita') || 'online',
