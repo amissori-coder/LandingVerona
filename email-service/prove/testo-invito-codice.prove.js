@@ -310,7 +310,7 @@ prova('La lettera del webinar: il codice subito dopo il primo capoverso, niente 
     const p = capoversi(t);
     esigi(p[0] === 'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario', 'la riga dei destinatari interni, in cima');
     esigi(p[1] === 'Spettabile {ragione_sociale},', 'poi la ragione sociale');
-    esigi(/^abbiamo il piacere di invitarVi al webinar/.test(p[2]) && p[2].indexOf('giovedì 10 dicembre 2026 dalle ore 15.00 alle ore 17.00, in diretta online') >= 0,
+    esigi(p[2].indexOf('al webinar «Come migliorare il merito creditizio. Il ruolo del bilancio, della revisione legale e degli adeguati assetti»') > 0 && /^abbiamo il piacere di invitarVi al webinar/.test(p[2]) && p[2].indexOf('giovedì 10 dicembre 2026 dalle ore 15.00 alle ore 17.00, in diretta online') >= 0,
         'il primo capoverso dice giorno, orario e che e online', p[2]);
     esigi(p.filter(x => x.indexOf('{codice}') >= 0).length === 1 && p[3] === '{codice}', 'il codice da solo, subito dopo il primo capoverso');
     esigi(!/\b(sala|in presenza|poltron|sede|posti disponibili|lista d'attesa)\b/i.test(t), 'nessuna parola da convegno in sala', t.match(/\b(sala|in presenza|poltron|sede|posti disponibili|lista d'attesa)\b/i));
@@ -320,6 +320,7 @@ prova('La lettera del webinar: il codice subito dopo il primo capoverso, niente 
         'che cosa può aspettarsi un imprenditore dal revisore, anche oltre gli obblighi di legge']) {
         esigi(t.indexOf(dom) >= 0, 'la domanda del programma: ' + dom.slice(0, 40) + '...');
     }
+    esigi(t.indexOf('adeguati assetti organizzativi, amministrativi e contabili') >= 0, 'cita gli adeguati assetti, come il titolo');
     esigi(t.indexOf('codice SMS') >= 0 && t.indexOf('collegamento di conferma') >= 0, 'dice le due verifiche: SMS ed email');
     esigi(!/\n\n\n|^\s|\s$/.test(t), 'nessuna riga vuota doppia, niente spazi in testa o in coda');
     esigi(!/[–—]/.test(t), 'nessuna lineetta lunga');
@@ -335,7 +336,7 @@ prova('Webinar: il "due" della lettera e quello del servizio', () => {
 });
 
 prova('Webinar: l oggetto suo, la pagina sua, e una versione sola', () => {
-    esigi(APPJS.invOggettoPredefinito(WEBINAR) === 'Invito - Next Generation Business, webinar del 10 dicembre 2026 - Revisione legale e merito creditizio',
+    esigi(APPJS.invOggettoPredefinito(WEBINAR) === 'Invito - Next Generation Business, webinar del 10 dicembre 2026 - Come migliorare il merito creditizio',
         'l oggetto del webinar e quello proposto all apertura', APPJS.invOggettoPredefinito(WEBINAR));
     esigi(APPJS.invVersionePredefinita(WEBINAR) === 'sala', 'la versione proposta e quella con la lettera dell evento');
     const v = APPJS.invVersioniDi(WEBINAR);

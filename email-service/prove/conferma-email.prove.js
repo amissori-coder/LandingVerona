@@ -469,7 +469,7 @@ const token = () => NL.firmaConfermaEmail(ID);
         const link = NL.linkConfermaEmail('w');
         const m = MNGB.confermaSito(web, NL.linkCompleta('w'), link);
         esigi(m.oggetto === 'Richiesta di conferma - Next Generation Business, Webinar 10 Dicembre 2026' && /Webinar &middot; 10 dicembre 2026/.test(m.html)
-            && /Merito creditizio e revisione legale/.test(m.html) && /Online, in diretta/.test(m.html), 'la testata del webinar');
+            && /Come migliorare il merito creditizio\. Il ruolo del bilancio, della revisione legale e degli adeguati assetti/.test(m.html) && /Online, in diretta/.test(m.html), 'la testata del webinar');
         esigi(/Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta<\/td>/.test(m.html) && /webinar_dicembre_2026/.test(m.html), 'e il piede, con la sua pagina');
         esigi(m.testo.split('\n\n')[1] === 'Gentile Wanda Web, la tua iscrizione al webinar Next Generation Business del 10 dicembre 2026 è stata registrata.',
             'il sommario parla del webinar, per data, senza "per la partecipazione online"', m.testo.split('\n\n')[1]);

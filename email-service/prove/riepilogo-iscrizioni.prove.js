@@ -688,7 +688,7 @@ function scheda(id, o) { dati.set('iscrizioni/' + id, Object.assign({ pagina: 'M
         esigi(/^Iscrizioni Webinar del 05\/03\/2027 - aziende: 1 confermata, 1 in attesa \(aziende 1, con aderenti e sponsor 1\)$/.test(mW.subject), 'l\'oggetto del webinar: le sue conferme e le sue attese, senza aderenti', mW.subject);
         esigi(/Wanda Web/.test(mW.html) && /Walter Attesa/.test(mW.html) && !/Marta Milano/.test(mW.html), 'nella mail del webinar solo gli iscritti al webinar');
         esigi(/Marta Milano/.test(mM.html) && !/Wanda Web|Walter Attesa/.test(mM.html), 'e in quella di Milano solo quelli di Milano');
-        esigi(/Webinar &middot; 10 dicembre 2026/.test(mW.html) && /Merito creditizio e revisione legale/.test(mW.html) && /Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta<\/td>/.test(mW.html) && /webinar_dicembre_2026/.test(mW.html),
+        esigi(/Webinar &middot; 10 dicembre 2026/.test(mW.html) && /Come migliorare il merito creditizio\. Il ruolo del bilancio, della revisione legale e degli adeguati assetti/.test(mW.html) && /Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta<\/td>/.test(mW.html) && /webinar_dicembre_2026/.test(mW.html),
             'la testata e il piede del webinar, con la sua pagina (il titolo corto "Webinar 10 Dicembre 2026")');
         esigi(/Milano &middot; 26 febbraio 2027/.test(mM.html) && !/Webinar &middot;/.test(mM.html), 'Milano resta vestita da Milano');
         // la chiusura: il webinar e' nominato con il suo titolo corto e non ha aderenti; Milano si', come prima
