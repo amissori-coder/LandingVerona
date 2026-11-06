@@ -97,7 +97,7 @@ const DETTAGLI_EVENTO = [
     /* Il webinar: solo online, nessun indirizzo. `online: true` lo dice a chi
        scrive le mail (il sollecito parla di webinar, non di convegno). */
     { se: /webinar/i, quando: 'Giovedì 10 dicembre 2026', orario: 'Dalle 15.00 alle 17.00', luogo: 'Online, in diretta sul sito', indirizzo: '',
-      tema: 'Merito creditizio e revisione legale',
+      tema: 'Come migliorare il merito creditizio. Il ruolo del bilancio, della revisione legale e degli adeguati assetti',
       programma: 'Webinar in diretta: il merito creditizio e la revisione legale',
       online: true,
       inizio: '2026-12-10T15:00:00+01:00', fine: '2026-12-10T17:00:00+01:00',

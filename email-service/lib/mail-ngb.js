@@ -90,7 +90,7 @@ const TEMI_EVENTO = [
         se: /webinar/i,
         notte: '#08213A', filetto: '#2B4560', azzurro: '#7DB8EE', azzurroChiaro: '#B9DAF7', suNotte: '#C9D6E3',
         occhiello: 'Webinar &middot; 10 dicembre 2026',
-        tema: 'Merito creditizio e revisione legale',
+        tema: 'Come migliorare il merito creditizio. Il ruolo del bilancio, della revisione legale e degli adeguati assetti',
         dati: [['Data', 'Giovedì 10 dicembre 2026'], ['Orario', '15.00 - 17.00'], ['Dove', 'Online, in diretta']],
         piede: 'Webinar &middot; 10 dicembre 2026 &middot; Online, in diretta',
         pagina: 'https://nextgenerationbusiness.it/webinar_dicembre_2026/'

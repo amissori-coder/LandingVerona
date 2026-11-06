@@ -15579,7 +15579,7 @@
         {
             id: 'webinar-2026-12-10', titolo: 'Webinar', quando: '10 dicembre 2026', giorno: '2026-12-10', filtro: 'webinar', pagina: 'Webinar 10 Dicembre 2026',
             manuale: true, luogo: 'Online, in diretta sul sito', indirizzo: '', urlPagina: '/webinar_dicembre_2026/',
-            sottotitolo: 'Merito creditizio e revisione legale',
+            sottotitolo: 'Come migliorare il merito creditizio. Il ruolo del bilancio, della revisione legale e degli adeguati assetti',
             soloOnline: true,
             confermaEmail: true,
             moduliRiservati: [
@@ -15602,19 +15602,21 @@
                non propone la scelta sala/diretta (invVersioniDi). Lo
                controlla prove/testo-invito-codice.prove.js. */
             invito: {
-                oggetto: 'Invito - Next Generation Business, webinar del 10 dicembre 2026 - Revisione legale e merito creditizio',
+                oggetto: 'Invito - Next Generation Business, webinar del 10 dicembre 2026 - Come migliorare il merito creditizio',
                 lettera: [
                     'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario',
                     'Spettabile {ragione_sociale},',
-                    'abbiamo il piacere di invitarVi al webinar «Un bilancio affidabile vale di più: la revisione legale come leva '
-                        + 'per il credito», promosso da Revilaw S.p.A. nell\'ambito di Next Generation Business, che si terrà '
+                    'abbiamo il piacere di invitarVi al webinar «Come migliorare il merito creditizio. Il ruolo del bilancio, della revisione legale '
+                        + 'e degli adeguati assetti», promosso da Revilaw S.p.A. nell\'ambito di Next Generation Business, che si terrà '
                         + 'giovedì 10 dicembre 2026 dalle ore 15.00 alle ore 17.00, in diretta online. '
                         + 'L\'invito è riservato: alla Vostra azienda è assegnato il seguente codice di accesso, da indicare nel modulo di iscrizione.',
                     '{codice}',
                     'Quando un\'impresa chiede credito, la banca legge i numeri prima di ascoltare le ragioni: bilanci, Centrale '
                         + 'dei Rischi e flussi di cassa prospettici concorrono alla decisione e alle condizioni applicate. Un bilancio '
                         + 'sottoposto a revisione legale offre a chi lo legge una garanzia in più sull\'affidabilità di quei numeri, '
-                        + 'e per l\'impresa può diventare una leva nel dialogo con le banche e con gli altri interlocutori finanziari.',
+                        + 'e per l\'impresa può diventare una leva nel dialogo con le banche e con gli altri interlocutori finanziari. '
+                        + 'Alla base ci sono gli adeguati assetti organizzativi, amministrativi e contabili, che rendono quei numeri '
+                        + 'affidabili e tempestivi.',
                     'Il webinar affronta il tema in forma di dialogo, con esempi tratti dall\'esperienza delle imprese, intorno a tre '
                         + 'domande: perché un\'impresa sana può incontrare difficoltà nell\'accesso al credito; in che modo un bilancio '
                         + 'sottoposto a revisione rafforza la credibilità dell\'impresa; che cosa può aspettarsi un imprenditore dal '

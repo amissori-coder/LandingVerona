@@ -730,7 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (n) $('fattoTelefono').textContent = 'Il codice SMS inviato a +39 ' + n.slice(0, 3) + ' ••• ' + n.slice(-4) + ' è stato confermato.';
         const titolo = 'Next Generation Business - Webinar';
         const luogo = 'Online: https://nextgenerationbusiness.it/diretta/';
-        const dettagli = 'Merito creditizio e revisione legale. Webinar in diretta dalle 15.00 alle 17.00: si entra dalla pagina della diretta '
+        const dettagli = 'Come migliorare il merito creditizio. Il ruolo del bilancio, della revisione legale e degli adeguati assetti. Webinar in diretta dalle 15.00 alle 17.00: si entra dalla pagina della diretta '
             + 'con le credenziali ricevute per email. Programma: https://nextgenerationbusiness.it/webinar_dicembre_2026/';
         $('fattoGoogle').href = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
             + '&text=' + encodeURIComponent(titolo) + '&dates=20261210T140000Z/20261210T160000Z'
