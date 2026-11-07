@@ -15630,6 +15630,11 @@
                         + 'nominativo e recapiti personali (email e numero di cellulare). All\'iscrizione il numero di cellulare '
                         + 'viene verificato con un codice SMS e l\'indirizzo email con un collegamento di conferma; le credenziali '
                         + 'per seguire la diretta arrivano per email.',
+                    '! Un accesso riservato a Voi\n'
+                        + 'Il webinar non è pubblicato sul sito di Next Generation Business: la pagina con il programma e il '
+                        + 'modulo di iscrizione non si trova navigando nel sito né con i motori di ricerca, e vi si accede '
+                        + 'soltanto dal pulsante qui sotto. Vi suggeriamo di conservare questo messaggio e di inoltrarlo solo '
+                        + 'al collega che parteciperà con Voi.',
                     'La partecipazione è gratuita e non richiede spostamenti: bastano un computer o uno smartphone e una '
                         + 'connessione. Le informazioni sul webinar e il modulo di iscrizione sono disponibili qui:'
                 ],
@@ -28947,6 +28952,24 @@
                     + esc(nudo) + '</p>';
             }
 
+            /* IL RIQUADRO IN EVIDENZA: un capoverso che comincia con "!".
+               La prima riga e' il titolo, in grassetto; il resto e' il testo.
+               Serve per la cosa che non deve sfuggire a chi legge di corsa
+               (al webinar: il collegamento e' riservato e dal sito non si
+               arriva). Tabella e stili in riga, come il riquadro del codice. */
+            if (/^!\s*\S/.test(p)) {
+                const righe = p.replace(/^!\s*/, '').split('\n').map(r => r.trim()).filter(Boolean);
+                const titoloR = righe.shift() || '';
+                const testoR = esc(righe.join(' ')).replace(INV_URL, u => '<a href="' + u + '" style="color:#164068;font-weight:600;">'
+                    + esc(invEtichettaUrl(u)) + '</a>');
+                return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
+                    + 'style="margin:4px 0 18px;border-collapse:collapse;"><tr>'
+                    + '<td style="padding:14px 18px;background:#FFF8E6;border:1px solid #F0D58C;border-left:4px solid #C9962B;border-radius:6px;">'
+                    + '<div style="margin:0 0 6px;font-size:15px;font-weight:700;color:#7A5A12;text-align:left;">' + esc(titoloR) + '</div>'
+                    + (testoR ? '<div style="margin:0;line-height:1.6;color:#3F3A2E;">' + testoR + '</div>' : '')
+                    + '</td></tr></table>';
+            }
+
             // capoverso normale: gli indirizzi dentro diventano collegamenti
             const corpo = esc(p).split('\n').join('<br>')
                 .replace(INV_URL, u => '<a href="' + u + '" style="color:#164068;font-weight:600;">'
@@ -31604,7 +31627,8 @@
             + '<textarea id="ii-testo" rows="14">' + esc(testoIniziale) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
-            + 'ogni azienda riceve i propri dati al loro posto.<br>'
+            + 'ogni azienda riceve i propri dati al loro posto. Un capoverso che comincia con <b>!</b> diventa un '
+            + 'riquadro in evidenza: la prima riga è il titolo, il resto il testo.<br>'
             /* Il codice fa due mestieri diversi nelle due campagne, e dirlo
                male qui vuol dire un testo spedito a centinaia di aziende con
                dentro la frase sbagliata. */

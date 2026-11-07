@@ -350,6 +350,13 @@ prova('Webinar: l oggetto suo, la pagina sua, e una versione sola', () => {
     esigi(html.indexOf('href="' + atteso + '"') >= 0 && html.indexOf('>Programma e iscrizione</a>') >= 0 && html.indexOf('registrazione</a>') < 0,
         'e diventa il pulsante "Programma e iscrizione"');
     esigi((html.match(/Codice riservato/g) || []).length === 1 && (html.match(/\{codice\}/g) || []).length === 1, 'un riquadro "Codice riservato" con il segnaposto');
+    const i = p.findIndex(x => /^! Un accesso riservato a Voi\n/.test(x));
+    esigi(i > 0 && i === p.length - 4 && /non è pubblicato sul sito/.test(p[i]) && /soltanto dal pulsante qui sotto/.test(p[i]),
+        'l avviso del collegamento riservato, subito prima del capoverso del pulsante', p[i]);
+    const box = html.indexOf('>Un accesso riservato a Voi</div>');
+    esigi(box > 0 && html.lastIndexOf('background:#FFF8E6', box) > html.indexOf('Codice riservato') && box < html.indexOf('>Programma e iscrizione</a>'),
+        'nella mail diventa il riquadro in evidenza, con il titolo in grassetto, prima del pulsante');
+    esigi(html.indexOf('>! ') < 0 && html.indexOf('<p style="margin:0 0 14px;line-height:1.6;">!') < 0, 'il punto esclamativo non si vede nella mail');
     esigi(APPJS.invTestoInHtml(APPJS.invTestoSala(MILANO)).indexOf('>Programma e registrazione</a>') >= 0, 'a Milano il pulsante resta "Programma e registrazione"');
 });
 
