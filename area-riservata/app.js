@@ -28966,7 +28966,7 @@
                     + 'style="margin:4px 0 18px;border-collapse:collapse;"><tr>'
                     + '<td style="padding:14px 18px;background:#FFF8E6;border:1px solid #F0D58C;border-left:4px solid #C9962B;border-radius:6px;">'
                     + '<div style="margin:0 0 6px;font-size:15px;font-weight:700;color:#7A5A12;text-align:left;">' + esc(titoloR) + '</div>'
-                    + (testoR ? '<div style="margin:0;line-height:1.6;color:#3F3A2E;">' + testoR + '</div>' : '')
+                    + (testoR ? '<div style="margin:0;line-height:1.6;color:#3F3A2E;text-align:justify;-webkit-hyphens:auto;hyphens:auto;">' + testoR + '</div>' : '')
                     + '</td></tr></table>';
             }
 
@@ -28974,7 +28974,8 @@
             const corpo = esc(p).split('\n').join('<br>')
                 .replace(INV_URL, u => '<a href="' + u + '" style="color:#164068;font-weight:600;">'
                     + esc(invEtichettaUrl(u)) + '</a>');
-            return '<p style="margin:0 0 14px;line-height:1.6;">' + corpo + '</p>';
+            // giustificato in riga: c'e' anche nell'involucro del servizio, ma alcuni programmi di posta tolgono gli stili in testa
+            return '<p style="margin:0 0 14px;line-height:1.6;text-align:justify;-webkit-hyphens:auto;hyphens:auto;">' + corpo + '</p>';
         }).join('\n');
     }
     /* La bozza dell'invito, con i dati dell'evento gia' dentro. Chi invia la

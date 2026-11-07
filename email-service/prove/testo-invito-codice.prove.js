@@ -219,7 +219,7 @@ prova('Nella mail il codice diventa il riquadro e la frase resta un capoverso', 
     const html = APPJS.invTestoInHtml(APPJS.invTestoSala(MILANO));
     esigi((html.match(/Codice riservato/g) || []).length === 1, 'un riquadro "Codice riservato"');
     esigi((html.match(/\{codice\}/g) || []).length === 1, 'il segnaposto sta solo dentro il riquadro');
-    esigi(html.indexOf('<p style="margin:0 0 14px;line-height:1.6;">Il codice di accesso è nominativo, valido solamente per la Vostra azienda e consente al massimo due iscrizioni') >= 0,
+    esigi(html.indexOf('<p style="margin:0 0 14px;line-height:1.6;text-align:justify;-webkit-hyphens:auto;hyphens:auto;">Il codice di accesso è nominativo, valido solamente per la Vostra azienda e consente al massimo due iscrizioni') >= 0,
         'la frase delle due iscrizioni e un capoverso della lettera');
     const riga = html.indexOf('Alla cortese attenzione'), codice = html.indexOf('Codice riservato'), mattina = html.indexOf('Accesso al credito');
     esigi(/border-bottom:1px solid #E2E8F0;[^>]*>Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario<\/p>/.test(html),
@@ -356,7 +356,7 @@ prova('Webinar: l oggetto suo, la pagina sua, e una versione sola', () => {
     const box = html.indexOf('>Un accesso riservato a Voi</div>');
     esigi(box > 0 && html.lastIndexOf('background:#FFF8E6', box) > html.indexOf('Codice riservato') && box < html.indexOf('>Programma e iscrizione</a>'),
         'nella mail diventa il riquadro in evidenza, con il titolo in grassetto, prima del pulsante');
-    esigi(html.indexOf('>! ') < 0 && html.indexOf('<p style="margin:0 0 14px;line-height:1.6;">!') < 0, 'il punto esclamativo non si vede nella mail');
+    esigi(html.indexOf('>! ') < 0 && html.indexOf('<p style="margin:0 0 14px;line-height:1.6;text-align:justify;-webkit-hyphens:auto;hyphens:auto;">!') < 0, 'il punto esclamativo non si vede nella mail');
     esigi(APPJS.invTestoInHtml(APPJS.invTestoSala(MILANO)).indexOf('>Programma e registrazione</a>') >= 0, 'a Milano il pulsante resta "Programma e registrazione"');
 });
 
