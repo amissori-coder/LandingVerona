@@ -1887,7 +1887,7 @@
                     body: JSON.stringify({ idToken, sezione: 'aziende', ...corpo })
                 });
                 const data = await r.json().catch(() => ({}));
-                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                if (!r.ok || !data.ok) return { ...data, ok: false, stato: r.status, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
                 return { ...data, ok: true };
             } catch (e) {
                 return { ok: false, msg: await this._perche(url, e) };
@@ -32042,8 +32042,30 @@
                resta li' a occupare il posto dell'elenco: la si toglie. Senza,
                nessuno potrebbe piu' programmare niente su quella lista finche'
                non se ne accorge qualcuno. */
+            /* IL FRENO DEL SERVIZIO. Il servizio accetta al massimo 60
+               richieste al minuto per persona (api/presenze.js, troppiInvii),
+               e l'elenco si spedisce a blocchi di 500 aziende: oltre 30.000
+               aziende sono piu' di 60 blocchi, e il sessantesimo si sentiva
+               rispondere "troppe modifiche ravvicinate". La preparazione
+               falliva e si buttava via tutto. Ora un 429 non e' un errore:
+               si aspetta che la finestra del minuto si liberi e si rimanda lo
+               STESSO blocco (un 429 arriva prima che il servizio tocchi
+               qualcosa). Vale anche per l'accensione e per l'annullamento,
+               che altrimenti lascerebbe la programmazione monca a occupare
+               l'elenco. */
+            const conFreno = async (corpo, cosa) => {
+                for (let tentativo = 1; ; tentativo++) {
+                    const r = await Cloud.aziendeInvito(corpo);
+                    if (r.ok || r.stato !== 429 || tentativo >= 8) return r;
+                    for (let s = 20; s > 0; s--) {
+                        if (stato.fermato && corpo.azione !== 'programma-annulla') return r;
+                        if (cosa) avanzamento(cosa.fatte, totale, conti, cosa.testo + ' Il servizio chiede una pausa: riprendo fra ' + s + ' secondi...');
+                        await new Promise(ok => setTimeout(ok, 1000));
+                    }
+                }
+            };
             const disfa = async () => {
-                try { await Cloud.aziendeInvito({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna }); }
+                try { await conFreno({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna }); }
                 catch (e) { /* al peggio scade da se' dopo mezz'ora */ }
             };
             const fallita = async (msg) => {
@@ -32091,10 +32113,11 @@
                 avanzamento(i, totale, conti,
                     'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
                     + ' di ' + totale.toLocaleString('it-IT') + ' aziende...');
-                const r = await Cloud.aziendeInvito({
+                const r = await conFreno({
                     azione: 'programma-lotto', evento: ev.id, campagna: _invCampagna,
                     n: n, ids: elencoInvio.slice(i, i + perBlocco).map(a => a.id)
-                });
+                }, { fatte: i, testo: 'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
+                    + ' di ' + totale.toLocaleString('it-IT') + ' aziende.' });
                 if (!r.ok) {
                     await fallita((r.msg || 'Preparazione non riuscita.') + ' Non è stato programmato niente.');
                     return;
@@ -32111,7 +32134,8 @@
                 return;
             }
             avanzamento(totale, totale, conti, 'Accendo la programmazione...');
-            const acceso = await Cloud.aziendeInvito({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna });
+            const acceso = await conFreno({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna },
+                { fatte: totale, testo: 'Accendo la programmazione.' });
             if (!acceso.ok) {
                 await fallita(acceso.msg || 'Programmazione non avviata.');
                 return;
