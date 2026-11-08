@@ -36222,7 +36222,11 @@
 
     /* La firma in HTML da email. Tutti i valori passano da esc(): sono testo
        scritto dall'utente e finiscono dentro il messaggio. */
-    function firmaHtml(d) {
+    function firmaHtml(d, esempi) {
+        /* "esempi": i campi che nell'anteprima mostrano un dato di esempio perche'
+           sono ancora vuoti. Escono sbiaditi, cosi' si vede la firma intera ma si
+           capisce cosa manca; la firma copiata non li riceve mai. */
+        const X = (k, html) => (esempi && esempi.has(k)) ? '<span style="opacity:0.4;">' + html + '</span>' : html;
         const F = 'font-family:Arial,Helvetica,sans-serif;';
         const BLU = '#1b3a5c', AZZ = '#2a6db0', GR = '#555555';
         const sep = ' <span style="color:#9aa5b1;">&middot;</span> ';
@@ -36231,20 +36235,20 @@
         const et = l => '<span style="color:' + BLU + ';font-weight:bold;">' + l + '</span>&nbsp; ';
         const contatti = [];
         const tel = [];
-        if (d.cellulare) tel.push(et('M.') + '<a href="' + esc(firmaTel(d.cellulare)) + '" style="color:#222222;text-decoration:none;">' + esc(d.cellulare) + '</a>');
-        if (d.telefono) tel.push(et('T.') + '<a href="' + esc(firmaTel(d.telefono)) + '" style="color:#222222;text-decoration:none;">' + esc(d.telefono) + '</a>');
+        if (d.cellulare) tel.push(et('M.') + '<a href="' + esc(firmaTel(d.cellulare)) + '" style="color:#222222;text-decoration:none;">' + X('cellulare', esc(d.cellulare)) + '</a>');
+        if (d.telefono) tel.push(et('T.') + '<a href="' + esc(firmaTel(d.telefono)) + '" style="color:#222222;text-decoration:none;">' + X('telefono', esc(d.telefono)) + '</a>');
         if (tel.length) contatti.push(tel.join('&nbsp; <span style="color:#c0c8d0;">|</span>&nbsp; '));
-        if (d.email) contatti.push(et('E.') + '<a href="mailto:' + esc(d.email) + '" style="color:#222222;text-decoration:none;">' + esc(d.email) + '</a>');
-        if (d.indirizzo) contatti.push(et('A.') + esc(d.indirizzo));
+        if (d.email) contatti.push(et('E.') + '<a href="mailto:' + esc(d.email) + '" style="color:#222222;text-decoration:none;">' + X('email', esc(d.email)) + '</a>');
+        if (d.indirizzo) contatti.push(et('A.') + X('indirizzo', esc(d.indirizzo)));
         if (d.sito) contatti.push(et('W.') + '<a href="' + esc(firmaUrl(d.sito)) + '" style="color:#222222;text-decoration:none;font-weight:bold;">' + esc(firmaSitoTesto(d.sito)) + '</a>');
 
         let h = '<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;max-width:600px;' + F + 'color:#222222;">';
         if (d.saluto) h += '<tr><td style="' + F + 'font-size:14px;color:#222222;padding:0 0 14px 0;">' + esc(d.saluto) + '</td></tr>';
         h += '<tr><td style="padding:0;">'
-            + riga(esc(d.nome || ''), 'font-size:19px;font-weight:bold;color:' + BLU + ';line-height:1.3;')
-            + riga(esc(d.qualifica || ''), 'font-size:14px;font-weight:bold;color:' + AZZ + ';line-height:1.4;')
-            + riga(voci(d.ruoli), 'font-size:13px;color:#222222;line-height:1.4;')
-            + riga(voci(d.titoli), 'font-size:13px;color:' + GR + ';line-height:1.4;')
+            + riga(X('nome', esc(d.nome || '')), 'font-size:19px;font-weight:bold;color:' + BLU + ';line-height:1.3;')
+            + riga(X('qualifica', esc(d.qualifica || '')), 'font-size:14px;font-weight:bold;color:' + AZZ + ';line-height:1.4;')
+            + riga(X('ruoli', voci(d.ruoli)), 'font-size:13px;color:#222222;line-height:1.4;')
+            + riga(X('titoli', voci(d.titoli)), 'font-size:13px;color:' + GR + ';line-height:1.4;')
             + '</td></tr>'
             + '<tr><td style="padding:12px 0 14px 0;"><table cellpadding="0" cellspacing="0" border="0"><tr><td width="56" height="2" style="width:56px;height:2px;background:' + AZZ + ';font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>';
         h += '<tr><td style="padding:0 0 16px 0;"><table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
@@ -36304,18 +36308,25 @@
        della firma) insieme al testo semplice. Dove l'API moderna manca si
        seleziona l'anteprima e si usa la copia classica del browser, che porta
        con se' la formattazione allo stesso modo. */
-    function copiaFirmaFormattata(html, testo, anteprima) {
+    function copiaFirmaFormattata(html, testo) {
         const fatto = () => toast('Firma copiata: incollala nelle impostazioni della firma del tuo programma di posta.', 'verde');
         const classica = () => {
+            /* si copia una resa a parte, fuori schermo: l'anteprima puo' contenere
+               i dati di esempio sbiaditi, che nella firma non devono finire */
+            const tmp = document.createElement('div');
+            tmp.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;';
+            tmp.innerHTML = html;
+            document.body.appendChild(tmp);
             try {
                 const sel = window.getSelection();
                 const r = document.createRange();
-                r.selectNodeContents(anteprima);
+                r.selectNodeContents(tmp);
                 sel.removeAllRanges(); sel.addRange(r);
                 const ok = document.execCommand('copy');
                 sel.removeAllRanges();
-                if (ok) fatto(); else toast('Copia non riuscita: seleziona l\'anteprima e premi Ctrl+C.', 'rosso');
-            } catch (e) { toast('Copia non riuscita: seleziona l\'anteprima e premi Ctrl+C.', 'rosso'); }
+                tmp.remove();
+                if (ok) fatto(); else toast('Copia non riuscita: usa «Copia il codice HTML» o «Scarica il file .htm».', 'rosso');
+            } catch (e) { tmp.remove(); toast('Copia non riuscita: usa «Copia il codice HTML» o «Scarica il file .htm».', 'rosso'); }
         };
         if (navigator.clipboard && window.ClipboardItem) {
             try {
@@ -36380,6 +36391,7 @@
             </div>
             <div class="card">
                 <h2>Anteprima</h2>
+                <p class="hint" id="fm-nota-esempi" style="font-size:0.85rem;color:var(--grigio-600);margin-bottom:10px;">Le parti sbiadite sono esempi: compila i campi corrispondenti qui sopra. I campi lasciati vuoti non compaiono nella firma copiata.</p>
                 <div id="fm-anteprima" style="background:#fff;border:1px solid var(--grigio-200);border-radius:8px;padding:20px;overflow-x:auto;"></div>
                 <div class="header-azioni" style="justify-content:flex-start;flex-wrap:wrap;gap:8px;margin-top:14px;">
                     <button class="btn btn-primary" id="fm-copia">Copia la firma</button>
@@ -36406,7 +36418,23 @@
         };
         const anteprima = document.getElementById('fm-anteprima');
         let modificata = false;
-        const aggiorna = () => { anteprima.innerHTML = firmaHtml(leggi()); };
+        /* Dati di esempio per l'anteprima, solo dove il campo e' vuoto: senza, una
+           firma appena aperta mostrava nome ed email e nient'altro, e sembrava
+           diversa dal modello. */
+        const ESEMPI = {
+            nome: 'Nome Cognome', qualifica: 'Equity Partner e Procuratore di Revilaw S.p.A.',
+            ruoli: 'Capoarea Lazio, Marche e Umbria; Responsabile Area Centro',
+            titoli: 'Dottore Commercialista; Revisore Legale dei Conti',
+            cellulare: '+39 333 123 4567', telefono: '+39 06 1234 5678',
+            email: 'nome.cognome@revilaw.it', indirizzo: 'Via Roma 1, 00100 Roma'
+        };
+        const aggiorna = () => {
+            const dati = leggi(), esempi = new Set();
+            Object.keys(ESEMPI).forEach(k => { if (!dati[k]) { dati[k] = ESEMPI[k]; esempi.add(k); } });
+            anteprima.innerHTML = firmaHtml(dati, esempi);
+            const nota = document.getElementById('fm-nota-esempi');
+            if (nota) nota.style.display = esempi.size ? '' : 'none';
+        };
         aggiorna();
         $vista().querySelectorAll('input, textarea').forEach(el => el.addEventListener('input', () => {
             aggiorna();
@@ -36432,7 +36460,7 @@
         });
         document.getElementById('fm-copia').addEventListener('click', () => {
             const dati = pronta();
-            if (dati) copiaFirmaFormattata(firmaHtml(dati), firmaTesto(dati), anteprima);
+            if (dati) copiaFirmaFormattata(firmaHtml(dati), firmaTesto(dati));
         });
         document.getElementById('fm-copia-html').addEventListener('click', () => {
             const dati = pronta();
