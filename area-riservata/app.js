@@ -257,6 +257,7 @@
         rating: 'rvArea.rating',                   // verifiche del merito creditizio (rating bancario)
         controlliQualita: 'rvArea.controlliQualita', // schede dei controlli di qualita (una per incarico)
         ruoli: 'rvArea.ruoli',
+        firmeEmail: 'rvArea.firmeEmail',                     // firme email personali: un oggetto per email di accesso
         impostazioni: 'rvArea.impostazioni'
     };
     /* Sezioni su cui un ruolo puo' avere: 'no' (nascosta), 'lettura' (vede ma non tocca),
@@ -728,6 +729,9 @@
     function _formaDati(chiave) {
         if (chiave === CHIAVI.fatture) return 'oggetto';
         if (chiave === CHIAVI.audit) return 'audit';
+        // le firme email sono un oggetto con chiave l'email di chi la firma: ognuno
+        // salva la propria e la fusione per chiave non tocca quelle degli altri
+        if (chiave === CHIAVI.firmeEmail) return 'oggetto';
         // Configurazioni: UN oggetto con chiavi, non un elenco di record. Senza questa
         // riga la fusione le trattava come elenco e andava in errore, cosi la modifica
         // restava solo in locale e non arrivava mai agli altri utenti.
@@ -746,7 +750,7 @@
        configurazioni e per le presenze agli eventi, che ognuno modifica per conto suo.
        Questi archivi nascono dal salvataggio vero e proprio, che invece fonde. */
     function _senzaBootstrap(chiave) {
-        return _eArchivioConfig(chiave) || chiave === CHIAVI.eventiPresenze;
+        return _eArchivioConfig(chiave) || chiave === CHIAVI.eventiPresenze || chiave === CHIAVI.firmeEmail;
     }
     /* Nome leggibile di un archivio, per i messaggi all'utente (che non deve
        ritrovarsi davanti sigle come "fattureStato"). */
@@ -760,7 +764,8 @@
         richieste: 'richieste di correzione dati',
         rating: 'verifiche di rating bancario',
         controlliQualita: 'controlli di qualità',
-        ruoli: 'definizione dei ruoli'
+        ruoli: 'definizione dei ruoli',
+        firmeEmail: 'firme email'
     };
     function nomeArchivio(doc) {
         return Object.prototype.hasOwnProperty.call(NOMI_ARCHIVIO, doc) ? NOMI_ARCHIVIO[doc] : doc;
@@ -1443,6 +1448,9 @@
             // proprio chi non ha la scrittura ad averne piu' bisogno. Restano fuori solo
             // gli invitati "solo sondaggio", che dei dati dello studio non vedono nulla.
             if (sez === 'richieste') return this.puoUsareRichieste();
+            // La firma email e' personale: la compone chiunque lavori nell'area
+            // (stessa platea delle richieste, quindi fuori gli invitati "solo sondaggio")
+            if (sez === 'firma') return this.puoUsareRichieste();
             // I Controlli qualita hanno un filtro in piu' sulla PERSONA: la sezione compare
             // solo a chi in Aderenti Revilaw e' responsabile qualita o equity partner
             // (e ad amministratore e titolare). Vedi cqProfilo().
@@ -1456,6 +1464,7 @@
             if (sez === 'eventi') return puoVedereEventi();
             if (sez === 'newsletter') return puoVedereNewsletter();
             if (sez === 'richieste') return this.puoUsareRichieste();
+            if (sez === 'firma') return this.puoUsareRichieste();
             return this.accessoSezione(sez) === 'scrittura';
         },
         puoUsareRichieste() {
@@ -1544,6 +1553,9 @@
                 this.DOC_SYNC[CHIAVI.rating] = 'rating';
                 this.DOC_SYNC[CHIAVI.controlliQualita] = 'controlliQualita';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
+                // archivio/firmeEmail ricade nella regola generale archivio/{documento}
+                // (lettura e scrittura allo staff): non serve toccare le regole
+                this.DOC_SYNC[CHIAVI.firmeEmail] = 'firmeEmail';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
                 // o messa in background (evita perdite silenziose su Firestore)
@@ -3846,6 +3858,9 @@
            lettura) ad avere bisogno di chiederlo. Sta qui, subito sotto gli Incarichi,
            perche' e' li' che il dato sbagliato si incontra. */
         { id: 'richieste', nome: 'Richieste di correzione', icona: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5' },
+        /* La firma da mettere in fondo alle email: ognuno compila i propri dati,
+           li salva e copia la firma pronta nel programma di posta. La vedono tutti. */
+        { id: 'firma', nome: 'La mia firma email', icona: 'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z' },
         /* MACROAREA DEGLI ADERENTI. L'anagrafica e le due viste che ne derivano
            (chi coordina un territorio, chi e' responsabile di qualita o incarico)
            sono la stessa scheda letta in tre modi: stanno insieme, cosi' si vede
@@ -4048,7 +4063,8 @@
             ratingMetodo: vistaRatingMetodo,
             ratingVerbale: vistaRatingVerbale,
             controlloQualita: vistaControlliQualita,
-            controlloQualitaScheda: vistaControlloQualitaScheda
+            controlloQualitaScheda: vistaControlloQualitaScheda,
+            firma: vistaFirma
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -36135,6 +36151,304 @@
             if (n && !nomi.includes(n)) nomi.push(n);
         });
         return elencoIt(nomi);
+    }
+
+    /* =========================================================
+       LA MIA FIRMA EMAIL
+       Ognuno compila i propri dati, li salva e copia la firma pronta da
+       incollare nel programma di posta (Outlook, Gmail, Apple Mail...).
+       I dati stanno in archivio/firmeEmail, un oggetto con chiave l'email di accesso:
+       chi rientra da un altro computer ritrova la firma come l'aveva lasciata.
+       La firma e' HTML "da email": tabelle e stili in linea, niente fogli di
+       stile ne' caratteri web, immagini con indirizzo assoluto sul sito. I
+       programmi di posta buttano via tutto il resto.
+    ========================================================= */
+    const FIRMA_SITO = 'https://nextgenerationbusiness.it';
+    const FIRMA_LOGO = FIRMA_SITO + '/assets/logo-revilaw.png';
+    const FIRMA_UFFICI = ['Alessandria', 'Ancona', 'Avellino', 'Bari', 'Barletta', 'Belluno', 'Bergamo', 'Bologna',
+        'Bolzano', 'Brescia', 'Cagliari', 'Caltanissetta', 'Campobasso', 'Caserta', 'Catania', 'Catanzaro', 'Chieti',
+        'Cosenza', 'Cremona', 'Cuneo', 'Firenze', 'Foggia', 'Latina', 'Lecce', 'Livorno', 'Lucca', 'Macerata',
+        'Mantova', 'Messina', 'Milano', 'Monza', 'Napoli', 'Padova', 'Palermo', 'Palmi', 'Parma', 'Pavia', 'Perugia',
+        'Pesaro', 'Pescara', 'Pisa', 'Pistoia', 'Potenza', 'Prato', 'Ravenna', 'Reggio Calabria', 'Rieti', 'Roma',
+        'Rovigo', 'Salerno', 'Sanremo', 'Savona', 'Siena', 'Sud Sardegna', 'Taranto', 'Teramo', 'Torino', 'Trapani',
+        'Treviso', 'Venezia', 'Verona', 'Vicenza', 'Viterbo'];
+    const FIRMA_NOTA_IT = 'il presente messaggio, corredato dei relativi allegati, contiene informazioni da considerarsi strettamente riservate ed è destinato esclusivamente al destinatario sopra indicato, il quale è l\'unico autorizzato ad usarlo, copiarlo e, sotto la propria responsabilità, diffonderlo. Chiunque ricevesse questo messaggio per errore o comunque lo leggesse senza esserne legittimato è avvertito che trattenerlo, copiarlo, divulgarlo, distribuirlo a persone diverse dal destinatario è severamente proibito ed è pregato di rinviarlo immediatamente al mittente distruggendo l\'originale. Grazie.';
+    const FIRMA_NOTA_EN = 'this message, together with its annexes, contains information to be deemed strictly confidential and is destined only to the addressee(s) identified above who only may use, copy and forward it under his/her responsibility. If you have received this message by mistake or read it without entitlement, please be aware that keeping, copying, disseminating or distributing this e-mail is strictly forbidden and you are requested to send it back to the original sender and to destroy the original e-mail. Thank you.';
+    const FIRMA_CAMPI = ['saluto', 'nome', 'qualifica', 'ruoli', 'titoli', 'cellulare', 'telefono', 'email', 'indirizzo', 'sito'];
+    const FIRMA_OPZIONI = ['mostraNgb', 'mostraUffici', 'mostraNota'];
+
+    const FirmeEmail = {
+        tutte() { const o = Store.leggi(CHIAVI.firmeEmail, {}); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; },
+        mia() { const e = Auth.emailSessione(); return e ? (this.tutte()[e] || null) : null; },
+        salvaMia(dati) {
+            const e = Auth.emailSessione();
+            if (!e) return false;
+            const tutte = this.tutte();
+            tutte[e] = { ...dati, aggiornato: Date.now() };
+            Store.scrivi(CHIAVI.firmeEmail, tutte);
+            return true;
+        }
+    };
+
+    /* Primo avvio: si parte da quello che l'area sa gia' di me (nome nella scheda
+       di Aderenti Revilaw, email di accesso), il resto lo scrive ciascuno. */
+    function firmaPredefinita() {
+        const email = Auth.emailSessione();
+        let nome = '';
+        try {
+            const p = Persone.tutte().find(x => x && !x.eliminato && String(x.email || '').toLowerCase() === email);
+            if (p) nome = nomeCompletoPersona(p);
+        } catch (e) { }
+        return {
+            saluto: 'Cordiali saluti,', nome: nome || Auth.nomeSessione() || '', qualifica: '', ruoli: '', titoli: '',
+            cellulare: '', telefono: '', email: email, indirizzo: '', sito: 'revilaw.it',
+            mostraNgb: true, mostraUffici: true, mostraNota: true
+        };
+    }
+
+    /* Righe con piu' voci: si scrivono separate da punto e virgola o a capo, e
+       nella firma escono col puntino in mezzo come nel modello. La virgola NO:
+       sta dentro le voci stesse ("Capoarea Lazio, Marche e Umbria"). */
+    function firmaVoci(testo) {
+        return String(testo || '').split(/\s*(?:[;\n\u00b7])\s*/).map(x => x.trim()).filter(Boolean);
+    }
+    function firmaTel(n) { return 'tel:' + String(n || '').replace(/[^\d+]/g, ''); }
+    function firmaUrl(sito) {
+        const s = String(sito || '').trim();
+        if (!s) return '';
+        return /^https?:\/\//i.test(s) ? s : 'https://' + s;
+    }
+    function firmaSitoTesto(sito) { return String(sito || '').trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''); }
+
+    /* La firma in HTML da email. Tutti i valori passano da esc(): sono testo
+       scritto dall'utente e finiscono dentro il messaggio. */
+    function firmaHtml(d) {
+        const F = 'font-family:Arial,Helvetica,sans-serif;';
+        const BLU = '#1b3a5c', AZZ = '#2a6db0', GR = '#555555';
+        const sep = ' <span style="color:#9aa5b1;">&middot;</span> ';
+        const riga = (testo, stile) => testo ? '<div style="' + F + stile + '">' + testo + '</div>' : '';
+        const voci = t => firmaVoci(t).map(esc).join(sep);
+        const et = l => '<span style="color:' + BLU + ';font-weight:bold;">' + l + '</span>&nbsp; ';
+        const contatti = [];
+        const tel = [];
+        if (d.cellulare) tel.push(et('M.') + '<a href="' + esc(firmaTel(d.cellulare)) + '" style="color:#222222;text-decoration:none;">' + esc(d.cellulare) + '</a>');
+        if (d.telefono) tel.push(et('T.') + '<a href="' + esc(firmaTel(d.telefono)) + '" style="color:#222222;text-decoration:none;">' + esc(d.telefono) + '</a>');
+        if (tel.length) contatti.push(tel.join('&nbsp; <span style="color:#c0c8d0;">|</span>&nbsp; '));
+        if (d.email) contatti.push(et('E.') + '<a href="mailto:' + esc(d.email) + '" style="color:#222222;text-decoration:none;">' + esc(d.email) + '</a>');
+        if (d.indirizzo) contatti.push(et('A.') + esc(d.indirizzo));
+        if (d.sito) contatti.push(et('W.') + '<a href="' + esc(firmaUrl(d.sito)) + '" style="color:#222222;text-decoration:none;font-weight:bold;">' + esc(firmaSitoTesto(d.sito)) + '</a>');
+
+        let h = '<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;max-width:600px;' + F + 'color:#222222;">';
+        if (d.saluto) h += '<tr><td style="' + F + 'font-size:14px;color:#222222;padding:0 0 14px 0;">' + esc(d.saluto) + '</td></tr>';
+        h += '<tr><td style="padding:0;">'
+            + riga(esc(d.nome || ''), 'font-size:19px;font-weight:bold;color:' + BLU + ';line-height:1.3;')
+            + riga(esc(d.qualifica || ''), 'font-size:14px;font-weight:bold;color:' + AZZ + ';line-height:1.4;')
+            + riga(voci(d.ruoli), 'font-size:13px;color:#222222;line-height:1.4;')
+            + riga(voci(d.titoli), 'font-size:13px;color:' + GR + ';line-height:1.4;')
+            + '</td></tr>'
+            + '<tr><td style="padding:12px 0 14px 0;"><table cellpadding="0" cellspacing="0" border="0"><tr><td width="56" height="2" style="width:56px;height:2px;background:' + AZZ + ';font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>';
+        h += '<tr><td style="padding:0 0 16px 0;"><table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
+            + '<td valign="middle" style="padding:0 18px 0 0;vertical-align:middle;">'
+            + '<a href="' + esc(firmaUrl(d.sito) || 'https://revilaw.it') + '" style="text-decoration:none;"><img src="' + FIRMA_LOGO + '" width="150" alt="Revilaw - Revisione legale" style="display:block;width:150px;height:auto;border:0;"></a>'
+            + '<div style="' + F + 'font-size:12px;font-style:italic;color:' + AZZ + ';padding-top:8px;">Oltre la verifica, verso il valore.</div>'
+            + '</td>'
+            + (contatti.length ? '<td valign="middle" style="border-left:1px solid #c9d2dc;padding:2px 0 2px 18px;vertical-align:middle;">'
+                + contatti.map(c => '<div style="' + F + 'font-size:13px;color:#222222;line-height:1.75;">' + c + '</div>').join('')
+                + '</td>' : '')
+            + '</tr></table></td></tr>';
+        if (d.mostraNgb) {
+            h += '<tr><td style="padding:0 0 18px 0;"><table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;width:100%;"><tr>'
+                + '<td bgcolor="#13294b" style="background:#13294b;border-left:4px solid #5aa9e6;padding:14px 20px;">'
+                + '<div style="' + F + 'font-size:11px;font-weight:bold;letter-spacing:2px;color:#7cc0f2;">NEXT GENERATION BUSINESS</div>'
+                + '<div style="' + F + 'font-size:13px;color:#ffffff;padding-top:2px;">Innovazione, legalità e sviluppo d\'impresa &middot; Eventi e approfondimenti</div>'
+                + '<div style="' + F + 'font-size:21px;font-weight:bold;padding-top:8px;"><a href="' + FIRMA_SITO + '" style="color:#ffffff;text-decoration:none;">nextgenerationbusiness.it</a></div>'
+                + '</td></tr></table></td></tr>';
+        }
+        if (d.mostraUffici) {
+            h += '<tr><td style="padding:0 0 16px 0;">'
+                + '<div style="' + F + 'font-size:11px;font-weight:bold;letter-spacing:1px;color:' + BLU + ';padding-bottom:3px;">UFFICI IN ITALIA</div>'
+                + '<div style="' + F + 'font-size:11px;color:' + GR + ';line-height:1.6;">' + FIRMA_UFFICI.map(esc).join(' &middot; ') + '</div>'
+                + '</td></tr>';
+        }
+        if (d.mostraNota) {
+            h += '<tr><td style="padding:0;">'
+                + '<div style="' + F + 'font-size:10px;color:#777777;line-height:1.45;text-align:justify;padding-bottom:8px;"><strong>Nota di riservatezza:</strong> ' + esc(FIRMA_NOTA_IT) + '</div>'
+                + '<div style="' + F + 'font-size:10px;color:#777777;line-height:1.45;text-align:justify;"><strong>Confidentiality notice:</strong> ' + esc(FIRMA_NOTA_EN) + '</div>'
+                + '</td></tr>';
+        }
+        return h + '</table>';
+    }
+
+    /* La versione solo testo: serve ai programmi che non accettano l'HTML e fa
+       da riserva negli appunti quando si incolla in un campo di testo semplice. */
+    function firmaTesto(d) {
+        const r = [];
+        if (d.saluto) r.push(d.saluto, '');
+        [d.nome, d.qualifica, firmaVoci(d.ruoli).join(' · '), firmaVoci(d.titoli).join(' · ')].forEach(x => { if (x) r.push(x); });
+        r.push('');
+        const tel = [];
+        if (d.cellulare) tel.push('M. ' + d.cellulare);
+        if (d.telefono) tel.push('T. ' + d.telefono);
+        if (tel.length) r.push(tel.join(' | '));
+        if (d.email) r.push('E. ' + d.email);
+        if (d.indirizzo) r.push('A. ' + d.indirizzo);
+        if (d.sito) r.push('W. ' + firmaSitoTesto(d.sito));
+        r.push('', 'Revilaw S.p.A. - Oltre la verifica, verso il valore.');
+        if (d.mostraNgb) r.push('', 'NEXT GENERATION BUSINESS - nextgenerationbusiness.it');
+        if (d.mostraUffici) r.push('', 'Uffici in Italia: ' + FIRMA_UFFICI.join(' · '));
+        if (d.mostraNota) r.push('', 'Nota di riservatezza: ' + FIRMA_NOTA_IT, '', 'Confidentiality notice: ' + FIRMA_NOTA_EN);
+        return r.join('\n');
+    }
+
+    /* Copia "formattata": negli appunti va l'HTML (per incollarlo nell'editor
+       della firma) insieme al testo semplice. Dove l'API moderna manca si
+       seleziona l'anteprima e si usa la copia classica del browser, che porta
+       con se' la formattazione allo stesso modo. */
+    function copiaFirmaFormattata(html, testo, anteprima) {
+        const fatto = () => toast('Firma copiata: incollala nelle impostazioni della firma del tuo programma di posta.', 'verde');
+        const classica = () => {
+            try {
+                const sel = window.getSelection();
+                const r = document.createRange();
+                r.selectNodeContents(anteprima);
+                sel.removeAllRanges(); sel.addRange(r);
+                const ok = document.execCommand('copy');
+                sel.removeAllRanges();
+                if (ok) fatto(); else toast('Copia non riuscita: seleziona l\'anteprima e premi Ctrl+C.', 'rosso');
+            } catch (e) { toast('Copia non riuscita: seleziona l\'anteprima e premi Ctrl+C.', 'rosso'); }
+        };
+        if (navigator.clipboard && window.ClipboardItem) {
+            try {
+                const voce = new ClipboardItem({
+                    'text/html': new Blob([html], { type: 'text/html' }),
+                    'text/plain': new Blob([testo], { type: 'text/plain' })
+                });
+                navigator.clipboard.write([voce]).then(fatto).catch(classica);
+                return;
+            } catch (e) { /* si ripiega sulla copia classica */ }
+        }
+        classica();
+    }
+
+    function vistaFirma() {
+        const salvata = FirmeEmail.mia();
+        const d = { ...firmaPredefinita(), ...(salvata || {}) };
+        const campo = (id, etichetta, opz) => {
+            opz = opz || {};
+            const v = d[id] == null ? '' : String(d[id]);
+            const input = opz.righe
+                ? '<textarea id="fm-' + id + '" rows="' + opz.righe + '" placeholder="' + esc(opz.es || '') + '">' + esc(v) + '</textarea>'
+                : '<input type="' + (opz.tipo || 'text') + '" id="fm-' + id + '" value="' + esc(v) + '" placeholder="' + esc(opz.es || '') + '"' + (opz.tipo === 'email' ? ' autocomplete="email"' : '') + '>';
+            return '<div class="campo"><label for="fm-' + id + '">' + esc(etichetta) + '</label>' + input
+                + (opz.hint ? '<div class="hint">' + opz.hint + '</div>' : '') + '</div>';
+        };
+        const spunta = (id, testo) => '<label class="chip-check" style="margin:0 14px 8px 0;display:inline-flex;gap:6px;align-items:center;">'
+            + '<input type="checkbox" id="fm-' + id + '" style="width:auto;"' + (d[id] ? ' checked' : '') + '> ' + esc(testo) + '</label>';
+
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>La mia firma email</h1>
+                    <p class="descrizione">Compila i tuoi dati, salvali e copia la firma da incollare nel tuo programma di posta. I dati restano salvati: da qualunque computer ritrovi la firma pronta.</p>
+                </div>
+            </header>
+            <div class="card">
+                <h2>I tuoi dati</h2>
+                <div class="griglia-2">
+                    ${campo('nome', 'Nome e cognome', { es: 'Mario Rossi' })}
+                    ${campo('qualifica', 'Qualifica in Revilaw', { es: 'Equity Partner e Procuratore di Revilaw S.p.A.' })}
+                </div>
+                ${campo('ruoli', 'Ruoli e incarichi', { righe: 2, es: 'Capoarea Lazio, Marche e Umbria; Responsabile Area Centro', hint: 'Separa le voci con punto e virgola o andando a capo: nella firma escono sulla stessa riga, divise da un puntino.' })}
+                ${campo('titoli', 'Titoli professionali', { righe: 2, es: 'Dottore Commercialista; Revisore Legale dei Conti; Chief Financial Officer', hint: 'Stessa regola: punto e virgola o a capo fra una voce e l\'altra.' })}
+                <div class="griglia-2">
+                    ${campo('cellulare', 'Cellulare', { tipo: 'tel', es: '+39 333 123 4567' })}
+                    ${campo('telefono', 'Telefono fisso', { tipo: 'tel', es: '+39 06 1234 5678' })}
+                    ${campo('email', 'Email da mostrare', { tipo: 'email', es: 'nome.cognome@revilaw.it', hint: 'Può essere diversa da quella con cui entri nell\'area riservata.' })}
+                    ${campo('sito', 'Sito', { es: 'revilaw.it' })}
+                </div>
+                ${campo('indirizzo', 'Indirizzo dell\'ufficio', { es: 'Via Roma 1, 00100 Roma' })}
+                <div class="griglia-2">
+                    ${campo('saluto', 'Saluto iniziale', { es: 'Cordiali saluti,', hint: 'Lascialo vuoto se preferisci scriverlo ogni volta nel messaggio.' })}
+                </div>
+                <div class="campo"><label>Blocchi da includere</label>
+                    <div>${spunta('mostraNgb', 'Riquadro Next Generation Business')}${spunta('mostraUffici', 'Uffici in Italia')}${spunta('mostraNota', 'Nota di riservatezza (IT/EN)')}</div>
+                </div>
+                <div class="header-azioni" style="justify-content:flex-start;flex-wrap:wrap;gap:8px;">
+                    <button class="btn btn-primary" id="fm-salva">Salva i miei dati</button>
+                    <span class="hint" id="fm-stato" style="align-self:center;color:var(--grigio-600);font-size:0.82rem;">${salvata && salvata.aggiornato ? 'Ultimo salvataggio: ' + esc(fmtDataOra(salvata.aggiornato)) : 'Non ancora salvata.'}</span>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Anteprima</h2>
+                <div id="fm-anteprima" style="background:#fff;border:1px solid var(--grigio-200);border-radius:8px;padding:20px;overflow-x:auto;"></div>
+                <div class="header-azioni" style="justify-content:flex-start;flex-wrap:wrap;gap:8px;margin-top:14px;">
+                    <button class="btn btn-primary" id="fm-copia">Copia la firma</button>
+                    <button class="btn btn-secondary" id="fm-copia-html">Copia il codice HTML</button>
+                    <button class="btn btn-secondary" id="fm-scarica">Scarica il file .htm</button>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Come usarla</h2>
+                <ul style="padding-left:20px;line-height:1.7;">
+                    <li><strong>Outlook (Windows, Mac, web):</strong> premi <em>Copia la firma</em>, poi apri <em>Impostazioni › Account › Firme</em> (in Outlook classico: <em>File › Opzioni › Posta › Firme</em>), crea una nuova firma e incolla con Ctrl+V (⌘+V su Mac).</li>
+                    <li><strong>Gmail:</strong> premi <em>Copia la firma</em>, apri <em>Impostazioni › Visualizza tutte le impostazioni › Generali › Firma</em>, crea una firma, incolla e salva in fondo alla pagina.</li>
+                    <li><strong>Apple Mail:</strong> <em>Mail › Impostazioni › Firme</em>, aggiungi una firma, togli la spunta a «Utilizza sempre il font predefinito» e incolla.</li>
+                    <li>Se il programma accetta solo un file o il codice, usa <em>Scarica il file .htm</em> o <em>Copia il codice HTML</em>.</li>
+                </ul>
+                <p class="hint" style="font-size:0.82rem;color:var(--grigio-600);">Il logo è caricato dal sito nextgenerationbusiness.it: alcuni programmi lo mostrano solo dopo che il destinatario ha consentito le immagini.</p>
+            </div>`;
+
+        const leggi = () => {
+            const o = {};
+            FIRMA_CAMPI.forEach(k => { const el = document.getElementById('fm-' + k); o[k] = el ? String(el.value || '').trim() : ''; });
+            FIRMA_OPZIONI.forEach(k => { const el = document.getElementById('fm-' + k); o[k] = !!(el && el.checked); });
+            return o;
+        };
+        const anteprima = document.getElementById('fm-anteprima');
+        let modificata = false;
+        const aggiorna = () => { anteprima.innerHTML = firmaHtml(leggi()); };
+        aggiorna();
+        $vista().querySelectorAll('input, textarea').forEach(el => el.addEventListener('input', () => {
+            aggiorna();
+            if (!modificata) { modificata = true; statoModifica = { tipo: 'firma', id: Auth.emailSessione(), etichetta: 'la propria firma email' }; }
+            const st = document.getElementById('fm-stato');
+            if (st) st.textContent = 'Modifiche non salvate.';
+        }));
+        $vista().querySelectorAll('input[type="checkbox"]').forEach(el => el.addEventListener('change', aggiorna));
+
+        const pronta = () => {
+            const dati = leggi();
+            if (!dati.nome) { toast('Scrivi almeno nome e cognome.', 'rosso'); document.getElementById('fm-nome').focus(); return null; }
+            return dati;
+        };
+        document.getElementById('fm-salva').addEventListener('click', () => {
+            const dati = pronta();
+            if (!dati) return;
+            if (!FirmeEmail.salvaMia(dati)) { toast('Salvataggio non riuscito: rientra nell\'area riservata e riprova.', 'rosso'); return; }
+            modificata = false; statoModifica = null;
+            const st = document.getElementById('fm-stato');
+            if (st) st.textContent = 'Ultimo salvataggio: ' + fmtDataOra(Date.now());
+            toast('Dati della firma salvati.', 'verde');
+        });
+        document.getElementById('fm-copia').addEventListener('click', () => {
+            const dati = pronta();
+            if (dati) copiaFirmaFormattata(firmaHtml(dati), firmaTesto(dati), anteprima);
+        });
+        document.getElementById('fm-copia-html').addEventListener('click', () => {
+            const dati = pronta();
+            if (dati) copiaNegliAppunti(firmaHtml(dati), 'Codice HTML della firma copiato.');
+        });
+        document.getElementById('fm-scarica').addEventListener('click', () => {
+            const dati = pronta();
+            if (!dati) return;
+            const doc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Firma ' + esc(dati.nome) + '</title></head><body>' + firmaHtml(dati) + '</body></html>';
+            const url = URL.createObjectURL(new Blob([doc], { type: 'text/html;charset=utf-8' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'firma-' + (dati.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'revilaw') + '.htm';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        });
     }
 
     function vistaRichieste() {
