@@ -36226,7 +36226,10 @@
         /* "esempi": i campi che nell'anteprima mostrano un dato di esempio perche'
            sono ancora vuoti. Escono sbiaditi, cosi' si vede la firma intera ma si
            capisce cosa manca; la firma copiata non li riceve mai. */
-        const X = (k, html) => (esempi && esempi.has(k)) ? '<span style="opacity:0.4;">' + html + '</span>' : html;
+        /* Evidenziati in giallo e tratteggiati, non sbiaditi: sbiaditi sembravano dati
+           veri e chi copiava la firma non si accorgeva che quelle righe mancavano. */
+        const X = (k, html) => (esempi && esempi.has(k))
+            ? '<span title="Esempio: compila il campo" style="background:#fff3c4;outline:1px dashed #d4a017;color:#8a6d00;font-style:italic;">' + html + '</span>' : html;
         const F = 'font-family:Arial,Helvetica,sans-serif;';
         const BLU = '#1b3a5c', AZZ = '#2a6db0', GR = '#555555';
         const sep = ' <span style="color:#9aa5b1;">&middot;</span> ';
@@ -36391,7 +36394,7 @@
             </div>
             <div class="card">
                 <h2>Anteprima</h2>
-                <p class="hint" id="fm-nota-esempi" style="font-size:0.85rem;color:var(--grigio-600);margin-bottom:10px;">Le parti sbiadite sono esempi: compila i campi corrispondenti qui sopra. I campi lasciati vuoti non compaiono nella firma copiata.</p>
+                <div id="fm-nota-esempi" style="background:#fff8e1;border:1px solid #f0d27a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.88rem;color:#6b5200;"></div>
                 <div id="fm-anteprima" style="background:#fff;border:1px solid var(--grigio-200);border-radius:8px;padding:20px;overflow-x:auto;"></div>
                 <div class="header-azioni" style="justify-content:flex-start;flex-wrap:wrap;gap:8px;margin-top:14px;">
                     <button class="btn btn-primary" id="fm-copia">Copia la firma</button>
@@ -36428,12 +36431,27 @@
             cellulare: '+39 333 123 4567', telefono: '+39 06 1234 5678',
             email: 'nome.cognome@revilaw.it', indirizzo: 'Via Roma 1, 00100 Roma'
         };
+        const NOMI_CAMPI = {
+            nome: 'Nome e cognome', qualifica: 'Qualifica in Revilaw', ruoli: 'Ruoli e incarichi',
+            titoli: 'Titoli professionali', cellulare: 'Cellulare', telefono: 'Telefono fisso',
+            email: 'Email da mostrare', indirizzo: 'Indirizzo dell\'ufficio'
+        };
+        const vuoti = dati => Object.keys(ESEMPI).filter(k => !dati[k]);
         const aggiorna = () => {
-            const dati = leggi(), esempi = new Set();
-            Object.keys(ESEMPI).forEach(k => { if (!dati[k]) { dati[k] = ESEMPI[k]; esempi.add(k); } });
+            const dati = leggi(), esempi = new Set(vuoti(dati));
+            esempi.forEach(k => { dati[k] = ESEMPI[k]; });
             anteprima.innerHTML = firmaHtml(dati, esempi);
+            // i campi ancora da compilare si riconoscono anche nel modulo
+            Object.keys(ESEMPI).forEach(k => {
+                const el = document.getElementById('fm-' + k);
+                if (el) { el.style.borderColor = esempi.has(k) ? '#d4a017' : ''; el.style.background = esempi.has(k) ? '#fffbea' : ''; }
+            });
             const nota = document.getElementById('fm-nota-esempi');
-            if (nota) nota.style.display = esempi.size ? '' : 'none';
+            if (nota) {
+                nota.style.display = esempi.size ? '' : 'none';
+                nota.innerHTML = '<strong>Da compilare:</strong> ' + esc([...esempi].map(k => NOMI_CAMPI[k]).join(', ')) + '.<br>'
+                    + 'Le parti evidenziate in giallo sono solo esempi: <strong>non finiscono nella firma copiata</strong> finché non compili i campi.';
+            }
         };
         aggiorna();
         $vista().querySelectorAll('input, textarea').forEach(el => el.addEventListener('input', () => {
@@ -36458,13 +36476,19 @@
             if (st) st.textContent = 'Ultimo salvataggio: ' + fmtDataOra(Date.now());
             toast('Dati della firma salvati.', 'verde');
         });
+        /* Dopo la copia: se qualche campo e' vuoto lo si dice, perche' quella riga
+           nella firma incollata semplicemente non c'e'. */
+        const avvisaVuoti = dati => {
+            const mancano = vuoti(dati);
+            if (mancano.length) setTimeout(() => toast('Attenzione: nella firma copiata mancano ' + mancano.map(k => NOMI_CAMPI[k]).join(', ') + '. Compilali se vuoi che compaiano.', 'ambra'), 300);
+        };
         document.getElementById('fm-copia').addEventListener('click', () => {
             const dati = pronta();
-            if (dati) copiaFirmaFormattata(firmaHtml(dati), firmaTesto(dati));
+            if (dati) { copiaFirmaFormattata(firmaHtml(dati), firmaTesto(dati)); avvisaVuoti(dati); }
         });
         document.getElementById('fm-copia-html').addEventListener('click', () => {
             const dati = pronta();
-            if (dati) copiaNegliAppunti(firmaHtml(dati), 'Codice HTML della firma copiato.');
+            if (dati) { copiaNegliAppunti(firmaHtml(dati), 'Codice HTML della firma copiato.'); avvisaVuoti(dati); }
         });
         document.getElementById('fm-scarica').addEventListener('click', () => {
             const dati = pronta();
