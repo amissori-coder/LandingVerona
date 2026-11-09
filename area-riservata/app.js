@@ -36258,7 +36258,12 @@
             + riga(X('ruoli', voci(d.ruoli)), 'font-size:13px;color:#222222;line-height:1.4;')
             + riga(X('titoli', voci(d.titoli)), 'font-size:13px;color:' + GR + ';line-height:1.4;')
             + '</td></tr>'
-            + '<tr><td style="padding:12px 0 14px 0;"><table cellpadding="0" cellspacing="0" border="0"><tr><td width="56" height="2" style="width:56px;height:2px;background:' + AZZ + ';font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>';
+            /* La lineetta e' il BORDO superiore di una cella senza sfondo. Prima era una
+               cella colorata alta 2px con dentro uno spazio a carattere zero: i programmi
+               che ignorano font-size:0 (Gmail sul telefono) riportavano lo spazio a
+               grandezza normale e la cella blu diventava un quadrato. Col bordo, se la
+               cella cresce, cresce solo lo spazio bianco sotto la linea. */
+            + '<tr><td style="padding:12px 0 12px 0;"><table cellpadding="0" cellspacing="0" border="0" width="56" style="width:56px;"><tr><td width="56" style="width:56px;border-top:2px solid ' + AZZ + ';font-size:1px;line-height:1px;">&#8203;</td></tr></table></td></tr>';
         h += '<tr><td style="padding:0 0 16px 0;"><table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
             + '<td valign="middle" style="padding:0 18px 0 0;vertical-align:middle;">'
             + '<a href="' + esc(firmaUrl(d.sito) || 'https://revilaw.it') + '" style="text-decoration:none;"><img src="' + FIRMA_LOGO + '" width="150" alt="Revilaw - Revisione legale" style="display:block;width:150px;height:auto;border:0;"></a>'
