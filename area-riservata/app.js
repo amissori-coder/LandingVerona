@@ -3651,7 +3651,7 @@
         if (refreshSospeso && !staModificando()) {
             refreshSospeso = false;
             if (_timerRefresh) { clearInterval(_timerRefresh); _timerRefresh = null; }
-            if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista);
+            if (Auth.utenteCorrente && !VISTE_SENZA_RIDISEGNO.includes(vistaCorrente)) naviga(vistaCorrente, parametriVista);
         }
     }
 
@@ -4116,14 +4116,19 @@
     /* Ridisegna la vista corrente per riflettere dati arrivati dalla sincronizzazione, ma solo
        se l'utente non sta editando: altrimenti rimanda finche non ha finito (niente "salto"
        della schermata mentre si compila un campo o una finestra). */
+    /* Viste che la sincronizzazione non ridisegna mai. La firma email non mostra dati
+       degli altri: ridisegnarla serviva solo a ricaricare il modulo dai dati salvati,
+       cancellando quanto scritto e non ancora salvato appena il cursore usciva da un
+       campo (bastava che un collega facesse qualunque cosa nell'area riservata). */
+    const VISTE_SENZA_RIDISEGNO = ['wizard', 'ratingScheda', 'firma'];
     function ridisegnaDaSync() {
-        if (!Auth.utenteCorrente || vistaCorrente === 'wizard' || vistaCorrente === 'ratingScheda') return;
+        if (!Auth.utenteCorrente || VISTE_SENZA_RIDISEGNO.includes(vistaCorrente)) return;
         if (staModificando()) {
             refreshSospeso = true;
             if (!_timerRefresh) _timerRefresh = setInterval(() => {
                 if (staModificando()) return;
                 clearInterval(_timerRefresh); _timerRefresh = null;
-                if (refreshSospeso) { refreshSospeso = false; if (Auth.utenteCorrente && vistaCorrente !== 'wizard' && vistaCorrente !== 'ratingScheda') naviga(vistaCorrente, parametriVista); }
+                if (refreshSospeso) { refreshSospeso = false; if (Auth.utenteCorrente && !VISTE_SENZA_RIDISEGNO.includes(vistaCorrente)) naviga(vistaCorrente, parametriVista); }
             }, 900);
             return;
         }
