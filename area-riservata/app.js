@@ -36274,7 +36274,12 @@
         if (d.mostraUffici) {
             h += '<tr><td style="padding:0 0 16px 0;">'
                 + '<div style="' + F + 'font-size:11px;font-weight:bold;letter-spacing:1px;color:' + BLU + ';padding-bottom:3px;">UFFICI IN ITALIA</div>'
-                + '<div style="' + F + 'font-size:11px;color:' + GR + ';line-height:1.6;">' + FIRMA_UFFICI.map(esc).join(' &middot; ') + '</div>'
+                /* Giustificato come la nota di riservatezza. Il puntino resta attaccato
+                   alla citta' che lo precede con uno spazio sottile non divisibile (U+202F:
+                   quello normale, U+00A0, incollando diventa uno spazio qualsiasi e la
+                   riga tornava a cominciare col puntino), e i nomi di due parole non si spezzano: cosi' nessuna riga comincia con un puntino e
+                   gli spazi da allargare sono solo quelli fra una citta' e l'altra. */
+                + '<div style="' + F + 'font-size:11px;color:' + GR + ';line-height:1.6;text-align:justify;">' + FIRMA_UFFICI.map(c => esc(c).replace(/ /g, '\u202f')).join('\u202f\u00b7 ') + '</div>'
                 + '</td></tr>';
         }
         if (d.mostraNota) {
