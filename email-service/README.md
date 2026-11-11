@@ -2100,8 +2100,8 @@ non allega il PDF: solo il file per l'agenda. La pagina è **su invito**:
 non compare sul sito (noindex, fuori dalla sitemap, nessun collegamento,
 niente popup della diretta in home) e la raggiunge solo chi riceve il
 collegamento per email; nell'area riservata sta fra i «Moduli riservati»
-dell'evento, e nella tendina del modulo dei contatti la voce del webinar
-compare solo arrivando da `?evento=webinar-2026`.
+dell'evento. Nella tendina del modulo dei contatti c'è la voce del webinar
+(solo il nome e la data, senza collegamento alla pagina).
 
 - **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
   italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda

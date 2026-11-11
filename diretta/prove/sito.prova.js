@@ -26,8 +26,9 @@
       diretta senza trattini lunghi ne' "nome utente"; e l'invito:
       riservato: true in EVENTO (letto da diretta-stato.js, diretta-popup.js
       ed event-banner.js), nessuna scheda ne' collegamento al webinar nella
-      home, in event-banner.js, nella sitemap, nel percorso di Milano e
-      nella tendina dei contatti, Disallow in robots.txt e un solo meta
+      home, in event-banner.js, nella sitemap e nel percorso di Milano
+      (nei contatti solo la voce nella tendina degli eventi, senza
+      collegamento), Disallow in robots.txt e un solo meta
       robots nella pagina (noindex, nofollow), iscrizione vuoto in
       diretta/config.js.
    1. NGBDiretta (assets/diretta-stato.js): fasi e finestre dell'evento
@@ -475,8 +476,8 @@ async function provaFile() {
     vero(!/webinar_dicembre_2026/.test(milano) && /<ol class="percorso"/.test(milano), 'Milano: nessun collegamento alla pagina del webinar (nemmeno nel percorso)');
     const contatti = fs.readFileSync(path.join(RADICE, 'contatti/index.html'), 'utf8');
     const contattiJs = fs.readFileSync(path.join(RADICE, 'contatti/contatti.js'), 'utf8');
-    vero(!/webinar/i.test(contatti) && /EVENTI_RISERVATI = \{\s*'webinar-2026':/.test(contattiJs),
-        'contatti: nessuna voce del webinar nella tendina degli eventi (contatti.js la aggiunge solo con ?evento=webinar-2026)');
+    vero(/<option value="webinar-2026">Webinar, 10 dicembre 2026<\/option>/.test(contatti) && !/webinar_dicembre_2026/.test(contatti) && !/EVENTI_RISERVATI/.test(contattiJs),
+        'contatti: il webinar e\' fra gli eventi della tendina (solo la voce, nessun collegamento alla pagina)');
     const config = fs.readFileSync(path.join(RADICE, 'diretta/config.js'), 'utf8');
     vero(/\n\s*iscrizione: '',/.test(config), 'diretta/config.js: iscrizione vuoto (la pagina di accesso alla diretta non dice dove ci si iscrive)');
 }
