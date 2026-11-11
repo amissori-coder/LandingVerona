@@ -535,6 +535,19 @@ prova('Le iscrizioni inserite a mano contano per l\'email', async () => {
     avanza(61 * 1000);
 });
 
+prova('Una scheda cancellata dall\'area riservata ma rimasta in archivio non blocca l\'indirizzo', async () => {
+    // la scheda sopravvissuta alla cancellazione (nome del documento diverso dall'identificativo) e la traccia
+    dati.set('iscrizioni/nome-di-prima', { pagina: 'Milano 26 Febbraio 2027', email: 'rimasta@studio.it', data: '10/11/2026 09:00', nome: 'Rita' });
+    const bloccata = await chiama({ azione: 'sms-invia', pagina: PAGINA, telefono: '3207776666', email: 'rimasta@studio.it' });
+    esigi(bloccata.stato === 409 && bloccata.corpo.campo === 'email', 'senza la traccia la scheda conta', JSON.stringify(bloccata.corpo));
+    dati.set('iscrizioniCancellate/milano-2027-02-26~rimasta@studio-it|10-11-2026 09:00', { evento: 'milano-2027-02-26', idIscritto: 'rimasta@studio.it|10/11/2026 09:00' });
+    const v = await verificaNumero('3207776666', 'rimasta@studio.it');
+    esigi(v.invio.corpo.ok, 'con la traccia della cancellazione il codice parte', JSON.stringify(v.invio.corpo));
+    const r = await iscrivi({ email: 'rimasta@studio.it', telefono: '3207776666', smsToken: v.token });
+    esigi(r.corpo.ok, 'e l\'iscrizione passa', JSON.stringify(r.corpo));
+    avanza(61 * 1000);
+});
+
 prova('Un codice invito vale per due iscrizioni, e porta l\'azienda', async () => {
     dati.set('codiciInvito/A7K2M', { codice: 'A7K2M', evento: 'milano', scheda: 'az1', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'Alfa S.p.A.', usato: null });
     const c0 = await chiama({ azione: 'verifica-codice', pagina: PAGINA, codice: 'a7k2m' });

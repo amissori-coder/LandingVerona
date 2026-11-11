@@ -1994,11 +1994,30 @@ module.exports = async (req, res) => {
             // La scheda vera e propria: il nome del documento si ricava dallo stesso
             // identificativo usato dal form ("email|data"), quindi si cancella SOLO
             // quella persona per quell'evento, non tutte le sue iscrizioni.
+            /* ANCHE LE SCHEDE CON UN ALTRO NOME. Il documento non sempre si
+               ricava dall'identificativo: un'email corretta a mano dopo
+               l'iscrizione, o il posto di un ordine per piu' persone, stanno
+               sotto il nome di prima. Si cercano per email e data (che e'
+               l'identificativo stesso): senza, la riga spariva dall'elenco ma
+               la scheda restava e il modulo continuava a rispondere "questo
+               indirizzo e' gia' iscritto". */
             batch = db.batch(); nel = 0;
             for (const id of daCancellare) {
                 batch.delete(db.collection('iscrizioni').doc(idIscrizione(id)));
                 batch.delete(db.collection('presenze').doc(idDoc(evento, id)));
                 nel += 2;
+                const taglio = id.lastIndexOf('|');
+                const em = taglio > 0 ? id.slice(0, taglio) : '';
+                if (em && emailValida(em)) {
+                    try {
+                        const altre = await db.collection('iscrizioni').where('email', '==', em).limit(50).get();
+                        altre.forEach(d => {
+                            if (d.id === idIscrizione(id)) return;
+                            if (String((d.data() || {}).data || '') !== id.slice(taglio + 1)) return;
+                            batch.delete(d.ref); nel++;
+                        });
+                    } catch (e) { console.error('Cancellazione, altre schede non cercate:', String((e && e.message) || e).slice(0, 200)); }
+                }
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
