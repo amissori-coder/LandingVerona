@@ -192,6 +192,27 @@ function giornoItaliano(ms) {
 function attiva(scheda) {
     return !!scheda && !scheda.annullato;
 }
+/* CANCELLATA DALL'AREA RISERVATA, MA LA SCHEDA E' RIMASTA. La cancellazione
+   (api/presenze.js) scrive la traccia in iscrizioniCancellate e toglie la
+   scheda; quando la scheda aveva un nome che dall'identificativo non si
+   ricava (email corretta a mano dopo l'iscrizione, posto di un ordine per
+   piu' persone) restava in archivio: fuori dall'elenco, ma ancora buona per
+   dire "questo indirizzo e' gia' iscritto" a chi provava a iscriversi. Qui
+   una scheda con la traccia della cancellazione non conta. L'identificativo
+   e' quello dell'elenco (email|data), come in lib/giro-conferme.js. */
+function idCancellata(ev, x) {
+    const em = String((x && x.email) || '').toLowerCase();
+    if (!em) return '';
+    return (ev.chiave + '~' + em + '|' + String((x && x.data) || '')).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400);
+}
+async function cancellata(db, ev, scheda, leggi) {
+    const id = idCancellata(ev, scheda);
+    if (!id) return false;
+    try {
+        const rif = db.collection('iscrizioniCancellate').doc(id);
+        return (await (leggi ? leggi(rif) : rif.get())).exists;
+    } catch (_) { return false; }   // nel dubbio l'iscrizione vale
+}
 
 /* --- la firma del numero verificato --- */
 function firmaNumero(evento, numero, adesso) {
@@ -227,7 +248,7 @@ async function giaIscritto(db, ev, email, numero, tx) {
         if (!id) continue;
         const s = await leggi(db.collection('iscrizioni').doc(id));
         // la scheda trovata serve al messaggio: confermata o ancora in attesa
-        if (s.exists && attiva(s.data())) return { campo: controlli[k][0], blocchi: blocchi, id: id, scheda: s.data() || {} };
+        if (s.exists && attiva(s.data()) && !await cancellata(db, ev, s.data(), leggi)) return { campo: controlli[k][0], blocchi: blocchi, id: id, scheda: s.data() || {} };
     }
     return { campo: '', blocchi: blocchi };
 }
@@ -278,18 +299,21 @@ function rifiuto(gia) {
    la segreteria lo scrive come capita ("333 123 4567", "+39 3331234567"):
    si cercano i modi piu' comuni (variantiNumero). */
 async function giaIscrittoAMano(db, ev, email, numero) {
-    const delEvento = snap => snap.docs.find(s => {
-        const x = s.data() || {};
-        return ev.se.test(String(x.pagina || '').trim()) && attiva(x);
-    });
+    const delEvento = async snap => {
+        for (const s of snap.docs) {
+            const x = s.data() || {};
+            if (ev.se.test(String(x.pagina || '').trim()) && attiva(x) && !await cancellata(db, ev, x)) return s;
+        }
+        return null;
+    };
     try {
         if (email) {
-            const d = delEvento(await db.collection('iscrizioni').where('email', '==', email).limit(50).get());
+            const d = await delEvento(await db.collection('iscrizioni').where('email', '==', email).limit(50).get());
             if (d) return { campo: 'email', id: d.id, scheda: d.data() || {} };
         }
         const varianti = variantiNumero(numero);
         if (varianti.length) {
-            const d = delEvento(await db.collection('iscrizioni').where('telefono', 'in', varianti).limit(50).get());
+            const d = await delEvento(await db.collection('iscrizioni').where('telefono', 'in', varianti).limit(50).get());
             if (d) return { campo: 'telefono', id: d.id, scheda: d.data() || {} };
         }
         return null;
