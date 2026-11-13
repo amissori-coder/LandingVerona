@@ -74,10 +74,22 @@ function daLavorare(stato) { return DA_LAVORARE.indexOf(String(stato || '')) >= 
 
 /* L'identificativo: evento e campagna, ripuliti dai caratteri che
    Firestore non ammette in un nome di documento. */
-function idDi(evento, campagna) {
+function idDi(evento, campagna, corsia) {
     return (String(evento || '') + '~' + String(campagna || 'invito'))
-        .replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300);
+        .replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) + (corsiaValida(corsia) ? '~' + corsia : '');
 }
+/* LA SECONDA CORSIA: PEC ed email in parallelo sullo stesso elenco.
+   Un elenco puo' avere due programmazioni attive insieme, purche' su canali
+   diversi: tipicamente le PEC alle aziende del file e, intanto, le email a
+   chi ha solo un indirizzo ordinario (gli iscritti di un altro evento). La
+   prima sta nel documento di sempre (evento~campagna); la seconda in
+   evento~campagna~<canale>. Mai due sullo stesso canale: quelle si'
+   scriverebbero alle stesse aziende. Che una scheda non riceva due messaggi
+   anche se finisce in tutte e due lo garantisce il motore (lib/invio-inviti.js):
+   chi ha gia' ricevuto si salta, e il timbro lasciato prima di spedire ferma
+   la seconda corsia se arriva sulla stessa scheda nello stesso momento. */
+const CORSIE = ['pec', 'email'];
+function corsiaValida(c) { return CORSIE.indexOf(String(c || '')) >= 0; }
 function rif(db, id) { return db.collection(COLL).doc(String(id)); }
 function rifLotti(db, id) { return rif(db, id).collection('lotti'); }
 function nomeLotto(i) { return ('0000' + i).slice(-5); }
@@ -198,6 +210,7 @@ function perVideo(id, d) {
     return {
         id: id,
         evento: d.evento || '', campagna: d.campagna || '', canale: d.canale || 'email',
+        corsia: corsiaValida(d.corsia) ? d.corsia : '',
         stato: d.stato || '', quando: d.quando || 0,
         ritmo: f.ritmo, ritmoTesto: RITMI.descrizione(d.canale, f.ritmo),
         totale: d.totale || 0, lotti: d.lotti || 0,
@@ -253,7 +266,7 @@ async function ricordaTesto(db, evento, campagna, dati, oggetto, chi) {
 
 module.exports = {
     COLL, META, ATTIVI, DA_LAVORARE, IN_PREPARAZIONE, PER_LOTTO, SCADE_PREPARAZIONE_MS,
-    eAttiva, daLavorare, idDi, rif, rifLotti, nomeLotto,
+    eAttiva, daLavorare, idDi, CORSIE, corsiaValida, rif, rifLotti, nomeLotto,
     finestraDi, quantiOra, battito, leggiBattito, cancellaLotti, perVideo,
     rifTestoInvito, ricordaTesto
 };

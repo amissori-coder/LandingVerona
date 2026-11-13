@@ -27792,8 +27792,13 @@
        leggeva "in corso: 0 su 1.310" concludeva che qualcosa fosse rotto,
        mentre stava solo aspettando le 15:40. */
     function rigaProgrammazione(ev, campagna) {
-        const p = progAttiva(ev, campagna);
-        if (!p) return '';
+        const tutte = progTutte(ev, campagna);
+        if (!tutte.length) return '';
+        // due in parallelo: una riga per canale, ognuna col suo nome davanti
+        return tutte.map(p => (tutte.length > 1 ? '<b>' + (p.canale === 'pec' ? 'PEC' : 'Email') + '</b> - ' : '')
+            + rigaProgrammazioneDi(p, campagna)).join('<br>');
+    }
+    function rigaProgrammazioneDi(p, campagna) {
         const camp = campagnaDef(campagna);
         const fatte = Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT');
         const totale = Number(p.totale || 0).toLocaleString('it-IT');
@@ -28840,6 +28845,24 @@
        volta sola: la card dell'evento le mostra insieme, e due chiamate per
        disegnare due righe sarebbero due chiamate per niente. */
     function progDi(ev, campagna) { return _invProg[invChiave(ev, campagna)] || null; }
+    /* LE SECONDE CORSIE: PEC ed email in parallelo sullo stesso elenco (una
+       sola per canale; la regola e' del servizio, lib/programmazione-inviti.js).
+       Arrivano a parte dal documento di sempre, ognuna con la sua `corsia`,
+       che i comandi rimandano per dire quale si sta toccando. */
+    let _invProgPar = {};
+    function progTutte(ev, campagna) {
+        const k = invChiave(ev, campagna);
+        return [_invProg[k]].concat(_invProgPar[k] || [])
+            .filter(p => p && INV_PROG_VIVE.indexOf(p.stato) >= 0);
+    }
+    // su quel canale c'e' gia' un invio programmato?
+    function progSulCanale(ev, campagna, canale) {
+        return progTutte(ev, campagna).find(p => (p.canale || 'email') === canale) || null;
+    }
+    // tutti e due i canali occupati: non c'e' posto per un'altra
+    function progPiena(ev, campagna) {
+        return !!(progSulCanale(ev, campagna, 'pec') && progSulCanale(ev, campagna, 'email'));
+    }
     function caricaProgrammazione(ev, poi) {
         Cloud.aziendeInvito({
             azione: 'programmazione', evento: ev.id, campagna: _invCampagna,
@@ -28847,7 +28870,11 @@
         }).then(r => {
             if (r.ok) {
                 const p = r.programmazioni || {};
-                INV_CAMPAGNE.forEach(c => { _invProg[invChiave(ev, c.id)] = p[c.id] || null; });
+                const par = r.parallele || {};
+                INV_CAMPAGNE.forEach(c => {
+                    _invProg[invChiave(ev, c.id)] = p[c.id] || null;
+                    _invProgPar[invChiave(ev, c.id)] = Array.isArray(par[c.id]) ? par[c.id] : [];
+                });
                 _invCron = r.cron || null;
                 _invPassoCron = Number(r.passoMin) || _invPassoCron;
             }
@@ -28858,10 +28885,8 @@
        non se ne puo' fare un'altra. Lo dice anche il servizio, ma dirlo qui
        evita di far compilare tutta la finestra per poi rifiutarla. */
     const INV_PROG_VIVE = ['preparazione', 'programmata', 'in-corso', 'sospesa'];
-    function progAttiva(ev, campagna) {
-        const p = progDi(ev, campagna);
-        return (p && INV_PROG_VIVE.indexOf(p.stato) >= 0) ? p : null;
-    }
+    // la prima che c'e', nel documento di sempre o in una seconda corsia
+    function progAttiva(ev, campagna) { return progTutte(ev, campagna)[0] || null; }
 
     function aziendeInvitoDi(ev, campagna) { return (_invCache[invChiave(ev, campagna)] || {}).aziende || []; }
     function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
@@ -29587,8 +29612,14 @@
     }
 
     function riquadroProgrammazione(ev) {
-        const p = progAttiva(ev, _invCampagna);
-        if (!p) return '';
+        const tutte = progTutte(ev, _invCampagna);
+        return tutte.map(p => riquadroProgrammazioneDi(p, tutte.length > 1)).join('');
+    }
+    /* I pulsanti portano la corsia (data-corsia): con due invii in parallelo
+       pausa e annullamento devono toccare quello del proprio riquadro. */
+    function riquadroProgrammazioneDi(p, inParallelo) {
+        const corsia = ' data-corsia="' + esc(p.corsia || '') + '"';
+        const quale = inParallelo ? (p.canale === 'pec' ? ' via PEC' : ' via email') : '';
         const camp = campagnaDef(_invCampagna);
         const ferma = p.stato === 'sospesa';
         const inPreparazione = p.stato === 'preparazione';
@@ -29604,7 +29635,7 @@
             return '<div class="inv-prog ko"><span><b>Programmazione rimasta a metà.</b> '
                 + 'La finestra è stata chiusa mentre caricava l\'elenco, quindi non partirà niente. '
                 + 'Annullala e rifalla.</span>'
-                + '<button class="btn btn-sm btn-danger" id="inv-prog-annulla">Annulla</button></div>';
+                + '<button class="btn btn-sm btn-danger inv-prog-annulla"' + corsia + '>Annulla</button></div>';
         }
 
         const dettagli = [];
@@ -29621,12 +29652,12 @@
         const attesa = p.stato === 'programmata';
         const parteAlle = Number(p.quando || 0);
         const titolo = ferma
-            ? 'Invio programmato in pausa'
+            ? 'Invio programmato' + quale + ' in pausa'
             : (attesa
                 ? (parteAlle > Date.now()
-                    ? 'Invio programmato: parte alle ' + fmtDataOra(parteAlle).slice(-5)
-                    : 'Invio programmato: in attesa del primo giro')
-                : 'Invio programmato in corso');
+                    ? 'Invio programmato' + quale + ': parte alle ' + fmtDataOra(parteAlle).slice(-5)
+                    : 'Invio programmato' + quale + ': in attesa del primo giro')
+                : 'Invio programmato' + quale + ' in corso');
         return '<div class="inv-prog' + (ferma ? ' ko' : '') + '">'
             + '<div class="inv-prog-testa">'
             + '<b>' + esc(titolo) + '</b>'
@@ -29650,9 +29681,9 @@
             + battitoHtml()
             + '<div class="inv-prog-azioni">'
             + (ferma
-                ? '<button class="btn btn-sm btn-primary" id="inv-prog-riprendi">Riprendi</button>'
-                : '<button class="btn btn-sm btn-secondary" id="inv-prog-sospendi">Metti in pausa</button>')
-            + '<button class="btn btn-sm btn-danger" id="inv-prog-annulla">Annulla</button>'
+                ? '<button class="btn btn-sm btn-primary inv-prog-riprendi"' + corsia + '>Riprendi</button>'
+                : '<button class="btn btn-sm btn-secondary inv-prog-sospendi"' + corsia + '>Metti in pausa</button>')
+            + '<button class="btn btn-sm btn-danger inv-prog-annulla"' + corsia + '>Annulla</button>'
             + '</div></div>';
     }
 
@@ -29691,8 +29722,16 @@
             + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
         const altriFiltri = a => {
             if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
-            if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
-            if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
+            /* Due domande nella stessa tendina, perche' la colonna e' una:
+               che RECAPITO ha la scheda (con PEC, o solo l'email: decide da
+               quale canale la si puo' invitare) e da quale canale l'invito e'
+               PARTITO. */
+            if (_invFiltro.canale === 'con-pec') { if (!a.pec) return false; }
+            else if (_invFiltro.canale === 'solo-mail') { if (a.pec || !a.email) return false; }
+            else {
+                if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
+                if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
+            }
             if (_invFiltro.pec.indexOf('mail-') === 0) {
                 /* Domande sull'email ordinaria: valgono solo per chi e'
                    partito da li' e solo se gli esiti sono stati letti.
@@ -29885,9 +29924,12 @@
                serve proprio a mandare qualcosa a due o tre aziende mentre il
                grosso va avanti per conto suo. */
             + '<button class="btn btn-secondary btn-sm" id="inv-programma"'
-            + (progAttiva(ev, _invCampagna)
-                ? ' disabled title="Su questo elenco c\'è già un invio programmato: mettilo in pausa o annullalo dal riquadro qui sopra."'
-                : '')
+            + (progPiena(ev, _invCampagna)
+                ? ' disabled title="Su questo elenco ci sono già due invii programmati, uno via PEC e uno via email: annullane uno dal riquadro qui sopra."'
+                : (progAttiva(ev, _invCampagna)
+                    ? ' title="C\'è già un invio programmato via ' + (progAttiva(ev, _invCampagna).canale === 'pec' ? 'PEC' : 'email')
+                    + ': puoi programmarne un altro, in parallelo, sull\'altro canale."'
+                    : ''))
             + '>Programma ' + esc(camp.spedizione) + '</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da ' + esc(camp.azione) + '</button>'
@@ -29979,7 +30021,8 @@
             + '<tr class="inv-riga-filtri">'
             + '<th></th>'
             + '<th><input type="text" id="inv-cerca" class="inv-f" placeholder="Cerca nome, codice, P.IVA, città..." value="' + esc(_invFiltro.testo) + '"></th>'
-            + '<th>' + opzioni('inv-fcanale', 'Ogni canale', [['pec', 'Solo PEC'], ['email', 'Solo email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
+            + '<th>' + opzioni('inv-fcanale', 'Ogni recapito', [['con-pec', 'Con PEC'], ['solo-mail', 'Solo email (senza PEC)'],
+                ['pec', 'Inviate via PEC'], ['email', 'Inviate via email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
             + '<th>' + opzioni('inv-fstato', 'Ogni stato', Object.keys(INV_STATI).map(x => [x, statoInv(x)]), _invFiltro.stato) + '</th>'
             /* Le sei voci della PEC piu' le tre dell'email ordinaria. Sono
                nella stessa tendina perche' la colonna e' una sola: "com'e'
@@ -30030,14 +30073,12 @@
            quello che si ha in memoria: fra un clic e l'altro il lavoro
            automatico puo' aver spedito un altro gruppo, e i numeri scritti a
            mano sarebbero gia' vecchi. */
-        const comandoProg = (id, azione, conferma) => {
-            const b = document.getElementById(id);
-            if (!b) return;
+        const comandoProg = (classe, azione, conferma) => corpo.querySelectorAll('.' + classe).forEach(b => {
             b.addEventListener('click', () => {
                 if (conferma && !confirm(conferma)) return;
                 const testoPrec = b.textContent;
                 b.disabled = true; b.textContent = 'Un momento...';
-                Cloud.aziendeInvito({ azione: azione, evento: ev.id, campagna: _invCampagna }).then(r => {
+                Cloud.aziendeInvito({ azione: azione, evento: ev.id, campagna: _invCampagna, corsia: b.dataset.corsia || '' }).then(r => {
                     if (!r.ok) {
                         b.disabled = false; b.textContent = testoPrec;
                         esito(r.msg || 'Non riuscito.', true);
@@ -30049,7 +30090,7 @@
                     });
                 });
             });
-        };
+        });
         /* IL RIQUADRO SI RINFRESCA DA SE'.
            Era una fotografia: "riparte fra 47 minuti" restava scritto anche
            un'ora dopo, e "142 inviate su 3.000" restava fermo mentre il
@@ -31570,7 +31611,17 @@
            sentirsi rispondere di no. L'invio a mano invece resta possibile:
            serve proprio a mandare qualcosa a due o tre aziende mentre il
            grosso va avanti per conto suo. */
-        const progInCorso = !!progAttiva(ev, _invCampagna);
+        /* PEC ED EMAIL IN PARALLELO: un invio programmato per canale. Con
+           uno gia' in piedi se ne puo' programmare un altro sull'altro canale;
+           la voce si spegne solo quando sono occupati tutti e due. */
+        const progInCorso = progPiena(ev, _invCampagna);
+        const progGia = progAttiva(ev, _invCampagna);
+        const nomeCanale = c => (c === 'pec' ? 'PEC' : 'email');
+        if (modoIniziale === 'prog' && progGia && !progInCorso && !secondo && progSulCanale(ev, _invCampagna, canale)) {
+            // si apre gia' sul canale libero
+            const altro = canale === 'pec' ? 'email' : 'pec';
+            if (canaleCfg(altro).pronto) canale = altro;
+        }
         /* Si arriva qui da due pulsanti diversi, e la finestra si apre gia'
            sulla domanda giusta: chi ha premuto "Programma" non deve rifare la
            scelta che ha appena fatto. Se pero' su questo elenco c'e' gia' una
@@ -31670,8 +31721,10 @@
                 + ' email</b> in un\'ora: quello che avanza resta da inviare.', modoInvio === 'ora', true)
             + modo('ii-m-prog', 'prog', 'Programmato, lo manda avanti il servizio',
                 progInCorso
-                    ? 'Su questo elenco c\'è già un invio programmato: mettilo in pausa o annullalo dalla finestra dell\'elenco prima di farne un altro.'
-                    : 'Parte da solo, a ritmo, anche a finestra chiusa e anche di notte. '
+                    ? 'Su questo elenco ci sono già due invii programmati, uno via PEC e uno via email: annullane uno dalla finestra dell\'elenco prima di farne un altro.'
+                    : (progGia ? 'C\'è già un invio programmato via <b>' + nomeCanale(progGia.canale) + '</b>: questo parte <b>in parallelo</b>, '
+                        + 'e solo via <b>' + nomeCanale(progGia.canale === 'pec' ? 'email' : 'pec') + '</b>. ' : '')
+                    + 'Parte da solo, a ritmo, anche a finestra chiusa e anche di notte. '
                     + 'È la strada per un elenco lungo: <b>' + scelte.length.toLocaleString('it-IT')
                     + '</b> aziende a mano vorrebbero dire tenere aperta questa finestra per ore.',
                 modoInvio === 'prog', !progInCorso)
@@ -32149,8 +32202,10 @@
                     }
                 }
             };
+            // la corsia in cui il servizio ha messo questa programmazione ('' = quella di sempre)
+            let corsia = '';
             const disfa = async () => {
-                try { await conFreno({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna }); }
+                try { await conFreno({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna, corsia: corsia }); }
                 catch (e) { /* al peggio scade da se' dopo mezz'ora */ }
             };
             const fallita = async (msg) => {
@@ -32173,7 +32228,7 @@
             }
 
             const nato = await Cloud.aziendeInvito({
-                azione: 'programma', evento: ev.id, campagna: _invCampagna,
+                azione: 'programma', evento: ev.id, campagna: _invCampagna, parallelo: true,
                 canale: canale, ritmo: r0, quando: quando, forza: forza || secondo,
                 pagina: ev.pagina || '', mail: { oggetto: oggetto, html: html },
                 /* il testo com'e' scritto qui, che il servizio ricorda per il
@@ -32189,6 +32244,7 @@
                 return;
             }
 
+            corsia = String(nato.corsia || '');
             const perBlocco = Math.min(Number(nato.perLotto) || BLOCCO_IDS, BLOCCO_IDS);
             for (let i = 0, n = 1; i < totale; i += perBlocco, n++) {
                 if (stato.fermato) {
@@ -32199,7 +32255,7 @@
                     'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
                     + ' di ' + totale.toLocaleString('it-IT') + ' aziende...');
                 const r = await conFreno({
-                    azione: 'programma-lotto', evento: ev.id, campagna: _invCampagna,
+                    azione: 'programma-lotto', evento: ev.id, campagna: _invCampagna, corsia: corsia,
                     n: n, ids: elencoInvio.slice(i, i + perBlocco).map(a => a.id)
                 }, { fatte: i, testo: 'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
                     + ' di ' + totale.toLocaleString('it-IT') + ' aziende.' });
@@ -32219,7 +32275,7 @@
                 return;
             }
             avanzamento(totale, totale, conti, 'Accendo la programmazione...');
-            const acceso = await conFreno({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna },
+            const acceso = await conFreno({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna, corsia: corsia },
                 { fatte: totale, testo: 'Accendo la programmazione.' });
             if (!acceso.ok) {
                 await fallita(acceso.msg || 'Programmazione non avviata.');
@@ -32255,7 +32311,14 @@
             const quale = canale === 'pec' ? 'PEC' : 'email';
             /* La biforcazione, e da qui in giu' non cambia una riga: il ramo
                "adesso" e' esattamente quello di sempre. */
-            if (modoInvio === 'prog') { programmaInvio(oggetto, testoInvito, elencoInvio, forza); return; }
+            if (modoInvio === 'prog') {
+                if (progSulCanale(ev, _invCampagna, canale)) {
+                    esito('C\'è già un invio programmato via ' + quale + ': in parallelo ne va uno per canale. Scegli l\'altro canale, oppure annulla quello in corso.', true);
+                    return;
+                }
+                programmaInvio(oggetto, testoInvito, elencoInvio, forza);
+                return;
+            }
             if (!confirm('Partono fino a ' + elencoInvio.length + ' ' + quale + ', una per azienda'
                 + (canale === 'pec' ? '. Ogni PEC ha un costo e non si richiama indietro.' : '.') + ' Procedo?')) return;
             const html = invTestoInHtml(testoInvito);

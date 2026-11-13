@@ -1185,15 +1185,26 @@ async function esegui(ctx) {
                 ? body.campagne.slice(0, 5).map(c => CAMPAGNE.normalizza(c))
                 : [campagna];
             const fuori = {};
+            /* le seconde corsie (PEC ed email in parallelo): solo quelle
+               che ci sono, con la loro `corsia`, che i comandi rimandano */
+            const parallele = {};
             for (const c of chieste) {
                 const id = PROG.idDi(evento, c);
                 try {
                     const s = await PROG.rif(db, id).get();
                     fuori[c] = s.exists ? PROG.perVideo(id, s.data() || {}) : null;
                 } catch (_) { fuori[c] = null; }
+                parallele[c] = [];
+                for (const corsia of PROG.CORSIE) {
+                    const idC = PROG.idDi(evento, c, corsia);
+                    try {
+                        const s = await PROG.rif(db, idC).get();
+                        if (s.exists) parallele[c].push(Object.assign(PROG.perVideo(idC, s.data() || {}), { corsia: corsia }));
+                    } catch (_) { /* si vede al prossimo giro */ }
+                }
             }
             res.status(200).json({
-                ok: true, programmazioni: fuori,
+                ok: true, programmazioni: fuori, parallele: parallele,
                 programmazione: fuori[campagna] || null,
                 /* I ritmi proposti e il passo del lavoro automatico li dice il
                    servizio: sono suoi, e un'area riservata rimasta in cache non
@@ -1236,7 +1247,8 @@ async function esegui(ctx) {
                 return;
             }
             const ritmo = RITMI.normalizza(canale, body.ritmo);
-            const id = PROG.idDi(evento, campagna);
+            let id = PROG.idDi(evento, campagna);
+            let corsiaNuova = '';
             const soloNonIscritte = body.soloNonIscritte === true;
             const forzaProg = body.forza === true || soloNonIscritte;
 
@@ -1251,20 +1263,35 @@ async function esegui(ctx) {
                riga resterebbe li' a bloccare l'elenco per sempre. Dopo mezz'ora
                si considera persa e si puo' ricominciare. */
             const SCADE_PREPARAZIONE_MS = PROG.SCADE_PREPARAZIONE_MS;
-            let conflitto = null;
+            /* DUE INSIEME SOLO SU CANALI DIVERSI (vedi CORSIE in
+               lib/programmazione-inviti.js). Si guardano il documento di
+               sempre e le due corsie: una attiva sullo STESSO canale e' il
+               conflitto di prima; una attiva sull'altro canale lascia passare
+               questa, nel primo posto libero, ma solo a chi lo chiede con
+               `parallelo` - un'area riservata vecchia rimasta in cache non
+               sa dire ai comandi successivi in quale corsia e' finita, e
+               annullerebbe quella sbagliata. */
+            let conflitto = null, conflittoCanale = '';
             await db.runTransaction(async (tx) => {
-                const s = await tx.get(PROG.rif(db, id));
-                if (s.exists) {
+                const idBase = PROG.idDi(evento, campagna);
+                const posti = [idBase].concat(PROG.CORSIE.map(c => PROG.idDi(evento, campagna, c)));
+                const letti = await Promise.all(posti.map(x => tx.get(PROG.rif(db, x))));
+                const occupati = {};
+                letti.forEach((s, i) => {
+                    if (!s.exists) return;
                     const d = s.data() || {};
                     const preparazionePersa = d.stato === PROG.IN_PREPARAZIONE
                         && (adesso - Number((d.creato && d.creato.il) || 0)) > SCADE_PREPARAZIONE_MS;
-                    if (PROG.eAttiva(d.stato) && !preparazionePersa) {
-                        conflitto = d.stato;
-                        return;
-                    }
-                }
+                    if (PROG.eAttiva(d.stato) && !preparazionePersa) occupati[posti[i]] = d;
+                });
+                const attivi = Object.keys(occupati).map(k => occupati[k]);
+                const stesso = attivi.find(d => (d.canale || 'email') === canale);
+                if (stesso) { conflitto = stesso.stato; conflittoCanale = canale; return; }
+                if (attivi.length && body.parallelo !== true) { conflitto = attivi[0].stato; return; }
+                if (occupati[idBase]) { corsiaNuova = canale; id = PROG.idDi(evento, campagna, canale); }
+                else { corsiaNuova = ''; id = idBase; }
                 tx.set(PROG.rif(db, id), {
-                    evento: evento, campagna: campagna, canale: canale,
+                    evento: evento, campagna: campagna, canale: canale, corsia: corsiaNuova,
                     stato: PROG.IN_PREPARAZIONE,
                     /* LA CHIAVE DI QUESTA CORSA, e senza non funziona il secondo
                        invio. Il timbro che il motore lascia sulla scheda serve a
@@ -1312,7 +1339,10 @@ async function esegui(ctx) {
             if (conflitto !== null) {
                 res.status(409).json({
                     ok: false, giaProgrammato: true, stato: conflitto,
-                    msg: conflitto === 'sospesa'
+                    msg: conflittoCanale
+                        ? 'Su questo elenco c\'e gia un invio programmato via ' + (conflittoCanale === 'pec' ? 'PEC' : 'email')
+                            + (conflitto === 'sospesa' ? ', adesso in pausa' : '') + ': in parallelo ne puo andare uno solo per canale. Annullalo prima di farne un altro.'
+                        : conflitto === 'sospesa'
                         ? 'Su questo elenco c\'e gia un invio programmato, adesso in pausa: riprendilo o annullalo prima di farne un altro.'
                         : 'Su questo elenco c\'e gia un invio programmato. Annullalo prima di farne un altro, altrimenti le stesse aziende riceverebbero due messaggi.'
                 });
@@ -1328,7 +1358,7 @@ async function esegui(ctx) {
             await PROG.cancellaLotti(db, id);
 
             res.status(200).json({
-                ok: true, id: id, perLotto: PROG.PER_LOTTO,
+                ok: true, id: id, corsia: corsiaNuova, perLotto: PROG.PER_LOTTO,
                 ritmo: ritmo, ritmoTesto: RITMI.descrizione(canale, ritmo), quando: quando
             });
             return;
@@ -1336,7 +1366,7 @@ async function esegui(ctx) {
 
         if (azione === 'programma-lotto') {
             if (!puoGestire) { negato(); return; }
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             const n = Math.round(Number(body.n) || 0);
             if (n < 1 || n > 2000) { res.status(400).json({ ok: false, msg: 'Numero del blocco non valido.' }); return; }
             /* Gli identificativi devono essere nomi di documento che Firestore
@@ -1388,7 +1418,7 @@ async function esegui(ctx) {
 
         if (azione === 'programma-avvia') {
             if (!puoGestire) { negato(); return; }
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             let esito = null;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));
@@ -1419,7 +1449,7 @@ async function esegui(ctx) {
         if (azione === 'programma-sospendi' || azione === 'programma-riprendi') {
             if (!puoGestire) { negato(); return; }
             const ferma = azione === 'programma-sospendi';
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             let esito = null;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));
@@ -1462,7 +1492,7 @@ async function esegui(ctx) {
 
         if (azione === 'programma-annulla') {
             if (!puoGestire) { negato(); return; }
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             let esito = null;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));
