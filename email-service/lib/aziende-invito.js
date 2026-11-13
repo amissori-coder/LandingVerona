@@ -1067,8 +1067,10 @@ async function esegui(ctx) {
             if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
             const soloNonIscritte = body.soloNonIscritte === true;
-            // il secondo invio e' per definizione a chi ha gia' ricevuto
-            const forza = body.forza === true || soloNonIscritte;
+            // il reinvio a scelta: a chi e' selezionato, saltando chi nel frattempo si e' fatto vivo
+            const soloSenzaRisposta = body.soloSenzaRisposta === true;
+            // il secondo invio e il reinvio sono per definizione a chi ha gia' ricevuto
+            const forza = body.forza === true || soloNonIscritte || soloSenzaRisposta;
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -1101,7 +1103,7 @@ async function esegui(ctx) {
             const r = await MOTORE.inviaSchede(db, {
                 evento: evento, campagna: campagna, canale: canale,
                 ids: daFare, mail: { oggetto: oggetto, html: html }, forza: forza,
-                soloNonIscritte: soloNonIscritte,
+                soloNonIscritte: soloNonIscritte, soloSenzaRisposta: soloSenzaRisposta,
                 email: email, collab: collab,
                 /* Il nome della pagina di iscrizione viaggia col codice: e' l'unico
                    modo che ha il modulo pubblico, che l'evento lo conosce solo per
@@ -1250,7 +1252,8 @@ async function esegui(ctx) {
             let id = PROG.idDi(evento, campagna);
             let corsiaNuova = '';
             const soloNonIscritte = body.soloNonIscritte === true;
-            const forzaProg = body.forza === true || soloNonIscritte;
+            const soloSenzaRisposta = body.soloSenzaRisposta === true;
+            const forzaProg = body.forza === true || soloNonIscritte || soloSenzaRisposta;
 
             /* Una sola programmazione per elenco, e lo garantisce la
                transazione: due persone che programmano lo stesso elenco, anche
@@ -1320,7 +1323,7 @@ async function esegui(ctx) {
                     mail: { oggetto: oggetto, html: html },
                     pagina: testo(body.pagina, 200),
                     forza: forzaProg,
-                    soloNonIscritte: soloNonIscritte,
+                    soloNonIscritte: soloNonIscritte, soloSenzaRisposta: soloSenzaRisposta,
                     /* il testo com'era scritto nella finestra: il giro lo
                        ricorda per il secondo invio quando i primi messaggi
                        partono davvero */

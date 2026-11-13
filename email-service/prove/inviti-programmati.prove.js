@@ -864,6 +864,29 @@ async function principale() {
         await chiama('programma-annulla', {});
     }
 
+    console.log('\nIl reinvio a scelta: alle selezionate, sul canale che si vuole, saltando chi si e\' fatto vivo');
+    {
+        const gia = { stato: 'inviata', invio: { quando: 1000, canale: 'pec' }, email: 'x@mail.it' };
+        scenario({
+            'muta@x.it': Object.assign({}, gia, { email: 'muta@mail.it' }),
+            'sollecitata@x.it': Object.assign({}, gia, { email: 'soll@mail.it', secondoInvio: { quando: 2000, canale: 'pec' } }),
+            'iscritta@x.it': Object.assign({}, gia, { stato: 'iscritta' }),
+            'risposta@x.it': Object.assign({}, gia, { ricevute: { risposta: { quando: 3000 } } })
+        });
+        const tutte = ['muta@x.it', 'sollecitata@x.it', 'iscritta@x.it', 'risposta@x.it'];
+        const senza = await invia(tutte, {});
+        esigi(spediti.length === 0 && senza.saltate === 4, 'senza chiederlo, chi ha gia\' ricevuto non riceve niente');
+        const r = await invia(tutte, { canale: 'email', forza: true, soloSenzaRisposta: true });
+        esigi(spediti.map(x => x.to).sort().join(',') === 'muta@mail.it,soll@mail.it',
+            'parte a chi non ha risposto, anche se gia\' sollecitata, e sul canale scelto (email)', spediti.map(x => x.to).join(','));
+        esigi(r.saltate === 2, 'chi si e\' iscritta o ha risposto viene saltata', JSON.stringify(r.saltate));
+        const m = dati['aziendeInvito/' + idScheda('muta@x.it')];
+        esigi(m.invio.canale === 'email' && m.secondoInvio && m.secondoInvio.aScelta === true, 'sulla scheda resta il nuovo invio, e il segno del sollecito');
+        spediti = [];
+        await invia(['muta@x.it'], { canale: 'pec', forza: true, soloSenzaRisposta: true });
+        esigi(spediti.length === 1 && spediti[0].to === 'muta@x.it', 'e si puo\' rimandare ancora, questa volta per PEC', spediti.map(x => x.to).join(','));
+    }
+
     console.log('\n----------------------------------------------------------');
     console.log(ok + ' verifiche verdi, ' + ko + ' fallite');
     if (ko) process.exit(1);

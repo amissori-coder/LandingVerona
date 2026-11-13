@@ -317,6 +317,7 @@ async function lavora(db, id, dati, scadenza, fuori) {
                     forza: dati.forza === true, prog: dati.corsa ? (id + '#' + dati.corsa) : id,
                     // il secondo invio: solo a chi non si e' fatto vivo, ricontrollato a ogni scheda
                     soloNonIscritte: dati.soloNonIscritte === true,
+                    soloSenzaRisposta: dati.soloSenzaRisposta === true,
                     email: (dati.creato && dati.creato.da) || '',
                     collab: (dati.creato && dati.creato.collab) || '',
                     pagina: dati.pagina || '',
