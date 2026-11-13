@@ -196,6 +196,12 @@ async function inviaSchede(db, opz) {
     const html = String(mail.html || '');
     const forza = opz.forza === true;
     const soloNonIscritte = opz.soloNonIscritte === true;
+    /* IL REINVIO A SCELTA (soloSenzaRisposta): chi organizza seleziona le
+       aziende gia' invitate e rimanda, sul canale che vuole e quante volte
+       vuole. Va con `forza`; qui si aggiunge il solo controllo che non si
+       puo' fare prima: chi nel frattempo ha risposto o si e' iscritta si
+       salta, scheda per scheda. */
+    const soloSenzaRisposta = opz.soloSenzaRisposta === true;
     const prog = String(opz.prog || '');
     const email = String(opz.email || '');
     const collab = opz.collab || '';
@@ -258,6 +264,7 @@ async function inviaSchede(db, opz) {
                     if (a.stato === 'esclusa' || a.stato === 'disiscritta') return { cosa: 'saltata' };
                     if (giaServita(a, forza, prog)) return { cosa: 'saltata' };
                     if (soloNonIscritte && fuoriDalSecondoInvio(a, canale)) return { cosa: 'saltata' };
+                    if (soloSenzaRisposta && fattaViva(a)) return { cosa: 'saltata' };
                     /* Un tentativo rimasto appeso: vedi il commento su
                        INCERTO_DOPO_MS. Fresco vuol dire "ci sta lavorando
                        qualcun altro proprio adesso"; vecchio vuol dire "non si
@@ -400,6 +407,8 @@ async function inviaSchede(db, opz) {
                    se lo porterebbe dietro. E' cio' che lo rende una volta sola
                    (fuoriDalSecondoInvio). */
                 if (soloNonIscritte) scrivi.secondoInvio = { quando: invio.quando, canale: canale, prog: prog || '' };
+                // il reinvio a scelta a chi l'aveva gia' ricevuto: resta segnata come sollecitata
+                else if (soloSenzaRisposta && a.invio && a.invio.quando) scrivi.secondoInvio = { quando: invio.quando, canale: canale, prog: prog || '', aScelta: true };
                 await rif.set(scrivi, { merge: true });
                 if (raccogliEsiti) conti.esiti[id] = { stato: 'inviata', invio: invio, codice: codice, secondoInvio: scrivi.secondoInvio || null };
                 conti.inviate++;

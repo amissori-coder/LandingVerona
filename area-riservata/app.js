@@ -29911,7 +29911,9 @@
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
             + (_invSel.size ? '<span class="hint">su ' + lista.length + ' in questa scheda</span>' : '')
-            + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia ' + esc(camp.spedizione) + '</button>'
+            /* Nella scheda "Inviate" i due pulsanti RIMANDANO: alle aziende
+               spuntate, una o tutte, sul canale che si sceglie nella finestra. */
+            + '<button class="btn btn-primary btn-sm" id="inv-invia">' + (_invFiltro.vista === 'inviate' ? 'Reinvia ' : 'Invia ') + esc(camp.spedizione) + '</button>'
             /* Due pulsanti e non uno con dentro una scelta: sono due lavori
                diversi. "Invia" vuole la finestra aperta e finisce in minuti;
                "Programma" se ne va per conto suo e finisce in ore o giorni.
@@ -30329,9 +30331,10 @@
         if (bSecondo) bSecondo.addEventListener('click', () =>
             modaleInviaInvito(ev, tutte.filter(daSollecitare), 'ora', { secondo: true }));
         const bInvia = document.getElementById('inv-invia');
-        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora'));
+        const opzInvio = () => ({ reinvio: _invFiltro.vista === 'inviate' });
+        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora', opzInvio()));
         const bProg = document.getElementById('inv-programma');
-        if (bProg) bProg.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'prog'));
+        if (bProg) bProg.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'prog', opzInvio()));
         /* LE AZIONI DI GRUPPO VANNO A BLOCCHI.
            Il servizio ne accetta al massimo 500 per chiamata, e non e' un
            capriccio: sono scritture su Firestore, che vanno a lotti. Finche'
@@ -31555,6 +31558,12 @@
         if (!puoGestireInviti()) return;
         opz = opz || {};
         const secondo = !!opz.secondo;
+        /* opz.reinvio: IL REINVIO A SCELTA, dalla scheda "Inviate". Chi
+           organizza spunta le aziende - una o tutte - e rimanda l'invito, sul
+           canale che vuole e anche piu' di una volta. Parte dal testo
+           dell'ultimo invio, che qui si puo' ritoccare, e il servizio salta
+           chi nel frattempo ha risposto o si e' iscritto (soloSenzaRisposta). */
+        const reinvio = !secondo && !!opz.reinvio;
         const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta')
             .filter(a => !secondo || daSollecitare(a));
         if (!scelte.length) {
@@ -31568,7 +31577,7 @@
         /* Il secondo invio parte dal canale del primo: un'azienda invitata per
            PEC riceve il sollecito per PEC. Se le invitate sono un misto, quello
            della maggior parte (e si puo' sempre cambiare). */
-        if (secondo) {
+        if (secondo || reinvio) {
             const viaPec = scelte.filter(a => a.invio && a.invio.canale === 'pec').length;
             const pref = viaPec * 2 >= scelte.length ? 'pec' : 'email';
             if (canaleCfg(pref).pronto) canale = pref;
@@ -31583,7 +31592,7 @@
         const raggiungibili = c => scelte.filter(delCanale(c)).filter(a => recapitoDi(c, a)).length;
         const gia = scelte.filter(a => a.invio && a.invio.quando).length;
         // il testo con cui e' partito l'ultimo invito (per il secondo invio)
-        const ricordato = secondo ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
+        const ricordato = (secondo || reinvio) ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
 
         const opzione = (id, nome, etichetta, spiega, attivo, pronto) =>
             '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
@@ -31672,7 +31681,7 @@
            archivio, che continua a valere. */
         const usaModulo = testoIniziale.indexOf('richiesta_contatto') >= 0 && !!contatti;
         const destAttuali = (contatti && contatti.destinatari) || { a: [], cc: [] };
-        apriModale('<h2>' + esc(secondo ? 'Secondo invio' : (campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito'))
+        apriModale('<h2>' + esc(secondo ? 'Secondo invio' : reinvio ? 'Reinvio a chi non ha risposto' : (campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito'))
             + ' - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + (secondo
                 ? '<p class="hint" style="margin:-4px 0 10px;">Riparte <b>lo stesso invito</b> - stesso oggetto, stesso testo, '
@@ -31801,6 +31810,11 @@
                 ? '<div class="campo inv-rinvio"><label class="mi-flag" style="margin:0;">'
                 + '<input type="checkbox" id="ii-forza" checked disabled> '
                 + 'È il <b>secondo invio</b>: parte a quelle del canale scelto qui sopra, che l\'invito l\'hanno già ricevuto</label></div>'
+                : reinvio
+                ? '<div class="campo inv-rinvio"><label class="mi-flag" style="margin:0;">'
+                + '<input type="checkbox" id="ii-forza" checked disabled> '
+                + 'È un <b>reinvio</b>: parte alle ' + scelte.length.toLocaleString('it-IT') + ' selezionate, che l\'hanno già ricevuto, sul canale scelto qui sopra</label>'
+                + '<div class="hint">Chi nel frattempo ha risposto o si è iscritto viene <b>saltato</b>. Il codice di ogni azienda resta lo stesso.</div></div>'
                 : '<div class="campo inv-rinvio' + (gia ? '' : ' spenta') + '">'
             + '<label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"' + (gia ? '' : ' disabled') + '> '
             + (gia
@@ -32229,7 +32243,7 @@
 
             const nato = await Cloud.aziendeInvito({
                 azione: 'programma', evento: ev.id, campagna: _invCampagna, parallelo: true,
-                canale: canale, ritmo: r0, quando: quando, forza: forza || secondo,
+                canale: canale, ritmo: r0, quando: quando, forza: forza || secondo || reinvio, soloSenzaRisposta: reinvio,
                 pagina: ev.pagina || '', mail: { oggetto: oggetto, html: html },
                 /* il testo com'e' scritto qui, che il servizio ricorda per il
                    secondo invio, e il secondo invio stesso (solo a chi non si
@@ -32360,7 +32374,7 @@
                     let r;
                     try {
                         r = await Cloud.aziendeInvito({
-                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza || secondo,
+                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza || secondo || reinvio, soloSenzaRisposta: reinvio,
                             // vedi la programmazione qui sopra: il testo da ricordare e il secondo invio
                             testo: testoInvito, versione: versione, soloNonIscritte: secondo,
                             /* Il nome della pagina di iscrizione viaggia col codice:
@@ -32400,7 +32414,7 @@
                        gia' partite da qui si tolgono dall'elenco. Il servizio le
                        salterebbe comunque (secondoInvio), ma cosi' non si
                        spreca il tetto a farle saltare. */
-                    if (secondo) Object.keys(r.esiti || {}).forEach(id => { if ((r.esiti[id] || {}).stato === 'inviata') partite.add(id); });
+                    if (secondo || reinvio) Object.keys(r.esiti || {}).forEach(id => { if ((r.esiti[id] || {}).stato === 'inviata') partite.add(id); });
                     conti.inviate = inviate; conti.saltate = saltate;
                     conti.disiscritte = disiscritte; conti.falliti = falliti;
                     conti.incerte = incerte;
