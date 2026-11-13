@@ -30742,8 +30742,42 @@
         return (righe || []).map(r => (r || []).map(cella).join(';')).join('\n');
     }
 
+    /* GLI ISCRITTI DI UN ALTRO EVENTO COME ELENCO DA INVITARE.
+       Chi e' venuto a Napoli si invita al webinar: le righe sono le sue
+       iscrizioni, non un file. Entrano le AZIENDE - in presenza e online -
+       e restano fuori aderenti Revilaw, sponsor e relatori e gli invitati
+       ai soli incontri B2B, che non sono ospiti da invitare. La sezione e'
+       quella decisa da chi organizza (fra le presenze) e, se manca, quella
+       dichiarata iscrivendosi; vuota vale in presenza, come nell'elenco.
+       Un indirizzo, una riga: l'invito parte per email ordinaria e due
+       inviti alla stessa casella sarebbero un doppione. Rende le righe nella
+       forma del file (prima riga le intestazioni) e i conti da dire. */
+    function righeDaIscritti(evOrigine, iscrizioni, presenze) {
+        const conta = { presenza: 0, online: 0, altreSezioni: 0, senzaEmail: 0, doppie: 0 };
+        const righe = [['Azienda', 'Email', 'Referente', 'Telefono', 'Note']];
+        const visti = {};
+        (iscrizioni || []).forEach(r => {
+            if (!r) return;
+            const p = (presenze || {})[r.id] || {};
+            let m = String(p.modalita || r.modalita || '').toLowerCase();
+            if (!SEZIONI_MODALITA.some(x => x.id === m)) m = 'presenza';
+            if ((m !== 'presenza' && m !== 'online') || r.soloB2B === true) { conta.altreSezioni++; return; }
+            const em = String(r.email || '').trim().toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { conta.senzaEmail++; return; }
+            if (visti[em]) { conta.doppie++; return; }
+            visti[em] = true;
+            conta[m]++;
+            const persona = ((r.nome || '') + ' ' + (r.cognome || '')).trim();
+            righe.push([String(r.azienda || '').trim() || persona || em, em, persona, String(r.telefono || ''),
+                'Iscritto a ' + evOrigine.titolo + ' (' + (m === 'online' ? 'online' : 'in presenza') + ')']);
+        });
+        return { righe: righe, conta: conta };
+    }
+
     function modaleImportaAziendeInvito(ev) {
         if (!puoGestireInviti()) return;
+        // gli altri eventi da cui prendere gli iscritti (non il riepilogo, non questo)
+        const altriEventi = EVENTI_DEF.filter(x => !x.tutti && x.filtro && x.id !== ev.id);
         const nomeColonna = c => c.nome;
         const obbligatorie = INV_MODELLO.filter(c => c.obbligatoria).map(c => '<b>' + esc(nomeColonna(c)) + '</b>').join(' e ');
         const facoltative = INV_MODELLO.filter(c => !c.obbligatoria && c.nome !== '#').map(nomeColonna).join(', ');
@@ -30763,6 +30797,12 @@
             + 'scritte in vari modi; le colonne in più restano sulla scheda.</p>'
             + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha già ricevuto '
             + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
+            + (altriEventi.length ? '<div class="ev-imp-passo inv-da-evento"><label for="inv-da-evento"><b>Oppure: gli iscritti di un altro evento</b></label>'
+                + '<div class="inv-da-evento-riga"><select id="inv-da-evento">'
+                + altriEventi.map(x => '<option value="' + esc(x.id) + '">' + esc(x.titolo + ', ' + x.quando) + '</option>').join('')
+                + '</select> <button class="btn btn-secondary btn-sm" id="inv-da-evento-vai">Aggiungi i suoi iscritti</button></div>'
+                + '<p class="hint">Entrano le aziende iscritte <b>in presenza</b> e <b>online</b>, una riga per indirizzo email. '
+                + 'Restano fuori aderenti Revilaw, sponsor e relatori e chi ha annullato. L\'invito a loro parte per <b>email ordinaria</b>.</p></div>' : '')
             /* La misura si dice PRIMA di caricare: un elenco grosso ci mette
                qualche minuto, e chi non sa che sta partendo a blocchi crede
                che si sia bloccato e chiude la finestra a metà. */
@@ -30864,6 +30904,30 @@
                 });
             });
         };
+
+        const daEvento = document.getElementById('inv-da-evento-vai');
+        if (daEvento) daEvento.addEventListener('click', () => {
+            const origine = EVENTI_DEF.find(x => x.id === document.getElementById('inv-da-evento').value);
+            if (!origine) return;
+            daEvento.disabled = true;
+            mostra('Leggo gli iscritti di ' + origine.titolo + '...');
+            Cloud.iscrizioniEvento(origine.filtro, origine.id, false, true, null).then(r => {
+                daEvento.disabled = false;
+                if (!r || !r.ok) { mostra((r && r.msg) || 'Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true); return; }
+                const x = righeDaIscritti(origine, r.iscrizioni, r.presenze);
+                const c = x.conta;
+                if (x.righe.length < 2) { mostra('Nessuna azienda iscritta a ' + origine.titolo + ' in presenza o online con un indirizzo email.', true); return; }
+                const fuori = [];
+                if (c.altreSezioni) fuori.push(c.altreSezioni + ' fra aderenti, sponsor e relatori');
+                if (c.doppie) fuori.push(c.doppie + ' con un indirizzo già in elenco');
+                if (c.senzaEmail) fuori.push(c.senzaEmail + ' senza email');
+                if (!confirm('Aggiungere all\'elenco ' + (x.righe.length - 1) + ' iscritti di ' + origine.titolo + ' ('
+                    + c.presenza + ' in presenza, ' + c.online + ' online)?'
+                    + (fuori.length ? '\n\nRestano fuori: ' + fuori.join(', ') + '.' : '')
+                    + '\n\nNon parte nessuna mail: l\'invito si manda dopo, dall\'elenco.')) { mostra(''); return; }
+                manda(x.righe.map(riga => righeInCsv([riga])));
+            }).catch(() => { daEvento.disabled = false; mostra('Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true); });
+        });
 
         document.getElementById('inv-file').addEventListener('change', e => {
             const f = e.target.files && e.target.files[0];

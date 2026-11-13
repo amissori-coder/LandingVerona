@@ -3392,6 +3392,9 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    strada corta e ogni elenco compilato a mano poi va corretto a mano. */
 .inv-imp-modello { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 13px; margin-bottom: 14px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); }
 .inv-imp-modello .hint { margin: 0; flex: 1 1 240px; }
+.inv-da-evento { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--blu-100); }
+.inv-da-evento-riga { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+.inv-da-evento-riga select { flex: 1 1 220px; max-width: 340px; }
 
 /* La spunta del rinvio: quando non c'e' nessuno a cui rimandare resta li' ma
    si vede che non serve, invece di far pensare che si stia dimenticando qualcosa. */
