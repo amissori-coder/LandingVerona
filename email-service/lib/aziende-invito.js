@@ -104,9 +104,9 @@ function idDoc(evento, contatto, campagna) {
 }
 
 const STATI = ['da-invitare', 'inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
-const MAX_AZIENDE_EVENTO = 50000;
+const MAX_AZIENDE_EVENTO = 90000;
 /* Quante schede per pagina quando si legge l'elenco. Il tetto e' alto, e
-   50.000 schede non stanno ne' in una risposta sola (il corpo ha un tetto
+   90.000 schede non stanno ne' in una risposta sola (il corpo ha un tetto
    di pochi megabyte: oltre, la funzione risponde errore invece
    dell'elenco) ne' comodamente nei 60 secondi della funzione. Quindi
    l'elenco si legge a pagine e chi lo mostra le rimette insieme. */
@@ -607,7 +607,7 @@ async function esegui(ctx) {
         if (azione === 'esiti-email') {
             if (!puoGestire) { negato(); return; }
             /* Anche questa lettura va a pagine, e chiede i soli tre campi che
-               guarda: con il tetto a 50.000 schede una lettura sola si
+               guarda: con il tetto a 90.000 schede una lettura sola si
                porterebbe dietro l'intero elenco per contare gli indirizzi. */
             const indirizzi = [];
             let dal = 0;

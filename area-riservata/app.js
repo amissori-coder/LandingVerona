@@ -28694,7 +28694,7 @@
     }
 
     /* L'ELENCO ARRIVA A PAGINE.
-       Un evento puo' tenere fino a 50.000 aziende, e in una risposta sola non
+       Un evento puo' tenere fino a 90.000 aziende, e in una risposta sola non
        ci starebbero: il servizio ne manda un pezzo per volta con il
        segnalibro dell'ultima scheda, e qui si rimettono insieme.
 
@@ -28703,7 +28703,7 @@
        pagine e' soltanto questo giro. Per lo stesso motivo l'ordine
        alfabetico si rifa' qui: ogni pagina arriva ordinata al suo interno, ma
        messe in fila non lo sarebbero piu'. */
-    const INV_MAX_PAGINE = 60;
+    const INV_MAX_PAGINE = 70;
     function leggiElencoInvito(ev, campagna, passo) {
         const aziende = [];
         const altre = {};
@@ -30850,7 +30850,7 @@
             /* La misura si dice PRIMA di caricare: un elenco grosso ci mette
                qualche minuto, e chi non sa che sta partendo a blocchi crede
                che si sia bloccato e chiude la finestra a metà. */
-            + '<p class="hint">Un evento tiene fino a <b>50.000</b> aziende. I file grandi partono a blocchi: '
+            + '<p class="hint">Un evento tiene fino a <b>90.000</b> aziende. I file grandi partono a blocchi: '
             + 'il conteggio qui sotto dice a che punto è.</p>'
             + '<div id="inv-imp-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
@@ -30865,7 +30865,7 @@
         });
 
         /* IL FILE SI MANDA A BLOCCHI.
-           Un evento tiene fino a 50.000 aziende, e un file di quella misura
+           Un evento tiene fino a 90.000 aziende, e un file di quella misura
            non entra ne' in una richiesta sola (il corpo ha un tetto di pochi
            megabyte) ne' nei 60 secondi della funzione. Si spedisce un pezzo
            per volta, ognuno con la sua riga di intestazioni, e i conti si
@@ -30929,9 +30929,9 @@
                    sia il limite ne' che cosa fare del file che e' rimasto
                    fuori. Il tetto ferma solo le aziende NUOVE: gli
                    aggiornamenti passano anche a elenco pieno. */
-                if (r.oltreIlLimite) scarti.push(quanti(r.oltreIlLimite) + ' oltre il tetto di ' + quanti(r.limite || 50000) + ' aziende per evento');
+                if (r.oltreIlLimite) scarti.push(quanti(r.oltreIlLimite) + ' oltre il tetto di ' + quanti(r.limite || 90000) + ' aziende per evento');
                 const pieno = r.oltreIlLimite
-                    ? ' L\'elenco dell\'evento ha raggiunto le ' + quanti(r.inElenco || r.limite || 50000) + ' aziende: per aggiungerne altre '
+                    ? ' L\'elenco dell\'evento ha raggiunto le ' + quanti(r.inElenco || r.limite || 90000) + ' aziende: per aggiungerne altre '
                       + 'togli dall\'elenco quelle che non servono più, oppure carica il resto su un altro evento.'
                     : '';
                 mostra('Lette ' + quanti(r.lette) + ' righe: ' + quanti(r.nuove) + ' aziende nuove, ' + quanti(r.aggiornate) + ' aggiornate'
