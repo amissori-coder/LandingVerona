@@ -85,6 +85,10 @@ function rifColl(base) {
         startAfter() { return q; },
         limit(n) { tetto = n; return q; },
         select() { return q; },
+        // l'aggregazione: quante schede passano i filtri, senza leggerle
+        count: () => ({ get: async () => ({ data: () => ({ count: (q._conta()) }) }) }),
+        _conta: () => Object.keys(dati).filter(k => k.indexOf(base + '/') === 0 && k.slice(base.length + 1).indexOf('/') < 0
+            && filtri.every(f => f.op !== '==' || (dati[k] || {})[f.campo] === f.val)).length,
         get: async () => {
             const prefisso = base + '/';
             let chiavi = Object.keys(dati).filter(k =>
@@ -885,6 +889,24 @@ async function principale() {
         spediti = [];
         await invia(['muta@x.it'], { canale: 'pec', forza: true, soloSenzaRisposta: true });
         esigi(spediti.length === 1 && spediti[0].to === 'muta@x.it', 'e si puo\' rimandare ancora, questa volta per PEC', spediti.map(x => x.to).join(','));
+    }
+
+    console.log('\nI conti per la card dell\'evento, senza leggere l\'elenco');
+    {
+        scenario({
+            'a@x.it': {}, 'b@x.it': {}, 'c@x.it': { stato: 'inviata' }, 'd@x.it': { stato: 'iscritta' },
+            'e@x.it': { stato: 'risposta' }, 'f@x.it': { stato: 'errore' }, 'g@x.it': { stato: 'esclusa' },
+            'vecchia@x.it': { campagna: undefined, stato: 'inviata' },
+            's1@x.it': { campagna: 'sponsor' }, 's2@x.it': { campagna: 'sponsor', stato: 'inviata' },
+            'altro@x.it': { evento: 'ev2', stato: 'inviata' }
+        });
+        const senza = await chiama('programmazione', {});
+        esigi(senza.ok && senza.conteggi === null, 'senza chiederli non si contano');
+        const r = await chiama('programmazione', { conConteggi: true });
+        const i = (r.conteggi || {}).invito || {}, sp = (r.conteggi || {}).sponsor || {};
+        esigi(i.totale === 8 && i.daInvitare === 2 && i.inviata === 2 && i.iscritta === 1 && i.risposta === 1 && i.errore === 1 && i.esclusa === 1,
+            'l\'invito: totale e stati, comprese le schede senza campagna, e solo di questo evento', JSON.stringify(i));
+        esigi(sp.totale === 2 && sp.daInvitare === 1 && sp.inviata === 1, 'la richiesta di sponsorizzazione ha i suoi', JSON.stringify(sp));
     }
 
     console.log('\n----------------------------------------------------------');

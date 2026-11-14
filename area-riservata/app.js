@@ -28587,18 +28587,40 @@
         });
     }
 
+    /* I NUMERI DELLA CARD. Con l'elenco gia' letto sono i suoi, completi.
+       Senza, sono i conti che il servizio fa da solo (contaPerStato: arrivano
+       con la programmazione, a ogni apertura della pagina): cosi' la card
+       dice subito quante sono in elenco senza dover aprire la finestra, che
+       su decine di migliaia di aziende vuol dire leggerle tutte. Li' "hanno
+       risposto" sono le schede in stato risposta o iscritta, e le PEC non
+       arrivate non si distinguono: quelle si vedono aprendo l'elenco. */
+    let _invConti = {};
+    function idRigaConti(campagna) { return 'inv-card-conti-' + campagna; }
+    function rigaContiCard(ev, camp) {
+        const num = x => Number(x || 0).toLocaleString('it-IT');
+        const c = _invCache[invChiave(ev, camp.id)];
+        if (c) {
+            const n = contaInviti(c.aziende);
+            return '<b>' + num(n.totale) + '</b> in elenco &middot; ' + num(n.daInvitare) + ' da ' + camp.azione
+                + ', ' + num(n.inviate) + ' ' + camp.fatto
+                + (n.risposte ? ' &middot; <span class="ev-ok"><b>' + num(n.risposte) + '</b> hanno risposto</span>' : '')
+                + (n.nonArrivate ? ' &middot; <span class="ev-ko">' + num(n.nonArrivate) + ' non arrivate</span>' : '')
+                + (n.errori ? ' &middot; <span class="ev-ko">' + num(n.errori) + ' con errore</span>' : '');
+        }
+        const s = _invConti[invChiave(ev, camp.id)];
+        if (!s) return '<span class="hint">elenco da leggere</span>';
+        const risposte = (Number(s.risposta) || 0) + (Number(s.iscritta) || 0);
+        return '<b>' + num(s.totale) + '</b> in elenco &middot; ' + num(s.daInvitare) + ' da ' + camp.azione
+            + ', ' + num(s.inviata) + ' ' + camp.fatto
+            + (risposte ? ' &middot; <span class="ev-ok"><b>' + num(risposte) + '</b> hanno risposto</span>' : '')
+            + (s.errore ? ' &middot; <span class="ev-ko">' + num(s.errore) + ' con errore</span>' : '');
+    }
     function aziendeInvitoHtml(ev) {
         if (!ev || ev.tutti || !puoGestireInviti()) return '';
         const righe = INV_CAMPAGNE.map(camp => {
             const c = _invCache[invChiave(ev, camp.id)];
             const n = contaInviti(c ? c.aziende : null);
-            const riga = c
-                ? '<b>' + n.totale + '</b> in elenco &middot; ' + n.daInvitare + ' da ' + camp.azione
-                + ', ' + n.inviate + ' ' + camp.fatto
-                + (n.risposte ? ' &middot; <span class="ev-ok"><b>' + n.risposte + '</b> hanno risposto</span>' : '')
-                + (n.nonArrivate ? ' &middot; <span class="ev-ko">' + n.nonArrivate + ' non arrivate</span>' : '')
-                + (n.errori ? ' &middot; <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
-                : '<span class="hint">elenco da leggere</span>';
+            const riga = '<span id="' + esc(idRigaConti(camp.id)) + '">' + rigaContiCard(ev, camp) + '</span>';
             /* Un invio programmato si vede DA QUI, senza aprire la finestra.
                Parte da solo e dura ore: chi passa dalla pagina dell'evento e
                non lo vede, lo rifa' a mano sulle stesse aziende.
@@ -28638,6 +28660,8 @@
         const disegna = () => {
             let qualcosa = false;
             INV_CAMPAGNE.forEach(c => {
+                const conti = document.getElementById(idRigaConti(c.id));
+                if (conti) conti.innerHTML = rigaContiCard(ev, c);
                 const box = document.getElementById(idRigaProg(c.id));
                 if (!box) return;
                 qualcosa = true;
@@ -28866,9 +28890,10 @@
     function caricaProgrammazione(ev, poi) {
         Cloud.aziendeInvito({
             azione: 'programmazione', evento: ev.id, campagna: _invCampagna,
-            campagne: INV_CAMPAGNE.map(c => c.id)
+            campagne: INV_CAMPAGNE.map(c => c.id), conConteggi: true
         }).then(r => {
             if (r.ok) {
+                if (r.conteggi) INV_CAMPAGNE.forEach(c => { if (r.conteggi[c.id]) _invConti[invChiave(ev, c.id)] = r.conteggi[c.id]; });
                 const p = r.programmazioni || {};
                 const par = r.parallele || {};
                 INV_CAMPAGNE.forEach(c => {
