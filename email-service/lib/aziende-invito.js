@@ -132,6 +132,39 @@ function paginaEvento(db, evento, dopo, quante, campi) {
     return q.get();
 }
 
+/* Quante schede per stato, campagna per campagna, SENZA leggerle: sono
+   aggregazioni (count), che costano una lettura ogni mille schede contate.
+   Le schede scritte prima delle campagne non hanno il campo `campagna` e
+   valgono 'invito': percio' si contano tutte, poi quelle delle altre
+   campagne, e l'invito e' la differenza. "Da invitare" e' il resto, cosi'
+   una scheda rimasta senza stato non sparisce dal conto. */
+const STATI_CONTATI = ['inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
+async function contaPerStato(db, evento) {
+    const base = () => db.collection('aziendeInvito').where('evento', '==', evento);
+    const quante = async q => Number((await q.count().get()).data().count) || 0;
+    const vuoto = () => { const c = { totale: 0 }; STATI_CONTATI.forEach(s => { c[s] = 0; }); return c; };
+    const tutte = vuoto();
+    const altre = CAMPAGNE.ELENCO.map(x => x.id).filter(c => c !== CAMPAGNE.PREDEFINITA);
+    const fuori = {};
+    altre.forEach(c => { fuori[c] = vuoto(); });
+    const lavori = [quante(base()).then(n => { tutte.totale = n; })];
+    STATI_CONTATI.forEach(s => lavori.push(quante(base().where('stato', '==', s)).then(n => { tutte[s] = n; })));
+    altre.forEach(c => {
+        lavori.push(quante(base().where('campagna', '==', c)).then(n => { fuori[c].totale = n; }));
+        STATI_CONTATI.forEach(s => lavori.push(
+            quante(base().where('campagna', '==', c).where('stato', '==', s)).then(n => { fuori[c][s] = n; })));
+    });
+    await Promise.all(lavori);
+    const prima = vuoto();
+    Object.keys(prima).forEach(k => { prima[k] = Math.max(0, tutte[k] - altre.reduce((t, c) => t + fuori[c][k], 0)); });
+    fuori[CAMPAGNE.PREDEFINITA] = prima;
+    Object.keys(fuori).forEach(c => {
+        const x = fuori[c];
+        x.daInvitare = Math.max(0, x.totale - STATI_CONTATI.reduce((t, s) => t + x[s], 0));
+    });
+    return fuori;
+}
+
 /* Equity o founding partner: stessa regola di api/presenze.js (conta il RUOLO
    DI ACCESSO, non la spunta in anagrafica). In caso di dubbio si risponde no. */
 const RE_PARTNER = /equity|found/i;
@@ -1205,8 +1238,17 @@ async function esegui(ctx) {
                     } catch (_) { /* si vede al prossimo giro */ }
                 }
             }
+            /* I CONTI PER LA CARD DELL'EVENTO, senza leggere l'elenco. La card
+               mostrava i numeri solo dopo aver aperto la finestra (che legge
+               tutte le schede); qui si contano e basta, con le aggregazioni
+               dell'archivio. Se qualcosa non va la card resta com'era. */
+            let conteggi = null;
+            if (body.conConteggi === true) {
+                try { conteggi = await contaPerStato(db, evento); }
+                catch (e) { console.error('Conteggi degli inviti non letti:', String((e && e.message) || e).slice(0, 200)); }
+            }
             res.status(200).json({
-                ok: true, programmazioni: fuori, parallele: parallele,
+                ok: true, programmazioni: fuori, parallele: parallele, conteggi: conteggi,
                 programmazione: fuori[campagna] || null,
                 /* I ritmi proposti e il passo del lavoro automatico li dice il
                    servizio: sono suoi, e un'area riservata rimasta in cache non
