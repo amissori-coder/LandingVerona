@@ -207,7 +207,10 @@
                 <div class="bando-sezioni" id="schedaSezioni"></div>
             </div>
             <div class="bando-finestra-piede">
-                <a class="btn btn-outline-dark" id="schedaPdf" href="#" target="_blank" rel="noopener">Scarica la scheda (PDF)</a>
+                <!-- Senza href in partenza, e non con href="#": zls_zes/script.js ferma
+                     il clic su ogni collegamento che al caricamento comincia per "#",
+                     e il PDF non si aprirebbe. L'indirizzo lo mette bandi.js. -->
+                <a class="btn btn-outline-dark" id="schedaPdf" target="_blank" rel="noopener">Scarica la scheda (PDF)</a>
                 <button type="button" class="btn btn-primary" id="schedaRichiedi">Richiedi informazioni</button>
             </div>
         </dialog>
