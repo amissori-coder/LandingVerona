@@ -36,6 +36,14 @@
         <priority>0.7</priority>
     </url>
 
+    <!-- Bandi e agevolazioni — le schede dei bandi aperti, per regione e per tipologia -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/bandi/</loc>
+        <lastmod>2026-11-16</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Milano — 26 Febbraio 2027 event (save the date) -->
     <url>
         <loc>https://nextgenerationbusiness.it/milano_febbraio_2027/</loc>

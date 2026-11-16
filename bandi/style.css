@@ -1,0 +1,663 @@
+/* ============================================
+   Bandi e agevolazioni
+   L'area con le schede dei bandi
+
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css
+   (barra, apertura, pie' di pagina, pulsanti) e
+   a contatti/style.css per il modulo. Qui c'e'
+   quello che manca: i filtri, le card dei bandi
+   e la finestra con la scheda.
+
+   I testi brevi delle card non sono paragrafi
+   (<p>): assets/testo.css giustifica tutti i
+   paragrafi del sito, e in una colonna stretta
+   il giustificato apre buchi fra le parole.
+   ============================================ */
+
+/* ============================================
+   1. APERTURA
+   ============================================ */
+.theme-bandi .hero-mini {
+    padding: 140px 0 96px;
+}
+
+.theme-bandi .hero::after {
+    height: 56px;
+}
+
+.theme-bandi .hero-subtitle {
+    margin-bottom: 0;
+}
+
+/* ============================================
+   2. I FILTRI
+   ============================================ */
+.bandi-sezione {
+    padding: 56px 0 88px;
+}
+
+.bandi-filtri {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+    gap: 16px 18px;
+    padding: 24px 26px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.bandi-filtro {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.bandi-filtro label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #5A6270;
+}
+
+.bandi-filtro input,
+.bandi-filtro select {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.4;
+    transition: var(--transition);
+}
+
+/* la freccia disegnata: quella del sistema cambia da un browser all'altro */
+.bandi-filtro select {
+    padding-right: 40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23164068' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 12px 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    text-overflow: ellipsis;
+}
+
+.bandi-filtro input:focus,
+.bandi-filtro select:focus {
+    outline: none;
+    border-color: #164068;
+    box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.25);
+    background-color: var(--bg-card);
+}
+
+.bandi-filtri-sotto {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 26px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.bandi-spunta {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.bandi-spunta[hidden] {
+    display: none;
+}
+
+.bandi-spunta input {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    accent-color: #164068;
+    cursor: pointer;
+}
+
+.bandi-azzera {
+    margin-left: auto;
+    padding: 6px 2px;
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #164068;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.bandi-azzera[hidden] {
+    display: none;
+}
+
+.bandi-conta {
+    min-height: 22px;
+    margin: 26px 2px 16px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   3. LE CARD
+   ============================================ */
+.bandi-griglia {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.bando-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 22px 22px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.bando-card:hover {
+    border-color: var(--accent-border);
+    box-shadow: var(--shadow-lg);
+}
+
+.bando-card--chiuso {
+    background: var(--bg-secondary);
+}
+
+.bando-card--chiuso .bando-titolo,
+.bando-card--chiuso .bando-sintesi {
+    color: var(--text-secondary);
+}
+
+.bando-card-testa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.bando-regione {
+    display: inline-block;
+    padding: 4px 11px;
+    border-radius: 100px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #164068;
+}
+
+.bando-regione--nazionale {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+
+.bando-stato {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.bando-stato::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.bando-stato--aperto { color: #1F6B57; }
+.bando-stato--in-apertura { color: #164068; }
+.bando-stato--in-scadenza { color: #9A5B00; }
+.bando-stato--chiuso { color: #6B7280; }
+
+.bando-titolo {
+    font-size: 1.12rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.bando-titolo a {
+    color: inherit;
+}
+
+.bando-titolo a:hover {
+    color: #164068;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.bando-ente {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.bando-sintesi {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: #334155;
+    margin-bottom: 16px;
+}
+
+.bando-fatti {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.bando-fatto {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+}
+
+.bando-fatto dt {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #5A6270;
+}
+
+/* assets/testo.css giustifica anche i <dd>: qui sono righe brevi */
+.bando-fatto dd {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: left !important;
+    hyphens: manual !important;
+    -webkit-hyphens: manual !important;
+}
+
+.bando-chip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 18px;
+}
+
+.bando-chip-voce {
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.bando-azioni {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: auto;
+}
+
+.bando-azioni .btn {
+    flex: 1 1 auto;
+    padding: 11px 16px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+/* Nessun risultato */
+.bandi-vuoto {
+    max-width: 620px;
+    margin: 8px auto 0;
+    padding: 40px 28px;
+    text-align: center;
+    background: var(--bg-secondary);
+    border: 1px dashed var(--accent-border);
+    border-radius: var(--radius);
+}
+
+.bandi-vuoto[hidden] {
+    display: none;
+}
+
+.bandi-vuoto .bandi-vuoto-titolo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    text-align: center !important;
+}
+
+.bandi-vuoto p {
+    color: var(--text-secondary);
+    font-size: 0.96rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+    text-align: center !important;
+    text-align-last: center;
+}
+
+.bandi-vuoto-azioni {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+}
+
+.bandi-sezione p.bandi-avvertenza,
+.bandi-sezione p.bandi-noscript {
+    max-width: 860px;
+    margin: 36px auto 0;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    text-align: center !important;
+    text-align-last: center;
+}
+
+.bandi-noscript a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+/* ============================================
+   4. LA SCHEDA DEL BANDO
+   Una finestra sopra l'elenco: testa e piede
+   fermi, il testo scorre in mezzo.
+   ============================================ */
+.bando-finestra {
+    width: min(820px, calc(100vw - 32px));
+    max-height: min(88vh, 900px);
+    margin: auto;
+    padding: 0;
+    border: none;
+    border-radius: 16px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+}
+
+.bando-finestra[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.bando-finestra::backdrop {
+    background: rgba(10, 24, 40, 0.6);
+}
+
+.bando-finestra-testa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px 16px 28px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.bando-finestra-etichette {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.bando-finestra-chiudi {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 50%;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.bando-finestra-chiudi:hover {
+    background: var(--accent-bg);
+    color: #164068;
+}
+
+.bando-finestra-chiudi svg {
+    width: 18px;
+    height: 18px;
+}
+
+.bando-finestra-corpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 26px 28px 8px;
+    overscroll-behavior: contain;
+}
+
+.bando-finestra-titolo {
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.bando-finestra-ente {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.bando-finestra .bando-fatti {
+    padding: 16px 18px;
+    margin-bottom: 24px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 10px;
+}
+
+.bando-finestra .bando-fatto {
+    grid-template-columns: 120px minmax(0, 1fr);
+}
+
+.bando-sezione {
+    margin-bottom: 22px;
+}
+
+.bando-sezione-titolo {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #164068;
+    margin-bottom: 8px;
+}
+
+.bando-sezione p,
+.bando-sezione li {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #334155;
+}
+
+.bando-sezione p {
+    margin-bottom: 10px;
+}
+
+.bando-sezione ul {
+    margin: 0 0 10px;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bando-aggiornata {
+    margin: 4px 0 20px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.bando-finestra-piede {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 28px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.bando-finestra-piede .btn {
+    padding: 12px 22px;
+    font-size: 0.95rem;
+}
+
+.bando-finestra-piede .btn[hidden] {
+    display: none;
+}
+
+/* ============================================
+   5. IL MODULO
+   ============================================ */
+.contatti-testo p.bandi-intro-due {
+    margin-top: 14px;
+}
+
+/* ============================================
+   6. RESPONSIVE
+   ============================================ */
+@media (max-width: 1080px) {
+    .bandi-griglia {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .bandi-filtri {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .bandi-filtro--cerca {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 680px) {
+    .theme-bandi .container {
+        padding: 0 16px;
+    }
+
+    .theme-bandi .hero-mini {
+        padding: 112px 0 72px;
+    }
+
+    .bandi-sezione {
+        padding: 32px 0 56px;
+    }
+
+    .bandi-filtri {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 18px 16px 16px;
+    }
+
+    /* 16px: sotto questa misura iPhone ingrandisce la pagina al tocco */
+    .bandi-filtro input,
+    .bandi-filtro select {
+        font-size: 16px;
+        min-height: 48px;
+    }
+
+    .bandi-azzera {
+        margin-left: 0;
+    }
+
+    .bandi-griglia {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+
+    .bando-card {
+        padding: 18px 16px;
+    }
+
+    /* a tutto schermo: su un telefono una finestra con i margini e' una fessura */
+    .bando-finestra {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+    }
+
+    .bando-finestra-testa {
+        padding: 12px 12px 12px 16px;
+    }
+
+    .bando-finestra-corpo {
+        padding: 20px 16px 4px;
+    }
+
+    .bando-finestra-titolo {
+        font-size: 1.3rem;
+    }
+
+    .bando-finestra .bando-fatto,
+    .bando-fatto {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+
+    .bando-finestra-piede {
+        padding: 12px 16px;
+    }
+
+    .bando-finestra-piede .btn {
+        flex: 1 1 100%;
+    }
+}
+
+/* In stampa (assets/stampa.css) si stampa la scheda aperta, non i filtri */
+@media print {
+    .bandi-filtri,
+    .bando-azioni,
+    .bando-finestra-piede,
+    .bando-finestra-chiudi {
+        display: none !important;
+    }
+}

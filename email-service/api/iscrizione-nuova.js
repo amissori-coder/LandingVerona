@@ -94,6 +94,10 @@ const DATI_FILE = require('../lib/dati-file-azienda');
    freno per indirizzo IP di questo file, il CAPTCHA e un tetto per
    indirizzo. Tutto in lib/domande-sito.js. */
 const DOMANDE = require('../lib/domande-sito');
+/* Le richieste di informazioni dall'area bandi (/bandi/): stesso genere di
+   modulo delle domande, con destinatari suoi (chi segue i bandi). Tutto in
+   lib/richieste-bandi.js. */
+const BANDI = require('../lib/richieste-bandi');
 
 /* stesso trasporto SMTP delle altre mail di servizio, con i tempi massimi:
    senza, un server di posta muto tiene ferma la risposta al modulo fino al
@@ -1635,7 +1639,7 @@ module.exports = async (req, res) => {
         const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
         if (dalDesk) {
             if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
-        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && String(body.azione || '') !== 'domanda-sito'
+        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && ['domanda-sito', 'richiesta-bando'].indexOf(String(body.azione || '')) < 0
             ? troppiInvii(ip, inviiVerificate, RL_MAX_VERIFICATE)
             : troppiInvii(ip))) {
             res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati: riprova fra qualche minuto.' }); return;
@@ -1797,6 +1801,15 @@ module.exports = async (req, res) => {
         if (azione === 'domanda-sito') {
             initAdmin(leggiServiceAccount());
             const r = await DOMANDE.ricevi(admin.firestore(), body, { ip: ip });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* LA RICHIESTA DALL'AREA BANDI (/bandi/). Come la domanda qui sopra:
+           prima della scrittura generica, senza `pagina`, con il freno per
+           IP dei moduli aperti. */
+        if (azione === 'richiesta-bando') {
+            initAdmin(leggiServiceAccount());
+            const r = await BANDI.ricevi(admin.firestore(), body, { ip: ip });
             res.status(r.stato).json(r.corpo);
             return;
         }
