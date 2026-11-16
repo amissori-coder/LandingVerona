@@ -3606,46 +3606,52 @@ ul {
 .sistema-nodo:hover .sistema-nome { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .sistema-nodo:focus-visible { outline: 2px solid #7fbaff; outline-offset: 4px; }
 
-/* bordo destro: angoli di 36, 57, 79, 101, 123 e 144 gradi dall'alto */
+/* bordo destro: sette punti, a 36, 54, 72, 90, 108, 126 e 144 gradi dall'alto.
+   Il quarto sta all'altezza del centro, dove fra l'anello e il disco c'e' meno
+   posto: li' va il nome piu' corto. */
 .sistema-voce:nth-child(1) { --x: -0.588; --y: -0.809; --lw: calc(var(--orb-r) * 0.588 - 6px); }
-.sistema-voce:nth-child(2) { --x: -0.839; --y: -0.545; --lw: calc(var(--orb-r) * 0.839 - 6px); }
-.sistema-voce:nth-child(3) { --x: -0.982; --y: -0.191; --lw: calc(var(--orb-r) * 0.982 - var(--orb-c) - 12px); }
-.sistema-voce:nth-child(4) { --x: -0.982; --y: 0.191;  --lw: calc(var(--orb-r) * 0.982 - var(--orb-c) - 12px); }
-.sistema-voce:nth-child(5) { --x: -0.839; --y: 0.545;  --lw: calc(var(--orb-r) * 0.839 - 6px); }
-.sistema-voce:nth-child(6) { --x: -0.588; --y: 0.809;  --lw: calc(var(--orb-r) * 0.588 - 6px); }
+.sistema-voce:nth-child(2) { --x: -0.809; --y: -0.588; --lw: calc(var(--orb-r) * 0.809 - 6px); }
+.sistema-voce:nth-child(3) { --x: -0.951; --y: -0.309; --lw: calc(var(--orb-r) * 0.951 - (var(--orb-c) + 16px) * 0.8 + 4px); }
+.sistema-voce:nth-child(4) { --x: -1;     --y: 0;      --lw: calc(var(--orb-r) - var(--orb-c) - 18px); }
+.sistema-voce:nth-child(5) { --x: -0.951; --y: 0.309;  --lw: calc(var(--orb-r) * 0.951 - (var(--orb-c) + 16px) * 0.8 + 4px); }
+.sistema-voce:nth-child(6) { --x: -0.809; --y: 0.588;  --lw: calc(var(--orb-r) * 0.809 - 6px); }
+.sistema-voce:nth-child(7) { --x: -0.588; --y: 0.809;  --lw: calc(var(--orb-r) * 0.588 - 6px); }
 /* in cima e in fondo l'anello e' meno ripido: il nome scende (o sale) quanto basta perche' l'anello non lo tocchi */
 .sistema-voce:nth-child(1) .sistema-nodo { align-items: flex-start; transform: translate(-9px, -9px); }
-.sistema-voce:nth-child(6) .sistema-nodo { align-items: flex-end; transform: translate(-9px, calc(-100% + 9px)); }
+.sistema-voce:nth-child(7) .sistema-nodo { align-items: flex-end; transform: translate(-9px, calc(-100% + 9px)); }
 
 /* Sotto i 1181 px il pannello e' stretto per testo e orbita affiancati: la
    mezza orbita sorge dal bordo inferiore, sotto il testo. Angoli di 166,
-   138, 110, 70, 42 e 14 gradi (da sinistra): a sinistra adeguati assetti,
-   modello 231, TCF; a destra rating, ESG, AI governance. Le etichette dei
-   due punti piu' alti stanno fuori dall'arco, le altre dentro, verso il
-   centro. */
+   138, 110, 90, 70, 42 e 14 gradi (da sinistra): a sinistra adeguati assetti,
+   modello 231, TCF; in cima ESG; a destra bandi, rating, AI governance. Le
+   etichette dei tre punti piu' alti stanno fuori dall'arco, le altre dentro,
+   verso il centro. */
 @media (max-width: 1180px) {
-    .split-brand { --orb-r: clamp(220px, 25vw, 270px); --orb-c: calc(var(--orb-r) * 0.36); align-items: start; padding-right: 48px; padding-bottom: calc(var(--orb-r) + 52px); }
+    .split-brand { --orb-r: clamp(220px, 25vw, 270px); --orb-c: calc(var(--orb-r) * 0.36); align-items: start; padding-right: 48px; padding-bottom: calc(var(--orb-r) + 76px); }
     .sistema { right: auto; left: 50%; top: 100%; }
     .sistema-centro { left: calc(-1 * var(--orb-c)); top: calc(-1 * var(--orb-c)); width: calc(2 * var(--orb-c)); height: var(--orb-c); align-items: flex-end; justify-content: center; padding: 0 12px calc(var(--orb-c) * 0.17); border-radius: var(--orb-c) var(--orb-c) 0 0; text-align: center; }
     .sistema-centro-corpo { align-items: center; gap: 5px; }
     .sistema-centro-nome { font-size: 15px; }
     .sistema-centro-rif { display: none; }
     .sistema-voce:nth-child(1) { --x: -0.970; --y: -0.242; --lw: calc(var(--orb-r) * 0.970 - var(--orb-c) + 8px); }
-    .sistema-voce:nth-child(3) { --x: -0.743; --y: -0.669; --lw: calc(var(--orb-r) * 0.743 + 1px); }
+    .sistema-voce:nth-child(4) { --x: -0.743; --y: -0.669; --lw: calc(var(--orb-r) * 0.743 + 1px); }
     .sistema-voce:nth-child(2) { --x: -0.342; --y: -0.940; --lw: min(200px, 28.75vw - var(--orb-r) * 0.342 - 20px); }
-    .sistema-voce:nth-child(5) { --x: 0.342;  --y: -0.940; --lw: min(200px, 28.75vw - var(--orb-r) * 0.342 - 20px); }
-    .sistema-voce:nth-child(6) { --x: 0.743;  --y: -0.669; --lw: calc(var(--orb-r) * 0.743 + 1px); }
-    .sistema-voce:nth-child(4) { --x: 0.970;  --y: -0.242; --lw: calc(var(--orb-r) * 0.970 - var(--orb-c) + 8px); }
+    .sistema-voce:nth-child(5) { --x: 0;      --y: -1;     --lw: calc(var(--orb-r) * 0.684 - 44px); }
+    .sistema-voce:nth-child(6) { --x: 0.342;  --y: -0.940; --lw: min(200px, 28.75vw - var(--orb-r) * 0.342 - 20px); }
+    .sistema-voce:nth-child(7) { --x: 0.743;  --y: -0.669; --lw: calc(var(--orb-r) * 0.743 + 1px); }
+    .sistema-voce:nth-child(3) { --x: 0.970;  --y: -0.242; --lw: calc(var(--orb-r) * 0.970 - var(--orb-c) + 8px); }
     .sistema-voce:nth-child(1) .sistema-nodo { align-items: center; transform: translate(-9px, -50%); }
-    .sistema-voce:nth-child(3) .sistema-nodo { align-items: flex-start; transform: translate(-9px, -9px); }
-    .sistema-voce:nth-child(4) .sistema-nodo { flex-direction: row-reverse; transform: translate(calc(-100% + 9px), -50%); text-align: right; }
-    .sistema-voce:nth-child(6) .sistema-nodo { flex-direction: row-reverse; align-items: flex-start; transform: translate(calc(-100% + 9px), -9px); text-align: right; }
-    /* i due punti in cima all'arco: il nome sta sopra il punto, cosi' l'anello che scende non lo attraversa */
+    .sistema-voce:nth-child(4) .sistema-nodo { align-items: flex-start; transform: translate(-9px, -9px); }
+    .sistema-voce:nth-child(3) .sistema-nodo { flex-direction: row-reverse; transform: translate(calc(-100% + 9px), -50%); text-align: right; }
+    .sistema-voce:nth-child(7) .sistema-nodo { flex-direction: row-reverse; align-items: flex-start; transform: translate(calc(-100% + 9px), -9px); text-align: right; }
+    /* i tre punti in cima all'arco: il nome sta sopra il punto, cosi' l'anello che scende non lo attraversa */
     .sistema-voce:nth-child(2) .sistema-nodo { flex-direction: column-reverse; align-items: flex-end; gap: 6px; transform: translate(calc(-100% + 9px), calc(-100% + 9px)); text-align: right; }
-    .sistema-voce:nth-child(5) .sistema-nodo { flex-direction: column-reverse; align-items: flex-start; gap: 6px; transform: translate(-9px, calc(-100% + 9px)); }
+    .sistema-voce:nth-child(5) .sistema-nodo { flex-direction: column-reverse; align-items: center; gap: 6px; transform: translate(-50%, calc(-100% + 9px)); text-align: center; }
+    .sistema-voce:nth-child(6) .sistema-nodo { flex-direction: column-reverse; align-items: flex-start; gap: 6px; transform: translate(-9px, calc(-100% + 9px)); }
     .sistema-voce:nth-child(2) .sistema-etichetta,
-    .sistema-voce:nth-child(4) .sistema-etichetta,
-    .sistema-voce:nth-child(6) .sistema-etichetta { align-items: flex-end; }
+    .sistema-voce:nth-child(3) .sistema-etichetta,
+    .sistema-voce:nth-child(7) .sistema-etichetta { align-items: flex-end; }
+    .sistema-voce:nth-child(5) .sistema-etichetta { align-items: center; }
 }
 /* Telefono: arco piu' piccolo, niente anello attorno al centro (lascia spazio
    alle etichette), solo i nomi dei servizi. */
@@ -3653,9 +3659,9 @@ ul {
     .split-brand { --orb-r: clamp(150px, 43vw, 230px); --orb-c: calc(var(--orb-r) * 0.34); padding-bottom: calc(var(--orb-r) + 64px); }
     .sistema-anello--centro { display: none; }
     .sistema-voce:nth-child(2),
-    .sistema-voce:nth-child(5) { --lw: calc(50vw - var(--orb-r) * 0.342 - 11px); }
+    .sistema-voce:nth-child(6) { --lw: calc(50vw - var(--orb-r) * 0.342 - 11px); }
     .sistema-voce:nth-child(1),
-    .sistema-voce:nth-child(4) { --lw: calc(var(--orb-r) * 0.66); }
+    .sistema-voce:nth-child(3) { --lw: calc(var(--orb-r) * 0.66); }
     /* il nome del curatore resta a sinistra come il resto del pannello */
     .brand-curator { align-items: flex-start; }
 }
