@@ -30,6 +30,12 @@
                  dei paragrafi (p) e/o un elenco puntato (l)
      pdf         il file in bandi/schede/ (facoltativo)
      aggiornata  la data della scheda, 'AAAA-MM-GG'
+     revisore    true se il bando chiede la certificazione del revisore legale
+                 (di solito sulle spese rendicontate): la card e la scheda
+                 mostrano l'etichetta in evidenza "Certificazione del revisore"
+                 e il bando entra nel filtro omonimo. Al posto di true si puo'
+                 scrivere una frase che dice che cosa va certificato: compare
+                 nella scheda. Senza il campo, nessuna etichetta.
 
    Lo stato (in apertura, aperto, in scadenza, chiuso) NON si scrive:
    lo calcola la pagina dalle date, giorno per giorno. Un bando chiuso
@@ -551,6 +557,7 @@
         },
         {
             id: 'toscana-internazionalizzazione',
+            revisore: true,
             titolo: 'Sostegno all\'internazionalizzazione delle imprese toscane',
             ente: 'Regione Toscana · PR FESR 2021-2027',
             regione: 'Toscana',

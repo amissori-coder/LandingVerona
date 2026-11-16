@@ -309,6 +309,38 @@
     -webkit-hyphens: manual !important;
 }
 
+/* L'etichetta in evidenza: il bando chiede la certificazione del revisore
+   legale. Piena e a tutta larghezza della card, perche' si veda scorrendo
+   l'elenco. */
+.bando-revisore {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #164068;
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    line-height: 1.3;
+}
+
+.bando-revisore svg {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: #8bb8d4;
+}
+
+/* nella testa della scheda sta accanto a regione e stato, su una riga sola */
+.bando-finestra-etichette .bando-revisore {
+    margin-bottom: 0;
+    padding: 5px 11px;
+    font-size: 0.74rem;
+}
+
 .bando-chip {
     display: flex;
     flex-wrap: wrap;

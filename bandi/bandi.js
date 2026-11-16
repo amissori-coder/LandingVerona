@@ -97,6 +97,7 @@
             pagliaio: piatto([b.titolo, b.ente, b.regione, b.beneficiari, b.importo, b.sintesi, b.scadenza,
                 (b.tipologie || []).map(function (t) { return D.TIPOLOGIE[t] || t; }).join(' '),
                 (b.finalita || []).map(function (f) { return D.FINALITA[f] || f; }).join(' '),
+                b.revisore ? 'certificazione del revisore legale ' + (b.revisore === true ? '' : b.revisore) : '',
                 testoSezioni].join(' '))
         };
     });
@@ -121,6 +122,8 @@
     var campoFinalita = $('finalita');
     var campoNazionali = $('nazionali');
     var campoChiusi = $('chiusi');
+    var campoRevisore = $('revisore');
+    var spuntaRevisore = $('spuntaRevisore');
     var spuntaNazionali = $('spuntaNazionali');
     var griglia = $('griglia');
     var conta = $('conta');
@@ -152,6 +155,8 @@
             if (n) campo.appendChild(opzione(k, elenco[k] + ' (' + n + ')'));
         });
     }
+    // la spunta "certificazione del revisore" c'e' solo se almeno un bando la chiede
+    spuntaRevisore.hidden = !BANDI.some(function (x) { return !!x.b.revisore; });
     riempi(campoTipologia, D.TIPOLOGIE, 'tipologie');
     riempi(campoFinalita, D.FINALITA, 'finalita');
 
@@ -165,11 +170,13 @@
             tipologia: campoTipologia.value,
             finalita: campoFinalita.value,
             nazionali: campoNazionali.checked,
-            chiusi: campoChiusi.checked
+            chiusi: campoChiusi.checked,
+            revisore: campoRevisore.checked
         };
     }
     function passa(x, f) {
         if (!f.chiusi && x.stato.id === 'chiuso') return false;
+        if (f.revisore && !x.b.revisore) return false;
         if (f.regione) {
             var stessa = x.regioneChiave === f.regione;
             /* Scelta una regione, i bandi nazionali valgono anche li': restano
@@ -195,6 +202,14 @@
     // ---------- le card ----------
     function etichettaStato(stato) {
         return crea('span', 'bando-stato bando-stato--' + stato.id, stato.testo);
+    }
+    /* L'etichetta in evidenza dei bandi che chiedono la certificazione del
+       revisore legale (campo `revisore` in dati.js). */
+    function etichettaRevisore() {
+        var el = crea('div', 'bando-revisore');
+        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l7 3v5c0 4.6-2.9 8.6-7 10-4.1-1.4-7-5.4-7-10V6l7-3z"/><path d="M9 12l2.2 2.2L15.2 10"/></svg>';
+        el.appendChild(crea('span', '', 'Certificazione del revisore'));
+        return el;
     }
     function fatto(dl, nome, valore) {
         if (!valore) return;
@@ -228,6 +243,8 @@
         fatto(dl, 'Quando', b.scadenza);
         art.appendChild(dl);
 
+        if (b.revisore) art.appendChild(etichettaRevisore());
+
         var chip = crea('div', 'bando-chip');
         (b.tipologie || []).forEach(function (t) { chip.appendChild(crea('span', 'bando-chip-voce', D.TIPOLOGIE[t] || t)); });
         art.appendChild(chip);
@@ -253,6 +270,7 @@
         if (f.finalita) q.set('finalita', f.finalita);
         if (f.regione && !f.nazionali) q.set('nazionali', 'no');
         if (f.chiusi) q.set('chiusi', 'si');
+        if (f.revisore) q.set('revisore', 'si');
         var s = q.toString();
         try { history.replaceState(null, '', location.pathname + (s ? '?' + s : '') + location.hash); } catch (_) { /* file:// */ }
     }
@@ -269,7 +287,7 @@
 
         var aperti = BANDI.filter(function (x) { return x.stato.id !== 'chiuso'; }).length;
         var totale = f.chiusi ? BANDI.length : aperti;
-        var filtrato = !!(f.q || f.regione || f.tipologia || f.finalita);
+        var filtrato = !!(f.q || f.regione || f.tipologia || f.finalita || f.revisore);
         conta.textContent = visti.length === 0 ? ''
             : (filtrato
                 ? visti.length + (visti.length === 1 ? ' bando trovato' : ' bandi trovati') + ' su ' + totale
@@ -285,6 +303,7 @@
         campoFinalita.value = '';
         campoNazionali.checked = true;
         campoChiusi.checked = false;
+        campoRevisore.checked = false;
         aggiorna();
     }
 
@@ -300,6 +319,7 @@
         if (ha(campoFinalita, fi)) campoFinalita.value = fi;
         campoNazionali.checked = q.get('nazionali') !== 'no';
         campoChiusi.checked = q.get('chiusi') === 'si';
+        campoRevisore.checked = q.get('revisore') === 'si';
     })();
 
     filtri.addEventListener('submit', function (e) { e.preventDefault(); });
@@ -308,7 +328,7 @@
         clearTimeout(attesaCerca);
         attesaCerca = setTimeout(aggiorna, 150);
     });
-    [campoRegione, campoTipologia, campoFinalita, campoNazionali, campoChiusi].forEach(function (c) {
+    [campoRegione, campoTipologia, campoFinalita, campoNazionali, campoChiusi, campoRevisore].forEach(function (c) {
         c.addEventListener('change', aggiorna);
     });
     $('azzera').addEventListener('click', azzera);
@@ -323,6 +343,7 @@
         et.textContent = '';
         et.appendChild(crea('span', 'bando-regione' + (x.nazionale ? ' bando-regione--nazionale' : ''), b.regione));
         et.appendChild(etichettaStato(x.stato));
+        if (b.revisore) et.appendChild(etichettaRevisore());
         $('schedaTitolo').textContent = b.titolo;
         $('schedaEnte').textContent = b.ente;
 
@@ -332,6 +353,7 @@
         fatto(dl, 'Tipologia', (b.tipologie || []).map(function (t) { return D.TIPOLOGIE[t] || t; }).join(', '));
         fatto(dl, 'Per chi', b.beneficiari);
         fatto(dl, 'Quando', b.scadenza);
+        fatto(dl, 'Revisore', b.revisore ? (b.revisore === true ? 'È richiesta la certificazione del revisore legale' : b.revisore) : '');
         fatto(dl, 'Procedura', b.procedura === 'graduatoria' ? 'A graduatoria, per punteggio'
             : (b.procedura === 'sportello' ? 'A sportello, in ordine cronologico' : ''));
 
