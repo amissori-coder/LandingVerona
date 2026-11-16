@@ -15,6 +15,8 @@
 // Il formato e' quello di stampa del sito (assets/stampa.css e stampa.js):
 // foglio A4, testata con il logo Revilaw ripetuta su ogni pagina, in fondo i
 // recapiti di Revilaw, nel margine l'indirizzo del sito e il numero di pagina.
+// Prima dei recapiti, una fascia blu mette in evidenza il sito
+// (nextgenerationbusiness.it/bandi) ed e' un collegamento alla scheda online.
 // In piu', in cima, i dati essenziali del bando in un riquadro e, per i bandi
 // che la chiedono, il bollo oro «Certificazione del revisore».
 //
@@ -93,7 +95,14 @@ section p, section li { font-size: 10pt; line-height: 1.55; color: #1e293b; text
 section p { margin-bottom: 2mm; }
 section ul { margin: 0 0 2mm; padding-left: 5mm; }
 section li { margin-bottom: 1mm; }
-.chiusura { display: flex; align-items: center; gap: 6mm; margin-top: 8mm; padding-top: 4mm; border-top: 0.75pt solid #164068; break-inside: avoid; }
+.sito { display: flex; align-items: center; justify-content: space-between; gap: 6mm; margin-top: 8mm; padding: 4.5mm 6mm; border-radius: 2mm; background: #164068; color: #ffffff; text-decoration: none; break-inside: avoid; }
+.sito-testo { display: flex; flex-direction: column; gap: 0.6mm; }
+.sito-sopra { font-size: 7.5pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #8bb8d4; }
+.sito-nome { font-size: 15pt; font-weight: 800; letter-spacing: -0.2px; line-height: 1.15; color: #ffffff; }
+.sito-nome span { color: #8bb8d4; }
+.sito-sotto { font-size: 8.5pt; color: #dbe7f1; }
+.sito-vai { flex: none; padding: 2.2mm 5mm; border-radius: 1.6mm; background: #ffffff; color: #164068; font-size: 8.5pt; font-weight: 700; white-space: nowrap; }
+.chiusura { display: flex; align-items: center; gap: 6mm; margin-top: 6mm; padding-top: 4mm; border-top: 0.75pt solid #164068; break-inside: avoid; }
 .chiusura img { height: 8mm; width: auto; }
 .chiusura div { display: flex; flex-direction: column; gap: 0.8mm; font-size: 7.5pt; line-height: 1.45; color: #475569; }
 .chiusura strong { color: #164068; font-size: 8pt; }
@@ -128,13 +137,19 @@ function pagina(b, D, logo) {
         + '<dl class="dati">' + dato('Agevolazione', b.importo) + dato('Tipologia', tipologie) + dato('Finalità', finalita)
         + dato('Per chi', b.beneficiari) + dato('Quando', b.scadenza) + dato('Revisore', revisore) + dato('Procedura', procedura) + '</dl>'
         + sezioni
+        /* il sito in evidenza: una fascia blu che e' anche un collegamento, per
+           chi legge il PDF a schermo, alla scheda del bando sul sito */
+        + '<a class="sito" href="https://' + SITO + '/bandi/#' + esc(b.id) + '"><span class="sito-testo">'
+        + '<span class="sito-sopra">Tutti i bandi, aggiornati ogni settimana</span>'
+        + '<span class="sito-nome">nextgenerationbusiness<span>.it</span>/bandi</span>'
+        + '<span class="sito-sotto">Cerca per regione e per tipologia, e chiedi informazioni sul bando che ti interessa.</span>'
+        + '</span><span class="sito-vai">Vai al sito &rarr;</span></a>'
         + '<div class="chiusura"><img src="' + logo + '" alt=""><div>'
         + '<strong>Revilaw S.p.A., società di revisione legale</strong>'
         + '<span>Via XX Settembre, 9, 37129 Verona. Telefono 045 8010734. info@nextgenerationbusiness.it</span>'
         + '<span>' + (b.aggiornata ? 'Scheda aggiornata al ' + dataEstesa(b.aggiornata) + '. ' : '')
         + 'Sintesi a scopo informativo: non sostituisce il testo ufficiale del bando né un parere professionale. '
         + 'Requisiti, importi e scadenze vanno verificati sull\'avviso pubblicato dall\'ente gestore.</span>'
-        + '<span>Per informazioni su questo bando: ' + SITO + '/bandi/#' + esc(b.id) + '</span>'
         + '</div></div>'
         + '</td></tr></tbody></table></body></html>';
 }
@@ -142,7 +157,7 @@ function pagina(b, D, logo) {
 // il margine in basso: l'indirizzo del sito e il numero di pagina, come in assets/stampa.css
 const PIEDE = '<div style="width:100%;padding:0 15mm;display:flex;justify-content:space-between;'
     + 'font-family:Inter,Arial,sans-serif;font-size:7.5pt;color:#64748b;">'
-    + '<span>' + SITO + '/bandi</span>'
+    + '<span style="font-size:8.5pt;font-weight:700;color:#164068;">' + SITO + '/bandi</span>'
     + '<span>Pagina <span class="pageNumber"></span> di <span class="totalPages"></span></span></div>';
 
 // -------------------------------------------------------------------- avvio
