@@ -52,6 +52,7 @@ Serve per generare i link di reimpostazione password.
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
 | `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 | `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
+| `BANDI_DESTINATARI` | *(facoltativa)* a chi arrivano le richieste di informazioni dell'area `/bandi/`, indirizzi separati da virgola. Senza: `a.missori@emvas.tax` e `dott.venturasara@gmail.com`. Vedi "Richieste dall'area bandi" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
 | `PROMEMORIA_SECONDA_PERSONA` | *(facoltativa)* `no` spegne la mail "l'invito vale per due persone" (per esempio a sala piena). Senza: accesa. Vedi "L'invito vale per due persone" |
 | `SOLLECITO_FROM_EMAIL` | *(facoltativa)* il mittente del sollecito personale della conferma email (a un'ora dalla mail non cliccata). Senza: `revilaw@nextgenerationbusiness.it` (il dominio autenticato su Brevo: `revilaw.it` non lo e'). **Deve essere un mittente verificato su Brevo** o di un dominio autenticato: il giro lo controlla prima di spedire. Vedi "Il sollecito personale" |
@@ -928,6 +929,38 @@ eventi? Scrivici da Domande e contatti", verso `/contatti/?tema=<id>` con il
 tema ricavato dalla pagina (`TEMI_CONTATTI` in `zls_zes/script.js`; scritta
 nell'HTML nelle tre pagine con uno script loro). Le prove:
 `node prove/check-up-temi.prove.js`.
+
+## Richieste dall'area bandi (`/bandi/`, dentro `/api/iscrizione-nuova`)
+
+La pagina `https://nextgenerationbusiness.it/bandi/` elenca le schede dei
+bandi (i dati stanno in `bandi/dati.js`, nel sito: per aggiungere un bando
+non serve ripubblicare il servizio) e chiude con il modulo "Richiedi
+informazioni". Manda `azione: "richiesta-bando"` a `/api/iscrizione-nuova`
+(text/plain, come gli altri moduli), **senza `pagina`**: l'azione si smista
+prima della scrittura generica, e una richiesta non diventa mai una riga fra
+le iscrizioni. Il lavoro sta in `lib/richieste-bandi.js`.
+
+- **Campi**: `nome`, `cognome`, `azienda`, `email`, `privacy: true`;
+  facoltativi `telefono` (se c'e', almeno sei cifre), `sede` (la regione
+  dell'azienda), `messaggio` (fino a 2000 caratteri), `marketing`. Il bando:
+  `bando` (l'identificativo della scheda), `bandoTitolo`, `bandoRegione`,
+  `bandoTipologia`. Senza bando e' una richiesta generica. I testi del bando
+  arrivano dal browser: si ripuliscono, si accorciano e finiscono **solo**
+  nella mail a noi e in archivio.
+- **I freni**, gli stessi delle domande del sito: il campo nascosto `sito`,
+  `ms` (meno di tre secondi: `400` con "premi di nuovo"), Turnstile con
+  l'azione `richiesta-bando` (`captchaKo`; spento senza `TURNSTILE_SECRET`),
+  **cinque richieste al giorno per indirizzo** (`richiesteBandiLimiti`, per
+  impronta) e il freno per IP dei moduli aperti (8 in 10 minuti, `429`).
+- **Prima si salva** (`richiesteBandi`), poi due mail: **a noi**, a
+  `BANDI_DESTINATARI` (senza: `a.missori@emvas.tax` e
+  `dott.venturasara@gmail.com`), oggetto "Richiesta bando - <Titolo del
+  bando> - <Azienda>", con "Rispondi" che scrive alla persona; **a chi
+  scrive**, una ricevuta che non ripete ne' il messaggio ne' il titolo del
+  bando, con "Rispondi" verso i destinatari. Sulla richiesta restano
+  `avvisati` e `confermato`. La risposta e' `{ ok: true }` appena la
+  richiesta e' salva, anche con la posta giu'.
+- **Le prove**: `node prove/richieste-bandi.prove.js`.
 
 ## Download dell'ebook per gli iscritti (`/api/scarica-ebook`)
 
