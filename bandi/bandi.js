@@ -204,11 +204,30 @@
         return crea('span', 'bando-stato bando-stato--' + stato.id, stato.testo);
     }
     /* L'etichetta in evidenza dei bandi che chiedono la certificazione del
-       revisore legale (campo `revisore` in dati.js). */
-    function etichettaRevisore() {
-        var el = crea('div', 'bando-revisore');
-        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l7 3v5c0 4.6-2.9 8.6-7 10-4.1-1.4-7-5.4-7-10V6l7-3z"/><path d="M9 12l2.2 2.2L15.2 10"/></svg>';
-        el.appendChild(crea('span', '', 'Certificazione del revisore'));
+       revisore legale (campo `revisore` in dati.js): una fascia color oro con
+       il sigillo, come il bollo su un documento certificato. Sulla card sta in
+       cima, con il sigillo che sporge dal bordo; nella scheda (`piccola`) e'
+       una targhetta accanto a regione e stato. */
+    var SIGILLO = '<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">'
+        + '<path class="sigillo-nastro" d="M15 30 10 46l7-4 4 5 3-12zM33 30l5 16-7-4-4 5-3-12z"/>'
+        + '<circle class="sigillo-fondo" cx="24" cy="21" r="18"/>'
+        + '<circle class="sigillo-bordo" cx="24" cy="21" r="18" fill="none" stroke-width="3.2" stroke-dasharray="3.14 3.14"/>'
+        + '<circle class="sigillo-filo" cx="24" cy="21" r="12.5" fill="none" stroke-width="1.1"/>'
+        + '<path class="sigillo-spunta" d="M18.2 21.4l4 4 7.6-8.2" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '</svg>';
+    function sigillo() {
+        var sig = crea('span', 'bando-sigillo');
+        sig.innerHTML = SIGILLO;
+        return sig;
+    }
+    function etichettaRevisore(piccola) {
+        var el = crea('div', 'bando-revisore' + (piccola ? ' bando-revisore--piccola' : ''));
+        // nella targhetta il sigillo sta dentro; sulla card lo mette card(), fuori dalla fascia
+        if (piccola) el.appendChild(sigillo());
+        var corpo = crea('span', 'bando-revisore-corpo');
+        corpo.appendChild(crea('span', 'bando-revisore-nome', 'Certificazione del revisore'));
+        if (!piccola) corpo.appendChild(crea('span', 'bando-revisore-riga', 'Richiesta da questo bando'));
+        el.appendChild(corpo);
         return el;
     }
     function fatto(dl, nome, valore) {
@@ -222,6 +241,13 @@
         var b = x.b;
         var art = crea('article', 'bando-card' + (x.stato.id === 'chiuso' ? ' bando-card--chiuso' : ''));
         art.id = 'card-' + b.id;
+        if (b.revisore) {
+            art.className += ' bando-card--revisore';
+            art.appendChild(etichettaRevisore());
+            /* fuori dalla fascia, che ritaglia la lama di luce: cosi' il
+               sigillo puo' sporgere dal bordo della card */
+            art.appendChild(sigillo());
+        }
 
         var testa = crea('div', 'bando-card-testa');
         testa.appendChild(crea('span', 'bando-regione' + (x.nazionale ? ' bando-regione--nazionale' : ''), b.regione));
@@ -242,8 +268,6 @@
         fatto(dl, 'Per chi', b.beneficiari);
         fatto(dl, 'Quando', b.scadenza);
         art.appendChild(dl);
-
-        if (b.revisore) art.appendChild(etichettaRevisore());
 
         var chip = crea('div', 'bando-chip');
         (b.tipologie || []).forEach(function (t) { chip.appendChild(crea('span', 'bando-chip-voce', D.TIPOLOGIE[t] || t)); });
@@ -343,7 +367,7 @@
         et.textContent = '';
         et.appendChild(crea('span', 'bando-regione' + (x.nazionale ? ' bando-regione--nazionale' : ''), b.regione));
         et.appendChild(etichettaStato(x.stato));
-        if (b.revisore) et.appendChild(etichettaRevisore());
+        if (b.revisore) et.appendChild(etichettaRevisore(true));
         $('schedaTitolo').textContent = b.titolo;
         $('schedaEnte').textContent = b.ente;
 

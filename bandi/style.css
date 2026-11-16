@@ -309,36 +309,138 @@
     -webkit-hyphens: manual !important;
 }
 
-/* L'etichetta in evidenza: il bando chiede la certificazione del revisore
-   legale. Piena e a tutta larghezza della card, perche' si veda scorrendo
-   l'elenco. */
+/* ---- Il bollo "Certificazione del revisore" ----
+   I bandi che chiedono la certificazione del revisore legale portano in cima
+   alla card una fascia color oro con un sigillo: l'oro dei bolli e delle
+   ceralacche sui documenti certificati, accanto al blu del sito. Il sigillo
+   sporge dal bordo della card, e una lama di luce attraversa la fascia ogni
+   tanto (mai con "riduci movimento"). */
+.bando-card--revisore {
+    position: relative;
+    border-color: #D2B25A;
+    box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.28), var(--shadow-sm);
+}
+
+.bando-card--revisore:hover {
+    border-color: #C19A2E;
+    box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.45), var(--shadow-lg);
+}
+
 .bando-revisore {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: #164068;
-    color: #ffffff;
+    min-height: 52px;
+    margin: -22px -22px 18px;
+    padding: 9px 16px 9px 78px;
+    border-radius: 11px 11px 0 0;
+    background: linear-gradient(100deg, #B8892B 0%, #E6C870 38%, #F3DE9A 52%, #DDB95A 70%, #B8892B 100%);
+    color: #0A2844;
+    overflow: hidden;
+}
+
+/* la lama di luce */
+.bando-revisore::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -40%;
+    width: 30%;
+    background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-18deg);
+    animation: bando-lama 6s ease-in-out 1.2s infinite;
+    pointer-events: none;
+}
+
+@keyframes bando-lama {
+    0% { left: -40%; }
+    22%, 100% { left: 130%; }
+}
+
+.bando-revisore-corpo {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.bando-revisore-nome {
     font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    line-height: 1.3;
+    font-weight: 800;
+    letter-spacing: 1.1px;
+    line-height: 1.25;
+    text-transform: uppercase;
 }
 
-.bando-revisore svg {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    color: #8bb8d4;
-}
-
-/* nella testa della scheda sta accanto a regione e stato, su una riga sola */
-.bando-finestra-etichette .bando-revisore {
-    margin-bottom: 0;
-    padding: 5px 11px;
+.bando-revisore-riga {
     font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #3D2F08;
+}
+
+/* il sigillo: sta fuori dalla fascia (che ritaglia la lama di luce), sopra
+   il bordo della card */
+.bando-card--revisore > .bando-sigillo {
+    position: absolute;
+    left: 14px;
+    top: -12px;
+    z-index: 2;
+    width: 56px;
+    height: 56px;
+    filter: drop-shadow(0 3px 5px rgba(10, 40, 68, 0.35));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bando-card--revisore:hover > .bando-sigillo {
+    transform: rotate(-8deg) scale(1.06);
+}
+
+.bando-sigillo svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.sigillo-fondo { fill: #0A2844; }
+.sigillo-nastro { fill: #164068; }
+.sigillo-bordo { stroke: #E6C870; }
+.sigillo-filo { stroke: #C9A53F; }
+.sigillo-spunta { stroke: #F3DE9A; }
+
+/* nella testa della scheda: una targhetta su una riga, accanto a regione e stato */
+.bando-revisore--piccola {
+    min-height: 0;
+    margin: 0;
+    padding: 4px 13px 4px 5px;
+    gap: 8px;
+    border-radius: 100px;
+    box-shadow: 0 1px 4px rgba(184, 137, 43, 0.45);
+}
+
+.bando-revisore--piccola .bando-sigillo {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 26px;
+    height: 26px;
+}
+
+.bando-revisore--piccola .sigillo-nastro {
+    display: none;
+}
+
+.bando-revisore--piccola .bando-revisore-nome {
+    font-size: 0.7rem;
+    letter-spacing: 0.9px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bando-revisore::after { animation: none; display: none; }
+    .bando-card--revisore > .bando-sigillo { transition: none; }
 }
 
 .bando-chip {
@@ -646,6 +748,10 @@
 
     .bando-card {
         padding: 18px 16px;
+    }
+
+    .bando-card--revisore > .bando-revisore {
+        margin: -18px -16px 16px;
     }
 
     /* a tutto schermo: su un telefono una finestra con i margini e' una fessura */
