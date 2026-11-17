@@ -21941,7 +21941,14 @@
         const c = r.consensi || {};
         const daModulo = !r.inserito && !r.importato;
         const quandoIscr = String(r.data || '').trim();
-        const voce = (et, val) => (val === '' || val == null) ? '' : '<tr><td class="et">' + esc(et) + '</td><td>' + val + '</td></tr>';
+        /* TUTTO IN UNA PAGINA: i dati stanno su due colonne affiancate, e
+           solo una voce lunga (un messaggio, un elenco di interessi) si
+           prende la riga intera. `lungo` e' la misura del testo, senza i tag. */
+        const voce = (et, val) => {
+            if (val === '' || val == null) return '';
+            const lungo = String(val).replace(/<[^>]*>/g, '').length + String(et).length > 62;
+            return '<div class="v' + (lungo ? ' larga' : '') + '"><span class="et">' + esc(et) + '</span><span>' + val + '</span></div>';
+        };
         const md = (e && !e.tutti) ? modalitaDi(e, r) : String(r.modalita || '');
         const sezione = (SEZIONI_MODALITA.find(x => x.id === md) || {}).nome || '';
         const confermata = r.emailConfermata && r.emailConfermata.quando
@@ -21977,12 +21984,16 @@
             ? 'Consensi espressi dalla persona spuntando le caselle del modulo di iscrizione online, alla data dell\'iscrizione.'
             : 'Iscrizione ' + (r.importato ? 'importata da un elenco' : 'inserita dalla segreteria') + ', non dal modulo online: '
                 + 'i consensi qui sotto sono quelli che risultano sulla scheda, e dove non risultano non sono stati raccolti da questo sistema.';
+        // il logo con l'indirizzo intero: la finestra di stampa e' una pagina vuota, senza percorso suo
+        let logo = '';
+        try { logo = new URL('../assets/logo-revilaw.png', location.href).href; } catch (er) { logo = 'https://nextgenerationbusiness.it/assets/logo-revilaw.png'; }
         return '<section class="scheda">'
-            + '<header><h1>Scheda dell\'iscrizione e consensi</h1>'
+            + '<header class="conlogo"><div><h1>Scheda dell\'iscrizione e consensi</h1>'
             + '<div class="sotto">Next Generation Business' + (e && !e.tutti ? ' - ' + esc(e.titolo + ', ' + e.quando) : '') + '</div>'
-            + '<div class="meta">stampato il ' + esc(fmtDataOra(Date.now())) + ' &middot; documento riservato</div></header>'
-            + '<div class="tema"><h2>Dati dell\'iscrizione</h2><table class="dati"><tbody>' + dati + '</tbody></table></div>'
-            + (altre ? '<div class="tema"><h2>Altre informazioni</h2><table class="dati"><tbody>' + altre + '</tbody></table></div>' : '')
+            + '<div class="meta">stampato il ' + esc(fmtDataOra(Date.now())) + ' &middot; documento riservato</div></div>'
+            + '<img class="logo" src="' + esc(logo) + '" alt="Revilaw"></header>'
+            + '<div class="tema"><h2>Dati dell\'iscrizione</h2><div class="griglia">' + dati + '</div></div>'
+            + (altre ? '<div class="tema"><h2>Altre informazioni</h2><div class="griglia">' + altre + '</div></div>' : '')
             + '<div class="tema"><h2>Consensi</h2><p class="origine">' + esc(origine) + '</p>'
             + '<table class="cons"><thead><tr><th style="width:130px;">Consenso</th><th>Testo della casella nel modulo</th><th style="width:120px;">Espresso</th></tr></thead>'
             + '<tbody>' + consensi + '</tbody></table></div>'
@@ -21996,12 +22007,25 @@
             ? 'Consensi - ' + ((lista[0].nome || '') + ' ' + (lista[0].cognome || '')).trim()
             : 'Consensi - ' + lista.length + ' iscrizioni';
         const css = STAMPA_EVENTI_CSS
-            + '.scheda{page-break-after:always;break-after:page;}.scheda:last-child{page-break-after:auto;break-after:auto;}'
-            + 'table.dati td.et,table.cons td.et{width:150px;color:#475569;font-weight:bold;}'
-            + 'table.dati tbody tr:nth-child(even) td{background:none;}'
-            + '.origine{margin:0 0 8px 13px;color:#475569;font-size:11.5px;}'
+            /* una scheda, una pagina: caratteri e margini stretti, i dati su
+               due colonne, e nessun blocco spezzato a meta' */
+            + '@page{size:A4;margin:11mm 12mm;}'
+            + 'body{margin:0;font-size:10.5px;line-height:1.35;}'
+            + '.scheda{page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;}'
+            + '.scheda:last-child{page-break-after:auto;break-after:auto;}'
+            + 'header.conlogo{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:8px;}'
+            + 'header.conlogo .logo{height:44px;width:auto;}'
+            + 'h1{font-size:18px;}.tema{margin-top:12px;}h2{font-size:12.5px;margin-bottom:4px;}'
+            + '.griglia{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;}'
+            + '.griglia .v{display:flex;gap:8px;padding:3px 4px;border-bottom:1px solid #E2E8F0;break-inside:avoid;}'
+            + '.griglia .v.larga{grid-column:1 / -1;}'
+            + '.griglia .et{flex:0 0 104px;color:#475569;font-weight:bold;}'
+            + '.griglia .v span:last-child{min-width:0;overflow-wrap:anywhere;}'
+            + 'table.cons td.et{width:112px;color:#475569;font-weight:bold;}'
+            + 'table.cons td{padding:4px 6px;}th{padding:4px 6px;}'
+            + '.origine{margin:0 0 6px 13px;color:#475569;font-size:10px;}'
             + '.esito .si{color:#166534;}.esito .no{color:#B3261E;}'
-            + 'footer{margin-top:26px;padding-top:8px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;}';
+            + 'footer{margin-top:14px;padding-top:6px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:9px;}';
         apriStampa('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + esc(titolo) + '</title>'
             + '<style>' + css + '</style></head><body>' + lista.map(r => schedaConsensiHtml(ev, r)).join('') + '</body></html>');
         try { Audit.registra(Auth.utenteCorrente, 'Evento: stampa scheda e consensi', 'sistema', ev.id, null, lista.length + (lista.length === 1 ? ' iscrizione' : ' iscrizioni')); } catch (e) { }
@@ -22015,7 +22039,17 @@
         finestra.document.close();
         // un attimo perche' la pagina si impagini, poi la finestra di stampa
         finestra.focus();
-        setTimeout(() => { try { finestra.print(); } catch (e) { } }, 300);
+        /* Se il foglio ha immagini (il logo) si aspetta che siano arrivate,
+           al massimo due secondi: stampare prima vorrebbe dire un riquadro
+           vuoto al posto del logo. Senza immagini resta l'attesa di sempre. */
+        const stampa = () => { try { finestra.print(); } catch (e) { } };
+        let img = [];
+        try { img = Array.prototype.slice.call(finestra.document.images || []).filter(i => !i.complete); } catch (e) { img = []; }
+        if (!img.length) { setTimeout(stampa, 300); return; }
+        let fatto = false, mancano = img.length;
+        const via = () => { if (fatto) return; fatto = true; setTimeout(stampa, 150); };
+        img.forEach(i => { const una = () => { if (--mancano <= 0) via(); }; i.addEventListener('load', una); i.addEventListener('error', una); });
+        setTimeout(via, 2000);
     }
 
     /* --- riconoscere che due iscritti sono della STESSA azienda ---
