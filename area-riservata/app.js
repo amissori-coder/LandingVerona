@@ -21928,7 +21928,19 @@
         privacyConPolicy: ', come descritto nella privacy policy (https://www.iubenda.com/privacy-policy/40996386).',
         marketing: 'Desidero ricevere aggiornamenti su programma, relatori e future iniziative.',
         riprese: 'Acconsento alle riprese fotografiche e video: la giornata sarà registrata e potranno essere presenti troupe di '
-            + 'telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali.'
+            + 'telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali.',
+        /* IL CONSENSO PARTNER (facoltativo): la comunicazione dei dati ai
+           Partner dell'evento. Gia' in forma di HTML, perche' ha un elenco;
+           senza il collegamento alla sezione Partner, che su un foglio non
+           si preme. Nessun modulo lo raccoglie ancora: per chi si e' iscritto
+           finora vale "non acconsentito" (vedi schedaConsensiHtml). */
+        partnerHtml: '<i>Alcuni partner potrebbero anche non intervenire come relatori.</i><br>'
+            + 'Autorizzo Revilaw S.p.A. a comunicare ai Partner dell\'evento elencati nella sezione Partner i seguenti dati: nome e cognome, '
+            + 'email, numero di telefono, azienda/studio, città, ruolo, partita IVA, codice fiscale, fatturato aziendale e numero dipendenti.<br>'
+            + 'I Partner potranno contattarmi via email o telefono per:'
+            + '<ul class="punti"><li>invio di materiali utili/approfondimenti relativi all\'evento;</li>'
+            + '<li>comunicazioni informative e commerciali/promozionali sui propri servizi e iniziative.</li></ul>'
+            + '<i>Nota: l\'iscrizione e l\'invio delle comunicazioni operative (inclusi tool e materiali) non dipendono da questo consenso.</i>'
     };
     // l'evento della riga: nel riepilogo "tutti" si ricava dalla pagina dell'iscrizione
     function eventoDellaRiga(ev, r) {
@@ -21979,7 +21991,11 @@
         const rigaCons = (nome, testo, v, quando) => '<tr><td class="et">' + esc(nome) + '</td><td>' + esc(testo) + '</td><td class="esito">' + esito(v, quando) + '</td></tr>';
         const consensi = rigaCons('Privacy', TESTI_CONSENSI.privacy + (e && e.filtro === 'napoli' ? '.' : TESTI_CONSENSI.privacyConPolicy), c.privacy, c.privacy === true ? quandoIscr : '')
             + rigaCons('Aggiornamenti', TESTI_CONSENSI.marketing, c.marketing, c.marketing === true ? quandoIscr : '')
-            + (conRiprese || c.riprese ? rigaCons('Riprese foto e video', TESTI_CONSENSI.riprese, c.riprese ? true : null, c.riprese ? fmtDataOra(c.riprese.quando) : '') : '');
+            + (conRiprese || c.riprese ? rigaCons('Riprese foto e video', TESTI_CONSENSI.riprese, c.riprese ? true : null, c.riprese ? fmtDataOra(c.riprese.quando) : '') : '')
+            /* Il consenso partner e' facoltativo e finora non l'ha dato
+               nessuno: senza il segno sulla scheda vale NO, non "non risulta". */
+            + '<tr><td class="et">Consenso partner<div class="nota">facoltativo</div></td><td>' + TESTI_CONSENSI.partnerHtml + '</td><td class="esito">'
+            + (c.partner && c.partner.quando ? esito(true, fmtDataOra(c.partner.quando)) : '<b class="no">NO</b><div class="nota">non acconsentito</div>') + '</td></tr>';
         const origine = daModulo
             ? 'Consensi espressi dalla persona spuntando le caselle del modulo di iscrizione online, alla data dell\'iscrizione.'
             : 'Iscrizione ' + (r.importato ? 'importata da un elenco' : 'inserita dalla segreteria') + ', non dal modulo online: '
@@ -22023,6 +22039,7 @@
             + '.griglia .v span:last-child{min-width:0;overflow-wrap:anywhere;}'
             + 'table.cons td.et{width:112px;color:#475569;font-weight:bold;}'
             + 'table.cons td{padding:4px 6px;}th{padding:4px 6px;}'
+            + 'table.cons .punti{margin:2px 0 2px 16px;}table.cons td.et .nota{font-weight:normal;font-size:9.5px;}'
             + '.origine{margin:0 0 6px 13px;color:#475569;font-size:10px;}'
             + '.esito .si{color:#166534;}.esito .no{color:#B3261E;}'
             + 'footer{margin-top:14px;padding-top:6px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:9px;}';
