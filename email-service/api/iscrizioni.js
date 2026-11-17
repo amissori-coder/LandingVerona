@@ -681,6 +681,18 @@ module.exports = async (req, res) => {
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'
                        l'oggetto letto dal database resta com'e'. */
+                    /* I CONSENSI ESPRESSI NEL MODULO, per la scheda da stampare
+                       (app.js, stampaConsensi). true o false se la casella e'
+                       arrivata, null se sulla scheda non c'e' (iscrizione
+                       inserita a mano o importata): "non risulta" non e' un
+                       no. Le riprese portano il momento in cui sono state
+                       accettate. */
+                    consensi: {
+                        privacy: v.privacy === true ? true : (v.privacy === false ? false : null),
+                        marketing: v.marketing === true ? true : (v.marketing === false ? false : null),
+                        riprese: (v.consensoRiprese && typeof v.consensoRiprese === 'object' && v.consensoRiprese.quando)
+                            ? { quando: Number(v.consensoRiprese.quando) || 0 } : null
+                    },
                     extra: Object.assign(
                         {},
                         (v.extra && typeof v.extra === 'object') ? v.extra : {},

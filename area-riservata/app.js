@@ -17426,9 +17426,12 @@
                     + '" data-verso="' + md + '">Rimanda l\'invito in PDF</button>'
                     : '')
                 : ''),
+            // la scheda dell'iscrizione con i consensi espressi nel modulo, da stampare o salvare in PDF
+            '<button type="button" class="ev-menu-voce ev-consensi" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
+                + '">Stampa scheda e consensi (PDF)</button>',
             (adminEv
                 ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
-                + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
+                + esc(r.id) + '" data-nome=""' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
                 + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
                 : '')
         ];
@@ -18997,6 +19000,8 @@
             ? '<div class="ev-barra' + (nSel ? '' : ' vuota') + '">'
             + '<span><b>' + nSel + '</b> ' + (nSel === 1 ? 'iscrizione selezionata' : 'iscrizioni selezionate') + '</span>'
             + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
+            // una scheda per iscrizione selezionata, ognuna sulla sua pagina
+            + '<button class="btn btn-sm btn-secondary" id="ev-consensi-multi">Stampa schede e consensi (PDF)</button>'
             /* Lo spostamento in blocco sta qui e non fra le azioni della riga:
                i posti in sala finiscono per tutti insieme, e gli aderenti si
                riconoscono guardando l'elenco, non una riga per volta. */
@@ -19664,6 +19669,10 @@
             /* L'invito in PDF rimasto indietro: lo spostamento nella stessa
                sezione, senza avviso, che manda solo quello. Niente finestra:
                non c'e' niente da decidere, e il riassunto dice com'e' andata. */
+            radice.querySelectorAll('.ev-consensi').forEach(b => b.addEventListener('click', () => {
+                const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
+                if (r) stampaConsensi(ev, [r]);
+            }));
             radice.querySelectorAll('.ev-invito-pdf').forEach(b => b.addEventListener('click', () => {
                 const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
                 if (r) eseguiSpostaModalita(ev, [r], b.dataset.verso, { soloInvito: true });
@@ -19837,6 +19846,12 @@
         };
         [tutte, tutteMob].forEach(el => {
             if (el) el.addEventListener('change', () => segnaTutte(el.checked));
+        });
+        const bCons = document.getElementById('ev-consensi-multi');
+        if (bCons) bCons.addEventListener('click', () => {
+            const scelte = (_evIscrizioni || []).filter(r => _evSelezionate.has(r.id));
+            if (!scelte.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
+            stampaConsensi(ev, scelte);
         });
         const bNess = document.getElementById('ev-sel-nessuna');
         if (bNess) bNess.addEventListener('click', () => {
@@ -21893,6 +21908,105 @@
         + '@page{margin:14mm 12mm;}';
     /* La finestra di stampa: si scrive la pagina e si chiama print(), da cui
        "Salva come PDF" fa il resto. Niente librerie. */
+    /* =========================================================
+       LA SCHEDA DELL'ISCRIZIONE CON I CONSENSI
+       ---------------------------------------------------------
+       Un foglio per iscrizione: chi e', che cosa ha scritto nel
+       modulo, e i consensi che ha espresso - privacy, aggiornamenti,
+       riprese - con il momento in cui li ha dati e il testo della
+       casella. Serve a chi deve dimostrare un consenso, quindi dice
+       anche quello che NON risulta: un'iscrizione inserita a mano o
+       importata non ha caselle spuntate da nessuno, e scriverci "si"
+       sarebbe inventarsi una prova. I consensi li manda il servizio
+       (api/iscrizioni.js, `consensi`); la stampa e' quella degli altri
+       fogli della sezione (apriStampa): dalla finestra del browser si
+       stampa o si salva in PDF.
+       ========================================================= */
+    const TESTI_CONSENSI = {
+        privacy: 'Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR)',
+        // i moduli da Milano in poi rimandano alla privacy policy; quello di Napoli no
+        privacyConPolicy: ', come descritto nella privacy policy (https://www.iubenda.com/privacy-policy/40996386).',
+        marketing: 'Desidero ricevere aggiornamenti su programma, relatori e future iniziative.',
+        riprese: 'Acconsento alle riprese fotografiche e video: la giornata sarà registrata e potranno essere presenti troupe di '
+            + 'telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali.'
+    };
+    // l'evento della riga: nel riepilogo "tutti" si ricava dalla pagina dell'iscrizione
+    function eventoDellaRiga(ev, r) {
+        if (ev && !ev.tutti) return ev;
+        const p = String((r && r.pagina) || '').toLowerCase();
+        return EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0) || ev;
+    }
+    function schedaConsensiHtml(ev, r) {
+        const e = eventoDellaRiga(ev, r);
+        const c = r.consensi || {};
+        const daModulo = !r.inserito && !r.importato;
+        const quandoIscr = String(r.data || '').trim();
+        const voce = (et, val) => (val === '' || val == null) ? '' : '<tr><td class="et">' + esc(et) + '</td><td>' + val + '</td></tr>';
+        const md = (e && !e.tutti) ? modalitaDi(e, r) : String(r.modalita || '');
+        const sezione = (SEZIONI_MODALITA.find(x => x.id === md) || {}).nome || '';
+        const confermata = r.emailConfermata && r.emailConfermata.quando
+            ? ' <span class="nota">(indirizzo confermato il ' + esc(fmtDataOra(r.emailConfermata.quando)) + ')</span>'
+            : (r.emailConfermata ? ' <span class="nota">(indirizzo confermato)</span>' : '');
+        const verificato = r.telefonoVerificato && r.telefonoVerificato.quando
+            ? ' <span class="nota">(verificato con codice SMS il ' + esc(fmtDataOra(r.telefonoVerificato.quando)) + ')</span>' : '';
+        const dati = voce('Nome e cognome', '<b>' + esc(((r.nome || '') + ' ' + (r.cognome || '')).trim()) + '</b>')
+            + voce('Email', r.email ? esc(r.email) + confermata : '')
+            + voce('Cellulare', r.telefono ? esc(r.telefono) + verificato : '')
+            + voce('Azienda', esc(r.azienda || ''))
+            + voce('Ruolo', esc(r.ruolo || ''))
+            + voce('Evento', e && !e.tutti ? esc(e.titolo + ', ' + e.quando) : '')
+            + voce('Modulo', esc(r.pagina || ''))
+            + voce('Data dell\'iscrizione', esc(quandoIscr))
+            + voce('Partecipazione', esc(sezione))
+            + voce('Codice invito', r.invito && r.invito.codice ? esc(r.invito.codice) + (r.invito.azienda ? ' - ' + esc(r.invito.azienda) : '') : '')
+            + voce('Messaggio', esc(r.messaggio || ''));
+        const extra = (r.extra && typeof r.extra === 'object') ? r.extra : {};
+        const altre = Object.keys(extra).filter(k => String(extra[k] == null ? '' : extra[k]).trim())
+            .map(k => voce(k, esc(String(extra[k])))).join('');
+        /* Un consenso: SI' con quando, NO, oppure "non risulta" - che non e'
+           un no, e' l'assenza della casella sulla scheda. */
+        const esito = (v, quando) => v === true
+            ? '<b class="si">SÌ</b>' + (quando ? '<div class="nota">' + esc(quando) + '</div>' : '')
+            : (v === false ? '<b class="no">NO</b>' : '<span class="nota">non risulta</span>');
+        const conRiprese = !(e && e.soloOnline);
+        const rigaCons = (nome, testo, v, quando) => '<tr><td class="et">' + esc(nome) + '</td><td>' + esc(testo) + '</td><td class="esito">' + esito(v, quando) + '</td></tr>';
+        const consensi = rigaCons('Privacy', TESTI_CONSENSI.privacy + (e && e.filtro === 'napoli' ? '.' : TESTI_CONSENSI.privacyConPolicy), c.privacy, c.privacy === true ? quandoIscr : '')
+            + rigaCons('Aggiornamenti', TESTI_CONSENSI.marketing, c.marketing, c.marketing === true ? quandoIscr : '')
+            + (conRiprese || c.riprese ? rigaCons('Riprese foto e video', TESTI_CONSENSI.riprese, c.riprese ? true : null, c.riprese ? fmtDataOra(c.riprese.quando) : '') : '');
+        const origine = daModulo
+            ? 'Consensi espressi dalla persona spuntando le caselle del modulo di iscrizione online, alla data dell\'iscrizione.'
+            : 'Iscrizione ' + (r.importato ? 'importata da un elenco' : 'inserita dalla segreteria') + ', non dal modulo online: '
+                + 'i consensi qui sotto sono quelli che risultano sulla scheda, e dove non risultano non sono stati raccolti da questo sistema.';
+        return '<section class="scheda">'
+            + '<header><h1>Scheda dell\'iscrizione e consensi</h1>'
+            + '<div class="sotto">Next Generation Business' + (e && !e.tutti ? ' - ' + esc(e.titolo + ', ' + e.quando) : '') + '</div>'
+            + '<div class="meta">stampato il ' + esc(fmtDataOra(Date.now())) + ' &middot; documento riservato</div></header>'
+            + '<div class="tema"><h2>Dati dell\'iscrizione</h2><table class="dati"><tbody>' + dati + '</tbody></table></div>'
+            + (altre ? '<div class="tema"><h2>Altre informazioni</h2><table class="dati"><tbody>' + altre + '</tbody></table></div>' : '')
+            + '<div class="tema"><h2>Consensi</h2><p class="origine">' + esc(origine) + '</p>'
+            + '<table class="cons"><thead><tr><th style="width:130px;">Consenso</th><th>Testo della casella nel modulo</th><th style="width:120px;">Espresso</th></tr></thead>'
+            + '<tbody>' + consensi + '</tbody></table></div>'
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</section>';
+    }
+    function stampaConsensi(ev, righe) {
+        const lista = (righe || []).filter(Boolean);
+        if (!lista.length) return;
+        const titolo = lista.length === 1
+            ? 'Consensi - ' + ((lista[0].nome || '') + ' ' + (lista[0].cognome || '')).trim()
+            : 'Consensi - ' + lista.length + ' iscrizioni';
+        const css = STAMPA_EVENTI_CSS
+            + '.scheda{page-break-after:always;break-after:page;}.scheda:last-child{page-break-after:auto;break-after:auto;}'
+            + 'table.dati td.et,table.cons td.et{width:150px;color:#475569;font-weight:bold;}'
+            + 'table.dati tbody tr:nth-child(even) td{background:none;}'
+            + '.origine{margin:0 0 8px 13px;color:#475569;font-size:11.5px;}'
+            + '.esito .si{color:#166534;}.esito .no{color:#B3261E;}'
+            + 'footer{margin-top:26px;padding-top:8px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;}';
+        apriStampa('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + esc(titolo) + '</title>'
+            + '<style>' + css + '</style></head><body>' + lista.map(r => schedaConsensiHtml(ev, r)).join('') + '</body></html>');
+        try { Audit.registra(Auth.utenteCorrente, 'Evento: stampa scheda e consensi', 'sistema', ev.id, null, lista.length + (lista.length === 1 ? ' iscrizione' : ' iscrizioni')); } catch (e) { }
+    }
+
     function apriStampa(pagina) {
         const finestra = window.open('', '_blank');
         if (!finestra) { toast('Il browser ha bloccato la finestra di stampa: consenti i pop-up per questo sito.', 'rosso'); return; }
