@@ -1054,6 +1054,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // solo nella pagina di sponsor e relatori: come partecipa (sponsor o relatore)
             ruoloEvento: valore('ruoloEvento'),
             privacy: $('privacy').checked, marketing: $('marketing').checked, riprese: $('riprese').checked,
+            // il consenso partner, facoltativo: la casella c'e' solo nel modulo dell'evento
+            partner: !!($('partner') && $('partner').checked),
             percorso: location.pathname
         }).then(d => {
             if (!d || !d.ok) {
