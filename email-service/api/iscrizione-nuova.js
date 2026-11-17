@@ -1983,6 +1983,11 @@ module.exports = async (req, res) => {
            riservata e' il baffetto accanto al numero. */
         // il consenso alle riprese, con il momento in cui e' stato dato
         if (evVerificato && consenso(body.riprese) === true) scheda.consensoRiprese = { quando: Date.now(), come: 'modulo' };
+        /* Il consenso partner (facoltativo): la comunicazione dei dati ai
+           Partner dell'evento. Si scrive SOLO se la casella e' spuntata;
+           senza, sulla scheda non c'e' niente e vale "non acconsentito"
+           (api/iscrizioni.js, app.js stampaConsensi). */
+        if (consenso(body.partner) === true) scheda.consensoPartner = { quando: Date.now(), come: 'modulo' };
         if (numeroVerificato) {
             scheda.telefono = VERIFICATA.leggibile(numeroVerificato);
             scheda.telefonoNumero = numeroVerificato;

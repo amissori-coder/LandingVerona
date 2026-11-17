@@ -691,7 +691,10 @@ module.exports = async (req, res) => {
                         privacy: v.privacy === true ? true : (v.privacy === false ? false : null),
                         marketing: v.marketing === true ? true : (v.marketing === false ? false : null),
                         riprese: (v.consensoRiprese && typeof v.consensoRiprese === 'object' && v.consensoRiprese.quando)
-                            ? { quando: Number(v.consensoRiprese.quando) || 0 } : null
+                            ? { quando: Number(v.consensoRiprese.quando) || 0 } : null,
+                        // il consenso partner (facoltativo): nessun modulo lo raccoglie ancora, quindi oggi e' sempre assente
+                        partner: (v.consensoPartner && typeof v.consensoPartner === 'object' && v.consensoPartner.quando)
+                            ? { quando: Number(v.consensoPartner.quando) || 0 } : null
                     },
                     extra: Object.assign(
                         {},
