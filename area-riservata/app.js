@@ -22001,7 +22001,14 @@
             + voce('Codice invito', r.invito && r.invito.codice ? esc(r.invito.codice) + (r.invito.azienda ? ' - ' + esc(r.invito.azienda) : '') : '')
             + voce('Messaggio', esc(r.messaggio || ''));
         const extra = (r.extra && typeof r.extra === 'object') ? r.extra : {};
-        const altre = Object.keys(extra).filter(k => String(extra[k] == null ? '' : extra[k]).trim())
+        /* SOLO QUELLO CHE LA PERSONA HA INDICATO NEL MODULO: profilo,
+           settore, fatturato, interessi e la richiesta di incontri (le
+           etichette sono quelle di CAMPI_MATCHING in api/iscrizioni.js). Le
+           altre colonne dell'elenco - importate da un file, scritte dalla
+           segreteria, nate dagli incontri B2B - non le ha dichiarate lei, e
+           su questo foglio non ci vanno. */
+        const DAL_MODULO = ['Profilo', 'Settore', 'Fatturato', 'Interessi', 'Incontro B2B'];
+        const altre = DAL_MODULO.filter(k => String(extra[k] == null ? '' : extra[k]).trim())
             .map(k => voce(k, esc(String(extra[k])))).join('');
         /* Un consenso: SI' con quando, NO, oppure "non risulta" - che non e'
            un no, e' l'assenza della casella sulla scheda. */
@@ -22057,7 +22064,7 @@
             + '<div class="meta">stampato il ' + esc(fmtDataOra(Date.now())) + ' &middot; documento riservato</div></div>'
             + '<img class="logo" src="' + esc(logo) + '" alt="Revilaw"></header>'
             + '<div class="tema"><h2>Dati dell\'iscrizione</h2><div class="griglia">' + dati + '</div></div>'
-            + (altre ? '<div class="tema"><h2>Altre informazioni</h2><div class="griglia">' + altre + '</div></div>' : '')
+            + (altre ? '<div class="tema"><h2>Altre informazioni indicate nel modulo</h2><div class="griglia">' + altre + '</div></div>' : '')
             + '<div class="tema"><h2>Verifica dell\'indirizzo email e del cellulare</h2>'
             + '<table class="cons"><thead><tr><th style="width:112px;">Recapito</th><th>Come è stato verificato</th><th style="width:120px;">Quando</th></tr></thead>'
             + '<tbody>' + verifiche + '</tbody></table></div>'
