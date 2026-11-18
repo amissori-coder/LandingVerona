@@ -90,6 +90,8 @@ a.pulsante:focus-visible, button.pulsante:focus-visible { outline: 2px solid var
 .spunta { display: flex; gap: 0.7rem; align-items: flex-start; margin-top: 1rem; padding: 0.9rem; background: var(--blu-tenue); cursor: pointer; font-size: 0.9rem; font-weight: 500; }
 .spunta input { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--blu); }
 button.pulsante:disabled { background: #9aa9ba; cursor: not-allowed; }
+/* il testo e' sempre giustificato: anche dove non e' un paragrafo */
+.voce .testo, .spunta span, .partner-testo p, .partner-testo li, .blocco .sotto, .stato p { text-align: justify !important; text-align-last: start; }
 .errore { margin-top: 0.75rem; font-size: 0.875rem; color: #a3231b; }
 </style>
 </head>
