@@ -1857,6 +1857,16 @@ module.exports = async (req, res) => {
            PDF. Tutte e due rispondono "non trovato" a chi non ha la chiave
            del cartello o prova fuori dai giorni dell'evento: la ragione sta
            in lib/accredito-desk.js. */
+        /* La pagina /consensi/: i consensi gia' espressi e il consenso partner
+           che manca (lib/consensi-partner.js). La firma vale per quella scheda. */
+        if (azione === 'consensi-leggi' || azione === 'consensi-salva') {
+            initAdmin(leggiServiceAccount());
+            const CP = require('../lib/consensi-partner');
+            const r = azione === 'consensi-leggi' ? await CP.leggi(admin.firestore(), body) : await CP.salva(admin.firestore(), body);
+            if (r.corpo && r.corpo.ok && azione === 'consensi-salva' && !r.corpo.gia) { try { await segnaCambiamento(admin.firestore()); } catch (_) { /* si vedra' alla prossima lettura */ } }
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
         if (azione === 'conferma-email') {
             const cred4 = leggiServiceAccount();
             initAdmin(cred4);

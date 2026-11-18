@@ -15667,6 +15667,8 @@
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
             manuale: true, luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano', urlPagina: '/milano_febbraio_2027/',
+            // il modulo ha la casella del consenso partner: a chi si e' iscritto prima lo si chiede per mail
+            consensoPartner: true,
             /* I MODULI CHE SUL SITO NON SI VEDONO: pagine con `noindex`, fuori
                dalla sitemap e senza link dal resto del sito, che si raggiungono
                solo dal collegamento mandato a chi deve iscriversi. Stanno nel
@@ -15937,7 +15939,9 @@
     function firmaIscr(l) {
         return (l || []).map(r => r.id + '~' + (r.azienda || '')
             + '~' + ((r.emailConfermata && r.emailConfermata.come) || '')
-            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')).join('|');
+            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')
+            // il consenso partner dato dal collegamento della mail: la riga si aggiorna da sola
+            + '~' + ((r.consensi && r.consensi.partner && r.consensi.partner.quando) || '') + ((r.consensi && r.consensi.partnerChiesto) ? 'c' : '')).join('|');
     }
     // anche stati e note entrano nell'impronta: se un collega segna una presenza,
     // l'aggiornamento automatico se ne accorge e ridisegna. Nell'impronta c'e'
@@ -18078,6 +18082,21 @@
     /* IL BAFFETTO ACCANTO AL CELLULARE: il numero ha ricevuto il codice SMS
        e la persona lo ha scritto nel modulo (Milano 2027). Lo scrive il
        servizio sulla scheda (telefonoVerificato), e vale per quella riga. */
+    /* IL CONSENSO PARTNER SULLA RIGA, dove il modulo lo prevede: dato (dal
+       modulo o dal collegamento personale della mail, con il momento),
+       oppure chiesto per mail e non ancora dato. Chi non l'ha dato e non
+       ha ricevuto la mail non ha niente da dire. */
+    function consensoPartnerRiga(ev, r) {
+        if (!ev || !ev.consensoPartner) return '';
+        const c = r && r.consensi;
+        if (c && c.partner && c.partner.quando) {
+            return '<div class="hint ev-consenso-partner si" title="Consenso partner dato il ' + esc(fmtDataOra(c.partner.quando)) + '">consenso partner &#10003;</div>';
+        }
+        if (c && c.partnerChiesto) {
+            return '<div class="hint ev-consenso-partner" title="Mail del consenso partner inviata il ' + esc(fmtDataOra(c.partnerChiesto)) + ': non ha ancora risposto">consenso partner chiesto</div>';
+        }
+        return '';
+    }
     function baffettoTelefono(r) {
         const v = r && r.telefonoVerificato;
         if (!v || !v.quando) return '';
@@ -18954,7 +18973,7 @@
                indirizziConfermati): resta solo "mail non inviata", che non
                e' uno stato ma un errore da sistemare. */
             // sotto l'indirizzo: "email da confermare" con i solleciti (lettera e PEC) e le loro date
-            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + '</td>';
+            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + consensoPartnerRiga(ev, r) + '</td>';
             celle['b:telefono'] = '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>';
             if (fisse) {
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
@@ -19174,6 +19193,10 @@
            L'invito agli incontri B2B non e' piu' qui: sta con la giornata. */
         const bottoniIscrizioni =
             ((ev.manuale && puoAggiungereIscrizioni()) ? '<button class="btn btn-sm btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
+            /* LA MAIL DEL CONSENSO PARTNER a chi si e' iscritto prima che il
+               modulo avesse la casella: solo dove il modulo la prevede. */
+            + (ev.consensoPartner && puoAggiungereIscrizioni()
+                ? '<button class="btn btn-sm btn-secondary" id="ev-consenso-partner">Chiedi il consenso partner</button>' : '')
             + (admin ? '<button class="btn btn-sm btn-secondary" id="ev-importa">Importa</button>'
                 /* IL PREGRESSO DELLA CONFERMA EMAIL: chi era iscritto prima
                    che la mail avesse il pulsante "conferma il tuo indirizzo"
@@ -19443,6 +19466,8 @@
                 });
             }
         }
+        const bConsP = document.getElementById('ev-consenso-partner');
+        if (bConsP) bConsP.addEventListener('click', () => modaleConsensoPartner(ev));
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         // l'invito agli incontri e l'elenco dei prenotati li collega collegaGiornataBlocco
@@ -22046,6 +22071,126 @@
         apriStampa('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + esc(titolo) + '</title>'
             + '<style>' + css + '</style></head><body>' + lista.map(r => schedaConsensiHtml(ev, r)).join('') + '</body></html>');
         try { Audit.registra(Auth.utenteCorrente, 'Evento: stampa scheda e consensi', 'sistema', ev.id, null, lista.length + (lista.length === 1 ? ' iscrizione' : ' iscrizioni')); } catch (e) { }
+    }
+
+    /* =========================================================
+       LA MAIL "COMPLETA I TUOI CONSENSI"
+       ---------------------------------------------------------
+       A tutti gli iscritti dell'evento che il consenso partner non
+       l'hanno ancora dato: la mail spiega perche' conviene e porta
+       il pulsante verso la pagina /consensi/, con i consensi gia'
+       espressi e quello mancante. Il testo e' in newsletter-format
+       (consensoPartner); il collegamento personale lo mette il
+       servizio (lib/consensi-partner.js), che salta chi il consenso
+       lo ha gia' dato e, senza la spunta del reinvio, chi la mail
+       l'ha gia' ricevuta. Si spedisce a blocchi: ogni chiamata ha
+       un tempo, e quello che avanza riparte da solo.
+       ========================================================= */
+    function modaleConsensoPartner(ev) {
+        const tutti = soloIscritti(ev, _evIscrizioni || []);
+        const emailOk = r => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(r.email || '').trim());
+        const dato = r => !!(r.consensi && r.consensi.partner && r.consensi.partner.quando);
+        const chiesto = r => !!(r.consensi && r.consensi.partnerChiesto);
+        // un indirizzo, una mail
+        const visti = {};
+        const conMail = tutti.filter(r => emailOk(r) && !dato(r)).filter(r => {
+            const e = String(r.email).trim().toLowerCase();
+            if (visti[e]) return false;
+            visti[e] = true;
+            return true;
+        });
+        const nuovi = conMail.filter(r => !chiesto(r));
+        const gia = conMail.length - nuovi.length;
+        const nDato = tutti.filter(dato).length;
+        const nSenza = tutti.filter(r => !emailOk(r) && !dato(r)).length;
+        const num = n => Number(n).toLocaleString('it-IT');
+        const mail = () => (window.RV_NEWSLETTER && RV_NEWSLETTER.consensoPartner)
+            ? RV_NEWSLETTER.consensoPartner({ evento: { titolo: ev.titolo, quando: ev.quando } }) : null;
+        apriModale('<h2>Chiedi il consenso partner</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Una mail agli iscritti di ' + esc(ev.titolo) + ' che non hanno ancora dato il consenso partner: '
+            + 'spiega perché è utile e porta un pulsante verso la pagina con i consensi già espressi e quello mancante. '
+            + 'Il collegamento è personale, uno per iscritto.</p>'
+            + '<div class="ev-imp-passo"><b>' + num(nuovi.length) + '</b> ' + (nuovi.length === 1 ? 'iscritto la riceve' : 'iscritti la ricevono') + ' adesso'
+            + (nDato ? ' &middot; ' + num(nDato) + ' il consenso lo ' + (nDato === 1 ? 'ha' : 'hanno') + ' già dato' : '')
+            + (nSenza ? ' &middot; ' + num(nSenza) + ' senza email' : '') + '</div>'
+            + (gia ? '<label class="mi-flag" style="margin:8px 0;"><input type="checkbox" id="cp-forza"> Manda di nuovo anche ai <b>' + num(gia)
+                + '</b> che l\'hanno già ricevuta e non hanno ancora risposto</label>' : '')
+            + '<div id="cp-anteprima" style="margin-top:10px;">'
+            + '<iframe id="cp-frame" title="Anteprima della mail" sandbox="allow-same-origin" '
+            + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '<div id="cp-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="cp-no">Chiudi</button>'
+            + '<button class="btn btn-secondary" id="cp-ant">Nascondi anteprima</button>'
+            + '<button class="btn btn-primary" id="cp-si">Invia la mail</button></div>', { classe: 'larga' });
+        const esito = (t, ko) => {
+            const e = document.getElementById('cp-esito');
+            if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
+        };
+        anteprimaMail('cp', () => {
+            const m = mail();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
+            // nell'anteprima un nome di esempio e la pagina senza firma: i valori veri li mette il servizio
+            return m.html.split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc((conMail[0] && conMail[0].nome) || 'Mario'))
+                .split(RV_NEWSLETTER.SEGNAPOSTO_CONSENSI).join(SITO_PUBBLICO + '/consensi/');
+        });
+        const stato = { inCorso: false };
+        document.getElementById('cp-no').addEventListener('click', () => { if (!stato.inCorso) chiudiModale(); });
+        const bSi = document.getElementById('cp-si');
+        const quanti = () => ((document.getElementById('cp-forza') || {}).checked ? conMail.length : nuovi.length);
+        const scrivi = () => { bSi.textContent = 'Invia la mail a ' + num(quanti()); bSi.disabled = !quanti(); };
+        scrivi();
+        const ckF = document.getElementById('cp-forza');
+        if (ckF) ckF.addEventListener('change', scrivi);
+        bSi.addEventListener('click', async () => {
+            const m = mail();
+            if (!m) { esito('Formato newsletter non caricato: ricarica la pagina.', true); return; }
+            const forza = !!(ckF && ckF.checked);
+            /* Dopo un invio interrotto si riprende da quello che era rimasto,
+               non dall'elenco intero: con il reinvio spuntato chi l'ha appena
+               ricevuta la riceverebbe una seconda volta. */
+            let coda = stato.resto || (forza ? conMail : nuovi).map(r => ({ id: r.id, doc: r.doc || '' }));
+            const totale = coda.length;
+            if (!totale) return;
+            if (!stato.resto && !confirm('Parte la mail del consenso partner a ' + num(totale) + (totale === 1 ? ' iscritto' : ' iscritti') + ' di ' + ev.titolo + '. Procedo?')) return;
+            stato.inCorso = true; bSi.disabled = true;
+            const somma = { inviate: 0, giaConsenso: 0, giaChieste: 0, senzaScheda: 0, senzaEmail: 0, doppie: 0, falliti: 0 };
+            let fermi = 0, errore = '';
+            while (coda.length) {
+                esito('Invio in corso: ' + num(totale - coda.length) + ' di ' + num(totale) + '... Tieni aperta questa finestra.');
+                const blocco = coda.slice(0, 100);
+                let r;
+                try {
+                    r = await Cloud.operaPresenza({ azione: 'consenso-partner-invia', evento: ev.id, destinatari: blocco, forza: forza,
+                        mail: { oggetto: m.oggetto, html: m.html, testo: m.testo } });
+                } catch (e) { r = { ok: false, msg: 'Connessione non riuscita.' }; }
+                if (!r || !r.ok) {
+                    // "troppe modifiche ravvicinate": si aspetta e si riprova lo stesso blocco
+                    if (r && /ravvicinate/.test(String(r.msg || '')) && fermi < 6) { fermi++; await new Promise(ok => setTimeout(ok, 15000)); continue; }
+                    errore = (r && r.msg) || 'Invio non riuscito.';
+                    break;
+                }
+                Object.keys(somma).forEach(k => { somma[k] += (k === 'falliti' ? (r.falliti || []).length : (Number(r[k]) || 0)); });
+                const restanti = Array.isArray(r.restanti) ? r.restanti : [];
+                // un blocco da cui non e' uscito niente non deve girare all'infinito
+                fermi = restanti.length >= blocco.length ? fermi + 1 : 0;
+                if (fermi > 6) { errore = 'Il servizio non riesce a spedire in questo momento.'; break; }
+                coda = restanti.concat(coda.slice(blocco.length));
+            }
+            stato.inCorso = false;
+            stato.resto = (errore && coda.length) ? coda : null;
+            const pezzi = [num(somma.inviate) + (somma.inviate === 1 ? ' mail partita' : ' mail partite')];
+            if (somma.giaChieste) pezzi.push(num(somma.giaChieste) + ' già ricevuta');
+            if (somma.giaConsenso) pezzi.push(num(somma.giaConsenso) + ' con il consenso già dato');
+            if (somma.falliti) pezzi.push(num(somma.falliti) + ' non riuscite');
+            if (somma.senzaScheda) pezzi.push(num(somma.senzaScheda) + ' non più in elenco');
+            const fine = pezzi.join(', ') + '.' + (errore ? ' ' + errore + ' Restano ' + num(coda.length) + ': ripremi per completare, senza doppioni.' : '');
+            esito(fine, !!errore || !!somma.falliti);
+            bSi.disabled = !errore; if (errore) bSi.textContent = 'Riprendi l\'invio';
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: mail del consenso partner', 'sistema', ev.id, null, fine); } catch (e) { }
+            if (somma.inviate) toast(num(somma.inviate) + (somma.inviate === 1 ? ' mail partita.' : ' mail partite.'), 'verde');
+            // l'elenco si rilegge: sulle schede c'e' scritto a chi e' partita
+            try { caricaIscrizioni(ev, () => { }, true); } catch (e) { }
+        });
     }
 
     function apriStampa(pagina) {

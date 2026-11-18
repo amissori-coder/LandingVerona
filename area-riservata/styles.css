@@ -3415,6 +3415,7 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Il baffetto verde accanto all'indirizzo confermato: un segno e basta, che
    non allarga la colonna e non va a capo da solo. Anche nella vista a schede
    sul telefono sta attaccato all'indirizzo. */
+.ev-consenso-partner.si { color: var(--verde); font-weight: 600; }
 .ev-mail-ok { display: inline-block; vertical-align: baseline; margin-left: 4px; color: var(--verde); font-weight: 700; font-size: 1em; line-height: 1; white-space: nowrap; cursor: help; }
 /* La mail di conferma rifiutata dal server di posta: piccolo, rosso, con il
    motivo nel suggerimento. */
