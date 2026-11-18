@@ -694,7 +694,10 @@ module.exports = async (req, res) => {
                             ? { quando: Number(v.consensoRiprese.quando) || 0 } : null,
                         // il consenso partner (facoltativo): nessun modulo lo raccoglie ancora, quindi oggi e' sempre assente
                         partner: (v.consensoPartner && typeof v.consensoPartner === 'object' && v.consensoPartner.quando)
-                            ? { quando: Number(v.consensoPartner.quando) || 0 } : null
+                            ? { quando: Number(v.consensoPartner.quando) || 0 } : null,
+                        // la mail che lo chiede a chi si e' iscritto prima (lib/consensi-partner.js): quando e' partita
+                        partnerChiesto: (v.mailConsensoPartner && typeof v.mailConsensoPartner === 'object' && v.mailConsensoPartner.ok)
+                            ? (Number(v.mailConsensoPartner.quando) || 0) : 0
                     },
                     extra: Object.assign(
                         {},

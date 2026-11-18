@@ -2877,6 +2877,56 @@
        pagina si apre con i suoi dati e aggiorna la sua iscrizione. Senza
        sostituzione (anteprima) resta la pagina semplice. */
     const SEGNAPOSTO_FIRMA_FATTURA = '{{FIRMA_FATTURA}}';
+    /* =========================================================
+       MAIL "COMPLETA I TUOI CONSENSI" (il consenso partner)
+       ---------------------------------------------------------
+       A chi si e' iscritto prima che il modulo avesse la casella
+       del consenso partner. Dice che cosa manca, PERCHE' conviene
+       darlo (i Partner possono ricontattare la persona anche dopo
+       l'evento) e che resta facoltativo. Il pulsante porta alla
+       pagina /consensi/, che mostra i consensi gia' espressi e
+       quello mancante: il collegamento e' personale e lo mette il
+       servizio al posto di {{CONSENSI}} (lib/consensi-partner.js),
+       come {{NOME}}. Al tu, come il modulo e la pagina; niente
+       sillabazione, come gli altri avvisi agli iscritti.
+       ========================================================= */
+    const SEGNAPOSTO_CONSENSI = '{{CONSENSI}}';
+    function consensoPartner(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const oggetto = 'Completa i tuoi consensi - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = 'Manca solo il consenso partner, facoltativo: ti permette di restare in contatto con i partner anche dopo l\'evento.';
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', grazie per esserti iscritto a Next Generation Business'
+            + (quandoEv ? ' - ' + quandoEv : '') + '. Ti chiediamo un minuto per completare i consensi della tua iscrizione.';
+        const P1 = 'Iscrivendoti hai già espresso i consensi previsti dal modulo. Da pochi giorni ce n\'è uno in più, facoltativo, '
+            + 'che allora non c\'era: il consenso partner.';
+        const P2 = 'Con questo consenso i Partner dell\'evento potranno contattarti direttamente, via email o telefono: per inviarti '
+            + 'materiali e approfondimenti sui temi della giornata e per presentarti i propri servizi e le proprie iniziative.';
+        const P3 = 'È il modo più semplice per dare seguito, anche dopo l\'evento, ai contatti nati in sala e agli incontri: '
+            + 'saranno i partner a scriverti, senza che tu debba cercare i loro recapiti o lasciare di nuovo i tuoi.';
+        const P4 = 'Dal pulsante qui sotto vedi i consensi che hai già espresso e quello che manca. Se vuoi darlo, basta una spunta.';
+        const NOTA = 'Il consenso partner è facoltativo: la tua iscrizione e le comunicazioni operative sull\'evento non dipendono da '
+            + 'questa scelta, e se preferisci non darlo non devi fare nulla. Il collegamento è personale e vale solo per la tua '
+            + 'iscrizione: ti chiediamo di non inoltrarlo.';
+        const MOTIVO = 'Ricevi questa comunicazione perché sei iscritto all\'evento.';
+        const par = t => '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + SENZA_TRATTINI + '">' + testoHtml(t, true) + '</td></tr>';
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par(P1) + spazio(18) + par(P2) + spazio(18) + par(P3) + spazio(18) + par(P4)
+            + spazio(22)
+            + '<tr><td align="center" style="text-align:center;"><table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td>'
+            + pulsante('Vedi i tuoi consensi', SEGNAPOSTO_CONSENSI) + '</td></tr></table></td></tr>'
+            + spazio(24)
+            + '<tr><td style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + SENZA_TRATTINI + '">' + testoHtml(NOTA, true) + '</td></tr>'
+        ));
+        const html = involucro(oggetto, anteprima, testaB2B('I tuoi consensi', sommario, true) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO));
+        const testo = ['COMPLETA I TUOI CONSENSI', sommario, P1, P2, P3, P4, 'Vedi i tuoi consensi: ' + SEGNAPOSTO_CONSENSI, NOTA,
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
     function passaggioSezione(dati) {
         dati = dati || {};
         const s = SEZIONI_AVVISO[dati.verso];
@@ -3490,7 +3540,7 @@
         SEGNAPOSTO_NUOVO_INCONTRO: SEGNAPOSTO_NUOVO_INCONTRO, invitoNuovoIncontro: invitoNuovoIncontro,
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati,
         invitoB2B: invitoB2B, invitoB2BArea: invitoB2BArea,
-        passaggioOnline: passaggioOnline, passaggioSezione: passaggioSezione, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
+        passaggioOnline: passaggioOnline, passaggioSezione: passaggioSezione, consensoPartner: consensoPartner, SEGNAPOSTO_CONSENSI: SEGNAPOSTO_CONSENSI, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
         invitoB2BAzienda: invitoB2BAzienda, invitoB2BAziendaBreve: invitoB2BAziendaBreve,
         regoleB2B: regoleB2B,
         areaInternaB2B: areaInternaB2B, capofilaB2B: capofilaB2B,

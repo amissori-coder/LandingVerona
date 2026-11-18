@@ -171,6 +171,23 @@ function firmaFatturaAderenteValida(idDoc, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento "i tuoi consensi", nella mail che chiede il
+   consenso partner a chi si e' gia' iscritto (lib/consensi-partner.js).
+   Contesto suo: apre la pagina /consensi/ su QUELLA scheda, che mostra i
+   consensi gia' espressi e lascia aggiungere il solo consenso partner. */
+function firmaConsensi(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('consensi|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaConsensiValida(idDoc, token) {
+    if (!idDoc) return false;
+    const attesa = Buffer.from(firmaConsensi(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 /* Firma del "numero verificato": il modulo di iscrizione la riceve quando
    la persona scrive il codice arrivato per SMS, e la rimanda con il resto
    dei dati (lib/iscrizione-verificata.js). Contesto suo, come le altre:
@@ -386,6 +403,7 @@ module.exports = {
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
     firmaFatturaAderente, firmaFatturaAderenteValida,
+    firmaConsensi, firmaConsensiValida,
     firmaNuovoIncontro, firmaNuovoIncontroValida, linkNuovoIncontro,
     firmaSms, firmaSmsValida, firmaStato, firmaStatoValida,
     PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL,
