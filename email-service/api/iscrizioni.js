@@ -618,7 +618,18 @@ module.exports = async (req, res) => {
                     } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {
                         quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
-                        come: String(v.emailConfermata.come || 'mail')
+                        come: String(v.emailConfermata.come || 'mail'),
+                        // chi l'ha confermata d'ufficio, e verso quale sezione: per la scheda da stampare
+                        da: String(v.emailConfermata.da || '').slice(0, 200),
+                        verso: String(v.emailConfermata.verso || '').slice(0, 20)
+                    } : null,
+                    /* IL CELLULARE VERIFICATO con il codice SMS (Milano, webinar):
+                       il baffetto accanto al numero e la riga nella scheda dei
+                       consensi. Mancava da questa whitelist, quindi il baffetto
+                       non compariva mai. */
+                    telefonoVerificato: (v.telefonoVerificato && typeof v.telefonoVerificato === 'object' && v.telefonoVerificato.quando) ? {
+                        quando: Number(v.telefonoVerificato.quando) || 0,
+                        come: String(v.telefonoVerificato.come || 'sms')
                     } : null,
                     /* L'invito in PDF: se e' partito, e a quale indirizzo. Serve
                        alla voce "Rimanda l'invito in PDF" di chi e' confermato

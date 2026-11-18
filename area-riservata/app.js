@@ -21988,14 +21988,10 @@
         };
         const md = (e && !e.tutti) ? modalitaDi(e, r) : String(r.modalita || '');
         const sezione = (SEZIONI_MODALITA.find(x => x.id === md) || {}).nome || '';
-        const confermata = r.emailConfermata && r.emailConfermata.quando
-            ? ' <span class="nota">(indirizzo confermato il ' + esc(fmtDataOra(r.emailConfermata.quando)) + ')</span>'
-            : (r.emailConfermata ? ' <span class="nota">(indirizzo confermato)</span>' : '');
-        const verificato = r.telefonoVerificato && r.telefonoVerificato.quando
-            ? ' <span class="nota">(verificato con codice SMS il ' + esc(fmtDataOra(r.telefonoVerificato.quando)) + ')</span>' : '';
         const dati = voce('Nome e cognome', '<b>' + esc(((r.nome || '') + ' ' + (r.cognome || '')).trim()) + '</b>')
-            + voce('Email', r.email ? esc(r.email) + confermata : '')
-            + voce('Cellulare', r.telefono ? esc(r.telefono) + verificato : '')
+            // come e quando sono stati verificati sta piu' sotto, nel riquadro delle verifiche
+            + voce('Email', esc(r.email || ''))
+            + voce('Cellulare', esc(r.telefono || ''))
             + voce('Azienda', esc(r.azienda || ''))
             + voce('Ruolo', esc(r.ruolo || ''))
             + voce('Evento', e && !e.tutti ? esc(e.titolo + ', ' + e.quando) : '')
@@ -22005,7 +22001,14 @@
             + voce('Codice invito', r.invito && r.invito.codice ? esc(r.invito.codice) + (r.invito.azienda ? ' - ' + esc(r.invito.azienda) : '') : '')
             + voce('Messaggio', esc(r.messaggio || ''));
         const extra = (r.extra && typeof r.extra === 'object') ? r.extra : {};
-        const altre = Object.keys(extra).filter(k => String(extra[k] == null ? '' : extra[k]).trim())
+        /* SOLO QUELLO CHE LA PERSONA HA INDICATO NEL MODULO: profilo,
+           settore, fatturato, interessi e la richiesta di incontri (le
+           etichette sono quelle di CAMPI_MATCHING in api/iscrizioni.js). Le
+           altre colonne dell'elenco - importate da un file, scritte dalla
+           segreteria, nate dagli incontri B2B - non le ha dichiarate lei, e
+           su questo foglio non ci vanno. */
+        const DAL_MODULO = ['Profilo', 'Settore', 'Fatturato', 'Interessi', 'Incontro B2B'];
+        const altre = DAL_MODULO.filter(k => String(extra[k] == null ? '' : extra[k]).trim())
             .map(k => voce(k, esc(String(extra[k])))).join('');
         /* Un consenso: SI' con quando, NO, oppure "non risulta" - che non e'
            un no, e' l'assenza della casella sulla scheda. */
@@ -22021,6 +22024,33 @@
                nessuno: senza il segno sulla scheda vale NO, non "non risulta". */
             + '<tr><td class="et">Consenso partner<div class="nota">facoltativo</div></td><td>' + TESTI_CONSENSI.partnerHtml + '</td><td class="esito">'
             + (c.partner && c.partner.quando ? esito(true, fmtDataOra(c.partner.quando)) : '<b class="no">NO</b><div class="nota">non acconsentito</div>') + '</td></tr>';
+        /* LE VERIFICHE: come e quando sono stati verificati l'indirizzo e il
+           cellulare. L'indirizzo lo conferma la persona dal pulsante della
+           mail, oppure chi organizza (d'ufficio: spostandola fra aderenti o
+           sponsor, o per le iscrizioni di prima che la conferma esistesse).
+           Il cellulare lo verifica il codice SMS scritto nel modulo. */
+        const ec = r.emailConfermata, mc = r.mailConferma, tv = r.telefonoVerificato;
+        const sezNome = id => ((SEZIONI_MODALITA.find(x => x.id === id) || {}).nome || id);
+        let comeEmail, quandoEmail = '';
+        if (ec) {
+            quandoEmail = ec.quando ? fmtDataOra(ec.quando) : '';
+            comeEmail = ec.come === 'mail' ? '<b class="si">Confermato dalla persona</b>, premendo «Conferma il tuo indirizzo email» nella mail ricevuta dopo l\'iscrizione.'
+                : ec.come === 'spostamento' ? '<b class="si">Confermato d\'ufficio</b> con lo spostamento dell\'iscrizione' + (ec.verso ? ' fra «' + esc(sezNome(ec.verso)) + '»' : '') + (ec.da ? ', da ' + esc(ec.da) : '') + '.'
+                : '<b class="si">Confermato d\'ufficio</b>: iscrizione precedente alla richiesta di conferma dell\'indirizzo' + (ec.da ? ' (da ' + esc(ec.da) + ')' : '') + '.';
+        } else {
+            comeEmail = r.email ? '<b class="no">Non confermato</b>' + (e && e.confermaEmail ? ': la persona non ha ancora premuto il pulsante nella mail di conferma.' : ': per questo evento la conferma dell\'indirizzo non è richiesta.') : '<span class="nota">nessun indirizzo</span>';
+        }
+        const passiEmail = [];
+        if (mc && mc.quando) passiEmail.push('Mail di conferma ' + (mc.ok ? 'inviata' : 'NON partita') + ' il ' + esc(fmtDataOra(mc.quando)) + (mc.ok ? '' : (mc.errore ? ' (' + esc(mc.errore) + ')' : '')));
+        if (r.invioConferma && r.invioConferma.tentativi > 1) passiEmail.push('inviata ' + r.invioConferma.tentativi + ' volte in tutto');
+        if (r.smsConferma && r.smsConferma.quando && r.smsConferma.ok) passiEmail.push('SMS «conferma la tua email» il ' + esc(fmtDataOra(r.smsConferma.quando)));
+        const comeTel = tv && tv.quando
+            ? '<b class="si">Verificato dalla persona</b> con il codice di 6 cifre ricevuto per SMS su questo numero e scritto nel modulo di iscrizione.'
+            : (r.telefono ? '<b class="no">Non verificato</b>: ' + (daModulo ? 'il modulo di questa iscrizione non chiedeva il codice SMS.' : 'numero inserito dalla segreteria o importato.') : '<span class="nota">nessun numero</span>');
+        const rigaVer = (nome, valore, come, extra, quando) => '<tr><td class="et">' + esc(nome) + '</td><td>' + (valore ? '<div>' + esc(valore) + '</div>' : '') + come
+            + (extra ? '<div class="nota">' + extra + '</div>' : '') + '</td><td class="esito">' + (quando ? esc(quando) : '') + '</td></tr>';
+        const verifiche = rigaVer('Indirizzo email', r.email || '', comeEmail, passiEmail.join(' &middot; '), quandoEmail)
+            + rigaVer('Cellulare', r.telefono || '', comeTel, '', tv && tv.quando ? fmtDataOra(tv.quando) : '');
         const origine = daModulo
             ? 'Consensi espressi dalla persona spuntando le caselle del modulo di iscrizione online, alla data dell\'iscrizione.'
             : 'Iscrizione ' + (r.importato ? 'importata da un elenco' : 'inserita dalla segreteria') + ', non dal modulo online: '
@@ -22034,7 +22064,10 @@
             + '<div class="meta">stampato il ' + esc(fmtDataOra(Date.now())) + ' &middot; documento riservato</div></div>'
             + '<img class="logo" src="' + esc(logo) + '" alt="Revilaw"></header>'
             + '<div class="tema"><h2>Dati dell\'iscrizione</h2><div class="griglia">' + dati + '</div></div>'
-            + (altre ? '<div class="tema"><h2>Altre informazioni</h2><div class="griglia">' + altre + '</div></div>' : '')
+            + (altre ? '<div class="tema"><h2>Altre informazioni indicate nel modulo</h2><div class="griglia">' + altre + '</div></div>' : '')
+            + '<div class="tema"><h2>Verifica dell\'indirizzo email e del cellulare</h2>'
+            + '<table class="cons"><thead><tr><th style="width:112px;">Recapito</th><th>Come è stato verificato</th><th style="width:120px;">Quando</th></tr></thead>'
+            + '<tbody>' + verifiche + '</tbody></table></div>'
             + '<div class="tema"><h2>Consensi</h2><p class="origine">' + esc(origine) + '</p>'
             + '<table class="cons"><thead><tr><th style="width:130px;">Consenso</th><th>Testo della casella nel modulo</th><th style="width:120px;">Espresso</th></tr></thead>'
             + '<tbody>' + consensi + '</tbody></table></div>'
@@ -22056,7 +22089,7 @@
             + '.scheda:last-child{page-break-after:auto;break-after:auto;}'
             + 'header.conlogo{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:8px;}'
             + 'header.conlogo .logo{height:44px;width:auto;}'
-            + 'h1{font-size:18px;}.tema{margin-top:12px;}h2{font-size:12.5px;margin-bottom:4px;}'
+            + 'h1{font-size:18px;}.tema{margin-top:9px;}h2{font-size:12.5px;margin-bottom:3px;}'
             + '.griglia{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;}'
             + '.griglia .v{display:flex;gap:8px;padding:3px 4px;border-bottom:1px solid #E2E8F0;break-inside:avoid;}'
             + '.griglia .v.larga{grid-column:1 / -1;}'
@@ -22066,7 +22099,7 @@
             + 'table.cons td{padding:4px 6px;}th{padding:4px 6px;}'
             + 'table.cons .punti{margin:2px 0 2px 16px;}table.cons td.et .nota{font-weight:normal;font-size:9.5px;}'
             + '.origine{margin:0 0 6px 13px;color:#475569;font-size:10px;}'
-            + '.esito .si{color:#166534;}.esito .no{color:#B3261E;}'
+            + '.esito .si,table.cons .si{color:#166534;}.esito .no,table.cons .no{color:#B3261E;}'
             + 'footer{margin-top:14px;padding-top:6px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:9px;}';
         apriStampa('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + esc(titolo) + '</title>'
             + '<style>' + css + '</style></head><body>' + lista.map(r => schedaConsensiHtml(ev, r)).join('') + '</body></html>');
