@@ -2910,7 +2910,9 @@
             + 'questa scelta, e se preferisci non darlo non devi fare nulla. Il collegamento è personale e vale solo per la tua '
             + 'iscrizione: ti chiediamo di non inoltrarlo.';
         const MOTIVO = 'Ricevi questa comunicazione perché sei iscritto all\'evento.';
-        const par = t => '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + SENZA_TRATTINI + '">' + testoHtml(t, true) + '</td></tr>';
+        // tutto giustificato, senza sillabe spezzate: sommario, paragrafi e nota
+        const GIUSTO = 'text-align:justify;-webkit-hyphens:manual;-moz-hyphens:manual;-ms-hyphens:manual;hyphens:manual;';
+        const par = t => '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';' + GIUSTO + '">' + testoHtml(t, true) + '</td></tr>';
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par(P1) + spazio(18) + par(P2) + spazio(18) + par(P3) + spazio(18) + par(P4)
@@ -2918,9 +2920,9 @@
             + '<tr><td align="center" style="text-align:center;"><table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td>'
             + pulsante('Vedi i tuoi consensi', SEGNAPOSTO_CONSENSI) + '</td></tr></table></td></tr>'
             + spazio(24)
-            + '<tr><td style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + SENZA_TRATTINI + '">' + testoHtml(NOTA, true) + '</td></tr>'
+            + '<tr><td style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue + ';' + GIUSTO + '">' + testoHtml(NOTA, true) + '</td></tr>'
         ));
-        const html = involucro(oggetto, anteprima, testaB2B('I tuoi consensi', sommario, true) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO));
+        const html = involucro(oggetto, anteprima, testaB2B('I tuoi consensi', sommario, true).split('text-align:left;-webkit-hyphens:manual;hyphens:manual;').join(GIUSTO) + copertinaB2B() + corpo + spazio(36) + piedeB2B(MOTIVO));
         const testo = ['COMPLETA I TUOI CONSENSI', sommario, P1, P2, P3, P4, 'Vedi i tuoi consensi: ' + SEGNAPOSTO_CONSENSI, NOTA,
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
             'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
