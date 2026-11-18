@@ -15939,7 +15939,9 @@
     function firmaIscr(l) {
         return (l || []).map(r => r.id + '~' + (r.azienda || '')
             + '~' + ((r.emailConfermata && r.emailConfermata.come) || '')
-            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')).join('|');
+            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')
+            // il consenso partner dato dal collegamento della mail: la riga si aggiorna da sola
+            + '~' + ((r.consensi && r.consensi.partner && r.consensi.partner.quando) || '') + ((r.consensi && r.consensi.partnerChiesto) ? 'c' : '')).join('|');
     }
     // anche stati e note entrano nell'impronta: se un collega segna una presenza,
     // l'aggiornamento automatico se ne accorge e ridisegna. Nell'impronta c'e'
@@ -18080,6 +18082,21 @@
     /* IL BAFFETTO ACCANTO AL CELLULARE: il numero ha ricevuto il codice SMS
        e la persona lo ha scritto nel modulo (Milano 2027). Lo scrive il
        servizio sulla scheda (telefonoVerificato), e vale per quella riga. */
+    /* IL CONSENSO PARTNER SULLA RIGA, dove il modulo lo prevede: dato (dal
+       modulo o dal collegamento personale della mail, con il momento),
+       oppure chiesto per mail e non ancora dato. Chi non l'ha dato e non
+       ha ricevuto la mail non ha niente da dire. */
+    function consensoPartnerRiga(ev, r) {
+        if (!ev || !ev.consensoPartner) return '';
+        const c = r && r.consensi;
+        if (c && c.partner && c.partner.quando) {
+            return '<div class="hint ev-consenso-partner si" title="Consenso partner dato il ' + esc(fmtDataOra(c.partner.quando)) + '">consenso partner &#10003;</div>';
+        }
+        if (c && c.partnerChiesto) {
+            return '<div class="hint ev-consenso-partner" title="Mail del consenso partner inviata il ' + esc(fmtDataOra(c.partnerChiesto)) + ': non ha ancora risposto">consenso partner chiesto</div>';
+        }
+        return '';
+    }
     function baffettoTelefono(r) {
         const v = r && r.telefonoVerificato;
         if (!v || !v.quando) return '';
@@ -18956,7 +18973,7 @@
                indirizziConfermati): resta solo "mail non inviata", che non
                e' uno stato ma un errore da sistemare. */
             // sotto l'indirizzo: "email da confermare" con i solleciti (lettera e PEC) e le loro date
-            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + '</td>';
+            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + consensoPartnerRiga(ev, r) + '</td>';
             celle['b:telefono'] = '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>';
             if (fisse) {
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
