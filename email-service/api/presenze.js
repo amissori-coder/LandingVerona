@@ -670,7 +670,9 @@ module.exports = async (req, res) => {
             // il richiamo dopo il convegno porta anche lui il suo elenco di schede
             'invita-nuovo-incontro',
             // il pregresso della conferma email lavora su tutto l'evento: nessun iscritto da indicare
-            'conferma-email-pregresso'];
+            'conferma-email-pregresso',
+            // la mail del consenso partner porta il suo elenco di schede (destinatari)
+            'consenso-partner-invia'];
         if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {

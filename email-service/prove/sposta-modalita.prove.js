@@ -1150,6 +1150,31 @@ prova('Fuori da Milano non c\'e\' nessuna cena', async () => {
     esigi(r.corpo.ok === true && r.corpo.cena === null, 'l\'evento senza quota non iscrive a niente');
 });
 
+/* LA MAIL DEL CONSENSO PARTNER, DALLA PORTA VERA (api/presenze.js). La
+   logica e' provata in consensi-partner.prove.js; qui si prova che la
+   richiesta dell'area riservata ARRIVI: il servizio ha un controllo generale
+   ("Nessun iscritto indicato") che respinge le azioni senza un iscritto, e
+   questa porta il suo elenco in `destinatari`. Senza l'eccezione l'invio
+   rispondeva cosi' a ogni blocco, e non partiva niente. */
+prova('Milano: la mail del consenso partner parte dall\'area riservata', async () => {
+    scenarioMilano();
+    const primaUser = process.env.SMTP_USER, primaPass = process.env.SMTP_PASS;
+    process.env.SMTP_USER = process.env.SMTP_USER || 'noreply@esempio.it'; process.env.SMTP_PASS = process.env.SMTP_PASS || 'x';
+    const mail = { oggetto: 'Completa i tuoi consensi', html: '<p>Gentile {{NOME}}, <a href="{{CONSENSI}}">Vedi i tuoi consensi</a></p>', testo: 'Vedi: {{CONSENSI}}' };
+    const r = await chiama({ azione: 'consenso-partner-invia', evento: MI, destinatari: [MI_ATTESA, MI_CLIC, MI_ANNULLATA], mail: mail });
+    esigi(r.stato === 200 && r.corpo.ok === true, 'la richiesta passa', JSON.stringify(r.corpo).slice(0, 200));
+    const a = spedite.map(m => m.to).sort().join(',');
+    esigi(a === 'alda@attesa.it,carlo@clic.it' && r.corpo.inviate === 2, 'parte a chi e\' iscritto, non a chi ha annullato', a + ' ' + JSON.stringify(r.corpo));
+    esigi(spedite.every(m => /\/consensi\/\?d=/.test(m.html) && !/\{\{/.test(m.html)), 'ognuna con il suo collegamento personale');
+    esigi((schedaDi(MI_CLIC.id).mailConsensoPartner || {}).ok === true, 'e sulla scheda resta scritto');
+    const senza = await chiama({ azione: 'consenso-partner-invia', evento: MI, destinatari: [], mail: mail });
+    esigi(senza.stato === 400, 'senza destinatari si dice di no', JSON.stringify(senza.corpo));
+    const senzaLink = await chiama({ azione: 'consenso-partner-invia', evento: MI, destinatari: [MI_ATTESA], mail: { oggetto: 'x', html: '<p>ciao</p>' } });
+    esigi(senzaLink.stato === 400 && /collegamento/.test(senzaLink.corpo.msg), 'una mail senza il collegamento ai consensi non parte', JSON.stringify(senzaLink.corpo));
+    if (primaUser === undefined) delete process.env.SMTP_USER;
+    if (primaPass === undefined) delete process.env.SMTP_PASS;
+});
+
 (async () => {
     for (const p of prove) {
         console.log('\n' + p.titolo);
