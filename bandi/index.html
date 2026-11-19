@@ -46,7 +46,7 @@
     <link rel="stylesheet" href="../zls_zes/style.css">
     <link rel="stylesheet" href="../assets/content-page.css">
     <link rel="stylesheet" href="../contatti/style.css?v=6">
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=6">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -96,6 +96,7 @@
             </div>
             <ul class="nav-links" id="navLinks">
                 <li><a href="#elenco">I bandi</a></li>
+                <li><a href="#newsletter">Newsletter</a></li>
                 <li><a href="../approfondimenti/" class="nav-altrapagina">Approfondimenti<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a></li>
                 <li><a href="../chi_siamo/" class="nav-altrapagina">Chi siamo<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a></li>
                 <li><a href="#richiesta" class="nav-cta">Richiedi informazioni</a></li>
@@ -117,6 +118,10 @@
                 cerca per regione o per tipologia di agevolazione e chiedici informazioni
                 sul bando che ti interessa.
             </p>
+            <a href="#newsletter" class="bandi-hero-nl">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                Ricevi i nuovi bandi via email
+            </a>
         </div>
     </section>
 
@@ -188,6 +193,84 @@
                     Le schede sono sintesi a scopo informativo e non sostituiscono i testi ufficiali dei bandi:
                     requisiti, importi e scadenze vanno sempre verificati sugli avvisi pubblicati dagli enti gestori.
                 </p>
+            </div>
+        </section>
+
+        <!-- LA NEWSLETTER DEI BANDI. Chi si iscrive riceve una mail ogni volta
+             che sul sito compaiono bandi nuovi: la spedisce da sola il servizio
+             email (email-service/lib/newsletter-bandi.js), che legge dati.js.
+             L'iscrizione vale dopo la conferma dalla mail (doppio consenso). -->
+        <section class="bandi-newsletter" id="newsletter" aria-labelledby="newsletterTitolo">
+            <div class="container bandi-newsletter-griglia">
+                <div class="bandi-newsletter-colonna">
+                    <span class="bandi-newsletter-tag">Newsletter dei bandi</span>
+                    <h2 class="bandi-newsletter-titolo" id="newsletterTitolo">I nuovi bandi, <span>appena escono</span></h2>
+                    <p class="bandi-newsletter-intro">
+                        Ogni volta che pubblichiamo un bando nuovo ti mandiamo una mail con la sintesi,
+                        la scheda in PDF e il modulo per chiederci informazioni.
+                    </p>
+                    <ul class="bandi-newsletter-punti">
+                        <li>Bandi nazionali e regionali, con le scadenze</li>
+                        <li>In evidenza quelli che richiedono la certificazione del revisore</li>
+                        <li>Solo gli aggiornamenti sui bandi: ti disiscrivi con un clic</li>
+                    </ul>
+                </div>
+
+                <div class="bandi-newsletter-scheda" id="newsletterScheda">
+                    <form id="newsletterForm" class="bandi-nl-modulo" novalidate>
+                        <p class="bandi-nl-obbligatori">Tutti i campi sono obbligatori.</p>
+                        <div class="bandi-nl-campi">
+                            <div class="bandi-nl-campo">
+                                <label for="nlNome">Nome</label>
+                                <input type="text" id="nlNome" name="nome" required maxlength="80" autocomplete="given-name" autocapitalize="words" aria-describedby="nlNomeErrore">
+                                <span class="bandi-nl-errore" id="nlNomeErrore"></span>
+                            </div>
+                            <div class="bandi-nl-campo">
+                                <label for="nlCognome">Cognome</label>
+                                <input type="text" id="nlCognome" name="cognome" required maxlength="80" autocomplete="family-name" autocapitalize="words" aria-describedby="nlCognomeErrore">
+                                <span class="bandi-nl-errore" id="nlCognomeErrore"></span>
+                            </div>
+                            <div class="bandi-nl-campo">
+                                <label for="nlEmail">Email</label>
+                                <input type="email" id="nlEmail" name="email" required maxlength="200" placeholder="nome@azienda.it" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="nlEmailErrore">
+                                <span class="bandi-nl-errore" id="nlEmailErrore"></span>
+                            </div>
+                            <div class="bandi-nl-campo">
+                                <label for="nlAzienda">Azienda / Studio</label>
+                                <input type="text" id="nlAzienda" name="azienda" required maxlength="200" autocomplete="organization" aria-describedby="nlAziendaErrore">
+                                <span class="bandi-nl-errore" id="nlAziendaErrore"></span>
+                            </div>
+                        </div>
+                        <label class="bandi-nl-consenso" for="nlPrivacy">
+                            <input type="checkbox" id="nlPrivacy" name="privacy" required aria-describedby="nlPrivacyErrore">
+                            <span>Voglio ricevere via email gli aggiornamenti sui nuovi bandi e acconsento al trattamento dei miei dati come descritto nella <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">privacy policy</a>.</span>
+                        </label>
+                        <span class="bandi-nl-errore" id="nlPrivacyErrore"></span>
+
+                        <!-- Trappola per i programmi che compilano tutto: una persona non
+                             vede questo campo e lo lascia vuoto. -->
+                        <div class="domande-trappola" aria-hidden="true">
+                            <label for="nlSito">Sito web (lascia vuoto)</label>
+                            <input type="text" id="nlSito" name="sito" tabindex="-1" autocomplete="off">
+                        </div>
+                        <!-- La casella "non sono un robot": si vede solo se Cloudflare chiede un clic. -->
+                        <div class="captcha" id="nlCaptcha" hidden></div>
+
+                        <button type="submit" class="btn bandi-nl-invia" id="nlInvia">Iscriviti</button>
+                        <p class="bandi-nl-esito" id="nlErrore" role="alert"></p>
+                        <p class="bandi-nl-nota">Ti mandiamo una mail per confermare: l'iscrizione vale solo dopo la conferma.</p>
+                    </form>
+
+                    <!-- dopo l'invio, al posto del modulo -->
+                    <div class="bandi-nl-fatto" id="nlFatto" role="region" aria-labelledby="nlFattoTitolo" hidden tabindex="-1">
+                        <span class="bandi-nl-fatto-segno" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                        </span>
+                        <h3 class="bandi-nl-fatto-titolo" id="nlFattoTitolo">Controlla la posta</h3>
+                        <p>Ti abbiamo scritto a <strong id="nlFattoEmail" class="domande-indirizzo"></strong>: tocca il pulsante «Conferma l'iscrizione» nella mail. Finché non confermi non ti scriveremo.</p>
+                        <p>Non la trovi? Guarda anche in Spam e Promozioni. Se eri già iscritto, la mail te lo dice e non devi fare altro.</p>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -387,6 +470,6 @@
 
     <script src="../zls_zes/script.js"></script>
     <script src="dati.js?v=2"></script>
-    <script src="bandi.js?v=3"></script>
+    <script src="bandi.js?v=5"></script>
 </body>
 </html>

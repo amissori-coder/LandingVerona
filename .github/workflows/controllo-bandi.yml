@@ -1,0 +1,44 @@
+name: Controllo dei bandi
+
+# Quando cambia l'elenco dei bandi (bandi/dati.js), le loro schede PDF o il
+# lettore della newsletter, verifica che la pagina e la newsletter dei bandi
+# leggano il file allo stesso modo e che le schede siano coerenti (identificativi,
+# date, tipologie, PDF).
+#
+# Non tocca il sito: se c'e' un problema il controllo risulta fallito, GitHub
+# manda l'avviso via mail e nel riepilogo dell'esecuzione c'e' l'elenco.
+
+on:
+  push:
+    paths:
+      - 'bandi/dati.js'
+      - 'bandi/schede/**'
+      - 'email-service/lib/dati-bandi.js'
+      - 'scripts/bandi/**'
+      - '.github/workflows/controllo-bandi.yml'
+  pull_request:
+    paths:
+      - 'bandi/dati.js'
+      - 'bandi/schede/**'
+      - 'email-service/lib/dati-bandi.js'
+      - 'scripts/bandi/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controllo:
+    name: Pagina e newsletter leggono gli stessi bandi
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il repository
+        uses: actions/checkout@v4
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Controlla bandi/dati.js
+        run: node scripts/bandi/controlla-dati.cjs

@@ -52,7 +52,7 @@ Serve per generare i link di reimpostazione password.
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
 | `PRESENZA_NAPOLI_CHIAVE` | la chiave stampata nel QR del cartello al desk (lettere e numeri, 12-20 caratteri): **la stessa** con cui si genera il cartello, vedi "Accredito dal QR al desk" |
 | `DOMANDE_DESTINATARI` | *(facoltativa)* a chi arrivano le domande del modulo `/contatti/` e le richieste di check-up dalle pagine dei temi, indirizzi separati da virgola. Senza: `info@nextgenerationbusiness.it`. Vedi "Domande dal sito" |
-| `BANDI_DESTINATARI` | *(facoltativa)* a chi arrivano le richieste di informazioni dell'area `/bandi/`, indirizzi separati da virgola. Senza: `a.missori@emvas.tax` e `dott.venturasara@gmail.com`. Vedi "Richieste dall'area bandi" |
+| `BANDI_DESTINATARI` | *(facoltativa)* chi segue i bandi, indirizzi separati da virgola: riceve le richieste di informazioni dell'area `/bandi/`, il resoconto di ogni aggiornamento della newsletter dei bandi e le risposte degli iscritti. Senza: `a.missori@emvas.tax` e `dott.venturasara@gmail.com`. Vedi "Richieste dall'area bandi" e "Newsletter dei bandi" |
 | `CONFERMA_RISPONDI_A` | *(facoltativa)* l'indirizzo a cui va "Rispondi" sulla mail di conferma dell'iscrizione. Senza: `info@nextgenerationbusiness.it` |
 | `PROMEMORIA_SECONDA_PERSONA` | *(facoltativa)* `no` spegne la mail "l'invito vale per due persone" (per esempio a sala piena). Senza: accesa. Vedi "L'invito vale per due persone" |
 | `SOLLECITO_FROM_EMAIL` | *(facoltativa)* il mittente del sollecito personale della conferma email (a un'ora dalla mail non cliccata). Senza: `revilaw@nextgenerationbusiness.it` (il dominio autenticato su Brevo: `revilaw.it` non lo e'). **Deve essere un mittente verificato su Brevo** o di un dominio autenticato: il giro lo controlla prima di spedire. Vedi "Il sollecito personale" |
@@ -645,6 +645,7 @@ d'ambiente non ne parte nessuno.
 | `/api/promemoria-eventi` | `0 * * * *` — ogni ora piena | spedisce i promemoria agli iscritti previsti per oggi all'ora di Roma di adesso (il giro legge da se' l'ora legale o solare); quello delle 20 recupera anche chi si e' iscritto dopo un invio e segna scaduti i giorni passati |
 | `/api/riepilogo-iscrizioni` | `0 22,23 * * *` | il riepilogo serale delle iscrizioni agli organizzatori (lavora solo a mezzanotte di Milano) |
 | `/api/conferme-email` | `*/10 * * * *` — ogni dieci minuti | rispedisce la mail di conferma dell'iscrizione a chi non l'ha avuta (mai partita, o rifiutata dal server di posta) e manda UN promemoria, mail e SMS (dalle 8 alle 21), a chi dopo un giorno non ha ancora confermato; fino alla fine dell'evento, un giro alla volta. Vedi "Il giro automatico delle mail di conferma" |
+| `/api/newsletter-bandi` | `4,19,34,49 * * * *` — ogni quarto d'ora | legge i bandi pubblicati sul sito e, quando ce ne sono di nuovi, li manda agli iscritti alla newsletter dei bandi (un'ora dopo l'ultimo bando nuovo, dalle 8 alle 20 ora di Roma), riprendendo un invio lasciato a meta'. Vedi "Newsletter dei bandi" |
 | `/api/promemoria-seconda-persona` | `8,28,48 7-18 * * 1-5` — ogni venti minuti, giorni feriali | "l'invito vale per due persone": UNA mail, solo testo, a chi si e' iscritto con il codice riservato arrivato per PEC quando e' l'unica persona della sua azienda (lavora solo lun-ven, 9-19 ora di Milano). Vedi "L'invito vale per due persone" |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
@@ -961,6 +962,145 @@ le iscrizioni. Il lavoro sta in `lib/richieste-bandi.js`.
   `avvisati` e `confermato`. La risposta e' `{ ok: true }` appena la
   richiesta e' salva, anche con la posta giu'.
 - **Le prove**: `node prove/richieste-bandi.prove.js`.
+
+## Newsletter dei bandi (`/bandi/`, `/api/newsletter-bandi`)
+
+Chi visita `https://nextgenerationbusiness.it/bandi/` puo' iscriversi agli
+aggiornamenti sui bandi (il riquadro "I nuovi bandi, appena escono"): ogni volta
+che sul sito compaiono bandi nuovi parte **da sola** una mail con le loro sintesi
+a tutti gli iscritti. Il lavoro sta in `lib/newsletter-bandi.js`; il file dei
+bandi lo legge `lib/dati-bandi.js`.
+
+**Nessuna configurazione nuova**: usa le variabili gia' presenti (posta di
+servizio, `BREVO_API_KEY` e `NEWSLETTER_FROM_EMAIL` per gli aggiornamenti,
+`TURNSTILE_SECRET`, `CRON_SECRET`); `BANDI_DESTINATARI` e' facoltativa.
+
+### L'iscrizione, con la conferma
+
+- Il modulo manda `azione: "bandi-newsletter"` a `/api/iscrizione-nuova`
+  (text/plain): `nome`, `cognome`, `email`, `azienda` (tutti obbligatori),
+  `privacy: true`, `captcha`, il campo nascosto `sito`, `ms`. Freni: campo nascosto, tempo minimo (3 secondi),
+  Turnstile con l'azione `bandi-newsletter`, **tre mail al giorno per
+  indirizzo** (`bandiNewsletterLimiti`, per impronta; le varianti con il `+`
+  contano insieme) e il freno per IP dei moduli aperti.
+- La scheda va in `bandiNewsletter` (identificativo: impronta dell'indirizzo)
+  con `stato: "attesa"` e parte la mail **"Conferma l'iscrizione"** (dalla
+  posta di servizio, risposte a chi segue i bandi). Finche' non si tocca il
+  pulsante non arriva niente: e' il doppio consenso, e nessuno puo' iscrivere
+  l'indirizzo di un altro.
+- Il pulsante apre `/bandi/newsletter/?d=&q=&t=`: la pagina conferma con
+  `azione: "bandi-newsletter-conferma"`, con una POST dello script (gli
+  antispam aziendali visitano i collegamenti ma non eseguono lo script). La
+  firma copre la scheda e il **momento della richiesta**: il collegamento vale
+  **trenta giorni** e non riporta dentro chi si e' disiscritto dopo (risposta
+  `410`).
+- A chi e' **gia' iscritto** non parte la conferma ma la mail "Sei gia'
+  iscritto", con il collegamento per disiscriversi e il nome gia' registrato (il
+  modulo non riscrive i dati di un iscritto: lo puo' compilare chiunque). La
+  risposta al modulo e' la stessa nei due casi (`{ ok: true }`): non dice a chi
+  compila se un indirizzo e' iscritto.
+- Sulla scheda resta il consenso (`privacy`, `consenso: { versione, quando }`).
+  La versione `bandi-newsletter-1` e' il testo della casella: *"Voglio ricevere
+  via email gli aggiornamenti sui nuovi bandi e acconsento al trattamento dei
+  miei dati come descritto nella privacy policy."* Se si cambia il testo, si
+  cambia anche `VERSIONE_CONSENSO` in `lib/newsletter-bandi.js`.
+
+### La disiscrizione tocca solo i bandi
+
+In fondo a ogni aggiornamento c'e' un collegamento personale firmato (contesto
+`bandi-disiscrizione`, diverso da quello della newsletter dello studio) verso
+`/bandi/newsletter/?e=&t=`, che chiede conferma con un pulsante e permette di
+tornare indietro ("Ho cambiato idea"). La pagina chiama `/api/disiscrizione`
+con `l: "bandi"`; con la casella SMTP di ripiego l'"un clic" dei programmi di
+posta (RFC 8058) va a `/api/disiscrizione?l=bandi&e=&t=`. La scheda resta, con
+`stato: "disiscritta"`: **newsletterDisiscritti non si tocca**, e la firma di
+una lista non vale per l'altra.
+
+Chi ha chiesto di non ricevere piu' **niente** dalla newsletter dello studio
+(`newsletterDisiscritti`, dove `/api/newsletter` riporta anche i bloccati di
+Brevo) e' saltato **se quella richiesta e' piu' recente della sua conferma ai
+bandi**: vale l'ultima cosa che ha detto. Come per la newsletter dello studio,
+con Brevo l'"Annulla iscrizione" accanto al mittente lo mette Brevo e porta alla
+sua blocklist.
+
+### L'aggiornamento automatico
+
+Il lavoro programmato (`/api/newsletter-bandi`, ogni quarto d'ora) legge
+`https://nextgenerationbusiness.it/bandi/dati.js` **dal sito pubblicato** e lo
+confronta con i bandi gia' annunciati (`meta/bandiNewsletter`, campo
+`annunciati`).
+
+- **La prima volta non manda niente**: i bandi che ci sono diventano gia'
+  annunciati. Da li' conta solo un **identificativo nuovo**: correggere una
+  scheda non manda niente, e una nuova edizione dello stesso bando va annunciata
+  con un identificativo nuovo. I bandi gia' chiusi non si annunciano.
+- **Un'ora di quiete**: si spedisce un'ora dopo l'ultimo bando nuovo (al massimo
+  sei ore dopo il primo), cosi' i bandi caricati insieme arrivano in una mail
+  sola. Fino ad allora sono in `visti`, con l'ora in cui sono comparsi; uno tolto
+  dal sito prima della spedizione esce anche da li'.
+- **Solo di giorno**: dalle 8 alle 20 ora di Roma. Un bando pubblicato la sera
+  parte la mattina dopo.
+- Il file **non si esegue**: `lib/dati-bandi.js` legge i valori scritti (testi,
+  numeri, true/false, elenchi, schede) e si ferma su qualunque altra cosa. Un
+  servizio con le chiavi di Firebase non esegue codice preso dalla rete. Per
+  questo in `bandi/dati.js` vanno solo valori scritti, e il controllo su GitHub
+  (`.github/workflows/controllo-bandi.yml`, `scripts/bandi/controlla-dati.cjs`)
+  verifica a ogni modifica che la pagina e la newsletter leggano gli stessi
+  bandi. Se il sito non risponde, il giro lo scrive nel battito
+  (`meta/bandiNewsletter`, `ultimoGiro`) e riprova al quarto d'ora dopo.
+
+Quando e' ora nasce un **giro** in `bandiNewsletterGiri`, con la mail gia'
+composta (oggetto: "Nuovo bando: <titolo>" o "<n> nuovi bandi per le imprese";
+per ogni bando sintesi, agevolazione, destinatari, scadenza, il bollo del
+revisore, i collegamenti alla scheda, al PDF e a "chiedi informazioni" con il
+bando gia' scelto). Nella stessa transazione i suoi bandi passano fra gli
+annunciati: due giri non annunciano mai lo stesso bando.
+
+La spedizione usa il motore della newsletter dello studio
+(`lib/invio-newsletter.js`: Brevo a lotti da 200, o la casella SMTP da 20), con i
+collegamenti di disiscrizione dei bandi, l'etichetta Brevo `newsletter-bandi` e
+le risposte a chi segue i bandi. Gli iscritti attivi si leggono in ordine di
+scheda e sul giro resta il `cursore` dell'ultima servita, scritto **dopo ogni
+lotto**: un giro interrotto riprende da li'. Come per le newsletter programmate,
+**un lotto dall'esito ignoto non si ritenta** (`lottoInCorso` rimasto scritto:
+si conta fra gli `incerti`), e un lucchetto su `meta/bandiNewsletter` fa lavorare
+un giro alla volta.
+
+Finito il giro, chi segue i bandi (`BANDI_DESTINATARI`, o i due indirizzi
+predefiniti) riceve il **resoconto**: quali bandi, quante mail consegnate,
+saltate, non partite, incerte. Se l'invio viene rifiutato **otto volte di fila**
+(di solito crediti o chiave di Brevo) il giro si ferma (`stato: "fermo"`) e
+arriva l'avviso. Per farlo ripartire da dove si era fermato: sul documento del
+giro in `bandiNewsletterGiri` rimettere `stato: "in-corso"` ed `errori: 0`.
+
+### Nell'area riservata
+
+Sezione **Newsletter**, scheda **Newsletter dei bandi** (stesso permesso della
+sezione): i conti (attivi, in attesa di conferma, disiscritti), l'elenco degli
+iscritti con cognome, nome, email, azienda, stato e date (filtri per colonna ed
+esportazione CSV, come le altre tabelle) e gli ultimi invii automatici con i loro
+conti. Gli stati: **Iscritto**; **Escluso** (attivo, ma dopo la conferma ha
+chiesto di non ricevere piu' nulla dalla newsletter dello studio: le mail dei
+bandi non gli arrivano); **Da confermare** (con l'errore, se la mail di conferma
+non e' partita); **Disiscritto** (quando e come).
+
+Dalla scheda si puo' **disiscrivere** a mano chi lo chiede per telefono o per
+email, e **rimettere fra gli iscritti** chi si era disiscritto, ma solo se aveva
+gia' confermato almeno una volta: il consenso lo da' la persona, con il pulsante
+della mail, non lo staff. Le operazioni restano nel registro delle attivita'.
+
+Il servizio e' `/api/newsletter` con `azione: "bandi"` (iscritti, ultimi venti
+giri senza il contenuto delle mail, conti), `"bandi-disiscrivi"` e
+`"bandi-riattiva"` (con `email`). Gli iscritti ai bandi **non** entrano nei
+gruppi delle newsletter dello studio: hanno dato il consenso ai soli
+aggiornamenti sui bandi.
+
+Le raccolte `bandiNewsletter`, `bandiNewsletterGiri`, `bandiNewsletterLimiti` e
+`meta/bandiNewsletter` le scrive solo l'account di servizio: le regole di
+Firestore non le aprono a nessuno, e il backup notturno le copia con tutte le
+altre.
+
+- **Le prove**: `node prove/newsletter-bandi.prove.js`.
 
 ## Download dell'ebook per gli iscritti (`/api/scarica-ebook`)
 
@@ -4979,7 +5119,9 @@ Restituisce in una sola richiesta:
 - `disiscritti`: gli indirizzi che hanno chiesto di non ricevere piu' nulla.
 
 Accetta anche `azione: "disiscrivi" | "riattiva"` con un `email`, per registrare
-a mano una richiesta arrivata per telefono.
+a mano una richiesta arrivata per telefono. Con `azione: "bandi" |
+"bandi-disiscrivi" | "bandi-riattiva"` serve invece la scheda della newsletter dei
+bandi (vedi "Newsletter dei bandi").
 
 Ogni iscritto porta con se' il **consenso** alle comunicazioni promozionali
 (`marketing`), letto dalla scheda su Firestore o dalla colonna omonima del

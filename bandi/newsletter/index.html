@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newsletter dei bandi | Next Generation Business</title>
+    <!-- Pagina di servizio raggiunta dai collegamenti nelle mail della
+         newsletter dei bandi: non va indicizzata e non e' nella sitemap. -->
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" href="../../assets/favicon.png">
+    <style>
+        :root {
+            --blu-900: #0A2844;
+            --blu-700: #164068;
+            --azzurro: #8bb8d4;
+            --grigio-900: #1E293B;
+            --grigio-600: #475569;
+            --grigio-200: #E2E8F0;
+            --grigio-100: #F1F5F9;
+            --verde: #1E7F4F;
+            --verde-bg: #E6F4EC;
+            --rosso: #B3261E;
+            --rosso-bg: #FBEAE9;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 40px 16px;
+            background: var(--grigio-100);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            color: var(--grigio-900);
+            display: flex; align-items: flex-start; justify-content: center; min-height: 100vh;
+        }
+        .scheda {
+            width: 100%; max-width: 560px; background: #fff;
+            border: 1px solid var(--grigio-200); border-radius: 10px; overflow: hidden;
+            box-shadow: 0 6px 20px rgba(10, 40, 68, .08);
+        }
+        .testa { background: var(--blu-900); padding: 22px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .testa img { display: block; height: 38px; width: auto; }
+        .testa span { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--azzurro); text-align: right; }
+        .corpo { padding: 28px; }
+        .segno {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px; margin-bottom: 14px; border-radius: 50%;
+            background: var(--verde-bg); color: var(--verde);
+        }
+        .segno svg { width: 26px; height: 26px; }
+        h1 { margin: 0 0 12px; font-size: 22px; line-height: 1.3; color: var(--blu-900); }
+        p { margin: 0 0 14px; font-size: 15px; line-height: 1.65; color: var(--grigio-600); }
+        .indirizzo {
+            display: inline-block; font-weight: 600; color: var(--blu-900);
+            background: var(--grigio-100); border: 1px solid var(--grigio-200);
+            border-radius: 4px; padding: 5px 10px; word-break: break-all;
+        }
+        .azioni { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+        button, a.pulsante {
+            font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none;
+            border-radius: 6px; padding: 12px 22px; border: 1px solid transparent; display: inline-block;
+        }
+        .btn-primario { background: var(--blu-700); color: #fff; }
+        .btn-primario:hover { background: var(--blu-900); }
+        .btn-secondario { background: #fff; color: var(--blu-700); border-color: var(--grigio-200); }
+        .btn-secondario:hover { border-color: var(--blu-700); }
+        button:focus-visible, a.pulsante:focus-visible { outline: 2px solid var(--azzurro); outline-offset: 2px; }
+        button[disabled] { opacity: .6; cursor: default; }
+        .esito { margin-top: 20px; padding: 14px 16px; border-radius: 6px; font-size: 15px; line-height: 1.6; }
+        .esito.ok { background: var(--verde-bg); color: var(--verde); border: 1px solid rgba(30, 127, 79, .25); }
+        .esito.ko { background: var(--rosso-bg); color: var(--rosso); border: 1px solid rgba(179, 38, 30, .25); }
+        .piede {
+            padding: 18px 28px; background: var(--grigio-100); border-top: 1px solid var(--grigio-200);
+            font-size: 12.5px; line-height: 1.6; color: var(--grigio-600);
+        }
+        .piede a { color: var(--blu-700); }
+        .nascosto { display: none !important; }
+        @media (max-width: 480px) {
+            body { padding: 16px 12px; }
+            .corpo { padding: 22px 18px; }
+            .testa { padding: 18px; }
+            /* !important: assets/testo.css riallinea pulsanti e collegamenti "btn" con !important */
+            .azioni button, .azioni a.pulsante { flex: 1 1 100%; text-align: center !important; }
+        }
+    </style>
+    <link rel="stylesheet" href="/assets/testo.css?v=1">
+</head>
+<body>
+    <div class="scheda">
+        <div class="testa">
+            <img src="../../assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale">
+            <span>Newsletter dei bandi</span>
+        </div>
+        <div class="corpo">
+            <span class="segno nascosto" id="segno" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+            <h1 id="titolo">Un attimo</h1>
+            <p id="spiegazione">Stiamo leggendo il collegamento.</p>
+            <p id="riga-indirizzo" class="nascosto"><span class="indirizzo" id="indirizzo"></span></p>
+            <div class="azioni" id="azioni"></div>
+            <div class="esito nascosto" id="esito" role="status"></div>
+        </div>
+        <div class="piede">
+            Next Generation Business &middot; Revilaw S.p.A. &middot; Via XX Settembre 9, 37129 Verona &middot;
+            <a href="../">Vai ai bandi</a>
+        </div>
+    </div>
+
+    <script>
+    /* Le due cose che si fanno da qui, con i collegamenti delle mail della
+       newsletter dei bandi (email-service/lib/newsletter-bandi.js):
+
+       - CONFERMARE L'ISCRIZIONE (?d=&q=&t=): la pagina conferma DA SOLA, con
+         una POST, appena si apre. Non basta aprire l'indirizzo: gli antispam
+         aziendali visitano i collegamenti delle mail ma non eseguono lo
+         script, e cosi' non confermano al posto della persona.
+       - DISISCRIVERSI DAI BANDI (?e=&t=): qui invece serve un pulsante. Tocca
+         solo la newsletter dei bandi, non quella dello studio; dopo, si puo'
+         tornare indietro con "Ho cambiato idea". */
+    (function () {
+        'use strict';
+        var ISCRIZIONE = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+        var DISISCRIZIONE = 'https://revilaw-email.vercel.app/api/disiscrizione';
+        var INFO = 'info@nextgenerationbusiness.it';
+        var SCADENZA_MS = 10000;
+        var $ = function (id) { return document.getElementById(id); };
+        var q = new URLSearchParams(location.search);
+        var d = (q.get('d') || '').trim(), quando = (q.get('q') || '').trim(), t = (q.get('t') || '').trim();
+        var email = (q.get('e') || '').trim().toLowerCase();
+
+        function stato(titolo, testo, riuscito) {
+            $('titolo').textContent = titolo;
+            $('spiegazione').textContent = testo;
+            $('segno').classList.toggle('nascosto', !riuscito);
+        }
+        function indirizzo(e) {
+            $('indirizzo').textContent = e || '';
+            $('riga-indirizzo').classList.toggle('nascosto', !e);
+        }
+        function esito(testo, ok) {
+            var el = $('esito');
+            el.textContent = testo || '';
+            el.className = 'esito' + (testo ? (ok ? ' ok' : ' ko') : ' nascosto');
+        }
+        function azioni(voci) {
+            var box = $('azioni');
+            box.textContent = '';
+            (voci || []).forEach(function (v) {
+                var el = document.createElement(v.href ? 'a' : 'button');
+                el.className = (v.href ? 'pulsante ' : '') + (v.primario ? 'btn-primario' : 'btn-secondario');
+                el.textContent = v.testo;
+                if (v.href) el.href = v.href;
+                else { el.type = 'button'; el.addEventListener('click', function () { v.fai(el); }); }
+                box.appendChild(el);
+            });
+        }
+        var AI_BANDI = { testo: 'Vai ai bandi', href: '../', primario: true };
+        var ISCRIVITI = { testo: 'Iscriviti di nuovo', href: '../#newsletter', primario: true };
+
+        function invia(url, corpo) {
+            var ctrl = ('AbortController' in window) ? new AbortController() : null;
+            var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, SCADENZA_MS);
+            return fetch(url, {
+                method: 'POST',
+                // text/plain: niente richiesta di verifica preliminare del browser
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify(corpo),
+                signal: ctrl ? ctrl.signal : undefined
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (j) { j._stato = r.status; return j; });
+            }).finally(function () { clearTimeout(timer); });
+        }
+
+        // ---------- conferma dell'iscrizione ----------
+        function conferma() {
+            stato('Un attimo', 'Stiamo confermando la tua iscrizione.');
+            azioni([]);
+            invia(ISCRIZIONE, { azione: 'bandi-newsletter-conferma', d: d, q: quando, t: t }).then(function (r) {
+                if (r.ok) {
+                    indirizzo(r.email);
+                    stato(r.gia ? 'Eri già iscritto' : 'Iscrizione confermata',
+                        r.gia ? 'Questo indirizzo riceve già gli aggiornamenti sui nuovi bandi: non devi fare altro.'
+                            : 'Da adesso, ogni volta che pubblichiamo bandi nuovi, ti mandiamo una mail con la sintesi e la scheda. Ti disiscrivi quando vuoi dal collegamento in fondo a ogni mail.', true);
+                    azioni([AI_BANDI]);
+                } else if (r._stato === 410) {
+                    stato('Collegamento scaduto', 'Questo pulsante non è più valido: è passato troppo tempo, oppure nel frattempo hai chiesto di non ricevere più gli aggiornamenti. Se vuoi riceverli, iscriviti di nuovo dalla pagina dei bandi.');
+                    azioni([ISCRIVITI]);
+                } else if (r._stato === 403 || r._stato === 404 || r._stato === 400) {
+                    stato('Collegamento non valido', 'Questo collegamento non è valido. Apri la mail di conferma e tocca di nuovo il pulsante; se il problema resta, iscriviti di nuovo dalla pagina dei bandi o scrivici a ' + INFO + '.');
+                    azioni([ISCRIVITI]);
+                } else {
+                    throw new Error('servizio');
+                }
+            }).catch(function () {
+                stato('Connessione assente', 'Non riusciamo a raggiungere il servizio. Riprova fra qualche secondo: il collegamento resta valido.');
+                azioni([{ testo: 'Riprova', primario: true, fai: conferma }]);
+            });
+        }
+
+        // ---------- disiscrizione dai bandi ----------
+        function chiedi(azione, bottone, poi) {
+            bottone.disabled = true;
+            esito('');
+            invia(DISISCRIZIONE, { email: email, token: t, l: 'bandi', azione: azione }).then(function (r) {
+                bottone.disabled = false;
+                if (r.ok) poi(r);
+                else esito(r.msg || ('Operazione non riuscita. Riprova o scrivi a ' + INFO + '.'), false);
+            }).catch(function () {
+                bottone.disabled = false;
+                esito('Non riusciamo a raggiungere il servizio. Riprova fra qualche secondo.', false);
+            });
+        }
+        function disiscritto() {
+            stato('Disiscrizione registrata', 'Non riceverai più gli aggiornamenti sui nuovi bandi a questo indirizzo. Le altre comunicazioni di Next Generation Business non cambiano.', true);
+            azioni([{
+                testo: 'Ho cambiato idea, riscrivimi', fai: function (b) {
+                    chiedi('riattiva', b, function () {
+                        stato('Sei di nuovo iscritto', 'Continuerai a ricevere gli aggiornamenti sui nuovi bandi a questo indirizzo.', true);
+                        azioni([AI_BANDI]);
+                    });
+                }
+            }, { testo: 'Vai ai bandi', href: '../' }]);
+        }
+        function disiscrizione() {
+            indirizzo(email);
+            stato('Non vuoi più ricevere i nuovi bandi?', 'Confermando, l\'indirizzo qui sotto non riceverà più le mail con i bandi nuovi. Le altre comunicazioni di Next Generation Business non cambiano.');
+            azioni([
+                { testo: 'Conferma la disiscrizione', primario: true, fai: function (b) { chiedi('disiscrivi', b, disiscritto); } },
+                { testo: 'No, resto iscritto', fai: function () {
+                    stato('Resti iscritto', 'Continuerai a ricevere gli aggiornamenti sui nuovi bandi a questo indirizzo.', true);
+                    azioni([AI_BANDI]);
+                } }
+            ]);
+        }
+
+        if (d && quando && t) conferma();
+        else if (email && t) disiscrizione();
+        else {
+            stato('Collegamento non completo', 'Questo collegamento non è completo: apri di nuovo la mail e tocca il pulsante, oppure iscriviti dalla pagina dei bandi.');
+            azioni([ISCRIVITI]);
+        }
+    })();
+    </script>
+</body>
+</html>

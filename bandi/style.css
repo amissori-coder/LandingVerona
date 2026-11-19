@@ -696,9 +696,348 @@
 }
 
 /* ============================================
+   5b. LA NEWSLETTER DEI BANDI
+   Una fascia blu come l'apertura della pagina,
+   fra l'elenco e il modulo di richiesta: a
+   sinistra cosa arriva, a destra il modulo in
+   una scheda bianca. Nell'apertura un rimando.
+   ============================================ */
+/* La colonna di sinistra non si chiama "-testo": assets/testo.css giustifica
+   tutto quello che ha quel pezzo nel nome, e il titolo lo erediterebbe (su
+   telefono "I   nuovi   bandi"). */
+.bandi-hero-nl {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 26px;
+    padding: 10px 18px;
+    border: 1px solid rgba(139, 184, 212, 0.55);
+    border-radius: 100px;
+    color: #ffffff;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.bandi-hero-nl:hover,
+.bandi-hero-nl:focus-visible {
+    background: rgba(139, 184, 212, 0.16);
+    border-color: #8bb8d4;
+}
+
+.bandi-hero-nl svg {
+    width: 18px;
+    height: 18px;
+    color: #8bb8d4;
+}
+
+.bandi-newsletter {
+    position: relative;
+    padding: 72px 0;
+    background: var(--gradient-hero);
+    color: #ffffff;
+    overflow: hidden;
+}
+
+/* un'onda di luce discreta dietro al modulo */
+.bandi-newsletter::before {
+    content: "";
+    position: absolute;
+    right: -160px;
+    top: -200px;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(139, 184, 212, 0.18) 0%, rgba(139, 184, 212, 0) 70%);
+    pointer-events: none;
+}
+
+.bandi-newsletter-griglia {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: 56px;
+    align-items: center;
+}
+
+.bandi-newsletter-tag {
+    display: inline-block;
+    margin-bottom: 16px;
+    padding: 6px 14px;
+    border: 1px solid rgba(139, 184, 212, 0.45);
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #8bb8d4;
+}
+
+.bandi-newsletter .bandi-newsletter-titolo {
+    margin-bottom: 16px;
+    font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.8px;
+    line-height: 1.15;
+    color: #ffffff;
+}
+
+.bandi-newsletter-titolo span {
+    color: #8bb8d4;
+}
+
+.bandi-newsletter p.bandi-newsletter-intro {
+    max-width: 560px;
+    margin-bottom: 22px;
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.bandi-newsletter-punti {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bandi-newsletter-punti li {
+    position: relative;
+    padding-left: 30px;
+    font-size: 0.96rem;
+    line-height: 1.5;
+    color: #ffffff;
+    text-align: left !important;
+}
+
+/* il segno di spunta, disegnato */
+.bandi-newsletter-punti li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(139, 184, 212, 0.2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238bb8d4' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") no-repeat center;
+}
+
+.bandi-newsletter-scheda {
+    padding: 30px;
+    background: #ffffff;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 18px 48px rgba(5, 15, 30, 0.35);
+    color: var(--text-primary);
+}
+
+.bandi-newsletter-scheda p.bandi-nl-obbligatori {
+    margin: 0 0 14px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: left !important;
+}
+
+.bandi-nl-campi {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.bandi-nl-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.bandi-nl-campo label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bandi-nl-facoltativo {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.bandi-nl-campo input {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 14px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+
+.bandi-nl-campo input:focus {
+    outline: none;
+    border-color: #164068;
+    box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.25);
+    background-color: #ffffff;
+}
+
+.bandi-nl-campo input.errore {
+    border-color: #B1213B;
+    background-color: #FDF3F5;
+}
+
+.bandi-nl-consenso {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.bandi-nl-consenso input {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: #164068;
+    cursor: pointer;
+}
+
+.bandi-nl-consenso a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.bandi-nl-errore {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #B1213B;
+}
+
+.bandi-nl-errore:empty {
+    display: none;
+}
+
+.bandi-nl-modulo .captcha[hidden] {
+    display: none;
+}
+
+.bandi-nl-modulo .captcha--visibile {
+    margin: 14px 0 0;
+}
+
+.bandi-nl-modulo .bandi-nl-invia {
+    width: 100%;
+    margin-top: 18px;
+    padding: 15px;
+    background: #164068;
+    color: #ffffff;
+    font-size: 1.02rem;
+    box-shadow: 0 6px 18px rgba(22, 64, 104, 0.3);
+}
+
+.bandi-nl-modulo .bandi-nl-invia:hover {
+    background: #0A2844;
+    transform: translateY(-1px);
+}
+
+.bandi-nl-modulo .bandi-nl-invia:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none;
+}
+
+.bandi-nl-modulo p.bandi-nl-esito {
+    margin-top: 12px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #B1213B;
+    text-align: left !important;
+}
+
+.bandi-nl-modulo p.bandi-nl-esito:empty {
+    display: none;
+}
+
+.bandi-nl-esito a {
+    color: #B1213B;
+    font-weight: 600;
+}
+
+.bandi-nl-modulo p.bandi-nl-nota {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    text-align: center !important;
+    text-align-last: center;
+}
+
+/* il grazie, al posto del modulo */
+.bandi-nl-fatto {
+    outline: none;
+    text-align: center;
+}
+
+.bandi-nl-fatto[hidden] {
+    display: none;
+}
+
+.bandi-nl-fatto-segno {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 14px;
+    border-radius: 50%;
+    background: #164068;
+    color: #ffffff;
+}
+
+.bandi-nl-fatto-segno svg {
+    width: 26px;
+    height: 26px;
+}
+
+.bandi-nl-fatto .bandi-nl-fatto-titolo {
+    margin-bottom: 10px;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    text-align: center !important;
+}
+
+.bandi-nl-fatto p {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    text-align: left !important;
+}
+
+.bandi-nl-fatto p strong {
+    color: var(--text-primary);
+}
+
+/* ============================================
    6. RESPONSIVE
    ============================================ */
 @media (max-width: 1080px) {
+    .bandi-newsletter-griglia {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 36px;
+    }
+
     .bandi-griglia {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -748,6 +1087,37 @@
 
     .bando-card {
         padding: 18px 16px;
+    }
+
+    .bandi-newsletter {
+        padding: 48px 0;
+    }
+
+    .bandi-newsletter-scheda {
+        padding: 22px 18px;
+        border-radius: 14px;
+    }
+
+    .bandi-nl-campi {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* in colonna stretta il giustificato del sito apre buchi fra le parole */
+    .bandi-newsletter p.bandi-newsletter-intro,
+    .bandi-nl-fatto p {
+        text-align: left !important;
+    }
+
+    /* 16px: sotto questa misura iPhone ingrandisce la pagina al tocco */
+    .bandi-nl-campo input {
+        font-size: 16px;
+        min-height: 48px;
+    }
+
+    .bandi-nl-consenso input {
+        width: 22px;
+        height: 22px;
+        margin-top: 0;
     }
 
     .bando-card--revisore > .bando-revisore {
