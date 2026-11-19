@@ -22,6 +22,12 @@
    (email-service/lib/richieste-bandi.js): li' si salva e parte la mail
    a chi segue i bandi, piu' una ricevuta a chi ha scritto. Niente
    campo "pagina" nel corpo: una richiesta non e' un'iscrizione.
+
+   LA NEWSLETTER DEI BANDI (il riquadro "I nuovi bandi, appena escono")
+   va allo stesso servizio con l'azione "bandi-newsletter"
+   (email-service/lib/newsletter-bandi.js): iscrizione in attesa e mail
+   con il pulsante di conferma. I due moduli hanno ciascuno la sua
+   casella "non sono un robot", con la sua azione.
    (text/plain evita la richiesta di verifica preliminare del browser.)
    ======================== */
 (function () {
@@ -554,67 +560,84 @@
         campo.addEventListener('input', function () { if (campo.classList.contains('errore')) valida(campo); });
     });
 
-    /* ---------- la casella "non sono un robot" ----------
+    /* ---------- la casella "non sono un robot", per i due moduli ----------
        Cloudflare Turnstile, con la stessa chiave PUBBLICA del modulo delle
-       domande (contatti/contatti.js) e un'azione sua, 'richiesta-bando': la
-       segreta sta nel servizio (TURNSTILE_SECRET). La casella si vede SOLO
-       quando Cloudflare chiede davvero un clic. Il gettone vale una volta:
-       dopo ogni invio se ne prepara uno nuovo. Se lo script di Cloudflare non
-       si carica la richiesta parte senza gettone: se il servizio ha la chiave
-       segreta la rifiuta (captchaKo), e allora si dice di scriverci per mail. */
+       domande (contatti/contatti.js) e un'azione per modulo: 'richiesta-bando'
+       per le richieste, 'bandi-newsletter' per l'iscrizione alla newsletter.
+       La segreta sta nel servizio (TURNSTILE_SECRET), che rifiuta il gettone
+       nato per l'altro modulo. La casella si vede SOLO quando Cloudflare chiede
+       davvero un clic. Il gettone vale una volta: dopo ogni invio se ne
+       prepara uno nuovo. Se lo script di Cloudflare non si carica il modulo
+       parte senza gettone: se il servizio ha la chiave segreta lo rifiuta
+       (captchaKo), e allora si dice di scriverci per mail.
+       Lo script si carica una volta sola, e solo quando qualcuno comincia a
+       usare uno dei due moduli: chi viene a leggere le schede non lo scarica. */
     var TURNSTILE_CHIAVE = '0x4AAAAAAFZkLXVSuromvnHp';
-    var boxCaptcha = $('captcha');
-    var captcha = { id: null, gettone: '', guasto: false };
-    var attesaGettone = [];
-    function gettonePronto(g) {
-        captcha.gettone = g || '';
-        attesaGettone.splice(0).forEach(function (f) { f(captcha.gettone); });
-    }
-    function preparaCaptcha() {
-        if (!TURNSTILE_CHIAVE || !window.turnstile) return;
-        boxCaptcha.hidden = false;
-        captcha.id = window.turnstile.render(boxCaptcha, {
-            sitekey: TURNSTILE_CHIAVE, language: 'it', action: 'richiesta-bando',
-            appearance: 'interaction-only', size: 'flexible', theme: 'light',
-            callback: gettonePronto,
-            'expired-callback': function () { captcha.gettone = ''; },
-            'error-callback': function () { captcha.gettone = ''; },
-            'before-interactive-callback': function () { boxCaptcha.classList.add('captcha--visibile'); },
-            'after-interactive-callback': function () { boxCaptcha.classList.remove('captcha--visibile'); }
-        });
-    }
-    // il gettone, aspettandolo al massimo `ms` millisecondi: '' se non arriva
-    function aspettaGettone(ms) {
-        if (!TURNSTILE_CHIAVE || captcha.guasto) return Promise.resolve('');
-        if (captcha.gettone) return Promise.resolve(captcha.gettone);
-        return new Promise(function (fine) {
-            var pronto = function (g) { clearTimeout(t); fine(g); };
-            var t = setTimeout(function () {
-                attesaGettone = attesaGettone.filter(function (f) { return f !== pronto; });
-                fine('');
-            }, ms);
-            attesaGettone.push(pronto);
-        });
-    }
-    function rinnovaCaptcha() {
-        captcha.gettone = '';
-        if (captcha.id !== null && window.turnstile) window.turnstile.reset(captcha.id);
-    }
-    /* Lo script di Cloudflare si carica solo quando qualcuno comincia a usare
-       il modulo: chi viene a leggere le schede non lo scarica. */
-    var captchaChiesto = false;
-    function caricaCaptcha() {
-        if (captchaChiesto || !TURNSTILE_CHIAVE) return;
-        captchaChiesto = true;
-        window.ngbCaptchaBandi = preparaCaptcha;
+    var turnstile = { chiesto: false, pronto: false, guasto: false, attese: [] };
+    function conTurnstile(fn) {
+        if (turnstile.pronto || turnstile.guasto) { fn(); return; }
+        turnstile.attese.push(fn);
+        if (turnstile.chiesto) return;
+        turnstile.chiesto = true;
+        var fatto = function () { turnstile.attese.splice(0).forEach(function (f) { f(); }); };
+        window.ngbCaptchaBandi = function () { turnstile.pronto = true; fatto(); };
         var sc = document.createElement('script');
         sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=ngbCaptchaBandi';
         sc.async = true;
         sc.defer = true;
-        sc.onerror = function () { captcha.guasto = true; gettonePronto(''); };
+        sc.onerror = function () { turnstile.guasto = true; fatto(); };
         document.head.appendChild(sc);
     }
-    form.addEventListener('focusin', caricaCaptcha, true);
+    function nuovoCaptcha(box, azione) {
+        var c = { id: null, gettone: '', richiesto: false, attese: [] };
+        Object.defineProperty(c, 'guasto', { get: function () { return turnstile.guasto; } });
+        function pronto(g) {
+            c.gettone = g || '';
+            c.attese.splice(0).forEach(function (f) { f(c.gettone); });
+        }
+        c.prepara = function () {
+            if (c.richiesto || !TURNSTILE_CHIAVE) return;
+            c.richiesto = true;
+            conTurnstile(function () {
+                if (turnstile.guasto || !window.turnstile) { pronto(''); return; }
+                box.hidden = false;
+                c.id = window.turnstile.render(box, {
+                    sitekey: TURNSTILE_CHIAVE, language: 'it', action: azione,
+                    appearance: 'interaction-only', size: 'flexible', theme: 'light',
+                    callback: pronto,
+                    'expired-callback': function () { c.gettone = ''; },
+                    'error-callback': function () { c.gettone = ''; },
+                    'before-interactive-callback': function () { box.classList.add('captcha--visibile'); },
+                    'after-interactive-callback': function () { box.classList.remove('captcha--visibile'); }
+                });
+            });
+        };
+        // il gettone, aspettandolo al massimo `ms` millisecondi: '' se non arriva
+        c.aspetta = function (ms) {
+            if (!TURNSTILE_CHIAVE || turnstile.guasto) return Promise.resolve('');
+            if (c.gettone) return Promise.resolve(c.gettone);
+            return new Promise(function (fine) {
+                var finito = function (g) { clearTimeout(t); fine(g); };
+                var t = setTimeout(function () {
+                    c.attese = c.attese.filter(function (f) { return f !== finito; });
+                    fine('');
+                }, ms);
+                c.attese.push(finito);
+            });
+        };
+        c.rinnova = function () {
+            c.gettone = '';
+            if (c.id !== null && window.turnstile) window.turnstile.reset(c.id);
+        };
+        // la verifica c'e' ma il gettone non e' arrivato: di solito Cloudflare chiede un clic
+        c.chiedeClic = function (gettone) {
+            return !!(TURNSTILE_CHIAVE && !turnstile.guasto && window.turnstile && !gettone);
+        };
+        return c;
+    }
+    var boxCaptcha = $('captcha');
+    var captcha = nuovoCaptcha(boxCaptcha, 'richiesta-bando');
+    form.addEventListener('focusin', captcha.prepara, true);
 
     // ---------- invio ----------
     var ETICHETTA = btnInvia.textContent;
@@ -661,7 +684,7 @@
         e.preventDefault();
         if (inCorso) return;
         tocca();
-        caricaCaptcha();
+        captcha.prepara();
         erroreInvio.textContent = '';
         var primo = null;
         Array.prototype.forEach.call(form.querySelectorAll('[required], input[type="tel"]'), function (campo) {
@@ -678,9 +701,9 @@
         var valore = function (id) { return String(($(id) || {}).value || '').trim(); };
         var scelto = PER_ID[campoBando.value];
 
-        aspettaGettone(15000).then(function (gettone) {
+        captcha.aspetta(15000).then(function (gettone) {
             // Turnstile c'e' ma il gettone non e' arrivato: di solito chiede un clic
-            if (TURNSTILE_CHIAVE && !captcha.guasto && window.turnstile && !gettone) {
+            if (captcha.chiedeClic(gettone)) {
                 boxCaptcha.hidden = false;
                 boxCaptcha.classList.add('captcha--visibile');
                 mostraErrore('Completa la verifica di sicurezza qui sopra, poi premi di nuovo «Invia la richiesta».');
@@ -713,7 +736,7 @@
             inCorso = false;
             if (d === null) { inAttesa(''); return; }   // la verifica di sicurezza non e' finita: gia' detto
             if (d.ok) { grazie(valore('nome'), valore('email')); return; }
-            rinnovaCaptcha();
+            captcha.rinnova();
             inAttesa('');
             if (d._stato === 429) {
                 mostraErrore(d.msg || 'Abbiamo ricevuto troppe richieste ravvicinate da questa rete: riprova fra qualche minuto.');
@@ -739,11 +762,132 @@
             mostraErrore(d.msg || 'Non siamo riusciti a inviare la richiesta. Riprova fra qualche minuto.');
         }).catch(function () {
             inCorso = false;
-            rinnovaCaptcha();
+            captcha.rinnova();
             inAttesa('');
             mostraErrore('Il servizio non risponde in questo momento. Riprova fra qualche minuto.');
         });
     });
+
+    /* ---------- la newsletter dei bandi ----------
+       Il riquadro "I nuovi bandi, appena escono": nome (facoltativo), email,
+       consenso. Va al servizio email con l'azione "bandi-newsletter"
+       (email-service/lib/newsletter-bandi.js), che salva l'iscrizione in
+       attesa e manda la mail con il pulsante di conferma. La risposta e' la
+       stessa anche per chi e' gia' iscritto: glielo dice la mail. */
+    (function () {
+        var nlForm = $('newsletterForm');
+        if (!nlForm) return;
+        var nlEmail = $('nlEmail');
+        var nlPrivacy = $('nlPrivacy');
+        var nlInvia = $('nlInvia');
+        var nlErrore = $('nlErrore');
+        var nlBox = $('nlCaptcha');
+        var nlCaptcha = nuovoCaptcha(nlBox, 'bandi-newsletter');
+        var nlToccato = 0;
+        var nlTocca = function () { if (!nlToccato) nlToccato = Date.now(); };
+        ['focusin', 'input', 'change'].forEach(function (t) { nlForm.addEventListener(t, nlTocca, true); });
+        nlForm.addEventListener('focusin', nlCaptcha.prepara, true);
+
+        function nlCampo(id, testo) {
+            var campo = $(id);
+            var el = $(id + 'Errore');
+            if (el) el.textContent = testo || '';
+            if (campo && campo.type !== 'checkbox') campo.classList.toggle('errore', !!testo);
+            if (campo) { if (testo) campo.setAttribute('aria-invalid', 'true'); else campo.removeAttribute('aria-invalid'); }
+        }
+        function nlValida() {
+            var primo = null;
+            var v = nlEmail.value.trim();
+            if (!v) { nlCampo('nlEmail', 'Scrivi l\'indirizzo a cui mandarti i bandi.'); primo = nlEmail; }
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) { nlCampo('nlEmail', 'Scrivi un indirizzo email valido, per esempio nome@azienda.it.'); primo = nlEmail; }
+            else nlCampo('nlEmail', '');
+            if (!nlPrivacy.checked) { nlCampo('nlPrivacy', 'Per iscriverti serve il tuo consenso.'); if (!primo) primo = nlPrivacy; }
+            else nlCampo('nlPrivacy', '');
+            return primo;
+        }
+        nlEmail.addEventListener('blur', function () { if (nlEmail.value.trim()) nlValida(); });
+        nlEmail.addEventListener('input', function () { if (nlEmail.classList.contains('errore')) nlValida(); });
+        nlPrivacy.addEventListener('change', function () { if (nlPrivacy.checked) nlCampo('nlPrivacy', ''); });
+
+        var ETICHETTA_NL = nlInvia.textContent;
+        function nlAttesa(testo) {
+            nlInvia.disabled = !!testo;
+            nlInvia.textContent = testo || ETICHETTA_NL;
+        }
+        function nlMostra(testo) {
+            var html = esc(testo).split(INFO).join('<a href="mailto:' + INFO + '?subject=' + encodeURIComponent('Iscrizione agli aggiornamenti sui bandi') + '">' + INFO + '</a>');
+            nlErrore.innerHTML = html;
+        }
+
+        var nlInCorso = false;
+        nlForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (nlInCorso) return;
+            nlTocca();
+            nlCaptcha.prepara();
+            nlErrore.textContent = '';
+            var primo = nlValida();
+            if (primo) { vaiA(primo); return; }
+            nlInCorso = true;
+            nlAttesa(nlCaptcha.gettone || nlCaptcha.guasto ? 'Invio in corso...' : 'Verifica in corso...');
+            var email = nlEmail.value.trim();
+
+            nlCaptcha.aspetta(15000).then(function (gettone) {
+                if (nlCaptcha.chiedeClic(gettone)) {
+                    nlBox.hidden = false;
+                    nlBox.classList.add('captcha--visibile');
+                    nlMostra('Completa la verifica di sicurezza qui sopra, poi premi di nuovo «Iscriviti».');
+                    return null;
+                }
+                nlAttesa('Invio in corso...');
+                if (typeof window.gtag === 'function') window.gtag('event', 'iscrizione_newsletter', { pagina: 'Bandi e agevolazioni' });
+                return fetch(SERVIZIO, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({
+                        azione: 'bandi-newsletter',
+                        email: email, nome: $('nlNome').value.trim(),
+                        privacy: nlPrivacy.checked === true,
+                        captcha: gettone, sito: $('nlSito').value,
+                        ms: Date.now() - nlToccato, origine: 'bandi'
+                    })
+                }).then(function (r) {
+                    return r.json().catch(function () { return {}; }).then(function (d) { d._stato = r.status; return d; });
+                });
+            }).then(function (d) {
+                nlInCorso = false;
+                if (d === null) { nlAttesa(''); return; }
+                if (d.ok) {
+                    $('nlFattoEmail').textContent = email;
+                    nlForm.hidden = true;
+                    var fatto = $('nlFatto');
+                    fatto.hidden = false;
+                    try { fatto.focus({ preventScroll: true }); } catch (_) { /* vecchi browser */ }
+                    return;
+                }
+                nlCaptcha.rinnova();
+                nlAttesa('');
+                if (d.captchaKo) {
+                    if (nlCaptcha.guasto || !window.turnstile) {
+                        nlBox.hidden = true;
+                        nlMostra('La verifica di sicurezza di Cloudflare non si carica su questa rete o con le estensioni attive nel browser. Riprova da un\'altra rete, oppure scrivici a ' + INFO + ' e ti iscriviamo noi.');
+                        return;
+                    }
+                    nlBox.hidden = false;
+                    nlMostra('La verifica di sicurezza non è andata a buon fine: attendi qualche secondo e premi di nuovo «Iscriviti». Se Cloudflare mostra una casella, spuntala.');
+                    return;
+                }
+                if (d.campo === 'email') { nlCampo('nlEmail', d.msg || 'Controlla l\'indirizzo.'); vaiA(nlEmail); return; }
+                if (d.campo === 'privacy') { nlCampo('nlPrivacy', d.msg || 'Per iscriverti serve il tuo consenso.'); vaiA(nlPrivacy); return; }
+                nlMostra(d.msg || 'Non siamo riusciti a iscriverti. Riprova fra qualche minuto.');
+            }).catch(function () {
+                nlInCorso = false;
+                nlCaptcha.rinnova();
+                nlAttesa('');
+                nlMostra('Il servizio non risponde in questo momento. Riprova fra qualche minuto.');
+            });
+        });
+    })();
 
     // ---------- si parte ----------
     // letto prima di aggiorna(), che riscrive la ricerca dell'indirizzo

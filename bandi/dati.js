@@ -44,6 +44,20 @@
 
    Per una nuova TIPOLOGIA o FINALITA basta aggiungere la riga qui
    sotto: compare nei filtri appena un bando la usa.
+
+   LA NEWSLETTER DEI BANDI legge questo file dal sito pubblicato
+   (email-service/lib/dati-bandi.js) e, quando trova identificativi
+   nuovi, manda da sola una mail agli iscritti (un'ora dopo l'ultimo
+   bando aggiunto, di giorno). Due regole per non ingannarla:
+     - solo VALORI SCRITTI: testi fra apici, numeri, true/false,
+       elenchi [ ] e schede { }. Niente variabili, somme di testi o
+       funzioni: il servizio non esegue il file, lo legge, e si
+       fermerebbe. Il controllo su GitHub (scripts/bandi/
+       controlla-dati.cjs) lo segnala a ogni modifica;
+     - un bando e' NUOVO se ha un identificativo nuovo. Correggere una
+       scheda non manda niente; una nuova edizione dello stesso bando
+       va annunciata con un identificativo nuovo (per esempio con
+       l'anno). I bandi gia' chiusi non si annunciano.
    ============================================================ */
 (function () {
     'use strict';

@@ -9,7 +9,8 @@
     { "path": "/api/diretta-ascolti", "schedule": "* * * * *" },
     { "path": "/api/riepilogo-iscrizioni", "schedule": "0 22,23 * * *" },
     { "path": "/api/conferme-email", "schedule": "*/10 * * * *" },
-    { "path": "/api/promemoria-seconda-persona", "schedule": "8,28,48 7-18 * * 1-5" }
+    { "path": "/api/promemoria-seconda-persona", "schedule": "8,28,48 7-18 * * 1-5" },
+    { "path": "/api/newsletter-bandi", "schedule": "4,19,34,49 * * * *" }
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
@@ -31,6 +32,7 @@
     "api/diretta-ascolti.js": { "maxDuration": 60 },
     "api/riepilogo-iscrizioni.js": { "maxDuration": 60 },
     "api/conferme-email.js": { "maxDuration": 60 },
-    "api/promemoria-seconda-persona.js": { "maxDuration": 60 }
+    "api/promemoria-seconda-persona.js": { "maxDuration": 60 },
+    "api/newsletter-bandi.js": { "maxDuration": 300 }
   }
 }

@@ -98,6 +98,10 @@ const DOMANDE = require('../lib/domande-sito');
    modulo delle domande, con destinatari suoi (chi segue i bandi). Tutto in
    lib/richieste-bandi.js. */
 const BANDI = require('../lib/richieste-bandi');
+/* La newsletter dei bandi (/bandi/): l'iscrizione dal modulo, con la mail di
+   conferma, e la conferma dalla pagina /bandi/newsletter/. Tutto in
+   lib/newsletter-bandi.js. */
+const NEWSLETTER_BANDI = require('../lib/newsletter-bandi');
 
 /* stesso trasporto SMTP delle altre mail di servizio, con i tempi massimi:
    senza, un server di posta muto tiene ferma la risposta al modulo fino al
@@ -1622,7 +1626,10 @@ module.exports = async (req, res) => {
                freno suo sulla scheda (due minuti, cinque al giorno). Dallo
                stesso ufficio si iscrivono in tanti, e il freno per IP se lo
                mangerebbero fra loro */
-            'rimanda-conferma']
+            'rimanda-conferma',
+            /* la conferma dell'iscrizione alla newsletter dei bandi: firmata,
+               e dallo stesso ufficio puo' confermare piu' di una persona */
+            'bandi-newsletter-conferma']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1639,7 +1646,7 @@ module.exports = async (req, res) => {
         const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
         if (dalDesk) {
             if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
-        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && ['domanda-sito', 'richiesta-bando'].indexOf(String(body.azione || '')) < 0
+        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && ['domanda-sito', 'richiesta-bando', 'bandi-newsletter'].indexOf(String(body.azione || '')) < 0
             ? troppiInvii(ip, inviiVerificate, RL_MAX_VERIFICATE)
             : troppiInvii(ip))) {
             res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati: riprova fra qualche minuto.' }); return;
@@ -1810,6 +1817,19 @@ module.exports = async (req, res) => {
         if (azione === 'richiesta-bando') {
             initAdmin(leggiServiceAccount());
             const r = await BANDI.ricevi(admin.firestore(), body, { ip: ip });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* LA NEWSLETTER DEI BANDI: l'iscrizione dal modulo di /bandi/ (aperto,
+           con il freno per IP qui sopra) e la conferma dalla pagina del
+           collegamento (firmata). Prima della scrittura generica, senza
+           `pagina`: un'iscrizione alla newsletter non e' un'iscrizione a un
+           evento. */
+        if (azione === 'bandi-newsletter' || azione === 'bandi-newsletter-conferma') {
+            initAdmin(leggiServiceAccount());
+            const r = azione === 'bandi-newsletter'
+                ? await NEWSLETTER_BANDI.iscrivi(admin.firestore(), body, { ip: ip })
+                : await NEWSLETTER_BANDI.conferma(admin.firestore(), body);
             res.status(r.stato).json(r.corpo);
             return;
         }
