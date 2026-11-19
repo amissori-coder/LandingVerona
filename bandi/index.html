@@ -46,7 +46,7 @@
     <link rel="stylesheet" href="../zls_zes/style.css">
     <link rel="stylesheet" href="../assets/content-page.css">
     <link rel="stylesheet" href="../contatti/style.css?v=6">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -218,20 +218,32 @@
 
                 <div class="bandi-newsletter-scheda" id="newsletterScheda">
                     <form id="newsletterForm" class="bandi-nl-modulo" novalidate>
+                        <p class="bandi-nl-obbligatori">Tutti i campi sono obbligatori.</p>
                         <div class="bandi-nl-campi">
                             <div class="bandi-nl-campo">
-                                <label for="nlNome">Nome <span class="bandi-nl-facoltativo">(facoltativo)</span></label>
-                                <input type="text" id="nlNome" name="nome" maxlength="80" autocomplete="given-name" autocapitalize="words">
+                                <label for="nlNome">Nome</label>
+                                <input type="text" id="nlNome" name="nome" required maxlength="80" autocomplete="given-name" autocapitalize="words" aria-describedby="nlNomeErrore">
+                                <span class="bandi-nl-errore" id="nlNomeErrore"></span>
                             </div>
                             <div class="bandi-nl-campo">
-                                <label for="nlEmail">Email *</label>
+                                <label for="nlCognome">Cognome</label>
+                                <input type="text" id="nlCognome" name="cognome" required maxlength="80" autocomplete="family-name" autocapitalize="words" aria-describedby="nlCognomeErrore">
+                                <span class="bandi-nl-errore" id="nlCognomeErrore"></span>
+                            </div>
+                            <div class="bandi-nl-campo">
+                                <label for="nlEmail">Email</label>
                                 <input type="email" id="nlEmail" name="email" required maxlength="200" placeholder="nome@azienda.it" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="nlEmailErrore">
                                 <span class="bandi-nl-errore" id="nlEmailErrore"></span>
+                            </div>
+                            <div class="bandi-nl-campo">
+                                <label for="nlAzienda">Azienda / Studio</label>
+                                <input type="text" id="nlAzienda" name="azienda" required maxlength="200" autocomplete="organization" aria-describedby="nlAziendaErrore">
+                                <span class="bandi-nl-errore" id="nlAziendaErrore"></span>
                             </div>
                         </div>
                         <label class="bandi-nl-consenso" for="nlPrivacy">
                             <input type="checkbox" id="nlPrivacy" name="privacy" required aria-describedby="nlPrivacyErrore">
-                            <span>Voglio ricevere via email gli aggiornamenti sui nuovi bandi e acconsento al trattamento dei miei dati come descritto nella <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">privacy policy</a>.&nbsp;*</span>
+                            <span>Voglio ricevere via email gli aggiornamenti sui nuovi bandi e acconsento al trattamento dei miei dati come descritto nella <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">privacy policy</a>.</span>
                         </label>
                         <span class="bandi-nl-errore" id="nlPrivacyErrore"></span>
 
@@ -458,6 +470,6 @@
 
     <script src="../zls_zes/script.js"></script>
     <script src="dati.js?v=2"></script>
-    <script src="bandi.js?v=4"></script>
+    <script src="bandi.js?v=5"></script>
 </body>
 </html>

@@ -769,8 +769,8 @@
     });
 
     /* ---------- la newsletter dei bandi ----------
-       Il riquadro "I nuovi bandi, appena escono": nome (facoltativo), email,
-       consenso. Va al servizio email con l'azione "bandi-newsletter"
+       Il riquadro "I nuovi bandi, appena escono": nome, cognome, email,
+       azienda (tutti obbligatori) e consenso. Va al servizio email con l'azione "bandi-newsletter"
        (email-service/lib/newsletter-bandi.js), che salva l'iscrizione in
        attesa e manda la mail con il pulsante di conferma. La risposta e' la
        stessa anche per chi e' gia' iscritto: glielo dice la mail. */
@@ -795,18 +795,31 @@
             if (campo && campo.type !== 'checkbox') campo.classList.toggle('errore', !!testo);
             if (campo) { if (testo) campo.setAttribute('aria-invalid', 'true'); else campo.removeAttribute('aria-invalid'); }
         }
+        // i campi di testo, nell'ordine in cui si compilano, con il messaggio se mancano
+        var NL_CAMPI = [['nlNome', 'Scrivi il tuo nome.'], ['nlCognome', 'Scrivi il tuo cognome.'],
+            ['nlEmail', 'Scrivi l\'indirizzo a cui mandarti i bandi.'], ['nlAzienda', 'Indica l\'azienda o lo studio.']];
+        function nlControlla(id, manca) {
+            var v = $(id).value.trim();
+            if (!v) { nlCampo(id, manca); return false; }
+            if (id === 'nlEmail' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) {
+                nlCampo(id, 'Scrivi un indirizzo email valido, per esempio nome@azienda.it.');
+                return false;
+            }
+            nlCampo(id, '');
+            return true;
+        }
         function nlValida() {
             var primo = null;
-            var v = nlEmail.value.trim();
-            if (!v) { nlCampo('nlEmail', 'Scrivi l\'indirizzo a cui mandarti i bandi.'); primo = nlEmail; }
-            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) { nlCampo('nlEmail', 'Scrivi un indirizzo email valido, per esempio nome@azienda.it.'); primo = nlEmail; }
-            else nlCampo('nlEmail', '');
+            NL_CAMPI.forEach(function (c) { if (!nlControlla(c[0], c[1]) && !primo) primo = $(c[0]); });
             if (!nlPrivacy.checked) { nlCampo('nlPrivacy', 'Per iscriverti serve il tuo consenso.'); if (!primo) primo = nlPrivacy; }
             else nlCampo('nlPrivacy', '');
             return primo;
         }
-        nlEmail.addEventListener('blur', function () { if (nlEmail.value.trim()) nlValida(); });
-        nlEmail.addEventListener('input', function () { if (nlEmail.classList.contains('errore')) nlValida(); });
+        NL_CAMPI.forEach(function (c) {
+            var el = $(c[0]);
+            el.addEventListener('blur', function () { if (el.value.trim()) nlControlla(c[0], c[1]); });
+            el.addEventListener('input', function () { if (el.classList.contains('errore')) nlControlla(c[0], c[1]); });
+        });
         nlPrivacy.addEventListener('change', function () { if (nlPrivacy.checked) nlCampo('nlPrivacy', ''); });
 
         var ETICHETTA_NL = nlInvia.textContent;
@@ -846,7 +859,8 @@
                     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
                     body: JSON.stringify({
                         azione: 'bandi-newsletter',
-                        email: email, nome: $('nlNome').value.trim(),
+                        email: email, nome: $('nlNome').value.trim(), cognome: $('nlCognome').value.trim(),
+                        azienda: $('nlAzienda').value.trim(),
                         privacy: nlPrivacy.checked === true,
                         captcha: gettone, sito: $('nlSito').value,
                         ms: Date.now() - nlToccato, origine: 'bandi'
@@ -877,7 +891,9 @@
                     nlMostra('La verifica di sicurezza non è andata a buon fine: attendi qualche secondo e premi di nuovo «Iscriviti». Se Cloudflare mostra una casella, spuntala.');
                     return;
                 }
-                if (d.campo === 'email') { nlCampo('nlEmail', d.msg || 'Controlla l\'indirizzo.'); vaiA(nlEmail); return; }
+                // l'errore accanto al campo che lo ha causato
+                var campoNl = { nome: 'nlNome', cognome: 'nlCognome', email: 'nlEmail', azienda: 'nlAzienda' }[d.campo];
+                if (campoNl) { nlCampo(campoNl, d.msg || 'Controlla questo campo.'); vaiA($(campoNl)); return; }
                 if (d.campo === 'privacy') { nlCampo('nlPrivacy', d.msg || 'Per iscriverti serve il tuo consenso.'); vaiA(nlPrivacy); return; }
                 nlMostra(d.msg || 'Non siamo riusciti a iscriverti. Riprova fra qualche minuto.');
             }).catch(function () {

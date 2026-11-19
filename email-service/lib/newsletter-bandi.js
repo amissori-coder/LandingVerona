@@ -6,7 +6,8 @@
    sola una mail con le loro sintesi a tutti gli iscritti.
 
    L'ISCRIZIONE, CON LA CONFERMA (doppio consenso). Il modulo della
-   pagina (azione 'bandi-newsletter' di api/iscrizione-nuova.js)
+   pagina (azione 'bandi-newsletter' di api/iscrizione-nuova.js:
+   nome, cognome, email e azienda, tutti obbligatori)
    salva la scheda in `bandiNewsletter` con stato 'attesa' e manda
    una mail con il pulsante "Conferma l'iscrizione". Finche' la
    persona non lo tocca non riceve niente: cosi' nessuno puo'
@@ -74,6 +75,14 @@
    resoconto: quali bandi, a quanti iscritti. Se Brevo rifiuta otto
    volte di fila il giro si ferma (stato 'fermo') e lo si dice a
    loro, con il modo per farlo ripartire.
+
+   NELL'AREA RISERVATA (sezione Newsletter, scheda "Newsletter dei
+   bandi", via api/newsletter.js con il permesso della sezione):
+   l'elenco degli iscritti con il loro stato, gli ultimi giri, e la
+   disiscrizione o la riattivazione fatte a mano per chi lo chiede
+   per telefono (elenco, gestisci). Riattivare a mano si puo' solo
+   chi aveva gia' confermato almeno una volta: il consenso lo da' la
+   persona, con il pulsante della mail, non lo staff.
    ============================================================ */
 
 'use strict';
@@ -394,7 +403,12 @@ async function iscrivi(db, corpo, opz) {
     const DS = require('./domande-sito');
     const email = testo(c.email, 200).toLowerCase();
     const nome = testo(c.nome, 80);
+    const cognome = testo(c.cognome, 80);
+    const azienda = testo(c.azienda, 200);
+    if (!nome) return { stato: 400, corpo: { ok: false, campo: 'nome', msg: 'Scrivi il tuo nome.' } };
+    if (!cognome) return { stato: 400, corpo: { ok: false, campo: 'cognome', msg: 'Scrivi il tuo cognome.' } };
     if (!DS.indirizzoValido(email)) return { stato: 400, corpo: { ok: false, campo: 'email', msg: 'L\'indirizzo email non sembra valido: controllalo, è quello a cui scriviamo.' } };
+    if (!azienda) return { stato: 400, corpo: { ok: false, campo: 'azienda', msg: 'Indica l\'azienda o lo studio.' } };
     if (consenso(c.privacy) !== true) return { stato: 400, corpo: { ok: false, campo: 'privacy', msg: 'Per iscriverti serve il consenso a ricevere gli aggiornamenti e al trattamento dei dati.' } };
 
     // la casella "non sono un robot", dopo i controlli dei campi: il gettone vale una volta sola
@@ -432,7 +446,8 @@ async function iscrivi(db, corpo, opz) {
     const rispondiA = staffBandi().join(', ');
 
     if (prima.stato === 'attiva') {
-        const m = mailGiaIscritto(N.linkBandiDisiscrizione(email), nome || prima.nome);
+        // il nome gia' registrato, non quello appena scritto: il modulo lo puo' compilare chiunque
+        const m = mailGiaIscritto(N.linkBandiDisiscrizione(email), prima.nome || nome);
         const r = await spedisciServizio({ to: email, replyTo: rispondiA, subject: m.oggetto, html: m.html, text: m.testo });
         if (!r.ok) console.error('Newsletter bandi, mail "gia\' iscritto" non partita:', r.errore);
         // la stessa risposta di una richiesta nuova: non si dice a chi compila se l'indirizzo e' iscritto
@@ -440,11 +455,11 @@ async function iscrivi(db, corpo, opz) {
     }
 
     const scheda = {
-        email: email, stato: 'attesa', richiesta: ora, creata: Number(prima.creata) || ora,
+        email: email, nome: nome, cognome: cognome, azienda: azienda,
+        stato: 'attesa', richiesta: ora, creata: Number(prima.creata) || ora,
         privacy: true, consenso: { versione: VERSIONE_CONSENSO, quando: ora },
         origine: testo(c.origine, 40) || 'bandi'
     };
-    if (nome) scheda.nome = nome;
     try {
         await rif.set(scheda, { merge: true });
     } catch (e) {
@@ -681,9 +696,9 @@ async function spedisci(db, corrente, scadenza, opz) {
             const email = String(v.email || '').trim().toLowerCase();
             const no = fuori[email];
             const salta = !N.EMAIL_RE.test(email) || (no && Number(no.quando) > (Number(v.confermata) || 0));
-            return { id: d.id, email: email, nome: testo(v.nome, 80), salta: !!salta };
+            return { id: d.id, email: email, nome: testo(v.nome, 80), cognome: testo(v.cognome, 80), azienda: testo(v.azienda, 120), salta: !!salta };
         });
-        const destinatari = voci.filter(x => !x.salta).map(x => ({ email: x.email, nome: x.nome }));
+        const destinatari = voci.filter(x => !x.salta).map(x => ({ email: x.email, nome: x.nome, cognome: x.cognome, azienda: x.azienda }));
         const ultimo = docs[docs.length - 1].id;
         // un lotto non pieno e' l'ultimo: dopo, non c'e' da rileggere
         const ultimoLotto = docs.length < M.maxLotto();
@@ -759,6 +774,80 @@ async function spedisci(db, corrente, scadenza, opz) {
     return esito;
 }
 
+/* ============================================================
+   Per l'area riservata (api/newsletter.js controlla chi chiama)
+   ============================================================ */
+
+/* Gli iscritti, con il loro stato, e gli ultimi giri. Di ogni iscritto si
+   dice anche se e' ESCLUSO dagli invii perche' dopo la conferma ha chiesto di
+   non ricevere piu' niente dalla newsletter dello studio: e' attivo qui, ma
+   le mail dei bandi non gli arrivano, e chi guarda l'elenco deve saperlo. */
+async function elenco(db) {
+    const [snap, fuori, giriSnap] = await Promise.all([
+        db.collection(COLL).get(),
+        N.disiscritti(db),
+        // il contenuto della mail non serve all'elenco: si leggono solo i conti
+        db.collection(COLL_GIRI).orderBy('creato', 'desc').limit(20)
+            .select('creato', 'stato', 'bandi', 'oggetto', 'conti', 'finito', 'errori', 'ultimoErrore', 'trasporto').get()
+    ]);
+    const iscritti = [];
+    const conti = { attivi: 0, attesa: 0, disiscritti: 0, esclusi: 0 };
+    snap.forEach(d => {
+        const v = d.data() || {};
+        const email = String(v.email || '').toLowerCase();
+        if (!email) return;
+        const stato = v.stato === 'attiva' || v.stato === 'disiscritta' ? v.stato : 'attesa';
+        const no = fuori[email];
+        const escluso = stato === 'attiva' && !!no && Number(no.quando) > (Number(v.confermata) || 0);
+        if (stato === 'attiva') conti.attivi++;
+        else if (stato === 'disiscritta') conti.disiscritti++;
+        else conti.attesa++;
+        if (escluso) conti.esclusi++;
+        const m = v.mailConferma && typeof v.mailConferma === 'object' ? v.mailConferma : null;
+        iscritti.push({
+            email: email, nome: v.nome || '', cognome: v.cognome || '', azienda: v.azienda || '',
+            stato: stato, escluso: escluso,
+            creata: Number(v.creata) || 0, richiesta: Number(v.richiesta) || 0,
+            confermata: Number(v.confermata) || 0, disiscritta: Number(v.disiscritta) || 0,
+            comeDisiscritta: v.comeDisiscritta || '', origine: v.origine || '',
+            mailConferma: m ? { quando: Number(m.quando) || 0, ok: m.ok === true, errore: String(m.errore || '').slice(0, 200) } : null
+        });
+    });
+    iscritti.sort((a, b) => (a.cognome + ' ' + a.nome + ' ' + a.email).localeCompare(b.cognome + ' ' + b.nome + ' ' + b.email, 'it'));
+    const giri = [];
+    giriSnap.forEach(d => {
+        const g = d.data() || {};
+        giri.push({
+            id: d.id, creato: Number(g.creato) || 0, stato: g.stato || '', finito: Number(g.finito) || 0,
+            oggetto: g.oggetto || '', bandi: Array.isArray(g.bandi) ? g.bandi : [],
+            conti: g.conti || {}, errori: Number(g.errori) || 0, ultimoErrore: g.ultimoErrore || null,
+            trasporto: g.trasporto || ''
+        });
+    });
+    return { iscritti: iscritti, giri: giri, conti: conti };
+}
+
+/* Disiscrizione o riattivazione fatta a mano dallo staff, per chi lo chiede
+   per telefono o per email. Riattivare si puo' solo chi aveva gia'
+   confermato almeno una volta. */
+async function gestisci(db, email, azione, chi) {
+    const e = String(email || '').trim().toLowerCase();
+    if (!N.EMAIL_RE.test(e)) return { stato: 400, corpo: { ok: false, msg: 'Indirizzo non valido.' } };
+    const da = 'a mano (' + String(chi || '').slice(0, 120) + ')';
+    if (azione !== 'riattiva') return disiscrivi(db, e, { origine: da });
+    const rif = db.collection(COLL).doc(idIscritto(e));
+    const s = await rif.get();
+    const v = s.exists ? (s.data() || {}) : null;
+    if (!v) return { stato: 404, corpo: { ok: false, msg: 'Questo indirizzo non risulta fra gli iscritti alla newsletter dei bandi.' } };
+    if (v.stato === 'attiva') return { stato: 200, corpo: { ok: true, stato: 'iscritto' } };
+    if (!Number(v.confermata)) {
+        return { stato: 409, corpo: { ok: false, msg: 'Questo indirizzo non ha mai confermato l\'iscrizione: il consenso lo deve dare la persona. Chiedile di iscriversi dalla pagina dei bandi.' } };
+    }
+    const ora = Date.now();
+    await rif.set({ stato: 'attiva', confermata: ora, riattivata: ora, riattivataDa: da }, { merge: true });
+    return { stato: 200, corpo: { ok: true, stato: 'iscritto' } };
+}
+
 /* Un giro completo. opz (per le prove): budget, pausaLotti, url. */
 async function giro(db, opz) {
     opz = opz || {};
@@ -790,7 +879,7 @@ async function giro(db, opz) {
 }
 
 module.exports = {
-    iscrivi, conferma, disiscrivi, giro,
+    iscrivi, conferma, disiscrivi, giro, elenco, gestisci,
     // per le prove e per chi volesse ricomporre un aggiornamento
     componiAggiornamento, mailConferma, mailGiaIscritto, idIscritto, leggiBandiDalSito, inFinestra,
     COLL, COLL_GIRI, QUIETE_MS, ATTESA_MASSIMA_MS, MAX_MAIL_GIORNO, MAX_ERRORI, VALIDITA_CONFERMA_MS

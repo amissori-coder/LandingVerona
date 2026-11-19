@@ -978,8 +978,8 @@ servizio, `BREVO_API_KEY` e `NEWSLETTER_FROM_EMAIL` per gli aggiornamenti,
 ### L'iscrizione, con la conferma
 
 - Il modulo manda `azione: "bandi-newsletter"` a `/api/iscrizione-nuova`
-  (text/plain): `email`, `nome` (facoltativo), `privacy: true`, `captcha`, il
-  campo nascosto `sito`, `ms`. Freni: campo nascosto, tempo minimo (3 secondi),
+  (text/plain): `nome`, `cognome`, `email`, `azienda` (tutti obbligatori),
+  `privacy: true`, `captcha`, il campo nascosto `sito`, `ms`. Freni: campo nascosto, tempo minimo (3 secondi),
   Turnstile con l'azione `bandi-newsletter`, **tre mail al giorno per
   indirizzo** (`bandiNewsletterLimiti`, per impronta; le varianti con il `+`
   contano insieme) e il freno per IP dei moduli aperti.
@@ -995,9 +995,10 @@ servizio, `BREVO_API_KEY` e `NEWSLETTER_FROM_EMAIL` per gli aggiornamenti,
   **trenta giorni** e non riporta dentro chi si e' disiscritto dopo (risposta
   `410`).
 - A chi e' **gia' iscritto** non parte la conferma ma la mail "Sei gia'
-  iscritto", con il collegamento per disiscriversi. La risposta al modulo e' la
-  stessa nei due casi (`{ ok: true }`): non dice a chi compila se un indirizzo
-  e' iscritto.
+  iscritto", con il collegamento per disiscriversi e il nome gia' registrato (il
+  modulo non riscrive i dati di un iscritto: lo puo' compilare chiunque). La
+  risposta al modulo e' la stessa nei due casi (`{ ok: true }`): non dice a chi
+  compila se un indirizzo e' iscritto.
 - Sulla scheda resta il consenso (`privacy`, `consenso: { versione, quando }`).
   La versione `bandi-newsletter-1` e' il testo della casella: *"Voglio ricevere
   via email gli aggiornamenti sui nuovi bandi e acconsento al trattamento dei
@@ -1071,6 +1072,28 @@ saltate, non partite, incerte. Se l'invio viene rifiutato **otto volte di fila**
 (di solito crediti o chiave di Brevo) il giro si ferma (`stato: "fermo"`) e
 arriva l'avviso. Per farlo ripartire da dove si era fermato: sul documento del
 giro in `bandiNewsletterGiri` rimettere `stato: "in-corso"` ed `errori: 0`.
+
+### Nell'area riservata
+
+Sezione **Newsletter**, scheda **Newsletter dei bandi** (stesso permesso della
+sezione): i conti (attivi, in attesa di conferma, disiscritti), l'elenco degli
+iscritti con cognome, nome, email, azienda, stato e date (filtri per colonna ed
+esportazione CSV, come le altre tabelle) e gli ultimi invii automatici con i loro
+conti. Gli stati: **Iscritto**; **Escluso** (attivo, ma dopo la conferma ha
+chiesto di non ricevere piu' nulla dalla newsletter dello studio: le mail dei
+bandi non gli arrivano); **Da confermare** (con l'errore, se la mail di conferma
+non e' partita); **Disiscritto** (quando e come).
+
+Dalla scheda si puo' **disiscrivere** a mano chi lo chiede per telefono o per
+email, e **rimettere fra gli iscritti** chi si era disiscritto, ma solo se aveva
+gia' confermato almeno una volta: il consenso lo da' la persona, con il pulsante
+della mail, non lo staff. Le operazioni restano nel registro delle attivita'.
+
+Il servizio e' `/api/newsletter` con `azione: "bandi"` (iscritti, ultimi venti
+giri senza il contenuto delle mail, conti), `"bandi-disiscrivi"` e
+`"bandi-riattiva"` (con `email`). Gli iscritti ai bandi **non** entrano nei
+gruppi delle newsletter dello studio: hanno dato il consenso ai soli
+aggiornamenti sui bandi.
 
 Le raccolte `bandiNewsletter`, `bandiNewsletterGiri`, `bandiNewsletterLimiti` e
 `meta/bandiNewsletter` le scrive solo l'account di servizio: le regole di
@@ -5096,7 +5119,9 @@ Restituisce in una sola richiesta:
 - `disiscritti`: gli indirizzi che hanno chiesto di non ricevere piu' nulla.
 
 Accetta anche `azione: "disiscrivi" | "riattiva"` con un `email`, per registrare
-a mano una richiesta arrivata per telefono.
+a mano una richiesta arrivata per telefono. Con `azione: "bandi" |
+"bandi-disiscrivi" | "bandi-riattiva"` serve invece la scheda della newsletter dei
+bandi (vedi "Newsletter dei bandi").
 
 Ogni iscritto porta con se' il **consenso** alle comunicazioni promozionali
 (`marketing`), letto dalla scheda su Firestore o dalla colonna omonima del

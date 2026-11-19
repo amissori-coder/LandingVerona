@@ -87,16 +87,22 @@ function doc(coll, id) {
         delete: async () => { scritture++; dati.delete(chiave); }
     };
 }
-function interroga(coll, filtri, ordine, dopo, max) {
+function interroga(coll, filtri, ordine, dopo, max, verso) {
     return {
-        where: (c, op, v) => interroga(coll, filtri.concat([[c, op, v]]), ordine, dopo, max),
-        orderBy: (campo) => interroga(coll, filtri, campo, dopo, max),
-        startAfter: (v) => interroga(coll, filtri, ordine, v, max),
-        limit: (n) => interroga(coll, filtri, ordine, dopo, n),
+        where: (c, op, v) => interroga(coll, filtri.concat([[c, op, v]]), ordine, dopo, max, verso),
+        orderBy: (campo, dir) => interroga(coll, filtri, campo, dopo, max, dir),
+        startAfter: (v) => interroga(coll, filtri, ordine, v, max, verso),
+        limit: (n) => interroga(coll, filtri, ordine, dopo, n, verso),
+        // la proiezione: qui si restituisce tutto, ma la catena deve reggere
+        select: () => interroga(coll, filtri, ordine, dopo, max, verso),
         async get() {
             let chiavi = [...dati.keys()].filter(k => k.startsWith(coll + '/') && k.split('/').length === 2)
                 .filter(k => filtri.every(([c, op, v]) => op === '==' && (dati.get(k) || {})[c] === v))
                 .sort();
+            if (ordine && ordine !== '__name__') {
+                const val = k => (dati.get(k) || {})[ordine];
+                chiavi.sort((a, b) => (val(a) < val(b) ? -1 : (val(a) > val(b) ? 1 : 0)) * (verso === 'desc' ? -1 : 1));
+            }
             if (dopo != null) {
                 if (ordine !== '__name__') throw new Error('startAfter senza orderBy');
                 chiavi = chiavi.filter(k => k.split('/')[1] > dopo);
@@ -121,7 +127,10 @@ const db = {
         return esito;
     }
 };
-const admin = { initializeApp() { }, credential: { cert: () => ({}) }, apps: [], firestore: () => db, auth: () => ({}) };
+const admin = {
+    initializeApp() { }, credential: { cert: () => ({}) }, apps: [], firestore: () => db,
+    auth: () => ({ verifyIdToken: async t => { if (!/^token-/.test(String(t))) throw new Error('token non valido'); return { email: String(t).slice(6) }; } })
+};
 admin.firestore.FieldPath = { documentId: () => '__name__' };
 admin.firestore.FieldValue = { serverTimestamp: () => orologio, increment: n => n, arrayUnion: (...a) => a, delete: () => null };
 
@@ -190,6 +199,7 @@ const DATI = require(path.join(RADICE, 'lib/dati-bandi.js'));
 const servizio = require(path.join(RADICE, 'api/iscrizione-nuova.js'));
 const disiscrizione = require(path.join(RADICE, 'api/disiscrizione.js'));
 const cron = require(path.join(RADICE, 'api/newsletter-bandi.js'));
+const sezione = require(path.join(RADICE, 'api/newsletter.js'));
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -221,7 +231,12 @@ async function chiamaDis(metodo, query, corpo) {
     return { stato: r.stato, corpo: r.corpo || {}, intestazioni: r.intestazioni };
 }
 function modulo(campi) {
-    return Object.assign({ azione: 'bandi-newsletter', email: 'Lucia@Officine.it', nome: 'Lucia', privacy: true, captcha: '', sito: '', ms: 9000, origine: 'bandi' }, campi || {});
+    return Object.assign({ azione: 'bandi-newsletter', email: 'Lucia@Officine.it', nome: 'Lucia', cognome: 'Bianchi', azienda: 'Officine Bianchi Srl', privacy: true, captcha: '', sito: '', ms: 9000, origine: 'bandi' }, campi || {});
+}
+async function chiamaSezione(corpo) {
+    const r = risposta();
+    await zitto(() => sezione({ method: 'POST', headers: {}, body: JSON.stringify(corpo) }, r.res));
+    return { stato: r.stato, corpo: r.corpo || {} };
 }
 const scheda = email => dati.get(NB.COLL + '/' + NB.idIscritto(email));
 const parametri = url => new URL(url.replace(/&amp;/g, '&')).searchParams;
@@ -272,8 +287,9 @@ prova('L\'iscrizione: scheda in attesa e mail con il pulsante di conferma', asyn
     const r = await chiama(modulo());
     esigi(r.stato === 200 && JSON.stringify(r.corpo) === '{"ok":true}', 'risposta: ok, e nient\'altro', JSON.stringify(r.corpo));
     const s = scheda('lucia@officine.it') || {};
-    esigi(s.stato === 'attesa' && s.email === 'lucia@officine.it' && s.nome === 'Lucia' && s.privacy === true && s.consenso && s.consenso.versione === 'bandi-newsletter-1',
-        'scheda in attesa, con il consenso e la sua versione', JSON.stringify(s));
+    esigi(s.stato === 'attesa' && s.email === 'lucia@officine.it' && s.nome === 'Lucia' && s.cognome === 'Bianchi' && s.azienda === 'Officine Bianchi Srl'
+        && s.privacy === true && s.consenso && s.consenso.versione === 'bandi-newsletter-1',
+        'scheda in attesa: nome, cognome, azienda, con il consenso e la sua versione', JSON.stringify(s));
     esigi(s.mailConferma && s.mailConferma.ok === true, 'e con l\'esito della mail');
     const m = spedite[0] || {};
     esigi(spedite.length === 1 && m.to === 'lucia@officine.it' && /^Conferma l'iscrizione/.test(m.subject) && m.replyTo === STAFF, 'una mail a Lucia, con le risposte a chi segue i bandi', m.subject + ' / ' + m.replyTo);
@@ -290,7 +306,8 @@ prova('I freni del modulo', async () => {
     esigi(robot.stato === 200 && robot.corpo.ok === true && !scheda('robot@spam.it') && !spedite.length, 'campo nascosto pieno: "ok", e non succede niente');
     const veloce = await chiama(modulo({ ms: 900 }));
     esigi(veloce.stato === 400 && /premi di nuovo/.test(veloce.corpo.msg) && !spedite.length, 'troppo presto: lo si dice, e non parte niente');
-    const casi = [[{ email: 'lucia@' }, 'email'], [{ email: 'testo<vittima@altro.it>' }, 'email'], [{ privacy: false }, 'privacy'], [{ privacy: undefined }, 'privacy']];
+    const casi = [[{ nome: ' ' }, 'nome'], [{ cognome: '' }, 'cognome'], [{ azienda: undefined }, 'azienda'],
+        [{ email: 'lucia@' }, 'email'], [{ email: 'testo<vittima@altro.it>' }, 'email'], [{ privacy: false }, 'privacy'], [{ privacy: undefined }, 'privacy']];
     for (const [campi, campo] of casi) {
         const r = await chiama(modulo(campi));
         esigi(r.stato === 400 && r.corpo.campo === campo, JSON.stringify(campi) + ' -> errore sul campo ' + campo, JSON.stringify(r.corpo));
@@ -322,14 +339,14 @@ prova('I freni del modulo', async () => {
 prova('Chi e\' gia\' iscritto riceve "sei gia\' iscritto", e il modulo risponde allo stesso modo', async () => {
     dati.clear(); spedite = [];
     attivo('gia@officine.it', orologio - 1000, { nome: 'Marco' });
-    const r = await chiama(modulo({ email: 'gia@officine.it', nome: '' }));
+    const r = await chiama(modulo({ email: 'gia@officine.it', nome: 'Qualcuno', cognome: 'Altro', azienda: 'Altra Srl' }));
     esigi(r.stato === 200 && JSON.stringify(r.corpo) === '{"ok":true}', 'stessa risposta di un\'iscrizione nuova');
     const m = spedite[0] || {};
-    esigi(/^Sei già iscritto/.test(m.subject) && /Buongiorno Marco/.test(m.text), 'la mail dice che e\' gia\' iscritto, con il nome della scheda', m.subject);
+    esigi(/^Sei già iscritto/.test(m.subject) && /Buongiorno Marco/.test(m.text) && !/Qualcuno/.test(m.html + m.text), 'la mail dice che e\' gia\' iscritto, con il nome della scheda e non quello scritto nel modulo', m.subject);
     const link = linkDaMail(m, /href="([^"]*\/bandi\/newsletter\/\?e=[^"]+)"/);
     const p = link ? parametri(link) : new URLSearchParams();
     esigi(N.firmaBandiDisiscrizioneValida(p.get('e'), p.get('t')), 'con il collegamento per disiscriversi dai bandi', link);
-    esigi(scheda('gia@officine.it').stato === 'attiva' && !scheda('gia@officine.it').richiesta, 'e la scheda resta com\'era');
+    esigi(scheda('gia@officine.it').stato === 'attiva' && !scheda('gia@officine.it').richiesta && scheda('gia@officine.it').nome === 'Marco' && !scheda('gia@officine.it').azienda, 'e la scheda resta com\'era: il modulo non riscrive i dati di un iscritto');
 });
 
 prova('La conferma: firmata, una volta sola, scade, e non riporta dentro chi si e\' disiscritto dopo', async () => {
@@ -583,6 +600,48 @@ prova('Un lotto dall\'esito ignoto non si ritenta; un giro interrotto per il tem
     await db.collection('meta').doc('bandiNewsletter').set({ lucchettoFino: orologio + 60000, lucchettoGiro: 'un-altro' }, { merge: true });
     c = await giro();
     esigi(c.occupato === true, 'un altro giro al lavoro: questo non fa niente');
+});
+
+prova('Nell\'area riservata: l\'elenco degli iscritti e i giri, e la gestione a mano', async () => {
+    dati.clear(); spedite = [];
+    dati.set('utenti/staff@revilaw.it', { attivo: true, ruolo: 'admin' });
+    dati.set('utenti/collega@revilaw.it', { attivo: true, ruolo: 'staff' });
+    attivo('zeta@officine.it', orologio - 9000, { nome: 'Anna', cognome: 'Zeta', azienda: 'Zeta Srl', creata: orologio - 10000 });
+    attivo('alfa@officine.it', orologio - 9000, { nome: 'Bruno', cognome: 'Alfa', azienda: 'Alfa Spa' });
+    attivo('escluso@officine.it', orologio - 9000, { nome: 'Carla', cognome: 'Esclusa', azienda: 'Esse Srl' });
+    dati.set('newsletterDisiscritti/escluso@officine.it', { email: 'escluso@officine.it', quando: orologio - 100 });
+    dati.set(NB.COLL + '/' + NB.idIscritto('attesa@officine.it'), { email: 'attesa@officine.it', nome: 'Dario', cognome: 'Attesa', azienda: 'Di Srl', stato: 'attesa', mailConferma: { quando: orologio, ok: false, errore: 'casella piena' } });
+    dati.set(NB.COLL_GIRI + '/vecchio', { creato: orologio - 7 * 86400000, stato: 'finito', oggetto: 'Nuovo bando: X', bandi: [{ id: 'x', titolo: 'X', regione: 'Lazio' }], conti: { inviati: 3 }, html: '<p>lungo</p>' });
+    dati.set(NB.COLL_GIRI + '/nuovo', { creato: orologio - 86400000, stato: 'finito', oggetto: '2 nuovi bandi per le imprese', bandi: [], conti: { inviati: 5 }, html: '<p>lungo</p>' });
+
+    const senza = await chiamaSezione({ azione: 'bandi', idToken: 'sbagliato' });
+    const altro = await chiamaSezione({ azione: 'bandi', idToken: 'token-collega@revilaw.it' });
+    esigi(senza.stato === 401 && altro.stato === 403 && !senza.corpo.iscritti && !altro.corpo.iscritti, 'senza sessione 401, senza il permesso della sezione 403: niente dati');
+    const r = await chiamaSezione({ azione: 'bandi', idToken: 'token-staff@revilaw.it' });
+    const el = r.corpo.iscritti || [];
+    esigi(r.stato === 200 && el.length === 4 && el.map(x => x.cognome).join() === 'Alfa,Attesa,Esclusa,Zeta', 'l\'elenco, in ordine di cognome', el.map(x => x.cognome).join());
+    const z = el.find(x => x.email === 'zeta@officine.it') || {};
+    esigi(z.nome === 'Anna' && z.azienda === 'Zeta Srl' && z.stato === 'attiva' && z.creata === orologio - 10000 && z.confermata === orologio - 9000, 'con nome, cognome, azienda, stato e date', JSON.stringify(z));
+    const e = el.find(x => x.email === 'escluso@officine.it') || {};
+    const a = el.find(x => x.email === 'attesa@officine.it') || {};
+    esigi(e.escluso === true && z.escluso === false && a.stato === 'attesa' && a.mailConferma && a.mailConferma.ok === false && a.mailConferma.errore === 'casella piena',
+        'chi e\' escluso dalla newsletter dello studio lo si vede, e cosi\' una mail di conferma non partita');
+    esigi(JSON.stringify(r.corpo.conti) === '{"attivi":3,"attesa":1,"disiscritti":0,"esclusi":1}', 'i conti', JSON.stringify(r.corpo.conti));
+    const gi = r.corpo.giri || [];
+    esigi(gi.length === 2 && gi[0].id === 'nuovo' && gi[1].conti.inviati === 3 && !('html' in gi[0]), 'gli ultimi giri, dal piu\' recente, senza il contenuto della mail', JSON.stringify(gi.map(x => x.id)));
+
+    const dis = await chiamaSezione({ azione: 'bandi-disiscrivi', email: 'Zeta@Officine.it', idToken: 'token-staff@revilaw.it' });
+    const sz = scheda('zeta@officine.it');
+    esigi(dis.corpo.ok && sz.stato === 'disiscritta' && sz.comeDisiscritta === 'a mano (staff@revilaw.it)'.slice(0, 20), 'disiscritta a mano, con chi l\'ha fatto', JSON.stringify(sz));
+    esigi(!dati.has('newsletterDisiscritti/zeta@officine.it'), 'e la newsletter dello studio non si tocca');
+    avanza(1000);
+    const ri = await chiamaSezione({ azione: 'bandi-riattiva', email: 'zeta@officine.it', idToken: 'token-staff@revilaw.it' });
+    esigi(ri.corpo.ok && scheda('zeta@officine.it').stato === 'attiva' && scheda('zeta@officine.it').confermata === orologio && /staff@revilaw\.it/.test(scheda('zeta@officine.it').riattivataDa),
+        'riattivata a mano: aveva gia\' confermato una volta');
+    const no = await chiamaSezione({ azione: 'bandi-riattiva', email: 'attesa@officine.it', idToken: 'token-staff@revilaw.it' });
+    esigi(no.stato === 409 && scheda('attesa@officine.it').stato === 'attesa', 'chi non ha mai confermato non si attiva a mano: il consenso lo da\' la persona', JSON.stringify(no.corpo));
+    const ignoto = await chiamaSezione({ azione: 'bandi-riattiva', email: 'mai@officine.it', idToken: 'token-staff@revilaw.it' });
+    esigi(ignoto.stato === 404, 'un indirizzo che non c\'e\': 404');
 });
 
 prova('Il lavoro programmato vuole il segreto', async () => {

@@ -833,6 +833,13 @@
     color: var(--text-primary);
 }
 
+.bandi-newsletter-scheda p.bandi-nl-obbligatori {
+    margin: 0 0 14px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: left !important;
+}
+
 .bandi-nl-campi {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

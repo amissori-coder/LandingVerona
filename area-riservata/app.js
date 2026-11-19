@@ -2048,6 +2048,16 @@
         async disiscriviNewsletter(email, riattiva) {
             return this._chiamaNewsletter('newsletter', { azione: riattiva ? 'riattiva' : 'disiscrivi', email: email });
         },
+        /* La newsletter dei bandi: gli iscritti dal modulo della pagina /bandi/
+           e gli ultimi invii automatici (email-service/lib/newsletter-bandi.js). */
+        async bandiNewsletter() {
+            return this._chiamaNewsletter('newsletter', { azione: 'bandi' });
+        },
+        /* ...e la disiscrizione o la riattivazione fatta a mano. Riattivare si
+           puo' solo chi aveva gia' confermato: lo controlla il servizio. */
+        async gestisciBandiNewsletter(email, riattiva) {
+            return this._chiamaNewsletter('newsletter', { azione: riattiva ? 'bandi-riattiva' : 'bandi-disiscrivi', email: email });
+        },
         /* Invio di un lotto: l'HTML arriva gia' pronto, il servizio ci mette
            dentro il collegamento personale di disiscrizione. */
         async inviaLottoNewsletter(corpo) {
@@ -33157,6 +33167,27 @@
     let _nlInvio = null;             // {trasporto, maxLotto} dichiarati dal servizio
     let _nlFonti = null;             // quanti contatti da Firestore e quanti dal foglio storico
     let nlTab = 'newsletter';        // scheda aperta nella sezione
+    /* La newsletter dei bandi (scheda "Newsletter dei bandi"): chi si iscrive
+       dal modulo della pagina /bandi/ e gli invii automatici dei bandi nuovi.
+       Si legge dal servizio quando la scheda si apre. Questi iscritti NON
+       entrano nei gruppi delle newsletter dello studio: il consenso che hanno
+       dato e' per i soli aggiornamenti sui bandi. */
+    let _nlBandi = null;             // { iscritti: [], giri: [], conti: {} }
+    let _nlBandiMsg = '';
+    let _nlBandiInFlight = false;
+    let _nlBandiLetto = 0;           // quando si e' letto (o provato a leggere) l'ultima volta
+    function caricaBandiNewsletter(poi) {
+        if (!Cloud.attivo || _nlBandiInFlight) return;
+        _nlBandiInFlight = true;
+        Cloud.bandiNewsletter().then(r => {
+            _nlBandiInFlight = false;
+            // la pausa fra due letture si conta dalla fine, anche quando va male: niente richieste a raffica
+            _nlBandiLetto = Date.now();
+            if (!r.ok) _nlBandiMsg = r.msg || 'Lettura non riuscita.';
+            else { _nlBandiMsg = ''; _nlBandi = { iscritti: r.iscritti || [], giri: r.giri || [], conti: r.conti || {} }; }
+            if (poi) { try { poi(); } catch (e) { } }
+        });
+    }
     /* Esiti degli invii letti da Brevo, per etichetta di giro. Restano solo qui,
        in memoria: nell'archivio condiviso non entrano, perche' quello e' un unico
        documento fuso per record con l'ultimo che scrive che vince, e due browser
@@ -33553,6 +33584,9 @@
             caricaDestinatariNewsletter(cambiato => { if (cambiato && vistaCorrente === 'newsletter') vistaNewsletter(); });
         }
         if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); });
+        if (nlTab === 'bandi' && Cloud.attivo && !_nlBandiInFlight && Date.now() - _nlBandiLetto > 15000) {
+            caricaBandiNewsletter(() => { if (vistaCorrente === 'newsletter' && nlTab === 'bandi') vistaNewsletter(); });
+        }
 
         const g = gruppiNewsletter();
         const disiscritti = (_nlDati && _nlDati.disiscritti) || {};
@@ -33584,6 +33618,7 @@
             + '<button type="button" class="tab-btn' + (nlTab === 'newsletter' ? ' attivo' : '') + '" data-tab="newsletter">Le newsletter (' + Newsletter.tutte().length + ')</button>'
             + '<button type="button" class="tab-btn' + (nlTab === 'iscritti' ? ' attivo' : '') + '" data-tab="iscritti">Iscritti (' + nInElenco + ')</button>'
             + '<button type="button" class="tab-btn' + (nlTab === 'disiscritti' ? ' attivo' : '') + '" data-tab="disiscritti">Disiscritti (' + nDisiscritti + ')</button>'
+            + '<button type="button" class="tab-btn' + (nlTab === 'bandi' ? ' attivo' : '') + '" data-tab="bandi">Newsletter dei bandi' + (_nlBandi ? ' (' + _nlBandi.iscritti.length + ')' : '') + '</button>'
             + '</div>';
 
         const cfgNL = NewsletterConfig.leggi();
@@ -33635,6 +33670,7 @@
         document.getElementById('nl-aggiorna').addEventListener('click', () => {
             _nlMsg = ''; _nlUltimoTentativo = 0;
             caricaDestinatariNewsletter(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); }, true);
+            if (nlTab === 'bandi') { _nlBandiMsg = ''; _nlBandiLetto = 0; }
             vistaNewsletter();
         });
         const bAcc = document.getElementById('nl-accessi');
@@ -33647,6 +33683,7 @@
     }
 
     function corpoNewsletter(g, disiscritti) {
+        if (nlTab === 'bandi') return corpoBandiNewsletter();
         if (nlTab === 'iscritti') return corpoIscrittiNewsletter(g, disiscritti);
         if (nlTab === 'disiscritti') return corpoDisiscrittiNewsletter(disiscritti);
         return riepilogoInvioNewsletterHtml() + corpoElencoNewsletter();
@@ -33783,6 +33820,82 @@
             + '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
     }
 
+    /* La scheda "Newsletter dei bandi": i conti, l'elenco degli iscritti (con i
+       filtri per colonna e l'esportazione CSV della tabella) e gli ultimi invii
+       automatici. Si legge al momento: niente copie nell'archivio condiviso. */
+    function corpoBandiNewsletter() {
+        if (!Cloud.attivo) return '<div class="card tabella-vuota">In modalità dimostrativa gli iscritti alla newsletter dei bandi non sono disponibili.</div>';
+        if (!_nlBandi) {
+            return '<div class="card tabella-vuota">' + (_nlBandiMsg ? esc(_nlBandiMsg) + '<br><span class="hint">Riprova con "Aggiorna adesso".</span>' : 'Lettura degli iscritti in corso...') + '</div>';
+        }
+        const c = _nlBandi.conti || {};
+        const box = (classe, etichetta, valore, nota) => '<div class="kpi' + (classe ? ' ' + classe : '') + '">'
+            + '<div class="etichetta">' + etichetta + '</div><div class="valore">' + valore + '</div>'
+            + '<div class="nota">' + nota + '</div></div>';
+        const kpi = '<div class="kpi-griglia">'
+            + box('verde', 'Iscritti attivi', c.attivi || 0, c.esclusi ? 'di cui ' + c.esclusi + ' esclus' + (c.esclusi === 1 ? 'o' : 'i') + ' (vedi la colonna Stato)' : 'ricevono i nuovi bandi')
+            + box('ambra', 'In attesa di conferma', c.attesa || 0, 'non hanno ancora toccato il pulsante della mail')
+            + box('rosso', 'Disiscritti', c.disiscritti || 0, 'dal collegamento nelle mail o a mano')
+            + '</div>';
+        const spiega = '<p class="hint" style="margin:0 0 12px;">Chi si iscrive dalla pagina <strong>Bandi e agevolazioni</strong> del sito riceve una mail ogni volta che sul sito compaiono bandi nuovi: la manda da solo il servizio, dalle 8 alle 20, un\'ora dopo l\'ultimo bando pubblicato. '
+            + 'Questi iscritti hanno dato il consenso ai soli aggiornamenti sui bandi: <strong>non</strong> sono fra i destinatari delle newsletter dello studio.</p>';
+        const elenco = _nlBandi.iscritti || [];
+        const data = ts => ts ? esc(fmtDataOra(ts)) : '-';
+        const stato = p => {
+            if (p.stato === 'attiva') {
+                return p.escluso
+                    ? '<span class="badge ambra">Escluso</span><div class="hint">dopo la conferma ha chiesto di non ricevere più nulla dalla newsletter dello studio</div>'
+                    : '<span class="badge verde">Iscritto</span>';
+            }
+            if (p.stato === 'disiscritta') {
+                return '<span class="badge rosso">Disiscritto</span><div class="hint">' + data(p.disiscritta)
+                    + (p.comeDisiscritta ? ' &middot; ' + esc(p.comeDisiscritta === 'pagina' ? 'dal collegamento' : (p.comeDisiscritta === 'un-clic' ? 'dal programma di posta' : p.comeDisiscritta)) : '') + '</div>';
+            }
+            const m = p.mailConferma;
+            return '<span class="badge ambra">Da confermare</span>'
+                + (m && !m.ok ? '<div class="hint">la mail di conferma non è partita' + (m.errore ? ': ' + esc(m.errore) : '') + '</div>' : '');
+        };
+        const tabella = elenco.length
+            ? '<div class="card tabella-wrap" id="nl-tab-bandi"><table class="dati"><thead><tr>'
+            + '<th>Cognome</th><th>Nome</th><th>Email</th><th>Azienda</th><th>Stato</th><th>Iscritto il</th><th>Confermato il</th><th></th>'
+            + '</tr></thead><tbody>'
+            + elenco.map(p => '<tr>'
+                + '<td>' + esc(p.cognome || '-') + '</td>'
+                + '<td>' + esc(p.nome || '') + '</td>'
+                + '<td>' + esc(p.email) + '</td>'
+                + '<td>' + esc(p.azienda || '') + '</td>'
+                + '<td>' + stato(p) + '</td>'
+                + '<td>' + data(p.creata || p.richiesta) + '</td>'
+                + '<td>' + data(p.confermata) + '</td>'
+                + '<td class="td-azioni">'
+                + (p.stato === 'attiva' ? '<button class="btn btn-sm btn-ghost" data-bandi-disiscrivi="' + esc(p.email) + '">Disiscrivi</button>' : '')
+                + (p.stato === 'disiscritta' && p.confermata ? '<button class="btn btn-sm btn-ghost" data-bandi-riattiva="' + esc(p.email) + '">Rimetti fra gli iscritti</button>' : '')
+                + '</td></tr>').join('')
+            + '</tbody></table></div>'
+            : '<div class="card tabella-vuota">Nessun iscritto alla newsletter dei bandi, per ora.<br><span class="hint">Il modulo è nella pagina Bandi e agevolazioni del sito, nel riquadro «I nuovi bandi, appena escono».</span></div>';
+        const giri = _nlBandi.giri || [];
+        const statoGiro = gr => gr.stato === 'finito'
+            ? '<span class="badge verde">Inviato</span>'
+            : (gr.stato === 'fermo'
+                ? '<span class="badge rosso">Fermo</span>' + (gr.ultimoErrore && gr.ultimoErrore.msg ? '<div class="hint">' + esc(gr.ultimoErrore.msg) + '</div>' : '')
+                : '<span class="badge ambra">In corso</span>');
+        const invii = '<div class="card tabella-wrap" style="margin-top:16px;"><strong>Invii automatici</strong>'
+            + (giri.length
+                ? '<p class="hint" style="margin:4px 0 10px;">Gli ultimi aggiornamenti spediti agli iscritti' + (giri.some(gr => gr.trasporto === 'brevo') ? ': «consegnate» vuol dire accettate da Brevo per la spedizione, i rimbalzi si vedono nel suo pannello' : '') + '.</p>'
+                + '<table class="dati"><thead><tr><th>Quando</th><th>Bandi annunciati</th><th>Consegnate</th><th>Saltate</th><th>Non partite</th><th>Stato</th></tr></thead><tbody>'
+                + giri.map(gr => '<tr>'
+                    + '<td>' + data(gr.creato) + '</td>'
+                    + '<td>' + esc((gr.bandi || []).map(b => b.titolo).join('; ') || gr.oggetto || '-') + '</td>'
+                    + '<td>' + ((gr.conti && gr.conti.inviati) || 0) + '</td>'
+                    + '<td>' + ((gr.conti && gr.conti.saltati) || 0) + '</td>'
+                    + '<td>' + (((gr.conti && gr.conti.falliti) || 0) + ((gr.conti && gr.conti.incerti) || 0)) + '</td>'
+                    + '<td>' + statoGiro(gr) + '</td></tr>').join('')
+                + '</tbody></table>'
+                : '<p class="hint" style="margin:4px 0 0;">Nessun invio ancora: il primo parte quando sul sito compaiono bandi nuovi.</p>')
+            + '</div>';
+        return kpi + spiega + tabella + invii;
+    }
+
     function corpoDisiscrittiNewsletter(disiscritti) {
         const elenco = Object.keys(disiscritti).map(e => ({ email: e, ...disiscritti[e] }))
             .sort((a, b) => (b.quando || 0) - (a.quando || 0));
@@ -33833,6 +33946,26 @@
         }));
         const tab = document.getElementById('nl-tab-iscritti');
         if (tab) attrezzaTabella(tab, { nomeFile: 'iscritti-newsletter' });
+
+        // la newsletter dei bandi: disiscrivere o rimettere dentro a mano, per chi lo chiede
+        const gestisciBandi = (email, riattiva) => confermaNewsletter(
+            riattiva ? 'Rimettere ' + email + ' fra gli iscritti alla newsletter dei bandi?' : 'Disiscrivere ' + email + ' dalla newsletter dei bandi?',
+            riattiva ? 'Tornerà a ricevere gli aggiornamenti sui nuovi bandi. Fallo solo se te lo chiede la persona.'
+                : 'Non riceverà più gli aggiornamenti sui nuovi bandi. La newsletter dello studio non cambia.',
+            bSi => conAttesa(bSi, async () => {
+                const r = await Cloud.gestisciBandiNewsletter(email, riattiva);
+                if (!r.ok) { toast('Non riuscito: ' + (r.msg || ''), 'rosso'); return; }
+                try { Audit.registra(Auth.utenteCorrente, riattiva ? 'Newsletter dei bandi: iscritto riattivato' : 'Newsletter dei bandi: iscritto disiscritto', 'sistema', email, null, null); } catch (e) { }
+                chiudiModale();
+                toast(riattiva ? email + ' torna fra gli iscritti ai bandi.' : email + ' non riceverà più i nuovi bandi.', 'verde');
+                _nlBandiLetto = 0;
+                caricaBandiNewsletter(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); });
+            }, { testo: 'Attendi...' }),
+            riattiva ? 'Rimetti fra gli iscritti' : 'Disiscrivi');
+        scope.querySelectorAll('[data-bandi-disiscrivi]').forEach(b => b.addEventListener('click', () => gestisciBandi(b.dataset.bandiDisiscrivi, false)));
+        scope.querySelectorAll('[data-bandi-riattiva]').forEach(b => b.addEventListener('click', () => gestisciBandi(b.dataset.bandiRiattiva, true)));
+        const tabB = document.getElementById('nl-tab-bandi');
+        if (tabB) attrezzaTabella(tabB, { nomeFile: 'iscritti-newsletter-bandi' });
     }
 
     /* Conferma con due pulsanti, usata per eliminazioni e invii. */
