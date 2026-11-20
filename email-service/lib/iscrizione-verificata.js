@@ -793,7 +793,10 @@ async function trasloca(db, dati) {
 }
 
 module.exports = {
-    EVENTI, eventoDi, attiva, cellulare, leggibile, mascherato,
+    /* `cancellata` serve anche al motore degli inviti (lib/invio-inviti.js):
+       a chi risulta gia' iscritto all'evento l'invito non parte, e una scheda
+       con la traccia della cancellazione non conta come iscrizione. */
+    EVENTI, eventoDi, attiva, cancellata, cellulare, leggibile, mascherato,
     invia, verifica, registra, riattiva, assegnaCodice, trasloca, usiCodice, firmaNumero, firmaNumeroValida,
     smsConfermaEmail, testoSmsConferma, caratteriSms, msgInAttesa, LINK_MODULO_MAIL, linkModuloMail, sezionePredefinita, SMS_MAX_CARATTERI,
     MAX_PER_CODICE, MSG

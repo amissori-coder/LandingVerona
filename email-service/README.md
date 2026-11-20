@@ -88,6 +88,24 @@ niente**: usa le variabili `SMTP_*` gia' presenti qui sopra. Ogni messaggio
 porta il collegamento di disiscrizione e le intestazioni `List-Unsubscribe`,
 e chi si e' gia' disiscritto viene saltato (stesso elenco della newsletter).
 
+**Gli iscritti di un altro evento.** Dalla finestra "Carica l'elenco"
+("Oppure: gli iscritti di un altro evento") si aggiungono all'elenco le
+persone iscritte a un altro evento, per esempio gli iscritti di Milano al
+webinar. Prima di aggiungerle l'area riservata (`righeDaIscritti` in
+`area-riservata/app.js`) lascia fuori, e mostra con il perche', **chi c'e'
+gia' nell'evento a cui le si invita**: chi e' gia' iscritto (stessa email o
+stesso cellulare) e chi l'invito l'ha gia' avuto o lo avra' dall'elenco, al
+suo indirizzo o alla sua azienda (la PEC dell'invito con cui si e' iscritto,
+il codice fiscale o la partita IVA, la ragione sociale). Se una delle letture
+non riesce non aggiunge niente. Le schede portano `provenienza` (la colonna
+"Evento di provenienza"): la finestra dell'invito propone la lettera scritta
+per loro (`invitoIscritti` in `EVENTI_DEF`) e non la ricorda come testo
+dell'invito, che resta quello delle aziende. Al momento di spedire il motore
+(`iscrittaAllEvento` in `lib/invio-inviti.js`) salta chi nel frattempo si e'
+iscritto all'evento con l'indirizzo a cui si sta per scrivere, e segna la
+scheda "iscritta": vale per ogni invio, a mano o programmato, e si conta fra
+le saltate (`giaIscritte`).
+
 Facoltative, ma **consigliate** per un invio a freddo:
 
 | Nome | Valore |
@@ -2273,8 +2291,8 @@ non allega il PDF: solo il file per l'agenda. La pagina è **su invito**:
 non compare sul sito (noindex, fuori dalla sitemap, nessun collegamento,
 niente popup della diretta in home) e la raggiunge solo chi riceve il
 collegamento per email; nell'area riservata sta fra i «Moduli riservati»
-dell'evento, e nella tendina del modulo dei contatti la voce del webinar
-compare solo arrivando da `?evento=webinar-2026`.
+dell'evento. Nella tendina del modulo dei contatti c'è la voce del webinar
+(solo il nome e la data, senza collegamento alla pagina).
 
 - **`azione: "sms-invia"`** (`pagina`, `telefono`, `email`): solo cellulari
   italiani (`+39 3...`, scritti come capita). Prima di spendere un SMS guarda

@@ -220,7 +220,9 @@ function perVideo(id, d) {
             saltate: Number(conti.saltate) || 0,
             senzaRecapito: Number(conti.senzaRecapito) || 0,
             disiscritte: Number(conti.disiscritte) || 0,
-            incerte: Number(conti.incerte) || 0
+            incerte: Number(conti.incerte) || 0,
+            // gia' contate fra le saltate: qui solo per dirlo
+            giaIscritte: Number(conti.giaIscritte) || 0
         },
         fatte: fatte,
         restano: Math.max(0, (d.totale || 0) - fatte),

@@ -909,6 +909,92 @@ async function principale() {
         esigi(sp.totale === 2 && sp.daInvitare === 1 && sp.inviata === 1, 'la richiesta di sponsorizzazione ha i suoi', JSON.stringify(sp));
     }
 
+    console.log('\nChi e\' gia\' iscritto all\'evento non riceve l\'invito (gli iscritti di Milano al webinar)');
+    {
+        /* LA REGOLA: invitando a un evento gli iscritti di un altro, chi e'
+           gia' iscritto all'evento a cui li si invita resta fuori. L'area
+           riservata la applica quando prepara l'elenco; qui si prova il
+           secondo controllo, quello del motore al momento di spedire, per chi
+           si iscrive nel frattempo. Il webinar ha le iscrizioni verificate:
+           la sua iscrizione si riconosce dalla `se` di lib/iscrizione-verificata.js. */
+        const WEB = 'webinar-2026-12-10';
+        const idW = m => WEB + '~' + m;
+        dati = {}; spediti = [];
+        comeVaSendMail = () => ({ messageId: 'x', response: '250 ok' });
+        const persona = m => ({
+            evento: WEB, campagna: 'invito', ragioneSociale: 'Azienda di ' + m, pec: '', email: m,
+            referente: 'Persona ' + m, stato: 'da-invitare', provenienza: 'milano-2027-02-26'
+        });
+        const tutte = ['iscritta@x.it', 'libera@x.it', 'annullata@x.it', 'altroevento@x.it', 'cancellata@x.it'];
+        tutte.forEach(m => { dati['aziendeInvito/' + idW(m)] = persona(m); });
+        const WEB_PAG = 'Webinar 10 Dicembre 2026 - Iscrizione';
+        dati['iscrizioni/i1'] = { email: 'iscritta@x.it', nome: 'Ida', cognome: 'Iscritta', pagina: WEB_PAG, data: '20/11/2026 10:00:00' };
+        // annullata dall'intestatario: non e' piu' iscritta
+        dati['iscrizioni/i2'] = { email: 'annullata@x.it', nome: 'Anna', cognome: 'Annullata', pagina: WEB_PAG, data: '19/11/2026 10:00:00', annullato: { quando: 1 } };
+        // iscritta a Milano, non al webinar: e' proprio chi va invitato
+        dati['iscrizioni/i3'] = { email: 'altroevento@x.it', nome: 'Aldo', cognome: 'Altro', pagina: 'Milano 26 Febbraio 2027 - Iscrizione', data: '01/11/2026 10:00:00' };
+        // cancellata dall'area riservata, ma la scheda e' rimasta: non conta
+        dati['iscrizioni/i4'] = { email: 'cancellata@x.it', nome: 'Carlo', cognome: 'Cancellato', pagina: 'Webinar 10 Dicembre 2026', data: '18/11/2026 09:00:00' };
+        dati['iscrizioniCancellate/' + (WEB + '~cancellata@x.it|18/11/2026 09:00:00').replace(/[\/\\.#$\[\]]/g, '-')] = { idIscritto: 'cancellata@x.it|18/11/2026 09:00:00' };
+
+        const r = await MOTORE.inviaSchede(db, {
+            evento: WEB, campagna: 'invito', canale: 'email', ids: tutte.map(idW), mail: MAIL,
+            email: 'chi@studio.it', fuori: {}, pagina: 'Webinar 10 Dicembre 2026'
+        });
+        const a = spediti.map(m => m.to).sort().join(',');
+        esigi(a === 'altroevento@x.it,annullata@x.it,cancellata@x.it,libera@x.it',
+            'parte a tutti tranne a chi e\' gia\' iscritto al webinar (annullate e cancellate non contano)', a);
+        const sch = dati['aziendeInvito/' + idW('iscritta@x.it')] || {};
+        esigi(sch.stato === 'iscritta' && Array.isArray(sch.iscritti) && sch.iscritti.length === 1
+            && sch.iscritti[0].iscrizione === 'i1' && sch.iscritti[0].nome === 'Ida Iscritta'
+            && !sch.tentativo && !sch.invio && !sch.codice && sch.giaIscritta && sch.giaIscritta.iscrizione === 'i1',
+            'la sua scheda passa a "iscritta" con l\'iscrizione trovata: niente timbro, niente invio, niente codice', JSON.stringify(sch));
+        esigi(r.giaIscritte === 1 && r.saltate === 1 && r.inviate === 4 && r.trattate === 4,
+            'si conta fra le saltate e a parte, e non consuma ne\' tetto ne\' ritmo',
+            JSON.stringify({ giaIscritte: r.giaIscritte, saltate: r.saltate, inviate: r.inviate, trattate: r.trattate }));
+        esigi(r.esiti[idW('iscritta@x.it')] && r.esiti[idW('iscritta@x.it')].stato === 'iscritta',
+            'e l\'esito lo dice alla finestra, che aggiorna la riga');
+
+        /* Ripremere Invia non cambia niente: la scheda e' "iscritta" e non
+           e' mai partita, quindi non e' "gia' servita" - si ricontrolla e si
+           salta di nuovo, senza doppioni nell'elenco degli iscritti. */
+        spediti = [];
+        const r2 = await MOTORE.inviaSchede(db, {
+            evento: WEB, campagna: 'invito', canale: 'email', ids: [idW('iscritta@x.it')], mail: MAIL,
+            email: 'chi@studio.it', fuori: {}, pagina: 'Webinar 10 Dicembre 2026'
+        });
+        const sch2 = dati['aziendeInvito/' + idW('iscritta@x.it')] || {};
+        esigi(!spediti.length && r2.giaIscritte === 1 && sch2.iscritti.length === 1,
+            'ripremendo Invia resta fuori, e l\'iscrizione non si ripete sulla scheda', JSON.stringify(sch2.iscritti));
+
+        // un evento senza iscrizioni verificate: l'iscrizione si riconosce dalla pagina che viaggia con l'invio
+        dati = {}; spediti = [];
+        ['gen@x.it', 'gen2@x.it'].forEach(m => { dati['aziendeInvito/' + idScheda(m)] = azienda(m, { pec: '', email: m }); });
+        dati['iscrizioni/g1'] = { email: 'gen@x.it', nome: 'Gino', cognome: 'Uno', pagina: 'Evento Uno 5 Maggio 2027 - Iscrizione', data: 'x' };
+        const r3 = await invia(['gen@x.it', 'gen2@x.it'], { canale: 'email', pagina: 'Evento Uno 5 Maggio 2027' });
+        esigi(spediti.map(m => m.to).join(',') === 'gen2@x.it' && r3.giaIscritte === 1,
+            'su un evento qualunque l\'iscrizione si riconosce dalla pagina dell\'evento', spediti.map(m => m.to).join(','));
+        // senza la pagina e senza le iscrizioni verificate non si indovina l'evento: l'invito parte
+        dati['aziendeInvito/' + idScheda('gen@x.it')] = azienda('gen@x.it', { pec: '', email: 'gen@x.it' });
+        spediti = [];
+        const r4 = await invia(['gen@x.it'], { canale: 'email' });
+        esigi(spediti.length === 1 && r4.giaIscritte === 0, 'senza la pagina dell\'evento non si indovina: l\'invito parte');
+
+        // l'invio programmato: chi si e' iscritto nel frattempo resta fuori, e il riquadro lo dice
+        dati = {}; spediti = [];
+        ['p1@x.it', 'p2@x.it'].forEach(m => { dati['aziendeInvito/' + idScheda(m)] = azienda(m, { pec: '', email: m }); });
+        dati['iscrizioni/p'] = { email: 'p1@x.it', nome: 'Pia', cognome: 'Uno', pagina: 'Evento Uno 5 Maggio 2027', data: 'y' };
+        await chiama('programma', { canale: 'email', mail: MAIL, quando: Date.now(), pagina: 'Evento Uno 5 Maggio 2027' });
+        await chiama('programma-lotto', { n: 1, ids: ['p1@x.it', 'p2@x.it'].map(idScheda) });
+        await chiama('programma-avvia', {});
+        await GIRO.eseguiGiro(db);
+        const pv = P.perVideo('ev1~invito', docProg()) || {};
+        esigi(spediti.map(m => m.to).join(',') === 'p2@x.it' && docProg().stato === 'conclusa'
+            && pv.conti && pv.conti.giaIscritte === 1 && pv.conti.saltate === 1 && pv.restano === 0,
+            'nell\'invio programmato chi e\' gia\' iscritto resta fuori, si conta, e l\'elenco si chiude',
+            JSON.stringify({ a: spediti.map(m => m.to), stato: docProg().stato, conti: pv.conti, restano: pv.restano }));
+    }
+
     console.log('\n----------------------------------------------------------');
     console.log(ok + ' verifiche verdi, ' + ko + ' fallite');
     if (ko) process.exit(1);

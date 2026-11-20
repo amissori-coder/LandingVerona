@@ -53,24 +53,6 @@
     const TEMI = valori(campoTema);
     const EVENTI = valori(campoEvento);
     const MOTIVI = valori(campoMotivo);
-    /* GLI EVENTI SU INVITO non stanno nella tendina: la pagina dell'evento non
-       compare sul sito, e nemmeno il suo nome deve comparire qui. La voce si
-       aggiunge solo quando si arriva dal collegamento della pagina o del
-       servizio (?evento=webinar-2026), cioe' da chi l'invito l'ha ricevuto. Il
-       servizio la riconosce comunque (lib/domande-sito.js, EVENTI). */
-    const EVENTI_RISERVATI = {
-        'webinar-2026': 'Webinar, 10 dicembre 2026'
-    };
-    function aggiungiEventoRiservato(id) {
-        if (!EVENTI_RISERVATI[id] || EVENTI.indexOf(id) >= 0) return;
-        const o = document.createElement('option');
-        o.value = id;
-        o.textContent = EVENTI_RISERVATI[id];
-        const gruppo = campoEvento.querySelector('optgroup') || campoEvento;
-        gruppo.insertBefore(o, gruppo.firstChild);
-        EVENTI.push(id);
-    }
-
     /* Per chi non ha ricevuto la mail di conferma il messaggio parte gia'
        scritto, con il posto per l'indirizzo usato all'iscrizione. Dice di
        quale evento si tratta, con le parole della pagina dell'evento. */
@@ -152,7 +134,6 @@
        leggono SOLO queste scelte, mai dati della persona: l'indirizzo
        della pagina finisce nelle statistiche. */
     function applicaScelte(tema, evento, motivo) {
-        aggiungiEventoRiservato(evento);
         if (EVENTI.indexOf(evento) < 0) evento = '';
         if (MOTIVI.indexOf(motivo) < 0) motivo = '';
         if (TEMI.indexOf(tema) < 0) tema = (evento || motivo) ? 'eventi' : '';

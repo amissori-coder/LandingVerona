@@ -27,6 +27,10 @@
         si ritira;
      3. salta chi si e' disiscritto, qualunque lista lo riporti a
         galla, e glielo scrive in stato;
+     3b. salta chi risulta GIA' ISCRITTO all'evento con l'indirizzo a
+        cui si sta per scrivere, e segna la scheda "iscritta" (vedi
+        iscrittaAllEvento): l'invito a chi si e' gia' iscritto e' il
+        doppione che gli iscritti di un altro evento non devono ricevere;
      4. assegna il CODICE riservato all'azienda e lo scrive PRIMA di
         spedire. Se partisse la mail e poi fallisse la scrittura,
         l'azienda avrebbe in mano un codice che qui non risulta e al
@@ -57,6 +61,7 @@ const CODICI = require('./codici-invito');
 const LETTORE = require('./lettore-pec');
 const CAMPAGNE = require('./campagne-invito');
 const RITMI = require('./ritmi-invito');
+const VERIFICATA = require('./iscrizione-verificata');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -123,6 +128,49 @@ function giaServita(a, forza, prog) {
     return !!(prog && String(invio.prog || '') === String(prog));
 }
 
+/* GIA' ISCRITTA ALL'EVENTO A CUI LA STIAMO INVITANDO.
+   Chi e' gia' iscritto non si invita: e' la regola di quando si invitano
+   gli iscritti di un altro evento (gli iscritti di Milano al webinar), e
+   l'area riservata la applica gia' quando prepara l'elenco
+   (righeDaIscritti in app.js). Ma fra l'elenco e l'invio passano ore o
+   giorni - un invio programmato per il fine settimana - e nel frattempo
+   la persona si puo' iscrivere da sola, dalla PEC arrivata alla sua
+   azienda o dal collegamento di un collega. Percio' si ricontrolla qui,
+   scheda per scheda, sull'indirizzo a cui si sta per scrivere.
+
+   Quale iscrizione e' "di questo evento": per gli eventi con le
+   iscrizioni verificate (Milano, webinar) la riconosce la loro `se`;
+   per gli altri la pagina dell'evento, che l'area riservata manda con
+   l'invio (`pagina`, la stessa che viaggia col codice). Senza ne' l'una
+   ne' l'altra non si controlla niente: meglio un invito in piu' che
+   indovinare l'evento. Contano le iscrizioni attive, anche quelle che
+   aspettano ancora la conferma dell'email (la persona si e' iscritta);
+   non contano quelle annullate e quelle cancellate dall'area riservata.
+
+   La ricerca si fa PRIMA della transazione che prende la scheda (vedi
+   inviaSchede): dentro, fra la lettura e il timbro, non ci deve essere
+   nessuna attesa. `leggi` e' la funzione di lettura, cosi' chi chiama
+   decide come leggere. */
+function iscrizioneDellEvento(evento, pagina) {
+    const ev = VERIFICATA.EVENTI.find(e => e.chiave === evento);
+    if (ev) return p => ev.se.test(String(p || '').trim());
+    const base = String(pagina || '').trim().toLowerCase();
+    if (!base) return null;
+    return p => String(p || '').trim().toLowerCase().indexOf(base) === 0;
+}
+async function iscrittaAllEvento(db, leggi, evento, dellEvento, indirizzo) {
+    const em = String(indirizzo || '').trim().toLowerCase();
+    if (!dellEvento || !indirizzoValido(em)) return null;
+    const snap = await leggi(db.collection('iscrizioni').where('email', '==', em).limit(50));
+    for (const d of snap.docs) {
+        const x = d.data() || {};
+        if (!dellEvento(x.pagina) || !VERIFICATA.attiva(x)) continue;
+        if (await VERIFICATA.cancellata(db, { chiave: evento }, x, leggi)) continue;
+        return { id: d.id, nome: ((x.nome || '') + ' ' + (x.cognome || '')).trim() };
+    }
+    return null;
+}
+
 /* IL MESSAGGIO E' PARTITO E L'ESITO NON SI E' SCRITTO.
    Fra la consegna al server di posta e la riga che la registra sulla
    scheda passano dei millisecondi, ma sono i millisecondi in cui la
@@ -173,7 +221,9 @@ const INCERTO_DOPO_MS = Math.max(
      prog       identificativo della programmazione, se l'invio e' automatico
      email      chi firma l'invio (finisce nei timbri delle schede)
      collab     il collaboratore reale, se c'e'
-     pagina     la pagina di iscrizione dell'evento, che viaggia col codice
+     pagina     la pagina di iscrizione dell'evento, che viaggia col codice;
+                serve anche a riconoscere chi e' gia' iscritto agli eventi
+                che non hanno le iscrizioni verificate
      scadenza   istante oltre il quale non si comincia un altro messaggio
      fuori      elenco dei disiscritti, gia' letto da chi chiama
      rispondiA  dove tornano le risposte all'email ordinaria
@@ -209,9 +259,15 @@ async function inviaSchede(db, opz) {
     const scadenza = Number(opz.scadenza) || (Date.now() + 45000);
     const raccogliEsiti = opz.esiti !== false;
     const etichettaInvio = CAMPAGNE.etichetta(campagna, evento);
+    // come si riconosce un'iscrizione a questo evento (null: non si controlla)
+    const dellEvento = iscrizioneDellEvento(evento, opz.pagina);
 
     const conti = {
-        inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, incerte: 0,
+        /* giaIscritte: saltate perche' l'indirizzo risulta gia' iscritto
+           all'evento. Sono contate ANCHE fra le saltate, cosi' i totali di
+           chi somma solo quelle (il giro programmato, la barra della
+           finestra) continuano a tornare. */
+        inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, incerte: 0, giaIscritte: 0,
         /* rimandate: schede su cui qualcun altro sta lavorando adesso. Non
            sono ne' fatte ne' fallite: si torna.
            avanzabili: quante schede dalla testa dell'elenco sono DEFINITE,
@@ -234,6 +290,31 @@ async function inviaSchede(db, opz) {
             if (Date.now() > scadenza) { conti.finite = false; break; }
             conti.viste++;
             const rif = db.collection('aziendeInvito').doc(id);
+
+            /* GIA' ISCRITTA? Si guarda PRIMA della transazione, con una
+               lettura semplice della scheda e la ricerca dell'indirizzo fra le
+               iscrizioni: dentro, fra la lettura della scheda e il timbro, non
+               deve esserci nessuna attesa, perche' e' proprio li' che un
+               secondo chiamante passerebbe (vedi il commento sulla
+               transazione, qui sotto). La transazione usa questo esito solo
+               se il recapito e' rimasto lo stesso. Chi non partirebbe
+               comunque (gia' servita, esclusa, di un'altra lista) non costa
+               la ricerca. Se la lettura non riesce si va avanti: l'elenco e'
+               gia' stato ripulito quando e' stato preparato, questo e' il
+               secondo controllo. */
+            let giaIscritta = null;
+            if (dellEvento) {
+                try {
+                    const pre = await rif.get();
+                    const p = pre.exists ? (pre.data() || {}) : null;
+                    if (p && String(p.evento || '') === evento && CAMPAGNE.diScheda(p) === campagna
+                        && p.stato !== 'esclusa' && p.stato !== 'disiscritta' && !giaServita(p, forza, prog)) {
+                        const ind = String(CANALI.destinatarioDi(canale, p) || '').toLowerCase();
+                        const trovata = await iscrittaAllEvento(db, r => r.get(), evento, dellEvento, ind);
+                        if (trovata) giaIscritta = Object.assign({ indirizzo: ind }, trovata);
+                    }
+                } catch (_) { giaIscritta = null; }
+            }
 
             /* SI PRENDE LA SCHEDA IN UNA TRANSAZIONE, e non e' un
                irrigidimento gratuito: e' l'unica cosa che rende il timbro
@@ -289,6 +370,26 @@ async function inviaSchede(db, opz) {
                         tx.set(rif, { stato: 'disiscritta' }, { merge: true });
                         return { cosa: 'disiscritta' };
                     }
+                    /* Gia' iscritta all'evento con questo indirizzo (lo ha visto
+                       la lettura qui sopra, fuori dalla transazione): niente
+                       invito, e la scheda lo dice ("iscritta", con chi), come
+                       quando ci si iscrive con il codice. Vale solo se
+                       l'indirizzo e' ancora quello letto allora: se nel
+                       frattempo la scheda e' passata a un altro recapito,
+                       quello non e' stato cercato, e la scheda non si salta
+                       per l'iscrizione di un indirizzo che non e' piu' il suo. */
+                    const iscr = (giaIscritta && giaIscritta.indirizzo === dest.toLowerCase()) ? giaIscritta : null;
+                    if (iscr) {
+                        const iscritti = Array.isArray(a.iscritti) ? a.iscritti.slice(0, 50) : [];
+                        if (!iscritti.some(x => x && x.iscrizione === iscr.id)) {
+                            iscritti.push({ quando: Date.now(), nome: iscr.nome.slice(0, 200), email: dest.toLowerCase(), iscrizione: iscr.id });
+                        }
+                        tx.set(rif, {
+                            stato: 'iscritta', iscritti: iscritti,
+                            giaIscritta: { quando: Date.now(), iscrizione: iscr.id, da: email }
+                        }, { merge: true });
+                        return { cosa: 'gia-iscritta' };
+                    }
                     /* Il timbro, prima di spedire e nella stessa transazione
                        della lettura. Se piu' sotto si muore, e' l'unica cosa
                        che distingue "non e' mai partita" da "non si sa". */
@@ -310,6 +411,12 @@ async function inviaSchede(db, opz) {
             }
 
             if (verdetto.cosa === 'saltata') { conti.saltate++; continue; }
+            if (verdetto.cosa === 'gia-iscritta') {
+                if (raccogliEsiti) conti.esiti[id] = { stato: 'iscritta' };
+                conti.saltate++;
+                conti.giaIscritte++;
+                continue;
+            }
             if (verdetto.cosa === 'senza-recapito') { conti.senzaRecapito++; continue; }
             if (verdetto.cosa === 'disiscritta') {
                 if (raccogliEsiti) conti.esiti[id] = { stato: 'disiscritta' };
