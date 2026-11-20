@@ -548,6 +548,19 @@ prova('Una scheda cancellata dall\'area riservata ma rimasta in archivio non blo
     avanza(61 * 1000);
 });
 
+prova('Il consenso partner e\' facoltativo: si scrive solo se spuntato', async () => {
+    const v1 = await verificaNumero('3271110001', 'conpartner@studio.it');
+    const si = await iscrivi({ email: 'conpartner@studio.it', telefono: '3271110001', smsToken: v1.token, partner: true });
+    const s1 = schede().find(x => x.email === 'conpartner@studio.it') || {};
+    esigi(si.corpo.ok && s1.consensoPartner && s1.consensoPartner.quando > 0 && s1.consensoPartner.come === 'modulo', 'spuntato: resta sulla scheda, con il momento', JSON.stringify(s1.consensoPartner));
+    avanza(61 * 1000);
+    const v2 = await verificaNumero('3271110002', 'senzapartner@studio.it');
+    const no = await iscrivi({ email: 'senzapartner@studio.it', telefono: '3271110002', smsToken: v2.token });
+    const s2 = schede().find(x => x.email === 'senzapartner@studio.it') || {};
+    esigi(no.corpo.ok && !('consensoPartner' in s2), 'non spuntato: l\'iscrizione passa e sulla scheda non c\'e\' niente', JSON.stringify(no.corpo));
+    avanza(61 * 1000);
+});
+
 prova('Un codice invito vale per due iscrizioni, e porta l\'azienda', async () => {
     dati.set('codiciInvito/A7K2M', { codice: 'A7K2M', evento: 'milano', scheda: 'az1', pagina: 'Milano 26 Febbraio 2027', ragioneSociale: 'Alfa S.p.A.', usato: null });
     const c0 = await chiama({ azione: 'verifica-codice', pagina: PAGINA, codice: 'a7k2m' });

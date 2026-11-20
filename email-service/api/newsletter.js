@@ -15,9 +15,14 @@
    L'amministratore puo' anche disiscrivere o riattivare un indirizzo a
    mano ("azione"), per gestire le richieste che arrivano per telefono o
    per email invece che dal collegamento in fondo alla newsletter.
+
+   LA NEWSLETTER DEI BANDI (lib/newsletter-bandi.js) passa di qui con le
+   azioni 'bandi' (iscritti e ultimi giri), 'bandi-disiscrivi' e
+   'bandi-riattiva': stesso permesso della sezione.
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const NB = require('../lib/newsletter-bandi');
 // la copia condivisa dell'archivio iscrizioni (lib/copia-iscrizioni.js), la stessa di /api/iscrizioni
 const C = require('../lib/copia-iscrizioni');
 const { JWT } = require('google-auth-library');
@@ -252,6 +257,17 @@ module.exports = async (req, res) => {
                 await ref.set({ email: email, quando: Date.now(), origine: 'a mano (' + aut.email + ')' }, { merge: true });
             }
             res.status(200).json({ ok: true, stato: azione === 'riattiva' ? 'iscritto' : 'disiscritto' });
+            return;
+        }
+
+        // --- la newsletter dei bandi: iscritti, giri, gestione a mano ---
+        if (azione === 'bandi') {
+            res.status(200).json(Object.assign({ ok: true }, await NB.elenco(db)));
+            return;
+        }
+        if (azione === 'bandi-disiscrivi' || azione === 'bandi-riattiva') {
+            const r = await NB.gestisci(db, body.email, azione === 'bandi-riattiva' ? 'riattiva' : 'disiscrivi', aut.email);
+            res.status(r.stato).json(r.corpo);
             return;
         }
 

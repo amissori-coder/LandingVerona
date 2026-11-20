@@ -49,7 +49,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=18">
+    <link rel="stylesheet" href="styles.css?v=19">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -532,6 +532,23 @@
                             <span>Acconsento alle riprese fotografiche e video: la giornata sarà registrata e potranno essere presenti troupe di telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali. *</span>
                         </label>
                         <span class="campo-errore" id="ripreseError"></span>
+                        <!-- Il consenso partner: FACOLTATIVO. Il servizio lo scrive sulla
+                             scheda solo se spuntato (consensoPartner), e l'iscrizione
+                             passa anche senza. -->
+                        <div class="consenso-partner">
+                            <p class="consenso-partner-titolo">Consenso partner <span>(facoltativo)</span></p>
+                            <p class="consenso-partner-nota">Alcuni partner potrebbero anche non intervenire come relatori.</p>
+                            <label class="spunta">
+                                <input type="checkbox" id="partner" name="partner">
+                                <span>Autorizzo Revilaw S.p.A. a comunicare ai Partner dell'evento elencati nella sezione Partner i seguenti dati: nome e cognome, email, numero di telefono, azienda/studio, città, ruolo, partita IVA, codice fiscale, fatturato aziendale e numero dipendenti.</span>
+                            </label>
+                            <p class="consenso-partner-testo">I Partner potranno contattarmi via email o telefono per:</p>
+                            <ul class="consenso-partner-elenco">
+                                <li>invio di materiali utili/approfondimenti relativi all'evento;</li>
+                                <li>comunicazioni informative e commerciali/promozionali sui propri servizi e iniziative.</li>
+                            </ul>
+                            <p class="consenso-partner-nota">Nota: l'iscrizione e l'invio delle comunicazioni operative (inclusi tool e materiali) non dipendono da questo consenso.</p>
+                        </div>
                     </div>
 
                     <div class="modulo-invio">
@@ -736,6 +753,6 @@
         </button>
     </dialog>
 
-    <script src="script.js?v=26"></script>
+    <script src="script.js?v=27"></script>
 </body>
 </html>

@@ -618,7 +618,18 @@ module.exports = async (req, res) => {
                     } : null,
                     emailConfermata: (v.emailConfermata && typeof v.emailConfermata === 'object' && v.emailConfermata.quando) ? {
                         quando: typeof v.emailConfermata.quando === 'number' ? v.emailConfermata.quando : 0,
-                        come: String(v.emailConfermata.come || 'mail')
+                        come: String(v.emailConfermata.come || 'mail'),
+                        // chi l'ha confermata d'ufficio, e verso quale sezione: per la scheda da stampare
+                        da: String(v.emailConfermata.da || '').slice(0, 200),
+                        verso: String(v.emailConfermata.verso || '').slice(0, 20)
+                    } : null,
+                    /* IL CELLULARE VERIFICATO con il codice SMS (Milano, webinar):
+                       il baffetto accanto al numero e la riga nella scheda dei
+                       consensi. Mancava da questa whitelist, quindi il baffetto
+                       non compariva mai. */
+                    telefonoVerificato: (v.telefonoVerificato && typeof v.telefonoVerificato === 'object' && v.telefonoVerificato.quando) ? {
+                        quando: Number(v.telefonoVerificato.quando) || 0,
+                        come: String(v.telefonoVerificato.come || 'sms')
                     } : null,
                     /* L'invito in PDF: se e' partito, e a quale indirizzo. Serve
                        alla voce "Rimanda l'invito in PDF" di chi e' confermato
@@ -681,6 +692,24 @@ module.exports = async (req, res) => {
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'
                        l'oggetto letto dal database resta com'e'. */
+                    /* I CONSENSI ESPRESSI NEL MODULO, per la scheda da stampare
+                       (app.js, stampaConsensi). true o false se la casella e'
+                       arrivata, null se sulla scheda non c'e' (iscrizione
+                       inserita a mano o importata): "non risulta" non e' un
+                       no. Le riprese portano il momento in cui sono state
+                       accettate. */
+                    consensi: {
+                        privacy: v.privacy === true ? true : (v.privacy === false ? false : null),
+                        marketing: v.marketing === true ? true : (v.marketing === false ? false : null),
+                        riprese: (v.consensoRiprese && typeof v.consensoRiprese === 'object' && v.consensoRiprese.quando)
+                            ? { quando: Number(v.consensoRiprese.quando) || 0 } : null,
+                        // il consenso partner (facoltativo): nessun modulo lo raccoglie ancora, quindi oggi e' sempre assente
+                        partner: (v.consensoPartner && typeof v.consensoPartner === 'object' && v.consensoPartner.quando)
+                            ? { quando: Number(v.consensoPartner.quando) || 0 } : null,
+                        // la mail che lo chiede a chi si e' iscritto prima (lib/consensi-partner.js): quando e' partita
+                        partnerChiesto: (v.mailConsensoPartner && typeof v.mailConsensoPartner === 'object' && v.mailConsensoPartner.ok)
+                            ? (Number(v.mailConsensoPartner.quando) || 0) : 0
+                    },
                     extra: Object.assign(
                         {},
                         (v.extra && typeof v.extra === 'object') ? v.extra : {},

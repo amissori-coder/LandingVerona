@@ -57,6 +57,7 @@ Disallow: /p26/
 # Conferma dell'indirizzo email: si apre dal pulsante nella mail di
 # iscrizione, con un collegamento personale.
 Disallow: /conferma_email/
+Disallow: /consensi/
 
 # Richiesta di un nuovo incontro dopo il convegno: si apre dal collegamento
 # personale nella mail, e senza firma valida non mostra nulla.

@@ -168,6 +168,16 @@ async function inviaLotto(opz) {
     const invio = String(opz.invio || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
     const sandbox = opz.sandbox === true;
     const scadenza = Number(opz.scadenza) || (Date.now() + 45000);
+    /* Le altre liste (oggi gli aggiornamenti sui bandi, lib/newsletter-bandi.js)
+       passano i LORO collegamenti di disiscrizione, l'etichetta per Brevo e a
+       chi rispondere. Senza queste opzioni tutto resta com'era: collegamenti
+       della newsletter dello studio, etichetta "newsletter", risposte alla
+       casella del mittente. */
+    const linkDis = typeof opz.linkDisiscrizione === 'function' ? opz.linkDisiscrizione : (email => N.linkDisiscrizione(email, campagna));
+    const linkUC = typeof opz.linkUnClic === 'function' ? opz.linkUnClic : (email => N.linkUnClic(email, campagna));
+    const etichetta = String(opz.etichetta || 'newsletter').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'newsletter';
+    const rispondi = [].concat(opz.rispondiA || []).map(x => String(x || '').trim().toLowerCase()).filter(x => N.EMAIL_RE.test(x)).slice(0, 5);
+    const oggettoMailto = encodeURIComponent(String(opz.oggettoMailto || 'Disiscrizione newsletter').slice(0, 80));
 
     /* Ultimo controllo sulle disiscrizioni, fatto QUI e non da chi chiama: vale
        quello del server al momento della spedizione, non l'elenco che qualcuno
@@ -181,7 +191,7 @@ async function inviaLotto(opz) {
     // forma a oggetto: la citazione la fa nodemailer. Componendo la stringa a mano,
     // un nome con virgolette dentro potrebbe aggiungere un secondo indirizzo al From.
     const from = { name: fromName, address: fromEmail };
-    const rispostaA = process.env.NEWSLETTER_REPLY_TO || fromEmail || opz.rispostaA;
+    const rispostaA = rispondi[0] || process.env.NEWSLETTER_REPLY_TO || fromEmail || opz.rispostaA;
 
     /* ---------- strada 1: Brevo ----------
        Tutto il lotto in UNA richiesta: una "versione" per destinatario, con il
@@ -199,7 +209,7 @@ async function inviaLotto(opz) {
         const versioni = vivi.map(d => ({
             to: [{ email: d.email, name: ((d.nome || '') + ' ' + (d.cognome || '')).trim() || undefined }],
             params: {
-                disiscriviti: N.linkDisiscrizione(d.email, campagna),
+                disiscriviti: linkDis(d.email),
                 nome: d.nome || '', cognome: d.cognome || '',
                 nome_completo: ((d.nome || '') + ' ' + (d.cognome || '')).trim(),
                 azienda: d.azienda || '', email: d.email
@@ -211,7 +221,7 @@ async function inviaLotto(opz) {
             subject: perBrevoSemplice(oggetto) || '(senza oggetto)',
             htmlContent: perBrevo(html),
             messageVersions: versioni,
-            tags: ['newsletter'].concat(campagna ? [campagna] : []).concat(invio ? [invio] : []),
+            tags: [etichetta].concat(campagna ? [campagna] : []).concat(invio ? [invio] : []),
             headers: {
                 idempotencyKey: chiaveNonRipetere(campagna, destinatari,
                     oggetto + '\n' + html + '\n' + testoSemplice + '\n' + (sandbox ? 'prova' : ''))
@@ -247,17 +257,17 @@ async function inviaLotto(opz) {
     for (const d of destinatari) {
         if (Date.now() > scadenza) { rimasti.push(d); continue; }
         if (fuori[d.email]) { saltati.push({ email: d.email, motivo: 'disiscritto' }); continue; }
-        const link = N.linkDisiscrizione(d.email, campagna);
-        const unClic = N.linkUnClic(d.email, campagna);
+        const link = linkDis(d.email);
+        const unClic = linkUC(d.email);
         const corpoHtml = applicaVariabili(html, d, true).split(SEGNAPOSTO).join(esc(link));
         const corpoTesto = applicaVariabili(testoSemplice, d, false).split(SEGNAPOSTO).join(link);
         const ogg = applicaVariabili(oggetto, d, false).trim() || '(senza oggetto)';
         try {
             await trans.sendMail({
-                from: from, replyTo: rispostaA, to: d.email,
+                from: from, replyTo: rispondi.length ? rispondi.join(', ') : rispostaA, to: d.email,
                 subject: ogg, text: corpoTesto || undefined, html: corpoHtml,
                 headers: {
-                    'List-Unsubscribe': '<' + unClic + '>, <mailto:' + fromEmail + '?subject=Disiscrizione%20newsletter>',
+                    'List-Unsubscribe': '<' + unClic + '>, <mailto:' + fromEmail + '?subject=' + oggettoMailto + '>',
                     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
                     'Precedence': 'bulk',
                     'Auto-Submitted': 'auto-generated'

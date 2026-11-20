@@ -1142,6 +1142,22 @@ ul, ol { list-style: none; }
 }
 .spunta a { color: var(--blu-medio); text-decoration: underline; }
 .modulo-consensi { display: flex; flex-direction: column; gap: 10px; }
+/* Il consenso partner, facoltativo: un riquadro suo, per non confonderlo con i tre obbligatori */
+.consenso-partner {
+    margin-top: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    background: var(--azzurro-tenue);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.consenso-partner p { margin: 0; font-size: 0.86rem; color: var(--testo); text-align: left !important; }
+.consenso-partner .consenso-partner-titolo { font-weight: 700; font-size: 0.92rem; color: var(--blu-notte); }
+.consenso-partner .consenso-partner-titolo span { font-weight: 400; color: var(--testo-tenue); }
+.consenso-partner .consenso-partner-nota { font-size: 0.8rem; color: var(--testo-tenue); }
+.consenso-partner-elenco { list-style: disc; margin: 0 0 0 28px; padding-left: 16px; font-size: 0.86rem; color: var(--testo); }
 
 .modulo-invio { margin-top: 28px; text-align: center; }
 .btn-invio { width: 100%; cursor: pointer; }

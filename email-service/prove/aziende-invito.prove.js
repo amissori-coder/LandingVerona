@@ -20,7 +20,7 @@
    il tetto, e che un aggiornamento non cancelli lo stato ne' l'esito
    dell'invito gia' spedito.
 
-   E POI IL TETTO E' SALITO A 50.000. A quella misura l'elenco non sta
+   E POI IL TETTO E' SALITO A 50.000, E POI A 90.000. A quella misura l'elenco non sta
    piu' in una risposta sola ne' il file in una richiesta sola: la
    lettura va a pagine con un segnalibro, e il caricamento parte a
    blocchi dall'area riservata. Le prove coprono le due giunture, che
@@ -144,7 +144,7 @@ function esigi(cond, cosa, extra) {
 }
 function prova(titolo, fn) { return { titolo: titolo, fn: fn }; }
 
-const TETTO = 50000;   // MAX_AZIENDE_EVENTO: il tetto di aziende per evento
+const TETTO = 90000;   // MAX_AZIENDE_EVENTO: il tetto di aziende per evento
 
 // l'id che il servizio costruisce per la campagna 'invito'
 function id(mail) { return ('ev1~' + String(mail).toLowerCase()).replace(/[\/\\.#$\[\]]/g, '-'); }

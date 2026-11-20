@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=35">
+    <link rel="stylesheet" href="styles.css?v=36">
     <link rel="stylesheet" href="/assets/testo.css?v=4">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
@@ -208,12 +208,16 @@
                     </span>
                 </a>
                 <ul class="sistema-servizi">
+                    <!-- L'ordine delle voci e' anche la loro posizione sull'arco (styles.css,
+                         .sistema-voce:nth-child): la quarta e la quinta stanno nei posti piu'
+                         stretti e hanno i nomi piu' corti. -->
                     <li class="sistema-voce"><a class="sistema-nodo" href="adeguati_assetti/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Adeguati assetti</span> <span class="sistema-rif">Art. 2086 c.c.</span></span></a></li>
                     <li class="sistema-voce"><a class="sistema-nodo" href="adempimento_collaborativo/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Tax Control Framework</span> <span class="sistema-rif">Adempimento collaborativo</span></span></a></li>
-                    <li class="sistema-voce"><a class="sistema-nodo" href="modello_231/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Modello 231</span> <span class="sistema-rif">D.Lgs. 231/2001</span></span></a></li>
                     <li class="sistema-voce"><a class="sistema-nodo" href="ai_governance/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">AI Governance</span> <span class="sistema-rif">AI Act e FRIA</span></span></a></li>
-                    <li class="sistema-voce"><a class="sistema-nodo" href="rating_legalita/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Rating di Legalità</span> <span class="sistema-rif">AGCM</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="modello_231/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Modello 231</span> <span class="sistema-rif">D.Lgs. 231/2001</span></span></a></li>
                     <li class="sistema-voce"><a class="sistema-nodo" href="sostenibilita_esg/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">ESG</span> <span class="sistema-rif">Bilancio VSME ed ESRS</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="bandi/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Bandi e agevolazioni</span> <span class="sistema-rif">Nazionali e regionali</span></span></a></li>
+                    <li class="sistema-voce"><a class="sistema-nodo" href="rating_legalita/"><span class="sistema-punto" aria-hidden="true"></span><span class="sistema-etichetta"><span class="sistema-nome">Rating di Legalità</span> <span class="sistema-rif">AGCM</span></span></a></li>
                 </ul>
             </div>
         </div>
@@ -701,6 +705,11 @@
                 <!-- In fondo alla colonna la mappa completa; fino a 1270 px anche la
                      ricerca guidata per argomento (sopra sta accanto al titolo) -->
                 <div class="contents-rimandi">
+                    <!-- l'area bandi: le schede dei bandi aperti, per regione e per tipologia -->
+                    <a href="bandi/" class="contents-all">
+                        Bandi e agevolazioni
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
                     <a href="approfondimenti/#mappa" class="contents-all">
                         Tutti gli approfondimenti
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -1224,6 +1233,7 @@
                     <a href="interviste_verona_2026/">Interviste di Verona</a>
                     <a href="#contenuti">Approfondimenti e risorse</a>
                     <a href="approfondimenti/">Esplora per argomento</a>
+                    <a href="bandi/">Bandi e agevolazioni</a>
                     <a href="contatti/">Contatti</a>
                     <a href="https://www.revilaw.it" target="_blank" rel="noopener">revilaw.it</a>
                 </div>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#164068">
+
+<!-- ============================================================
+     I TUOI CONSENSI - Next Generation Business
+     ------------------------------------------------------------
+     Si apre dal pulsante della mail che chiede il consenso partner
+     a chi si e' gia' iscritto: l'indirizzo porta l'identificativo
+     della scheda (d) e una firma (t). La pagina mostra i consensi
+     gia' espressi iscrivendosi e quello che manca - il consenso
+     partner, facoltativo - con la casella per darlo.
+
+     IL CONSENSO PARTE DA UN CLIC, non aprendo la pagina: gli
+     antispam aziendali visitano i collegamenti delle mail, e un
+     consenso non lo da' un robot. Gli altri consensi da qui non si
+     cambiano. Il servizio (lib/consensi-partner.js) risponde il
+     minimo: nome, evento e i consensi.
+     ============================================================ -->
+
+<title>I tuoi consensi | Next Generation Business</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/testo.css?v=1">
+
+<style>
+:root {
+    --blu: #164068; --blu-chiaro: #2c6ca8; --blu-tenue: #eaf0f7;
+    --inchiostro: #16202e; --inchiostro-tenue: #5b6878;
+    --riga: #dce3ea; --fondo: #f4f6f9; --bianco: #ffffff;
+    --avviso: #8d5c14; --ok: #1f6b57;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: var(--fondo); color: var(--inchiostro);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px; line-height: 1.55; -webkit-text-size-adjust: 100%; padding-bottom: 3rem;
+}
+h1, h2, .evento, button { font-family: 'Montserrat', system-ui, sans-serif; }
+.foglio { max-width: 34rem; margin: 0 auto; padding: 0 1rem; }
+.testata { background: var(--blu); color: #fff; padding: 1.5rem 1rem 1.75rem; margin-bottom: 1rem; }
+.testata .foglio { padding: 0 1rem; }
+.evento { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.72; }
+.saluto { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 0.5rem; }
+
+.stato { background: var(--bianco); border: 1px solid var(--riga); padding: 1.75rem 1.25rem; text-align: center; }
+.stato h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 0.5rem; }
+.stato p { font-size: 0.9375rem; color: var(--inchiostro-tenue); }
+.stato p + p { margin-top: 0.6rem; }
+.stato--avviso { border-top: 3px solid var(--avviso); }
+.stato--ok { border-top: 4px solid var(--ok); }
+.segno {
+    width: 4.25rem; height: 4.25rem; border-radius: 50%; background: var(--ok); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.9rem;
+}
+.chi { font-family: 'Montserrat', sans-serif; font-size: 1.125rem; font-weight: 700; color: var(--inchiostro); margin-top: 0.4rem; }
+.quando { font-size: 0.8125rem; color: var(--inchiostro-tenue); margin-top: 0.75rem; font-variant-numeric: tabular-nums; }
+a.pulsante, button.pulsante {
+    display: block; width: 100%; margin-top: 1.25rem; padding: 0.85rem; min-height: 44px;
+    background: var(--blu); color: #fff; text-decoration: none; text-align: center;
+    font-family: 'Montserrat', sans-serif; font-size: 0.9375rem; font-weight: 700; border: 0; cursor: pointer;
+}
+a.pulsante:hover, button.pulsante:hover { background: #0f3153; }
+a.pulsante:focus-visible, button.pulsante:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px; }
+.nascosto { display: none !important; }
+
+.foglio { max-width: 40rem; }
+.blocco { background: var(--bianco); border: 1px solid var(--riga); padding: 1.25rem; margin-top: 1rem; }
+.blocco h2 { font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.25rem; }
+.blocco .sotto { font-size: 0.875rem; color: var(--inchiostro-tenue); margin-bottom: 0.75rem; }
+.voce { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem 0; border-top: 1px solid var(--riga); }
+.voce .testo { flex: 1; font-size: 0.9rem; }
+.voce .testo b { display: block; font-family: 'Montserrat', sans-serif; font-size: 0.8125rem; letter-spacing: 0.02em; margin-bottom: 0.15rem; }
+.voce .esito { flex: 0 0 auto; text-align: right; font-size: 0.75rem; color: var(--inchiostro-tenue); font-variant-numeric: tabular-nums; }
+.voce .esito strong { display: block; font-family: 'Montserrat', sans-serif; font-size: 0.875rem; }
+.esito .si { color: var(--ok); } .esito .no { color: var(--avviso); }
+.blocco--manca { border-top: 4px solid var(--blu-chiaro); }
+.blocco--dato { border-top: 4px solid var(--ok); }
+.partner-testo { font-size: 0.9rem; }
+.partner-testo p + p, .partner-testo ul + p { margin-top: 0.6rem; }
+.partner-testo ul { margin: 0.4rem 0 0 1.25rem; }
+.partner-testo .nota { font-size: 0.8125rem; color: var(--inchiostro-tenue); }
+.spunta { display: flex; gap: 0.7rem; align-items: flex-start; margin-top: 1rem; padding: 0.9rem; background: var(--blu-tenue); cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+.spunta input { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 2px; accent-color: var(--blu); }
+button.pulsante:disabled { background: #9aa9ba; cursor: not-allowed; }
+/* il testo e' sempre giustificato: anche dove non e' un paragrafo */
+.voce .testo, .spunta span, .partner-testo p, .partner-testo li, .blocco .sotto, .stato p { text-align: justify !important; text-align-last: start; }
+.errore { margin-top: 0.75rem; font-size: 0.875rem; color: #a3231b; }
+</style>
+</head>
+<body>
+
+<div class="testata">
+    <div class="foglio">
+        <span class="evento" id="evento">Next Generation Business</span>
+        <h1 class="saluto" id="titolo">I tuoi consensi</h1>
+    </div>
+</div>
+
+<div class="foglio">
+    <div id="stato" class="stato">
+        <h2 id="statoTitolo">Un attimo</h2>
+        <p id="statoTesto">Stiamo leggendo la tua iscrizione.</p>
+        <button type="button" id="riprova" class="pulsante nascosto">Riprova</button>
+    </div>
+
+    <div id="espressi" class="blocco nascosto">
+        <h2>Consensi già espressi</h2>
+        <p class="sotto" id="espressiSotto">Li hai dati iscrivendoti.</p>
+        <div id="voci"></div>
+    </div>
+
+    <div id="partner" class="blocco blocco--manca nascosto">
+        <h2 id="partnerTitolo">Consenso partner (facoltativo)</h2>
+        <p class="sotto" id="partnerSotto">È l'unico che manca. Ti permette di restare in contatto con i partner dell'evento, anche dopo la giornata.</p>
+        <div class="partner-testo">
+            <p class="nota">Alcuni partner potrebbero anche non intervenire come relatori.</p>
+            <p>Autorizzo Revilaw S.p.A. a comunicare ai Partner dell'evento elencati nella sezione Partner i seguenti dati: nome e cognome, email, numero di telefono, azienda/studio, città, ruolo, partita IVA, codice fiscale, fatturato aziendale e numero dipendenti.</p>
+            <p>I Partner potranno contattarmi via email o telefono per:</p>
+            <ul>
+                <li>invio di materiali utili/approfondimenti relativi all'evento;</li>
+                <li>comunicazioni informative e commerciali/promozionali sui propri servizi e iniziative.</li>
+            </ul>
+            <p class="nota">Nota: l'iscrizione e l'invio delle comunicazioni operative (inclusi tool e materiali) non dipendono da questo consenso.</p>
+        </div>
+        <div id="partnerDare">
+            <label class="spunta"><input type="checkbox" id="partnerSi"><span>Acconsento alla comunicazione dei miei dati ai Partner dell'evento.</span></label>
+            <button type="button" id="conferma" class="pulsante" disabled>Conferma il consenso</button>
+            <p class="errore nascosto" id="errore" role="alert"></p>
+        </div>
+        <div id="partnerDato" class="voce nascosto">
+            <div class="testo"><b>Consenso partner</b>Hai acconsentito alla comunicazione dei tuoi dati ai Partner dell'evento.</div>
+            <div class="esito"><strong class="si">Sì</strong><span id="partnerQuando"></span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+    var SCADENZA_MS = 12000;
+    var el = function (id) { return document.getElementById(id); };
+    var mostra = function (id, si) { el(id).classList.toggle('nascosto', !si); };
+    var q = new URLSearchParams(location.search);
+    var d = (q.get('d') || '').trim(), t = (q.get('t') || '').trim();
+
+    var TESTI = {
+        privacy: ['Privacy', 'Trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR), come descritto nella privacy policy.'],
+        marketing: ['Aggiornamenti', 'Ricevere aggiornamenti su programma, relatori e future iniziative.'],
+        riprese: ['Riprese foto e video', 'Riprese fotografiche e video della giornata, che potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali.']
+    };
+    function quandoIt(ms) {
+        var n = new Date(ms), p = function (x) { return String(x).padStart(2, '0'); };
+        return p(n.getDate()) + '/' + p(n.getMonth() + 1) + '/' + n.getFullYear() + ' ' + p(n.getHours()) + ':' + p(n.getMinutes());
+    }
+    function chiama(corpo) {
+        var ctrl = ('AbortController' in window) ? new AbortController() : null;
+        var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, SCADENZA_MS);
+        return fetch(API, {
+            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify(Object.assign({ d: d, t: t }, corpo)), signal: ctrl ? ctrl.signal : undefined
+        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._stato = r.status; return j; }); })
+            .finally(function () { clearTimeout(timer); });
+    }
+    function avviso(titolo, testo, riprova) {
+        el('stato').className = 'stato stato--avviso';
+        el('statoTitolo').textContent = titolo;
+        el('statoTesto').textContent = testo;
+        mostra('stato', true); mostra('riprova', !!riprova);
+    }
+    function voce(nome, testo, esito, quando) {
+        var r = document.createElement('div'); r.className = 'voce';
+        var a = document.createElement('div'); a.className = 'testo';
+        var b = document.createElement('b'); b.textContent = nome; a.appendChild(b); a.appendChild(document.createTextNode(testo));
+        var e = document.createElement('div'); e.className = 'esito';
+        var s = document.createElement('strong');
+        s.className = esito === true ? 'si' : (esito === false ? 'no' : '');
+        s.textContent = esito === true ? 'Sì' : (esito === false ? 'No' : 'Non risulta');
+        e.appendChild(s);
+        if (quando) { var qn = document.createElement('span'); qn.textContent = quando; e.appendChild(qn); }
+        r.appendChild(a); r.appendChild(e);
+        return r;
+    }
+    function disegna(r) {
+        var c = r.consensi || {};
+        mostra('stato', false);
+        if (r.evento) el('evento').textContent = 'Next Generation Business - ' + r.evento;
+        if (r.nome) el('titolo').textContent = 'I tuoi consensi, ' + r.nome.split(' ')[0];
+        var voci = el('voci'); voci.innerHTML = '';
+        voci.appendChild(voce(TESTI.privacy[0], TESTI.privacy[1], c.privacy, c.privacy === true ? r.data : ''));
+        voci.appendChild(voce(TESTI.marketing[0], TESTI.marketing[1], c.marketing, c.marketing === true ? r.data : ''));
+        if (r.conRiprese || c.riprese) voci.appendChild(voce(TESTI.riprese[0], TESTI.riprese[1], c.riprese ? true : null, c.riprese ? quandoIt(c.riprese.quando) : ''));
+        mostra('espressi', true);
+        var dato = !!(c.partner && c.partner.quando);
+        el('partner').className = 'blocco ' + (dato ? 'blocco--dato' : 'blocco--manca');
+        el('partnerSotto').textContent = dato
+            ? 'Grazie: i partner dell\'evento potranno contattarti. Per revocarlo scrivi a info@nextgenerationbusiness.it.'
+            : 'È l\'unico che manca. Ti permette di restare in contatto con i partner dell\'evento, anche dopo la giornata.';
+        mostra('partnerDare', !dato); mostra('partnerDato', dato);
+        if (dato) el('partnerQuando').textContent = quandoIt(c.partner.quando);
+        mostra('partner', true);
+    }
+    function leggi() {
+        el('stato').className = 'stato';
+        el('statoTitolo').textContent = 'Un attimo'; el('statoTesto').textContent = 'Stiamo leggendo la tua iscrizione.';
+        mostra('riprova', false);
+        chiama({ azione: 'consensi-leggi' }).then(function (r) {
+            if (r && r.ok) { disegna(r); return; }
+            if (r && (r._stato === 403 || r._stato === 404)) {
+                avviso('Collegamento non valido', 'Questo collegamento non è valido o non è più attivo. Apri la mail che hai ricevuto e tocca di nuovo il pulsante; se il problema resta, scrivici a info@nextgenerationbusiness.it.');
+                return;
+            }
+            throw new Error('servizio');
+        }).catch(function () {
+            avviso('Connessione assente', 'Non riusciamo a raggiungere il servizio. Riprova fra qualche secondo: il collegamento resta valido.', true);
+        });
+    }
+    el('riprova').addEventListener('click', leggi);
+    el('partnerSi').addEventListener('change', function () { el('conferma').disabled = !el('partnerSi').checked; mostra('errore', false); });
+    el('conferma').addEventListener('click', function () {
+        if (!el('partnerSi').checked) return;
+        var b = el('conferma');
+        b.disabled = true; b.textContent = 'Un attimo...';
+        mostra('errore', false);
+        chiama({ azione: 'consensi-salva', partner: true }).then(function (r) {
+            if (r && r.ok) { disegna(r); el('partner').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+            throw new Error((r && r.msg) || '');
+        }).catch(function (e) {
+            b.disabled = false; b.textContent = 'Conferma il consenso';
+            el('errore').textContent = (e && e.message) || 'Non siamo riusciti a registrare il consenso: riprova fra qualche secondo.';
+            mostra('errore', true);
+        });
+    });
+
+    if (!d || !t) avviso('Collegamento non completo', 'Questo collegamento non è completo: apri la mail che hai ricevuto e tocca di nuovo il pulsante.');
+    else leggi();
+})();
+</script>
+
+</body>
+</html>

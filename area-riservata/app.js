@@ -2048,6 +2048,16 @@
         async disiscriviNewsletter(email, riattiva) {
             return this._chiamaNewsletter('newsletter', { azione: riattiva ? 'riattiva' : 'disiscrivi', email: email });
         },
+        /* La newsletter dei bandi: gli iscritti dal modulo della pagina /bandi/
+           e gli ultimi invii automatici (email-service/lib/newsletter-bandi.js). */
+        async bandiNewsletter() {
+            return this._chiamaNewsletter('newsletter', { azione: 'bandi' });
+        },
+        /* ...e la disiscrizione o la riattivazione fatta a mano. Riattivare si
+           puo' solo chi aveva gia' confermato: lo controlla il servizio. */
+        async gestisciBandiNewsletter(email, riattiva) {
+            return this._chiamaNewsletter('newsletter', { azione: riattiva ? 'bandi-riattiva' : 'bandi-disiscrivi', email: email });
+        },
         /* Invio di un lotto: l'HTML arriva gia' pronto, il servizio ci mette
            dentro il collegamento personale di disiscrizione. */
         async inviaLottoNewsletter(corpo) {
@@ -15667,6 +15677,8 @@
         {
             id: 'milano-2027-02-26', titolo: 'Milano', quando: '26 febbraio 2027', giorno: '2027-02-26', filtro: 'milano', pagina: 'Milano 26 Febbraio 2027',
             manuale: true, luogo: 'Excelsior Hotel Gallia', indirizzo: 'Piazza Duca d\'Aosta 9, Milano', urlPagina: '/milano_febbraio_2027/',
+            // il modulo ha la casella del consenso partner: a chi si e' iscritto prima lo si chiede per mail
+            consensoPartner: true,
             /* I MODULI CHE SUL SITO NON SI VEDONO: pagine con `noindex`, fuori
                dalla sitemap e senza link dal resto del sito, che si raggiungono
                solo dal collegamento mandato a chi deve iscriversi. Stanno nel
@@ -15937,7 +15949,9 @@
     function firmaIscr(l) {
         return (l || []).map(r => r.id + '~' + (r.azienda || '')
             + '~' + ((r.emailConfermata && r.emailConfermata.come) || '')
-            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')).join('|');
+            + '~' + (r.mailConferma ? (r.mailConferma.ok ? 'ok' : 'ko') : '')
+            // il consenso partner dato dal collegamento della mail: la riga si aggiorna da sola
+            + '~' + ((r.consensi && r.consensi.partner && r.consensi.partner.quando) || '') + ((r.consensi && r.consensi.partnerChiesto) ? 'c' : '')).join('|');
     }
     // anche stati e note entrano nell'impronta: se un collega segna una presenza,
     // l'aggiornamento automatico se ne accorge e ridisegna. Nell'impronta c'e'
@@ -17426,9 +17440,12 @@
                     + '" data-verso="' + md + '">Rimanda l\'invito in PDF</button>'
                     : '')
                 : ''),
+            // la scheda dell'iscrizione con i consensi espressi nel modulo, da stampare o salvare in PDF
+            '<button type="button" class="ev-menu-voce ev-consensi" data-id="' + esc(r.id) + '" data-doc="' + esc(r.doc || '')
+                + '">Stampa scheda e consensi (PDF)</button>',
             (adminEv
                 ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
-                + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
+                + esc(r.id) + '" data-nome=""' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
                 + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
                 : '')
         ];
@@ -18075,6 +18092,21 @@
     /* IL BAFFETTO ACCANTO AL CELLULARE: il numero ha ricevuto il codice SMS
        e la persona lo ha scritto nel modulo (Milano 2027). Lo scrive il
        servizio sulla scheda (telefonoVerificato), e vale per quella riga. */
+    /* IL CONSENSO PARTNER SULLA RIGA, dove il modulo lo prevede: dato (dal
+       modulo o dal collegamento personale della mail, con il momento),
+       oppure chiesto per mail e non ancora dato. Chi non l'ha dato e non
+       ha ricevuto la mail non ha niente da dire. */
+    function consensoPartnerRiga(ev, r) {
+        if (!ev || !ev.consensoPartner) return '';
+        const c = r && r.consensi;
+        if (c && c.partner && c.partner.quando) {
+            return '<div class="hint ev-consenso-partner si" title="Consenso partner dato il ' + esc(fmtDataOra(c.partner.quando)) + '">consenso partner &#10003;</div>';
+        }
+        if (c && c.partnerChiesto) {
+            return '<div class="hint ev-consenso-partner" title="Mail del consenso partner inviata il ' + esc(fmtDataOra(c.partnerChiesto)) + ': non ha ancora risposto">consenso partner chiesto</div>';
+        }
+        return '';
+    }
     function baffettoTelefono(r) {
         const v = r && r.telefonoVerificato;
         if (!v || !v.quando) return '';
@@ -18951,7 +18983,7 @@
                indirizziConfermati): resta solo "mail non inviata", che non
                e' uno stato ma un errore da sistemare. */
             // sotto l'indirizzo: "email da confermare" con i solleciti (lettera e PEC) e le loro date
-            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + '</td>';
+            celle['b:email'] = '<td' + classe(tmEmail) + ' data-label="Email">' + emailInterrompibile(r.email) + esitoMailDi(r) + attesa + consensoPartnerRiga(ev, r) + '</td>';
             celle['b:telefono'] = '<td' + classe(tm) + ' data-label="Telefono">' + esc(r.telefono) + baffettoTelefono(r) + '</td>';
             if (fisse) {
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
@@ -18997,6 +19029,8 @@
             ? '<div class="ev-barra' + (nSel ? '' : ' vuota') + '">'
             + '<span><b>' + nSel + '</b> ' + (nSel === 1 ? 'iscrizione selezionata' : 'iscrizioni selezionate') + '</span>'
             + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
+            // una scheda per iscrizione selezionata, ognuna sulla sua pagina
+            + '<button class="btn btn-sm btn-secondary" id="ev-consensi-multi">Stampa schede e consensi (PDF)</button>'
             /* Lo spostamento in blocco sta qui e non fra le azioni della riga:
                i posti in sala finiscono per tutti insieme, e gli aderenti si
                riconoscono guardando l'elenco, non una riga per volta. */
@@ -19169,6 +19203,10 @@
            L'invito agli incontri B2B non e' piu' qui: sta con la giornata. */
         const bottoniIscrizioni =
             ((ev.manuale && puoAggiungereIscrizioni()) ? '<button class="btn btn-sm btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
+            /* LA MAIL DEL CONSENSO PARTNER a chi si e' iscritto prima che il
+               modulo avesse la casella: solo dove il modulo la prevede. */
+            + (ev.consensoPartner && puoAggiungereIscrizioni()
+                ? '<button class="btn btn-sm btn-secondary" id="ev-consenso-partner">Chiedi il consenso partner</button>' : '')
             + (admin ? '<button class="btn btn-sm btn-secondary" id="ev-importa">Importa</button>'
                 /* IL PREGRESSO DELLA CONFERMA EMAIL: chi era iscritto prima
                    che la mail avesse il pulsante "conferma il tuo indirizzo"
@@ -19438,6 +19476,8 @@
                 });
             }
         }
+        const bConsP = document.getElementById('ev-consenso-partner');
+        if (bConsP) bConsP.addEventListener('click', () => modaleConsensoPartner(ev));
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         // l'invito agli incontri e l'elenco dei prenotati li collega collegaGiornataBlocco
@@ -19664,6 +19704,10 @@
             /* L'invito in PDF rimasto indietro: lo spostamento nella stessa
                sezione, senza avviso, che manda solo quello. Niente finestra:
                non c'e' niente da decidere, e il riassunto dice com'e' andata. */
+            radice.querySelectorAll('.ev-consensi').forEach(b => b.addEventListener('click', () => {
+                const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
+                if (r) stampaConsensi(ev, [r]);
+            }));
             radice.querySelectorAll('.ev-invito-pdf').forEach(b => b.addEventListener('click', () => {
                 const r = rigaPerScheda(b.dataset.id, b.dataset.doc);
                 if (r) eseguiSpostaModalita(ev, [r], b.dataset.verso, { soloInvito: true });
@@ -19837,6 +19881,12 @@
         };
         [tutte, tutteMob].forEach(el => {
             if (el) el.addEventListener('change', () => segnaTutte(el.checked));
+        });
+        const bCons = document.getElementById('ev-consensi-multi');
+        if (bCons) bCons.addEventListener('click', () => {
+            const scelte = (_evIscrizioni || []).filter(r => _evSelezionate.has(r.id));
+            if (!scelte.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
+            stampaConsensi(ev, scelte);
         });
         const bNess = document.getElementById('ev-sel-nessuna');
         if (bNess) bNess.addEventListener('click', () => {
@@ -21893,6 +21943,299 @@
         + '@page{margin:14mm 12mm;}';
     /* La finestra di stampa: si scrive la pagina e si chiama print(), da cui
        "Salva come PDF" fa il resto. Niente librerie. */
+    /* =========================================================
+       LA SCHEDA DELL'ISCRIZIONE CON I CONSENSI
+       ---------------------------------------------------------
+       Un foglio per iscrizione: chi e', che cosa ha scritto nel
+       modulo, e i consensi che ha espresso - privacy, aggiornamenti,
+       riprese - con il momento in cui li ha dati e il testo della
+       casella. Serve a chi deve dimostrare un consenso, quindi dice
+       anche quello che NON risulta: un'iscrizione inserita a mano o
+       importata non ha caselle spuntate da nessuno, e scriverci "si"
+       sarebbe inventarsi una prova. I consensi li manda il servizio
+       (api/iscrizioni.js, `consensi`); la stampa e' quella degli altri
+       fogli della sezione (apriStampa): dalla finestra del browser si
+       stampa o si salva in PDF.
+       ========================================================= */
+    const TESTI_CONSENSI = {
+        privacy: 'Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR)',
+        // i moduli da Milano in poi rimandano alla privacy policy; quello di Napoli no
+        privacyConPolicy: ', come descritto nella privacy policy (https://www.iubenda.com/privacy-policy/40996386).',
+        marketing: 'Desidero ricevere aggiornamenti su programma, relatori e future iniziative.',
+        riprese: 'Acconsento alle riprese fotografiche e video: la giornata sarà registrata e potranno essere presenti troupe di '
+            + 'telegiornali e organi di informazione. Le immagini potranno essere diffuse dai media e pubblicate da Revilaw sui propri canali.',
+        /* IL CONSENSO PARTNER (facoltativo): la comunicazione dei dati ai
+           Partner dell'evento. Gia' in forma di HTML, perche' ha un elenco;
+           senza il collegamento alla sezione Partner, che su un foglio non
+           si preme. Nessun modulo lo raccoglie ancora: per chi si e' iscritto
+           finora vale "non acconsentito" (vedi schedaConsensiHtml). */
+        partnerHtml: '<i>Alcuni partner potrebbero anche non intervenire come relatori.</i><br>'
+            + 'Autorizzo Revilaw S.p.A. a comunicare ai Partner dell\'evento elencati nella sezione Partner i seguenti dati: nome e cognome, '
+            + 'email, numero di telefono, azienda/studio, città, ruolo, partita IVA, codice fiscale, fatturato aziendale e numero dipendenti.<br>'
+            + 'I Partner potranno contattarmi via email o telefono per:'
+            + '<ul class="punti"><li>invio di materiali utili/approfondimenti relativi all\'evento;</li>'
+            + '<li>comunicazioni informative e commerciali/promozionali sui propri servizi e iniziative.</li></ul>'
+            + '<i>Nota: l\'iscrizione e l\'invio delle comunicazioni operative (inclusi tool e materiali) non dipendono da questo consenso.</i>'
+    };
+    // l'evento della riga: nel riepilogo "tutti" si ricava dalla pagina dell'iscrizione
+    function eventoDellaRiga(ev, r) {
+        if (ev && !ev.tutti) return ev;
+        const p = String((r && r.pagina) || '').toLowerCase();
+        return EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0) || ev;
+    }
+    function schedaConsensiHtml(ev, r) {
+        const e = eventoDellaRiga(ev, r);
+        const c = r.consensi || {};
+        const daModulo = !r.inserito && !r.importato;
+        const quandoIscr = String(r.data || '').trim();
+        /* TUTTO IN UNA PAGINA: i dati stanno su due colonne affiancate, e
+           solo una voce lunga (un messaggio, un elenco di interessi) si
+           prende la riga intera. `lungo` e' la misura del testo, senza i tag. */
+        const voce = (et, val) => {
+            if (val === '' || val == null) return '';
+            const lungo = String(val).replace(/<[^>]*>/g, '').length + String(et).length > 62;
+            return '<div class="v' + (lungo ? ' larga' : '') + '"><span class="et">' + esc(et) + '</span><span>' + val + '</span></div>';
+        };
+        const md = (e && !e.tutti) ? modalitaDi(e, r) : String(r.modalita || '');
+        const sezione = (SEZIONI_MODALITA.find(x => x.id === md) || {}).nome || '';
+        const dati = voce('Nome e cognome', '<b>' + esc(((r.nome || '') + ' ' + (r.cognome || '')).trim()) + '</b>')
+            // come e quando sono stati verificati sta piu' sotto, nel riquadro delle verifiche
+            + voce('Email', esc(r.email || ''))
+            + voce('Cellulare', esc(r.telefono || ''))
+            + voce('Azienda', esc(r.azienda || ''))
+            + voce('Ruolo', esc(r.ruolo || ''))
+            + voce('Evento', e && !e.tutti ? esc(e.titolo + ', ' + e.quando) : '')
+            + voce('Modulo', esc(r.pagina || ''))
+            + voce('Data dell\'iscrizione', esc(quandoIscr))
+            + voce('Partecipazione', esc(sezione))
+            + voce('Codice invito', r.invito && r.invito.codice ? esc(r.invito.codice) + (r.invito.azienda ? ' - ' + esc(r.invito.azienda) : '') : '')
+            + voce('Messaggio', esc(r.messaggio || ''));
+        const extra = (r.extra && typeof r.extra === 'object') ? r.extra : {};
+        /* SOLO QUELLO CHE LA PERSONA HA INDICATO NEL MODULO: profilo,
+           settore, fatturato, interessi e la richiesta di incontri (le
+           etichette sono quelle di CAMPI_MATCHING in api/iscrizioni.js). Le
+           altre colonne dell'elenco - importate da un file, scritte dalla
+           segreteria, nate dagli incontri B2B - non le ha dichiarate lei, e
+           su questo foglio non ci vanno. */
+        const DAL_MODULO = ['Profilo', 'Settore', 'Fatturato', 'Interessi', 'Incontro B2B'];
+        const altre = DAL_MODULO.filter(k => String(extra[k] == null ? '' : extra[k]).trim())
+            .map(k => voce(k, esc(String(extra[k])))).join('');
+        /* Un consenso: SI' con quando, NO, oppure "non risulta" - che non e'
+           un no, e' l'assenza della casella sulla scheda. */
+        const esito = (v, quando) => v === true
+            ? '<b class="si">SÌ</b>' + (quando ? '<div class="nota">' + esc(quando) + '</div>' : '')
+            : (v === false ? '<b class="no">NO</b>' : '<span class="nota">non risulta</span>');
+        const conRiprese = !(e && e.soloOnline);
+        const rigaCons = (nome, testo, v, quando) => '<tr><td class="et">' + esc(nome) + '</td><td>' + esc(testo) + '</td><td class="esito">' + esito(v, quando) + '</td></tr>';
+        const consensi = rigaCons('Privacy', TESTI_CONSENSI.privacy + (e && e.filtro === 'napoli' ? '.' : TESTI_CONSENSI.privacyConPolicy), c.privacy, c.privacy === true ? quandoIscr : '')
+            + rigaCons('Aggiornamenti', TESTI_CONSENSI.marketing, c.marketing, c.marketing === true ? quandoIscr : '')
+            + (conRiprese || c.riprese ? rigaCons('Riprese foto e video', TESTI_CONSENSI.riprese, c.riprese ? true : null, c.riprese ? fmtDataOra(c.riprese.quando) : '') : '')
+            /* Il consenso partner e' facoltativo e finora non l'ha dato
+               nessuno: senza il segno sulla scheda vale NO, non "non risulta". */
+            + '<tr><td class="et">Consenso partner<div class="nota">facoltativo</div></td><td>' + TESTI_CONSENSI.partnerHtml + '</td><td class="esito">'
+            + (c.partner && c.partner.quando ? esito(true, fmtDataOra(c.partner.quando)) : '<b class="no">NO</b><div class="nota">non acconsentito</div>') + '</td></tr>';
+        /* LE VERIFICHE: come e quando sono stati verificati l'indirizzo e il
+           cellulare. L'indirizzo lo conferma la persona dal pulsante della
+           mail, oppure chi organizza (d'ufficio: spostandola fra aderenti o
+           sponsor, o per le iscrizioni di prima che la conferma esistesse).
+           Il cellulare lo verifica il codice SMS scritto nel modulo. */
+        const ec = r.emailConfermata, mc = r.mailConferma, tv = r.telefonoVerificato;
+        const sezNome = id => ((SEZIONI_MODALITA.find(x => x.id === id) || {}).nome || id);
+        let comeEmail, quandoEmail = '';
+        if (ec) {
+            quandoEmail = ec.quando ? fmtDataOra(ec.quando) : '';
+            comeEmail = ec.come === 'mail' ? '<b class="si">Confermato dalla persona</b>, premendo «Conferma il tuo indirizzo email» nella mail ricevuta dopo l\'iscrizione.'
+                : ec.come === 'spostamento' ? '<b class="si">Confermato d\'ufficio</b> con lo spostamento dell\'iscrizione' + (ec.verso ? ' fra «' + esc(sezNome(ec.verso)) + '»' : '') + (ec.da ? ', da ' + esc(ec.da) : '') + '.'
+                : '<b class="si">Confermato d\'ufficio</b>: iscrizione precedente alla richiesta di conferma dell\'indirizzo' + (ec.da ? ' (da ' + esc(ec.da) + ')' : '') + '.';
+        } else {
+            comeEmail = r.email ? '<b class="no">Non confermato</b>' + (e && e.confermaEmail ? ': la persona non ha ancora premuto il pulsante nella mail di conferma.' : ': per questo evento la conferma dell\'indirizzo non è richiesta.') : '<span class="nota">nessun indirizzo</span>';
+        }
+        const passiEmail = [];
+        if (mc && mc.quando) passiEmail.push('Mail di conferma ' + (mc.ok ? 'inviata' : 'NON partita') + ' il ' + esc(fmtDataOra(mc.quando)) + (mc.ok ? '' : (mc.errore ? ' (' + esc(mc.errore) + ')' : '')));
+        if (r.invioConferma && r.invioConferma.tentativi > 1) passiEmail.push('inviata ' + r.invioConferma.tentativi + ' volte in tutto');
+        if (r.smsConferma && r.smsConferma.quando && r.smsConferma.ok) passiEmail.push('SMS «conferma la tua email» il ' + esc(fmtDataOra(r.smsConferma.quando)));
+        const comeTel = tv && tv.quando
+            ? '<b class="si">Verificato dalla persona</b> con il codice di 6 cifre ricevuto per SMS su questo numero e scritto nel modulo di iscrizione.'
+            : (r.telefono ? '<b class="no">Non verificato</b>: ' + (daModulo ? 'il modulo di questa iscrizione non chiedeva il codice SMS.' : 'numero inserito dalla segreteria o importato.') : '<span class="nota">nessun numero</span>');
+        const rigaVer = (nome, valore, come, extra, quando) => '<tr><td class="et">' + esc(nome) + '</td><td>' + (valore ? '<div>' + esc(valore) + '</div>' : '') + come
+            + (extra ? '<div class="nota">' + extra + '</div>' : '') + '</td><td class="esito">' + (quando ? esc(quando) : '') + '</td></tr>';
+        const verifiche = rigaVer('Indirizzo email', r.email || '', comeEmail, passiEmail.join(' &middot; '), quandoEmail)
+            + rigaVer('Cellulare', r.telefono || '', comeTel, '', tv && tv.quando ? fmtDataOra(tv.quando) : '');
+        const origine = daModulo
+            ? 'Consensi espressi dalla persona spuntando le caselle del modulo di iscrizione online, alla data dell\'iscrizione.'
+            : 'Iscrizione ' + (r.importato ? 'importata da un elenco' : 'inserita dalla segreteria') + ', non dal modulo online: '
+                + 'i consensi qui sotto sono quelli che risultano sulla scheda, e dove non risultano non sono stati raccolti da questo sistema.';
+        // il logo con l'indirizzo intero: la finestra di stampa e' una pagina vuota, senza percorso suo
+        let logo = '';
+        try { logo = new URL('../assets/logo-revilaw.png', location.href).href; } catch (er) { logo = 'https://nextgenerationbusiness.it/assets/logo-revilaw.png'; }
+        return '<section class="scheda">'
+            + '<header class="conlogo"><div><h1>Scheda dell\'iscrizione e consensi</h1>'
+            + '<div class="sotto">Next Generation Business' + (e && !e.tutti ? ' - ' + esc(e.titolo + ', ' + e.quando) : '') + '</div>'
+            + '<div class="meta">stampato il ' + esc(fmtDataOra(Date.now())) + ' &middot; documento riservato</div></div>'
+            + '<img class="logo" src="' + esc(logo) + '" alt="Revilaw"></header>'
+            + '<div class="tema"><h2>Dati dell\'iscrizione</h2><div class="griglia">' + dati + '</div></div>'
+            + (altre ? '<div class="tema"><h2>Altre informazioni indicate nel modulo</h2><div class="griglia">' + altre + '</div></div>' : '')
+            + '<div class="tema"><h2>Verifica dell\'indirizzo email e del cellulare</h2>'
+            + '<table class="cons"><thead><tr><th style="width:112px;">Recapito</th><th>Come è stato verificato</th><th style="width:120px;">Quando</th></tr></thead>'
+            + '<tbody>' + verifiche + '</tbody></table></div>'
+            + '<div class="tema"><h2>Consensi</h2><p class="origine">' + esc(origine) + '</p>'
+            + '<table class="cons"><thead><tr><th style="width:130px;">Consenso</th><th>Testo della casella nel modulo</th><th style="width:120px;">Espresso</th></tr></thead>'
+            + '<tbody>' + consensi + '</tbody></table></div>'
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</section>';
+    }
+    function stampaConsensi(ev, righe) {
+        const lista = (righe || []).filter(Boolean);
+        if (!lista.length) return;
+        const titolo = lista.length === 1
+            ? 'Consensi - ' + ((lista[0].nome || '') + ' ' + (lista[0].cognome || '')).trim()
+            : 'Consensi - ' + lista.length + ' iscrizioni';
+        const css = STAMPA_EVENTI_CSS
+            /* una scheda, una pagina: caratteri e margini stretti, i dati su
+               due colonne, e nessun blocco spezzato a meta' */
+            + '@page{size:A4;margin:11mm 12mm;}'
+            + 'body{margin:0;font-size:10.5px;line-height:1.35;}'
+            + '.scheda{page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;}'
+            + '.scheda:last-child{page-break-after:auto;break-after:auto;}'
+            + 'header.conlogo{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:8px;}'
+            + 'header.conlogo .logo{height:44px;width:auto;}'
+            + 'h1{font-size:18px;}.tema{margin-top:9px;}h2{font-size:12.5px;margin-bottom:3px;}'
+            + '.griglia{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;}'
+            + '.griglia .v{display:flex;gap:8px;padding:3px 4px;border-bottom:1px solid #E2E8F0;break-inside:avoid;}'
+            + '.griglia .v.larga{grid-column:1 / -1;}'
+            + '.griglia .et{flex:0 0 104px;color:#475569;font-weight:bold;}'
+            + '.griglia .v span:last-child{min-width:0;overflow-wrap:anywhere;}'
+            + 'table.cons td.et{width:112px;color:#475569;font-weight:bold;}'
+            + 'table.cons td{padding:4px 6px;}th{padding:4px 6px;}'
+            + 'table.cons .punti{margin:2px 0 2px 16px;}table.cons td.et .nota{font-weight:normal;font-size:9.5px;}'
+            + '.origine{margin:0 0 6px 13px;color:#475569;font-size:10px;}'
+            + '.esito .si,table.cons .si{color:#166534;}.esito .no,table.cons .no{color:#B3261E;}'
+            + 'footer{margin-top:14px;padding-top:6px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:9px;}';
+        apriStampa('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + esc(titolo) + '</title>'
+            + '<style>' + css + '</style></head><body>' + lista.map(r => schedaConsensiHtml(ev, r)).join('') + '</body></html>');
+        try { Audit.registra(Auth.utenteCorrente, 'Evento: stampa scheda e consensi', 'sistema', ev.id, null, lista.length + (lista.length === 1 ? ' iscrizione' : ' iscrizioni')); } catch (e) { }
+    }
+
+    /* =========================================================
+       LA MAIL "COMPLETA I TUOI CONSENSI"
+       ---------------------------------------------------------
+       A tutti gli iscritti dell'evento che il consenso partner non
+       l'hanno ancora dato: la mail spiega perche' conviene e porta
+       il pulsante verso la pagina /consensi/, con i consensi gia'
+       espressi e quello mancante. Il testo e' in newsletter-format
+       (consensoPartner); il collegamento personale lo mette il
+       servizio (lib/consensi-partner.js), che salta chi il consenso
+       lo ha gia' dato e, senza la spunta del reinvio, chi la mail
+       l'ha gia' ricevuta. Si spedisce a blocchi: ogni chiamata ha
+       un tempo, e quello che avanza riparte da solo.
+       ========================================================= */
+    function modaleConsensoPartner(ev) {
+        const tutti = soloIscritti(ev, _evIscrizioni || []);
+        const emailOk = r => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(r.email || '').trim());
+        const dato = r => !!(r.consensi && r.consensi.partner && r.consensi.partner.quando);
+        const chiesto = r => !!(r.consensi && r.consensi.partnerChiesto);
+        // un indirizzo, una mail
+        const visti = {};
+        const conMail = tutti.filter(r => emailOk(r) && !dato(r)).filter(r => {
+            const e = String(r.email).trim().toLowerCase();
+            if (visti[e]) return false;
+            visti[e] = true;
+            return true;
+        });
+        const nuovi = conMail.filter(r => !chiesto(r));
+        const gia = conMail.length - nuovi.length;
+        const nDato = tutti.filter(dato).length;
+        const nSenza = tutti.filter(r => !emailOk(r) && !dato(r)).length;
+        const num = n => Number(n).toLocaleString('it-IT');
+        const mail = () => (window.RV_NEWSLETTER && RV_NEWSLETTER.consensoPartner)
+            ? RV_NEWSLETTER.consensoPartner({ evento: { titolo: ev.titolo, quando: ev.quando } }) : null;
+        apriModale('<h2>Chiedi il consenso partner</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Una mail agli iscritti di ' + esc(ev.titolo) + ' che non hanno ancora dato il consenso partner: '
+            + 'spiega perché è utile e porta un pulsante verso la pagina con i consensi già espressi e quello mancante. '
+            + 'Il collegamento è personale, uno per iscritto.</p>'
+            + '<div class="ev-imp-passo"><b>' + num(nuovi.length) + '</b> ' + (nuovi.length === 1 ? 'iscritto la riceve' : 'iscritti la ricevono') + ' adesso'
+            + (nDato ? ' &middot; ' + num(nDato) + ' il consenso lo ' + (nDato === 1 ? 'ha' : 'hanno') + ' già dato' : '')
+            + (nSenza ? ' &middot; ' + num(nSenza) + ' senza email' : '') + '</div>'
+            + (gia ? '<label class="mi-flag" style="margin:8px 0;"><input type="checkbox" id="cp-forza"> Manda di nuovo anche ai <b>' + num(gia)
+                + '</b> che l\'hanno già ricevuta e non hanno ancora risposto</label>' : '')
+            + '<div id="cp-anteprima" style="margin-top:10px;">'
+            + '<iframe id="cp-frame" title="Anteprima della mail" sandbox="allow-same-origin" '
+            + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '<div id="cp-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="cp-no">Chiudi</button>'
+            + '<button class="btn btn-secondary" id="cp-ant">Nascondi anteprima</button>'
+            + '<button class="btn btn-primary" id="cp-si">Invia la mail</button></div>', { classe: 'larga' });
+        const esito = (t, ko) => {
+            const e = document.getElementById('cp-esito');
+            if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
+        };
+        anteprimaMail('cp', () => {
+            const m = mail();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
+            // nell'anteprima un nome di esempio e la pagina senza firma: i valori veri li mette il servizio
+            return m.html.split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc((conMail[0] && conMail[0].nome) || 'Mario'))
+                .split(RV_NEWSLETTER.SEGNAPOSTO_CONSENSI).join(SITO_PUBBLICO + '/consensi/');
+        });
+        const stato = { inCorso: false };
+        document.getElementById('cp-no').addEventListener('click', () => { if (!stato.inCorso) chiudiModale(); });
+        const bSi = document.getElementById('cp-si');
+        const quanti = () => ((document.getElementById('cp-forza') || {}).checked ? conMail.length : nuovi.length);
+        const scrivi = () => { bSi.textContent = 'Invia la mail a ' + num(quanti()); bSi.disabled = !quanti(); };
+        scrivi();
+        const ckF = document.getElementById('cp-forza');
+        if (ckF) ckF.addEventListener('change', scrivi);
+        bSi.addEventListener('click', async () => {
+            const m = mail();
+            if (!m) { esito('Formato newsletter non caricato: ricarica la pagina.', true); return; }
+            const forza = !!(ckF && ckF.checked);
+            /* Dopo un invio interrotto si riprende da quello che era rimasto,
+               non dall'elenco intero: con il reinvio spuntato chi l'ha appena
+               ricevuta la riceverebbe una seconda volta. */
+            let coda = stato.resto || (forza ? conMail : nuovi).map(r => ({ id: r.id, doc: r.doc || '' }));
+            const totale = coda.length;
+            if (!totale) return;
+            if (!stato.resto && !confirm('Parte la mail del consenso partner a ' + num(totale) + (totale === 1 ? ' iscritto' : ' iscritti') + ' di ' + ev.titolo + '. Procedo?')) return;
+            stato.inCorso = true; bSi.disabled = true;
+            const somma = { inviate: 0, giaConsenso: 0, giaChieste: 0, senzaScheda: 0, senzaEmail: 0, doppie: 0, falliti: 0 };
+            let fermi = 0, errore = '';
+            while (coda.length) {
+                esito('Invio in corso: ' + num(totale - coda.length) + ' di ' + num(totale) + '... Tieni aperta questa finestra.');
+                const blocco = coda.slice(0, 100);
+                let r;
+                try {
+                    r = await Cloud.operaPresenza({ azione: 'consenso-partner-invia', evento: ev.id, destinatari: blocco, forza: forza,
+                        mail: { oggetto: m.oggetto, html: m.html, testo: m.testo } });
+                } catch (e) { r = { ok: false, msg: 'Connessione non riuscita.' }; }
+                if (!r || !r.ok) {
+                    // "troppe modifiche ravvicinate": si aspetta e si riprova lo stesso blocco
+                    if (r && /ravvicinate/.test(String(r.msg || '')) && fermi < 6) { fermi++; await new Promise(ok => setTimeout(ok, 15000)); continue; }
+                    errore = (r && r.msg) || 'Invio non riuscito.';
+                    break;
+                }
+                Object.keys(somma).forEach(k => { somma[k] += (k === 'falliti' ? (r.falliti || []).length : (Number(r[k]) || 0)); });
+                const restanti = Array.isArray(r.restanti) ? r.restanti : [];
+                // un blocco da cui non e' uscito niente non deve girare all'infinito
+                fermi = restanti.length >= blocco.length ? fermi + 1 : 0;
+                if (fermi > 6) { errore = 'Il servizio non riesce a spedire in questo momento.'; break; }
+                coda = restanti.concat(coda.slice(blocco.length));
+            }
+            stato.inCorso = false;
+            stato.resto = (errore && coda.length) ? coda : null;
+            const pezzi = [num(somma.inviate) + (somma.inviate === 1 ? ' mail partita' : ' mail partite')];
+            if (somma.giaChieste) pezzi.push(num(somma.giaChieste) + ' già ricevuta');
+            if (somma.giaConsenso) pezzi.push(num(somma.giaConsenso) + ' con il consenso già dato');
+            if (somma.falliti) pezzi.push(num(somma.falliti) + ' non riuscite');
+            if (somma.senzaScheda) pezzi.push(num(somma.senzaScheda) + ' non più in elenco');
+            const fine = pezzi.join(', ') + '.' + (errore ? ' ' + errore + ' Restano ' + num(coda.length) + ': ripremi per completare, senza doppioni.' : '');
+            esito(fine, !!errore || !!somma.falliti);
+            bSi.disabled = !errore; if (errore) bSi.textContent = 'Riprendi l\'invio';
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: mail del consenso partner', 'sistema', ev.id, null, fine); } catch (e) { }
+            if (somma.inviate) toast(num(somma.inviate) + (somma.inviate === 1 ? ' mail partita.' : ' mail partite.'), 'verde');
+            // l'elenco si rilegge: sulle schede c'e' scritto a chi e' partita
+            try { caricaIscrizioni(ev, () => { }, true); } catch (e) { }
+        });
+    }
+
     function apriStampa(pagina) {
         const finestra = window.open('', '_blank');
         if (!finestra) { toast('Il browser ha bloccato la finestra di stampa: consenti i pop-up per questo sito.', 'rosso'); return; }
@@ -21901,7 +22244,17 @@
         finestra.document.close();
         // un attimo perche' la pagina si impagini, poi la finestra di stampa
         finestra.focus();
-        setTimeout(() => { try { finestra.print(); } catch (e) { } }, 300);
+        /* Se il foglio ha immagini (il logo) si aspetta che siano arrivate,
+           al massimo due secondi: stampare prima vorrebbe dire un riquadro
+           vuoto al posto del logo. Senza immagini resta l'attesa di sempre. */
+        const stampa = () => { try { finestra.print(); } catch (e) { } };
+        let img = [];
+        try { img = Array.prototype.slice.call(finestra.document.images || []).filter(i => !i.complete); } catch (e) { img = []; }
+        if (!img.length) { setTimeout(stampa, 300); return; }
+        let fatto = false, mancano = img.length;
+        const via = () => { if (fatto) return; fatto = true; setTimeout(stampa, 150); };
+        img.forEach(i => { const una = () => { if (--mancano <= 0) via(); }; i.addEventListener('load', una); i.addEventListener('error', una); });
+        setTimeout(via, 2000);
     }
 
     /* --- riconoscere che due iscritti sono della STESSA azienda ---
@@ -27792,8 +28145,13 @@
        leggeva "in corso: 0 su 1.310" concludeva che qualcosa fosse rotto,
        mentre stava solo aspettando le 15:40. */
     function rigaProgrammazione(ev, campagna) {
-        const p = progAttiva(ev, campagna);
-        if (!p) return '';
+        const tutte = progTutte(ev, campagna);
+        if (!tutte.length) return '';
+        // due in parallelo: una riga per canale, ognuna col suo nome davanti
+        return tutte.map(p => (tutte.length > 1 ? '<b>' + (p.canale === 'pec' ? 'PEC' : 'Email') + '</b> - ' : '')
+            + rigaProgrammazioneDi(p, campagna)).join('<br>');
+    }
+    function rigaProgrammazioneDi(p, campagna) {
         const camp = campagnaDef(campagna);
         const fatte = Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT');
         const totale = Number(p.totale || 0).toLocaleString('it-IT');
@@ -28582,18 +28940,40 @@
         });
     }
 
+    /* I NUMERI DELLA CARD. Con l'elenco gia' letto sono i suoi, completi.
+       Senza, sono i conti che il servizio fa da solo (contaPerStato: arrivano
+       con la programmazione, a ogni apertura della pagina): cosi' la card
+       dice subito quante sono in elenco senza dover aprire la finestra, che
+       su decine di migliaia di aziende vuol dire leggerle tutte. Li' "hanno
+       risposto" sono le schede in stato risposta o iscritta, e le PEC non
+       arrivate non si distinguono: quelle si vedono aprendo l'elenco. */
+    let _invConti = {};
+    function idRigaConti(campagna) { return 'inv-card-conti-' + campagna; }
+    function rigaContiCard(ev, camp) {
+        const num = x => Number(x || 0).toLocaleString('it-IT');
+        const c = _invCache[invChiave(ev, camp.id)];
+        if (c) {
+            const n = contaInviti(c.aziende);
+            return '<b>' + num(n.totale) + '</b> in elenco &middot; ' + num(n.daInvitare) + ' da ' + camp.azione
+                + ', ' + num(n.inviate) + ' ' + camp.fatto
+                + (n.risposte ? ' &middot; <span class="ev-ok"><b>' + num(n.risposte) + '</b> hanno risposto</span>' : '')
+                + (n.nonArrivate ? ' &middot; <span class="ev-ko">' + num(n.nonArrivate) + ' non arrivate</span>' : '')
+                + (n.errori ? ' &middot; <span class="ev-ko">' + num(n.errori) + ' con errore</span>' : '');
+        }
+        const s = _invConti[invChiave(ev, camp.id)];
+        if (!s) return '<span class="hint">elenco da leggere</span>';
+        const risposte = (Number(s.risposta) || 0) + (Number(s.iscritta) || 0);
+        return '<b>' + num(s.totale) + '</b> in elenco &middot; ' + num(s.daInvitare) + ' da ' + camp.azione
+            + ', ' + num(s.inviata) + ' ' + camp.fatto
+            + (risposte ? ' &middot; <span class="ev-ok"><b>' + num(risposte) + '</b> hanno risposto</span>' : '')
+            + (s.errore ? ' &middot; <span class="ev-ko">' + num(s.errore) + ' con errore</span>' : '');
+    }
     function aziendeInvitoHtml(ev) {
         if (!ev || ev.tutti || !puoGestireInviti()) return '';
         const righe = INV_CAMPAGNE.map(camp => {
             const c = _invCache[invChiave(ev, camp.id)];
             const n = contaInviti(c ? c.aziende : null);
-            const riga = c
-                ? '<b>' + n.totale + '</b> in elenco &middot; ' + n.daInvitare + ' da ' + camp.azione
-                + ', ' + n.inviate + ' ' + camp.fatto
-                + (n.risposte ? ' &middot; <span class="ev-ok"><b>' + n.risposte + '</b> hanno risposto</span>' : '')
-                + (n.nonArrivate ? ' &middot; <span class="ev-ko">' + n.nonArrivate + ' non arrivate</span>' : '')
-                + (n.errori ? ' &middot; <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
-                : '<span class="hint">elenco da leggere</span>';
+            const riga = '<span id="' + esc(idRigaConti(camp.id)) + '">' + rigaContiCard(ev, camp) + '</span>';
             /* Un invio programmato si vede DA QUI, senza aprire la finestra.
                Parte da solo e dura ore: chi passa dalla pagina dell'evento e
                non lo vede, lo rifa' a mano sulle stesse aziende.
@@ -28633,6 +29013,8 @@
         const disegna = () => {
             let qualcosa = false;
             INV_CAMPAGNE.forEach(c => {
+                const conti = document.getElementById(idRigaConti(c.id));
+                if (conti) conti.innerHTML = rigaContiCard(ev, c);
                 const box = document.getElementById(idRigaProg(c.id));
                 if (!box) return;
                 qualcosa = true;
@@ -28689,7 +29071,7 @@
     }
 
     /* L'ELENCO ARRIVA A PAGINE.
-       Un evento puo' tenere fino a 50.000 aziende, e in una risposta sola non
+       Un evento puo' tenere fino a 90.000 aziende, e in una risposta sola non
        ci starebbero: il servizio ne manda un pezzo per volta con il
        segnalibro dell'ultima scheda, e qui si rimettono insieme.
 
@@ -28698,7 +29080,7 @@
        pagine e' soltanto questo giro. Per lo stesso motivo l'ordine
        alfabetico si rifa' qui: ogni pagina arriva ordinata al suo interno, ma
        messe in fila non lo sarebbero piu'. */
-    const INV_MAX_PAGINE = 60;
+    const INV_MAX_PAGINE = 70;
     function leggiElencoInvito(ev, campagna, passo) {
         const aziende = [];
         const altre = {};
@@ -28840,14 +29222,37 @@
        volta sola: la card dell'evento le mostra insieme, e due chiamate per
        disegnare due righe sarebbero due chiamate per niente. */
     function progDi(ev, campagna) { return _invProg[invChiave(ev, campagna)] || null; }
+    /* LE SECONDE CORSIE: PEC ed email in parallelo sullo stesso elenco (una
+       sola per canale; la regola e' del servizio, lib/programmazione-inviti.js).
+       Arrivano a parte dal documento di sempre, ognuna con la sua `corsia`,
+       che i comandi rimandano per dire quale si sta toccando. */
+    let _invProgPar = {};
+    function progTutte(ev, campagna) {
+        const k = invChiave(ev, campagna);
+        return [_invProg[k]].concat(_invProgPar[k] || [])
+            .filter(p => p && INV_PROG_VIVE.indexOf(p.stato) >= 0);
+    }
+    // su quel canale c'e' gia' un invio programmato?
+    function progSulCanale(ev, campagna, canale) {
+        return progTutte(ev, campagna).find(p => (p.canale || 'email') === canale) || null;
+    }
+    // tutti e due i canali occupati: non c'e' posto per un'altra
+    function progPiena(ev, campagna) {
+        return !!(progSulCanale(ev, campagna, 'pec') && progSulCanale(ev, campagna, 'email'));
+    }
     function caricaProgrammazione(ev, poi) {
         Cloud.aziendeInvito({
             azione: 'programmazione', evento: ev.id, campagna: _invCampagna,
-            campagne: INV_CAMPAGNE.map(c => c.id)
+            campagne: INV_CAMPAGNE.map(c => c.id), conConteggi: true
         }).then(r => {
             if (r.ok) {
+                if (r.conteggi) INV_CAMPAGNE.forEach(c => { if (r.conteggi[c.id]) _invConti[invChiave(ev, c.id)] = r.conteggi[c.id]; });
                 const p = r.programmazioni || {};
-                INV_CAMPAGNE.forEach(c => { _invProg[invChiave(ev, c.id)] = p[c.id] || null; });
+                const par = r.parallele || {};
+                INV_CAMPAGNE.forEach(c => {
+                    _invProg[invChiave(ev, c.id)] = p[c.id] || null;
+                    _invProgPar[invChiave(ev, c.id)] = Array.isArray(par[c.id]) ? par[c.id] : [];
+                });
                 _invCron = r.cron || null;
                 _invPassoCron = Number(r.passoMin) || _invPassoCron;
             }
@@ -28858,10 +29263,8 @@
        non se ne puo' fare un'altra. Lo dice anche il servizio, ma dirlo qui
        evita di far compilare tutta la finestra per poi rifiutarla. */
     const INV_PROG_VIVE = ['preparazione', 'programmata', 'in-corso', 'sospesa'];
-    function progAttiva(ev, campagna) {
-        const p = progDi(ev, campagna);
-        return (p && INV_PROG_VIVE.indexOf(p.stato) >= 0) ? p : null;
-    }
+    // la prima che c'e', nel documento di sempre o in una seconda corsia
+    function progAttiva(ev, campagna) { return progTutte(ev, campagna)[0] || null; }
 
     function aziendeInvitoDi(ev, campagna) { return (_invCache[invChiave(ev, campagna)] || {}).aziende || []; }
     function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
@@ -29587,8 +29990,14 @@
     }
 
     function riquadroProgrammazione(ev) {
-        const p = progAttiva(ev, _invCampagna);
-        if (!p) return '';
+        const tutte = progTutte(ev, _invCampagna);
+        return tutte.map(p => riquadroProgrammazioneDi(p, tutte.length > 1)).join('');
+    }
+    /* I pulsanti portano la corsia (data-corsia): con due invii in parallelo
+       pausa e annullamento devono toccare quello del proprio riquadro. */
+    function riquadroProgrammazioneDi(p, inParallelo) {
+        const corsia = ' data-corsia="' + esc(p.corsia || '') + '"';
+        const quale = inParallelo ? (p.canale === 'pec' ? ' via PEC' : ' via email') : '';
         const camp = campagnaDef(_invCampagna);
         const ferma = p.stato === 'sospesa';
         const inPreparazione = p.stato === 'preparazione';
@@ -29604,7 +30013,7 @@
             return '<div class="inv-prog ko"><span><b>Programmazione rimasta a metà.</b> '
                 + 'La finestra è stata chiusa mentre caricava l\'elenco, quindi non partirà niente. '
                 + 'Annullala e rifalla.</span>'
-                + '<button class="btn btn-sm btn-danger" id="inv-prog-annulla">Annulla</button></div>';
+                + '<button class="btn btn-sm btn-danger inv-prog-annulla"' + corsia + '>Annulla</button></div>';
         }
 
         const dettagli = [];
@@ -29621,12 +30030,12 @@
         const attesa = p.stato === 'programmata';
         const parteAlle = Number(p.quando || 0);
         const titolo = ferma
-            ? 'Invio programmato in pausa'
+            ? 'Invio programmato' + quale + ' in pausa'
             : (attesa
                 ? (parteAlle > Date.now()
-                    ? 'Invio programmato: parte alle ' + fmtDataOra(parteAlle).slice(-5)
-                    : 'Invio programmato: in attesa del primo giro')
-                : 'Invio programmato in corso');
+                    ? 'Invio programmato' + quale + ': parte alle ' + fmtDataOra(parteAlle).slice(-5)
+                    : 'Invio programmato' + quale + ': in attesa del primo giro')
+                : 'Invio programmato' + quale + ' in corso');
         return '<div class="inv-prog' + (ferma ? ' ko' : '') + '">'
             + '<div class="inv-prog-testa">'
             + '<b>' + esc(titolo) + '</b>'
@@ -29650,9 +30059,9 @@
             + battitoHtml()
             + '<div class="inv-prog-azioni">'
             + (ferma
-                ? '<button class="btn btn-sm btn-primary" id="inv-prog-riprendi">Riprendi</button>'
-                : '<button class="btn btn-sm btn-secondary" id="inv-prog-sospendi">Metti in pausa</button>')
-            + '<button class="btn btn-sm btn-danger" id="inv-prog-annulla">Annulla</button>'
+                ? '<button class="btn btn-sm btn-primary inv-prog-riprendi"' + corsia + '>Riprendi</button>'
+                : '<button class="btn btn-sm btn-secondary inv-prog-sospendi"' + corsia + '>Metti in pausa</button>')
+            + '<button class="btn btn-sm btn-danger inv-prog-annulla"' + corsia + '>Annulla</button>'
             + '</div></div>';
     }
 
@@ -29691,8 +30100,16 @@
             + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
         const altriFiltri = a => {
             if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
-            if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
-            if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
+            /* Due domande nella stessa tendina, perche' la colonna e' una:
+               che RECAPITO ha la scheda (con PEC, o solo l'email: decide da
+               quale canale la si puo' invitare) e da quale canale l'invito e'
+               PARTITO. */
+            if (_invFiltro.canale === 'con-pec') { if (!a.pec) return false; }
+            else if (_invFiltro.canale === 'solo-mail') { if (a.pec || !a.email) return false; }
+            else {
+                if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
+                if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
+            }
             if (_invFiltro.pec.indexOf('mail-') === 0) {
                 /* Domande sull'email ordinaria: valgono solo per chi e'
                    partito da li' e solo se gli esiti sono stati letti.
@@ -29872,7 +30289,9 @@
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
             + (_invSel.size ? '<span class="hint">su ' + lista.length + ' in questa scheda</span>' : '')
-            + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia ' + esc(camp.spedizione) + '</button>'
+            /* Nella scheda "Inviate" i due pulsanti RIMANDANO: alle aziende
+               spuntate, una o tutte, sul canale che si sceglie nella finestra. */
+            + '<button class="btn btn-primary btn-sm" id="inv-invia">' + (_invFiltro.vista === 'inviate' ? 'Reinvia ' : 'Invia ') + esc(camp.spedizione) + '</button>'
             /* Due pulsanti e non uno con dentro una scelta: sono due lavori
                diversi. "Invia" vuole la finestra aperta e finisce in minuti;
                "Programma" se ne va per conto suo e finisce in ore o giorni.
@@ -29885,9 +30304,12 @@
                serve proprio a mandare qualcosa a due o tre aziende mentre il
                grosso va avanti per conto suo. */
             + '<button class="btn btn-secondary btn-sm" id="inv-programma"'
-            + (progAttiva(ev, _invCampagna)
-                ? ' disabled title="Su questo elenco c\'è già un invio programmato: mettilo in pausa o annullalo dal riquadro qui sopra."'
-                : '')
+            + (progPiena(ev, _invCampagna)
+                ? ' disabled title="Su questo elenco ci sono già due invii programmati, uno via PEC e uno via email: annullane uno dal riquadro qui sopra."'
+                : (progAttiva(ev, _invCampagna)
+                    ? ' title="C\'è già un invio programmato via ' + (progAttiva(ev, _invCampagna).canale === 'pec' ? 'PEC' : 'email')
+                    + ': puoi programmarne un altro, in parallelo, sull\'altro canale."'
+                    : ''))
             + '>Programma ' + esc(camp.spedizione) + '</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da ' + esc(camp.azione) + '</button>'
@@ -29979,7 +30401,8 @@
             + '<tr class="inv-riga-filtri">'
             + '<th></th>'
             + '<th><input type="text" id="inv-cerca" class="inv-f" placeholder="Cerca nome, codice, P.IVA, città..." value="' + esc(_invFiltro.testo) + '"></th>'
-            + '<th>' + opzioni('inv-fcanale', 'Ogni canale', [['pec', 'Solo PEC'], ['email', 'Solo email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
+            + '<th>' + opzioni('inv-fcanale', 'Ogni recapito', [['con-pec', 'Con PEC'], ['solo-mail', 'Solo email (senza PEC)'],
+                ['pec', 'Inviate via PEC'], ['email', 'Inviate via email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
             + '<th>' + opzioni('inv-fstato', 'Ogni stato', Object.keys(INV_STATI).map(x => [x, statoInv(x)]), _invFiltro.stato) + '</th>'
             /* Le sei voci della PEC piu' le tre dell'email ordinaria. Sono
                nella stessa tendina perche' la colonna e' una sola: "com'e'
@@ -30030,14 +30453,12 @@
            quello che si ha in memoria: fra un clic e l'altro il lavoro
            automatico puo' aver spedito un altro gruppo, e i numeri scritti a
            mano sarebbero gia' vecchi. */
-        const comandoProg = (id, azione, conferma) => {
-            const b = document.getElementById(id);
-            if (!b) return;
+        const comandoProg = (classe, azione, conferma) => corpo.querySelectorAll('.' + classe).forEach(b => {
             b.addEventListener('click', () => {
                 if (conferma && !confirm(conferma)) return;
                 const testoPrec = b.textContent;
                 b.disabled = true; b.textContent = 'Un momento...';
-                Cloud.aziendeInvito({ azione: azione, evento: ev.id, campagna: _invCampagna }).then(r => {
+                Cloud.aziendeInvito({ azione: azione, evento: ev.id, campagna: _invCampagna, corsia: b.dataset.corsia || '' }).then(r => {
                     if (!r.ok) {
                         b.disabled = false; b.textContent = testoPrec;
                         esito(r.msg || 'Non riuscito.', true);
@@ -30049,7 +30470,7 @@
                     });
                 });
             });
-        };
+        });
         /* IL RIQUADRO SI RINFRESCA DA SE'.
            Era una fotografia: "riparte fra 47 minuti" restava scritto anche
            un'ora dopo, e "142 inviate su 3.000" restava fermo mentre il
@@ -30288,9 +30709,10 @@
         if (bSecondo) bSecondo.addEventListener('click', () =>
             modaleInviaInvito(ev, tutte.filter(daSollecitare), 'ora', { secondo: true }));
         const bInvia = document.getElementById('inv-invia');
-        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora'));
+        const opzInvio = () => ({ reinvio: _invFiltro.vista === 'inviate' });
+        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora', opzInvio()));
         const bProg = document.getElementById('inv-programma');
-        if (bProg) bProg.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'prog'));
+        if (bProg) bProg.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'prog', opzInvio()));
         /* LE AZIONI DI GRUPPO VANNO A BLOCCHI.
            Il servizio ne accetta al massimo 500 per chiamata, e non e' un
            capriccio: sono scritture su Firestore, che vanno a lotti. Finche'
@@ -30742,8 +31164,42 @@
         return (righe || []).map(r => (r || []).map(cella).join(';')).join('\n');
     }
 
+    /* GLI ISCRITTI DI UN ALTRO EVENTO COME ELENCO DA INVITARE.
+       Chi e' venuto a Napoli si invita al webinar: le righe sono le sue
+       iscrizioni, non un file. Entrano le AZIENDE - in presenza e online -
+       e restano fuori aderenti Revilaw, sponsor e relatori e gli invitati
+       ai soli incontri B2B, che non sono ospiti da invitare. La sezione e'
+       quella decisa da chi organizza (fra le presenze) e, se manca, quella
+       dichiarata iscrivendosi; vuota vale in presenza, come nell'elenco.
+       Un indirizzo, una riga: l'invito parte per email ordinaria e due
+       inviti alla stessa casella sarebbero un doppione. Rende le righe nella
+       forma del file (prima riga le intestazioni) e i conti da dire. */
+    function righeDaIscritti(evOrigine, iscrizioni, presenze) {
+        const conta = { presenza: 0, online: 0, altreSezioni: 0, senzaEmail: 0, doppie: 0 };
+        const righe = [['Azienda', 'Email', 'Referente', 'Telefono', 'Note']];
+        const visti = {};
+        (iscrizioni || []).forEach(r => {
+            if (!r) return;
+            const p = (presenze || {})[r.id] || {};
+            let m = String(p.modalita || r.modalita || '').toLowerCase();
+            if (!SEZIONI_MODALITA.some(x => x.id === m)) m = 'presenza';
+            if ((m !== 'presenza' && m !== 'online') || r.soloB2B === true) { conta.altreSezioni++; return; }
+            const em = String(r.email || '').trim().toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { conta.senzaEmail++; return; }
+            if (visti[em]) { conta.doppie++; return; }
+            visti[em] = true;
+            conta[m]++;
+            const persona = ((r.nome || '') + ' ' + (r.cognome || '')).trim();
+            righe.push([String(r.azienda || '').trim() || persona || em, em, persona, String(r.telefono || ''),
+                'Iscritto a ' + evOrigine.titolo + ' (' + (m === 'online' ? 'online' : 'in presenza') + ')']);
+        });
+        return { righe: righe, conta: conta };
+    }
+
     function modaleImportaAziendeInvito(ev) {
         if (!puoGestireInviti()) return;
+        // gli altri eventi da cui prendere gli iscritti (non il riepilogo, non questo)
+        const altriEventi = EVENTI_DEF.filter(x => !x.tutti && x.filtro && x.id !== ev.id);
         const nomeColonna = c => c.nome;
         const obbligatorie = INV_MODELLO.filter(c => c.obbligatoria).map(c => '<b>' + esc(nomeColonna(c)) + '</b>').join(' e ');
         const facoltative = INV_MODELLO.filter(c => !c.obbligatoria && c.nome !== '#').map(nomeColonna).join(', ');
@@ -30763,10 +31219,16 @@
             + 'scritte in vari modi; le colonne in più restano sulla scheda.</p>'
             + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha già ricevuto '
             + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
+            + (altriEventi.length ? '<div class="ev-imp-passo inv-da-evento"><label for="inv-da-evento"><b>Oppure: gli iscritti di un altro evento</b></label>'
+                + '<div class="inv-da-evento-riga"><select id="inv-da-evento">'
+                + altriEventi.map(x => '<option value="' + esc(x.id) + '">' + esc(x.titolo + ', ' + x.quando) + '</option>').join('')
+                + '</select> <button class="btn btn-secondary btn-sm" id="inv-da-evento-vai">Aggiungi i suoi iscritti</button></div>'
+                + '<p class="hint">Entrano le aziende iscritte <b>in presenza</b> e <b>online</b>, una riga per indirizzo email. '
+                + 'Restano fuori aderenti Revilaw, sponsor e relatori e chi ha annullato. L\'invito a loro parte per <b>email ordinaria</b>.</p></div>' : '')
             /* La misura si dice PRIMA di caricare: un elenco grosso ci mette
                qualche minuto, e chi non sa che sta partendo a blocchi crede
                che si sia bloccato e chiude la finestra a metà. */
-            + '<p class="hint">Un evento tiene fino a <b>50.000</b> aziende. I file grandi partono a blocchi: '
+            + '<p class="hint">Un evento tiene fino a <b>90.000</b> aziende. I file grandi partono a blocchi: '
             + 'il conteggio qui sotto dice a che punto è.</p>'
             + '<div id="inv-imp-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
@@ -30781,7 +31243,7 @@
         });
 
         /* IL FILE SI MANDA A BLOCCHI.
-           Un evento tiene fino a 50.000 aziende, e un file di quella misura
+           Un evento tiene fino a 90.000 aziende, e un file di quella misura
            non entra ne' in una richiesta sola (il corpo ha un tetto di pochi
            megabyte) ne' nei 60 secondi della funzione. Si spedisce un pezzo
            per volta, ognuno con la sua riga di intestazioni, e i conti si
@@ -30845,9 +31307,9 @@
                    sia il limite ne' che cosa fare del file che e' rimasto
                    fuori. Il tetto ferma solo le aziende NUOVE: gli
                    aggiornamenti passano anche a elenco pieno. */
-                if (r.oltreIlLimite) scarti.push(quanti(r.oltreIlLimite) + ' oltre il tetto di ' + quanti(r.limite || 50000) + ' aziende per evento');
+                if (r.oltreIlLimite) scarti.push(quanti(r.oltreIlLimite) + ' oltre il tetto di ' + quanti(r.limite || 90000) + ' aziende per evento');
                 const pieno = r.oltreIlLimite
-                    ? ' L\'elenco dell\'evento ha raggiunto le ' + quanti(r.inElenco || r.limite || 50000) + ' aziende: per aggiungerne altre '
+                    ? ' L\'elenco dell\'evento ha raggiunto le ' + quanti(r.inElenco || r.limite || 90000) + ' aziende: per aggiungerne altre '
                       + 'togli dall\'elenco quelle che non servono più, oppure carica il resto su un altro evento.'
                     : '';
                 mostra('Lette ' + quanti(r.lette) + ' righe: ' + quanti(r.nuove) + ' aziende nuove, ' + quanti(r.aggiornate) + ' aggiornate'
@@ -30864,6 +31326,30 @@
                 });
             });
         };
+
+        const daEvento = document.getElementById('inv-da-evento-vai');
+        if (daEvento) daEvento.addEventListener('click', () => {
+            const origine = EVENTI_DEF.find(x => x.id === document.getElementById('inv-da-evento').value);
+            if (!origine) return;
+            daEvento.disabled = true;
+            mostra('Leggo gli iscritti di ' + origine.titolo + '...');
+            Cloud.iscrizioniEvento(origine.filtro, origine.id, false, true, null).then(r => {
+                daEvento.disabled = false;
+                if (!r || !r.ok) { mostra((r && r.msg) || 'Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true); return; }
+                const x = righeDaIscritti(origine, r.iscrizioni, r.presenze);
+                const c = x.conta;
+                if (x.righe.length < 2) { mostra('Nessuna azienda iscritta a ' + origine.titolo + ' in presenza o online con un indirizzo email.', true); return; }
+                const fuori = [];
+                if (c.altreSezioni) fuori.push(c.altreSezioni + ' fra aderenti, sponsor e relatori');
+                if (c.doppie) fuori.push(c.doppie + ' con un indirizzo già in elenco');
+                if (c.senzaEmail) fuori.push(c.senzaEmail + ' senza email');
+                if (!confirm('Aggiungere all\'elenco ' + (x.righe.length - 1) + ' iscritti di ' + origine.titolo + ' ('
+                    + c.presenza + ' in presenza, ' + c.online + ' online)?'
+                    + (fuori.length ? '\n\nRestano fuori: ' + fuori.join(', ') + '.' : '')
+                    + '\n\nNon parte nessuna mail: l\'invito si manda dopo, dall\'elenco.')) { mostra(''); return; }
+                manda(x.righe.map(riga => righeInCsv([riga])));
+            }).catch(() => { daEvento.disabled = false; mostra('Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true); });
+        });
 
         document.getElementById('inv-file').addEventListener('change', e => {
             const f = e.target.files && e.target.files[0];
@@ -31450,6 +31936,12 @@
         if (!puoGestireInviti()) return;
         opz = opz || {};
         const secondo = !!opz.secondo;
+        /* opz.reinvio: IL REINVIO A SCELTA, dalla scheda "Inviate". Chi
+           organizza spunta le aziende - una o tutte - e rimanda l'invito, sul
+           canale che vuole e anche piu' di una volta. Parte dal testo
+           dell'ultimo invio, che qui si puo' ritoccare, e il servizio salta
+           chi nel frattempo ha risposto o si e' iscritto (soloSenzaRisposta). */
+        const reinvio = !secondo && !!opz.reinvio;
         const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta')
             .filter(a => !secondo || daSollecitare(a));
         if (!scelte.length) {
@@ -31463,7 +31955,7 @@
         /* Il secondo invio parte dal canale del primo: un'azienda invitata per
            PEC riceve il sollecito per PEC. Se le invitate sono un misto, quello
            della maggior parte (e si puo' sempre cambiare). */
-        if (secondo) {
+        if (secondo || reinvio) {
             const viaPec = scelte.filter(a => a.invio && a.invio.canale === 'pec').length;
             const pref = viaPec * 2 >= scelte.length ? 'pec' : 'email';
             if (canaleCfg(pref).pronto) canale = pref;
@@ -31478,7 +31970,7 @@
         const raggiungibili = c => scelte.filter(delCanale(c)).filter(a => recapitoDi(c, a)).length;
         const gia = scelte.filter(a => a.invio && a.invio.quando).length;
         // il testo con cui e' partito l'ultimo invito (per il secondo invio)
-        const ricordato = secondo ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
+        const ricordato = (secondo || reinvio) ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
 
         const opzione = (id, nome, etichetta, spiega, attivo, pronto) =>
             '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
@@ -31506,7 +31998,17 @@
            sentirsi rispondere di no. L'invio a mano invece resta possibile:
            serve proprio a mandare qualcosa a due o tre aziende mentre il
            grosso va avanti per conto suo. */
-        const progInCorso = !!progAttiva(ev, _invCampagna);
+        /* PEC ED EMAIL IN PARALLELO: un invio programmato per canale. Con
+           uno gia' in piedi se ne puo' programmare un altro sull'altro canale;
+           la voce si spegne solo quando sono occupati tutti e due. */
+        const progInCorso = progPiena(ev, _invCampagna);
+        const progGia = progAttiva(ev, _invCampagna);
+        const nomeCanale = c => (c === 'pec' ? 'PEC' : 'email');
+        if (modoIniziale === 'prog' && progGia && !progInCorso && !secondo && progSulCanale(ev, _invCampagna, canale)) {
+            // si apre gia' sul canale libero
+            const altro = canale === 'pec' ? 'email' : 'pec';
+            if (canaleCfg(altro).pronto) canale = altro;
+        }
         /* Si arriva qui da due pulsanti diversi, e la finestra si apre gia'
            sulla domanda giusta: chi ha premuto "Programma" non deve rifare la
            scelta che ha appena fatto. Se pero' su questo elenco c'e' gia' una
@@ -31557,7 +32059,7 @@
            archivio, che continua a valere. */
         const usaModulo = testoIniziale.indexOf('richiesta_contatto') >= 0 && !!contatti;
         const destAttuali = (contatti && contatti.destinatari) || { a: [], cc: [] };
-        apriModale('<h2>' + esc(secondo ? 'Secondo invio' : (campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito'))
+        apriModale('<h2>' + esc(secondo ? 'Secondo invio' : reinvio ? 'Reinvio a chi non ha risposto' : (campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito'))
             + ' - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + (secondo
                 ? '<p class="hint" style="margin:-4px 0 10px;">Riparte <b>lo stesso invito</b> - stesso oggetto, stesso testo, '
@@ -31606,8 +32108,10 @@
                 + ' email</b> in un\'ora: quello che avanza resta da inviare.', modoInvio === 'ora', true)
             + modo('ii-m-prog', 'prog', 'Programmato, lo manda avanti il servizio',
                 progInCorso
-                    ? 'Su questo elenco c\'è già un invio programmato: mettilo in pausa o annullalo dalla finestra dell\'elenco prima di farne un altro.'
-                    : 'Parte da solo, a ritmo, anche a finestra chiusa e anche di notte. '
+                    ? 'Su questo elenco ci sono già due invii programmati, uno via PEC e uno via email: annullane uno dalla finestra dell\'elenco prima di farne un altro.'
+                    : (progGia ? 'C\'è già un invio programmato via <b>' + nomeCanale(progGia.canale) + '</b>: questo parte <b>in parallelo</b>, '
+                        + 'e solo via <b>' + nomeCanale(progGia.canale === 'pec' ? 'email' : 'pec') + '</b>. ' : '')
+                    + 'Parte da solo, a ritmo, anche a finestra chiusa e anche di notte. '
                     + 'È la strada per un elenco lungo: <b>' + scelte.length.toLocaleString('it-IT')
                     + '</b> aziende a mano vorrebbero dire tenere aperta questa finestra per ore.',
                 modoInvio === 'prog', !progInCorso)
@@ -31684,6 +32188,11 @@
                 ? '<div class="campo inv-rinvio"><label class="mi-flag" style="margin:0;">'
                 + '<input type="checkbox" id="ii-forza" checked disabled> '
                 + 'È il <b>secondo invio</b>: parte a quelle del canale scelto qui sopra, che l\'invito l\'hanno già ricevuto</label></div>'
+                : reinvio
+                ? '<div class="campo inv-rinvio"><label class="mi-flag" style="margin:0;">'
+                + '<input type="checkbox" id="ii-forza" checked disabled> '
+                + 'È un <b>reinvio</b>: parte alle ' + scelte.length.toLocaleString('it-IT') + ' selezionate, che l\'hanno già ricevuto, sul canale scelto qui sopra</label>'
+                + '<div class="hint">Chi nel frattempo ha risposto o si è iscritto viene <b>saltato</b>. Il codice di ogni azienda resta lo stesso.</div></div>'
                 : '<div class="campo inv-rinvio' + (gia ? '' : ' spenta') + '">'
             + '<label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"' + (gia ? '' : ' disabled') + '> '
             + (gia
@@ -32085,8 +32594,10 @@
                     }
                 }
             };
+            // la corsia in cui il servizio ha messo questa programmazione ('' = quella di sempre)
+            let corsia = '';
             const disfa = async () => {
-                try { await conFreno({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna }); }
+                try { await conFreno({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna, corsia: corsia }); }
                 catch (e) { /* al peggio scade da se' dopo mezz'ora */ }
             };
             const fallita = async (msg) => {
@@ -32109,8 +32620,8 @@
             }
 
             const nato = await Cloud.aziendeInvito({
-                azione: 'programma', evento: ev.id, campagna: _invCampagna,
-                canale: canale, ritmo: r0, quando: quando, forza: forza || secondo,
+                azione: 'programma', evento: ev.id, campagna: _invCampagna, parallelo: true,
+                canale: canale, ritmo: r0, quando: quando, forza: forza || secondo || reinvio, soloSenzaRisposta: reinvio,
                 pagina: ev.pagina || '', mail: { oggetto: oggetto, html: html },
                 /* il testo com'e' scritto qui, che il servizio ricorda per il
                    secondo invio, e il secondo invio stesso (solo a chi non si
@@ -32125,6 +32636,7 @@
                 return;
             }
 
+            corsia = String(nato.corsia || '');
             const perBlocco = Math.min(Number(nato.perLotto) || BLOCCO_IDS, BLOCCO_IDS);
             for (let i = 0, n = 1; i < totale; i += perBlocco, n++) {
                 if (stato.fermato) {
@@ -32135,7 +32647,7 @@
                     'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
                     + ' di ' + totale.toLocaleString('it-IT') + ' aziende...');
                 const r = await conFreno({
-                    azione: 'programma-lotto', evento: ev.id, campagna: _invCampagna,
+                    azione: 'programma-lotto', evento: ev.id, campagna: _invCampagna, corsia: corsia,
                     n: n, ids: elencoInvio.slice(i, i + perBlocco).map(a => a.id)
                 }, { fatte: i, testo: 'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
                     + ' di ' + totale.toLocaleString('it-IT') + ' aziende.' });
@@ -32155,7 +32667,7 @@
                 return;
             }
             avanzamento(totale, totale, conti, 'Accendo la programmazione...');
-            const acceso = await conFreno({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna },
+            const acceso = await conFreno({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna, corsia: corsia },
                 { fatte: totale, testo: 'Accendo la programmazione.' });
             if (!acceso.ok) {
                 await fallita(acceso.msg || 'Programmazione non avviata.');
@@ -32191,7 +32703,14 @@
             const quale = canale === 'pec' ? 'PEC' : 'email';
             /* La biforcazione, e da qui in giu' non cambia una riga: il ramo
                "adesso" e' esattamente quello di sempre. */
-            if (modoInvio === 'prog') { programmaInvio(oggetto, testoInvito, elencoInvio, forza); return; }
+            if (modoInvio === 'prog') {
+                if (progSulCanale(ev, _invCampagna, canale)) {
+                    esito('C\'è già un invio programmato via ' + quale + ': in parallelo ne va uno per canale. Scegli l\'altro canale, oppure annulla quello in corso.', true);
+                    return;
+                }
+                programmaInvio(oggetto, testoInvito, elencoInvio, forza);
+                return;
+            }
             if (!confirm('Partono fino a ' + elencoInvio.length + ' ' + quale + ', una per azienda'
                 + (canale === 'pec' ? '. Ogni PEC ha un costo e non si richiama indietro.' : '.') + ' Procedo?')) return;
             const html = invTestoInHtml(testoInvito);
@@ -32233,7 +32752,7 @@
                     let r;
                     try {
                         r = await Cloud.aziendeInvito({
-                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza || secondo,
+                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza || secondo || reinvio, soloSenzaRisposta: reinvio,
                             // vedi la programmazione qui sopra: il testo da ricordare e il secondo invio
                             testo: testoInvito, versione: versione, soloNonIscritte: secondo,
                             /* Il nome della pagina di iscrizione viaggia col codice:
@@ -32273,7 +32792,7 @@
                        gia' partite da qui si tolgono dall'elenco. Il servizio le
                        salterebbe comunque (secondoInvio), ma cosi' non si
                        spreca il tetto a farle saltare. */
-                    if (secondo) Object.keys(r.esiti || {}).forEach(id => { if ((r.esiti[id] || {}).stato === 'inviata') partite.add(id); });
+                    if (secondo || reinvio) Object.keys(r.esiti || {}).forEach(id => { if ((r.esiti[id] || {}).stato === 'inviata') partite.add(id); });
                     conti.inviate = inviate; conti.saltate = saltate;
                     conti.disiscritte = disiscritte; conti.falliti = falliti;
                     conti.incerte = incerte;
@@ -32648,6 +33167,27 @@
     let _nlInvio = null;             // {trasporto, maxLotto} dichiarati dal servizio
     let _nlFonti = null;             // quanti contatti da Firestore e quanti dal foglio storico
     let nlTab = 'newsletter';        // scheda aperta nella sezione
+    /* La newsletter dei bandi (scheda "Newsletter dei bandi"): chi si iscrive
+       dal modulo della pagina /bandi/ e gli invii automatici dei bandi nuovi.
+       Si legge dal servizio quando la scheda si apre. Questi iscritti NON
+       entrano nei gruppi delle newsletter dello studio: il consenso che hanno
+       dato e' per i soli aggiornamenti sui bandi. */
+    let _nlBandi = null;             // { iscritti: [], giri: [], conti: {} }
+    let _nlBandiMsg = '';
+    let _nlBandiInFlight = false;
+    let _nlBandiLetto = 0;           // quando si e' letto (o provato a leggere) l'ultima volta
+    function caricaBandiNewsletter(poi) {
+        if (!Cloud.attivo || _nlBandiInFlight) return;
+        _nlBandiInFlight = true;
+        Cloud.bandiNewsletter().then(r => {
+            _nlBandiInFlight = false;
+            // la pausa fra due letture si conta dalla fine, anche quando va male: niente richieste a raffica
+            _nlBandiLetto = Date.now();
+            if (!r.ok) _nlBandiMsg = r.msg || 'Lettura non riuscita.';
+            else { _nlBandiMsg = ''; _nlBandi = { iscritti: r.iscritti || [], giri: r.giri || [], conti: r.conti || {} }; }
+            if (poi) { try { poi(); } catch (e) { } }
+        });
+    }
     /* Esiti degli invii letti da Brevo, per etichetta di giro. Restano solo qui,
        in memoria: nell'archivio condiviso non entrano, perche' quello e' un unico
        documento fuso per record con l'ultimo che scrive che vince, e due browser
@@ -33044,6 +33584,9 @@
             caricaDestinatariNewsletter(cambiato => { if (cambiato && vistaCorrente === 'newsletter') vistaNewsletter(); });
         }
         if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); });
+        if (nlTab === 'bandi' && Cloud.attivo && !_nlBandiInFlight && Date.now() - _nlBandiLetto > 15000) {
+            caricaBandiNewsletter(() => { if (vistaCorrente === 'newsletter' && nlTab === 'bandi') vistaNewsletter(); });
+        }
 
         const g = gruppiNewsletter();
         const disiscritti = (_nlDati && _nlDati.disiscritti) || {};
@@ -33075,6 +33618,7 @@
             + '<button type="button" class="tab-btn' + (nlTab === 'newsletter' ? ' attivo' : '') + '" data-tab="newsletter">Le newsletter (' + Newsletter.tutte().length + ')</button>'
             + '<button type="button" class="tab-btn' + (nlTab === 'iscritti' ? ' attivo' : '') + '" data-tab="iscritti">Iscritti (' + nInElenco + ')</button>'
             + '<button type="button" class="tab-btn' + (nlTab === 'disiscritti' ? ' attivo' : '') + '" data-tab="disiscritti">Disiscritti (' + nDisiscritti + ')</button>'
+            + '<button type="button" class="tab-btn' + (nlTab === 'bandi' ? ' attivo' : '') + '" data-tab="bandi">Newsletter dei bandi' + (_nlBandi ? ' (' + _nlBandi.iscritti.length + ')' : '') + '</button>'
             + '</div>';
 
         const cfgNL = NewsletterConfig.leggi();
@@ -33126,6 +33670,7 @@
         document.getElementById('nl-aggiorna').addEventListener('click', () => {
             _nlMsg = ''; _nlUltimoTentativo = 0;
             caricaDestinatariNewsletter(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); }, true);
+            if (nlTab === 'bandi') { _nlBandiMsg = ''; _nlBandiLetto = 0; }
             vistaNewsletter();
         });
         const bAcc = document.getElementById('nl-accessi');
@@ -33138,6 +33683,7 @@
     }
 
     function corpoNewsletter(g, disiscritti) {
+        if (nlTab === 'bandi') return corpoBandiNewsletter();
         if (nlTab === 'iscritti') return corpoIscrittiNewsletter(g, disiscritti);
         if (nlTab === 'disiscritti') return corpoDisiscrittiNewsletter(disiscritti);
         return riepilogoInvioNewsletterHtml() + corpoElencoNewsletter();
@@ -33274,6 +33820,82 @@
             + '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
     }
 
+    /* La scheda "Newsletter dei bandi": i conti, l'elenco degli iscritti (con i
+       filtri per colonna e l'esportazione CSV della tabella) e gli ultimi invii
+       automatici. Si legge al momento: niente copie nell'archivio condiviso. */
+    function corpoBandiNewsletter() {
+        if (!Cloud.attivo) return '<div class="card tabella-vuota">In modalità dimostrativa gli iscritti alla newsletter dei bandi non sono disponibili.</div>';
+        if (!_nlBandi) {
+            return '<div class="card tabella-vuota">' + (_nlBandiMsg ? esc(_nlBandiMsg) + '<br><span class="hint">Riprova con "Aggiorna adesso".</span>' : 'Lettura degli iscritti in corso...') + '</div>';
+        }
+        const c = _nlBandi.conti || {};
+        const box = (classe, etichetta, valore, nota) => '<div class="kpi' + (classe ? ' ' + classe : '') + '">'
+            + '<div class="etichetta">' + etichetta + '</div><div class="valore">' + valore + '</div>'
+            + '<div class="nota">' + nota + '</div></div>';
+        const kpi = '<div class="kpi-griglia">'
+            + box('verde', 'Iscritti attivi', c.attivi || 0, c.esclusi ? 'di cui ' + c.esclusi + ' esclus' + (c.esclusi === 1 ? 'o' : 'i') + ' (vedi la colonna Stato)' : 'ricevono i nuovi bandi')
+            + box('ambra', 'In attesa di conferma', c.attesa || 0, 'non hanno ancora toccato il pulsante della mail')
+            + box('rosso', 'Disiscritti', c.disiscritti || 0, 'dal collegamento nelle mail o a mano')
+            + '</div>';
+        const spiega = '<p class="hint" style="margin:0 0 12px;">Chi si iscrive dalla pagina <strong>Bandi e agevolazioni</strong> del sito riceve una mail ogni volta che sul sito compaiono bandi nuovi: la manda da solo il servizio, dalle 8 alle 20, un\'ora dopo l\'ultimo bando pubblicato. '
+            + 'Questi iscritti hanno dato il consenso ai soli aggiornamenti sui bandi: <strong>non</strong> sono fra i destinatari delle newsletter dello studio.</p>';
+        const elenco = _nlBandi.iscritti || [];
+        const data = ts => ts ? esc(fmtDataOra(ts)) : '-';
+        const stato = p => {
+            if (p.stato === 'attiva') {
+                return p.escluso
+                    ? '<span class="badge ambra">Escluso</span><div class="hint">dopo la conferma ha chiesto di non ricevere più nulla dalla newsletter dello studio</div>'
+                    : '<span class="badge verde">Iscritto</span>';
+            }
+            if (p.stato === 'disiscritta') {
+                return '<span class="badge rosso">Disiscritto</span><div class="hint">' + data(p.disiscritta)
+                    + (p.comeDisiscritta ? ' &middot; ' + esc(p.comeDisiscritta === 'pagina' ? 'dal collegamento' : (p.comeDisiscritta === 'un-clic' ? 'dal programma di posta' : p.comeDisiscritta)) : '') + '</div>';
+            }
+            const m = p.mailConferma;
+            return '<span class="badge ambra">Da confermare</span>'
+                + (m && !m.ok ? '<div class="hint">la mail di conferma non è partita' + (m.errore ? ': ' + esc(m.errore) : '') + '</div>' : '');
+        };
+        const tabella = elenco.length
+            ? '<div class="card tabella-wrap" id="nl-tab-bandi"><table class="dati"><thead><tr>'
+            + '<th>Cognome</th><th>Nome</th><th>Email</th><th>Azienda</th><th>Stato</th><th>Iscritto il</th><th>Confermato il</th><th></th>'
+            + '</tr></thead><tbody>'
+            + elenco.map(p => '<tr>'
+                + '<td>' + esc(p.cognome || '-') + '</td>'
+                + '<td>' + esc(p.nome || '') + '</td>'
+                + '<td>' + esc(p.email) + '</td>'
+                + '<td>' + esc(p.azienda || '') + '</td>'
+                + '<td>' + stato(p) + '</td>'
+                + '<td>' + data(p.creata || p.richiesta) + '</td>'
+                + '<td>' + data(p.confermata) + '</td>'
+                + '<td class="td-azioni">'
+                + (p.stato === 'attiva' ? '<button class="btn btn-sm btn-ghost" data-bandi-disiscrivi="' + esc(p.email) + '">Disiscrivi</button>' : '')
+                + (p.stato === 'disiscritta' && p.confermata ? '<button class="btn btn-sm btn-ghost" data-bandi-riattiva="' + esc(p.email) + '">Rimetti fra gli iscritti</button>' : '')
+                + '</td></tr>').join('')
+            + '</tbody></table></div>'
+            : '<div class="card tabella-vuota">Nessun iscritto alla newsletter dei bandi, per ora.<br><span class="hint">Il modulo è nella pagina Bandi e agevolazioni del sito, nel riquadro «I nuovi bandi, appena escono».</span></div>';
+        const giri = _nlBandi.giri || [];
+        const statoGiro = gr => gr.stato === 'finito'
+            ? '<span class="badge verde">Inviato</span>'
+            : (gr.stato === 'fermo'
+                ? '<span class="badge rosso">Fermo</span>' + (gr.ultimoErrore && gr.ultimoErrore.msg ? '<div class="hint">' + esc(gr.ultimoErrore.msg) + '</div>' : '')
+                : '<span class="badge ambra">In corso</span>');
+        const invii = '<div class="card tabella-wrap" style="margin-top:16px;"><strong>Invii automatici</strong>'
+            + (giri.length
+                ? '<p class="hint" style="margin:4px 0 10px;">Gli ultimi aggiornamenti spediti agli iscritti' + (giri.some(gr => gr.trasporto === 'brevo') ? ': «consegnate» vuol dire accettate da Brevo per la spedizione, i rimbalzi si vedono nel suo pannello' : '') + '.</p>'
+                + '<table class="dati"><thead><tr><th>Quando</th><th>Bandi annunciati</th><th>Consegnate</th><th>Saltate</th><th>Non partite</th><th>Stato</th></tr></thead><tbody>'
+                + giri.map(gr => '<tr>'
+                    + '<td>' + data(gr.creato) + '</td>'
+                    + '<td>' + esc((gr.bandi || []).map(b => b.titolo).join('; ') || gr.oggetto || '-') + '</td>'
+                    + '<td>' + ((gr.conti && gr.conti.inviati) || 0) + '</td>'
+                    + '<td>' + ((gr.conti && gr.conti.saltati) || 0) + '</td>'
+                    + '<td>' + (((gr.conti && gr.conti.falliti) || 0) + ((gr.conti && gr.conti.incerti) || 0)) + '</td>'
+                    + '<td>' + statoGiro(gr) + '</td></tr>').join('')
+                + '</tbody></table>'
+                : '<p class="hint" style="margin:4px 0 0;">Nessun invio ancora: il primo parte quando sul sito compaiono bandi nuovi.</p>')
+            + '</div>';
+        return kpi + spiega + tabella + invii;
+    }
+
     function corpoDisiscrittiNewsletter(disiscritti) {
         const elenco = Object.keys(disiscritti).map(e => ({ email: e, ...disiscritti[e] }))
             .sort((a, b) => (b.quando || 0) - (a.quando || 0));
@@ -33324,6 +33946,26 @@
         }));
         const tab = document.getElementById('nl-tab-iscritti');
         if (tab) attrezzaTabella(tab, { nomeFile: 'iscritti-newsletter' });
+
+        // la newsletter dei bandi: disiscrivere o rimettere dentro a mano, per chi lo chiede
+        const gestisciBandi = (email, riattiva) => confermaNewsletter(
+            riattiva ? 'Rimettere ' + email + ' fra gli iscritti alla newsletter dei bandi?' : 'Disiscrivere ' + email + ' dalla newsletter dei bandi?',
+            riattiva ? 'Tornerà a ricevere gli aggiornamenti sui nuovi bandi. Fallo solo se te lo chiede la persona.'
+                : 'Non riceverà più gli aggiornamenti sui nuovi bandi. La newsletter dello studio non cambia.',
+            bSi => conAttesa(bSi, async () => {
+                const r = await Cloud.gestisciBandiNewsletter(email, riattiva);
+                if (!r.ok) { toast('Non riuscito: ' + (r.msg || ''), 'rosso'); return; }
+                try { Audit.registra(Auth.utenteCorrente, riattiva ? 'Newsletter dei bandi: iscritto riattivato' : 'Newsletter dei bandi: iscritto disiscritto', 'sistema', email, null, null); } catch (e) { }
+                chiudiModale();
+                toast(riattiva ? email + ' torna fra gli iscritti ai bandi.' : email + ' non riceverà più i nuovi bandi.', 'verde');
+                _nlBandiLetto = 0;
+                caricaBandiNewsletter(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); });
+            }, { testo: 'Attendi...' }),
+            riattiva ? 'Rimetti fra gli iscritti' : 'Disiscrivi');
+        scope.querySelectorAll('[data-bandi-disiscrivi]').forEach(b => b.addEventListener('click', () => gestisciBandi(b.dataset.bandiDisiscrivi, false)));
+        scope.querySelectorAll('[data-bandi-riattiva]').forEach(b => b.addEventListener('click', () => gestisciBandi(b.dataset.bandiRiattiva, true)));
+        const tabB = document.getElementById('nl-tab-bandi');
+        if (tabB) attrezzaTabella(tabB, { nomeFile: 'iscritti-newsletter-bandi' });
     }
 
     /* Conferma con due pulsanti, usata per eliminazioni e invii. */

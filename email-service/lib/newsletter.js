@@ -171,6 +171,23 @@ function firmaFatturaAderenteValida(idDoc, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento "i tuoi consensi", nella mail che chiede il
+   consenso partner a chi si e' gia' iscritto (lib/consensi-partner.js).
+   Contesto suo: apre la pagina /consensi/ su QUELLA scheda, che mostra i
+   consensi gia' espressi e lascia aggiungere il solo consenso partner. */
+function firmaConsensi(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('consensi|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaConsensiValida(idDoc, token) {
+    if (!idDoc) return false;
+    const attesa = Buffer.from(firmaConsensi(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 /* Firma del "numero verificato": il modulo di iscrizione la riceve quando
    la persona scrive il codice arrivato per SMS, e la rimanda con il resto
    dei dati (lib/iscrizione-verificata.js). Contesto suo, come le altre:
@@ -199,6 +216,43 @@ function firmaStato(idDoc) {
 }
 function firmaStatoValida(idDoc, token) {
     const attesa = Buffer.from(firmaStato(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
+/* Le due firme della newsletter dei bandi (lib/newsletter-bandi.js), ognuna
+   con il suo contesto, come tutte le altre: stesso segreto, porte diverse.
+
+   - CONFERMA dell'iscrizione: si firmano la scheda dell'iscritto e il
+     MOMENTO della richiesta. Il collegamento vale cosi' per quella richiesta
+     e scade (la libreria lo accetta per trenta giorni), e una disiscrizione
+     successiva lo rende inutile: lo decide la libreria confrontando le date.
+   - DISISCRIZIONE dai soli bandi: si firma l'indirizzo, come per la
+     newsletter dello studio, ma con un contesto diverso. Il collegamento in
+     fondo agli aggiornamenti sui bandi non deve togliere nessuno dalla
+     newsletter generale, e quello della newsletter generale non deve
+     togliere nessuno dai bandi. */
+function firmaBandiConferma(idDoc, quando) {
+    return crypto.createHmac('sha256', segreto())
+        .update('bandi-conferma|' + String(idDoc || '') + '|' + String(Number(quando) || 0))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaBandiConfermaValida(idDoc, quando, token) {
+    if (!idDoc || !Number(quando)) return false;
+    const attesa = Buffer.from(firmaBandiConferma(idDoc, quando));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+function firmaBandiDisiscrizione(email) {
+    return crypto.createHmac('sha256', segreto())
+        .update('bandi-disiscrizione|' + String(email || '').trim().toLowerCase())
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaBandiDisiscrizioneValida(email, token) {
+    if (!email) return false;
+    const attesa = Buffer.from(firmaBandiDisiscrizione(email));
     const data = Buffer.from(String(token || ''));
     if (attesa.length !== data.length) return false;
     return crypto.timingSafeEqual(attesa, data);
@@ -246,10 +300,29 @@ function linkDisiscrizione(email, campagna) {
         + (campagna ? '&c=' + encodeURIComponent(String(campagna).slice(0, 60)) : '');
 }
 /* Indirizzo che i client di posta chiamano da soli (un clic, senza aprire nulla). */
+function baseApi() {
+    return String(process.env.NEWSLETTER_API_BASE || (BASE.indexOf('nextgenerationbusiness') >= 0 ? 'https://revilaw-email.vercel.app' : BASE)).replace(/\/+$/, '');
+}
 function linkUnClic(email, campagna) {
-    const api = String(process.env.NEWSLETTER_API_BASE || (BASE.indexOf('nextgenerationbusiness') >= 0 ? 'https://revilaw-email.vercel.app' : BASE)).replace(/\/+$/, '');
-    return api + '/api/disiscrizione?e=' + encodeURIComponent(email) + '&t=' + encodeURIComponent(firma(email))
+    return baseApi() + '/api/disiscrizione?e=' + encodeURIComponent(email) + '&t=' + encodeURIComponent(firma(email))
         + (campagna ? '&c=' + encodeURIComponent(String(campagna).slice(0, 60)) : '');
+}
+
+/* I collegamenti della newsletter dei bandi: la pagina /bandi/newsletter/
+   conferma l'iscrizione (con d, q, t) e toglie dagli aggiornamenti (con e,
+   t). L'"un clic" dei programmi di posta passa da /api/disiscrizione con
+   l=bandi, che tocca solo l'elenco dei bandi. */
+const PAGINA_BANDI_NEWSLETTER = BASE + '/bandi/newsletter/';
+function linkBandiConferma(idDoc, quando) {
+    return PAGINA_BANDI_NEWSLETTER + '?d=' + encodeURIComponent(String(idDoc || ''))
+        + '&q=' + encodeURIComponent(String(Number(quando) || 0))
+        + '&t=' + encodeURIComponent(firmaBandiConferma(idDoc, quando));
+}
+function linkBandiDisiscrizione(email) {
+    return PAGINA_BANDI_NEWSLETTER + '?e=' + encodeURIComponent(email) + '&t=' + encodeURIComponent(firmaBandiDisiscrizione(email));
+}
+function linkBandiUnClic(email) {
+    return baseApi() + '/api/disiscrizione?l=bandi&e=' + encodeURIComponent(email) + '&t=' + encodeURIComponent(firmaBandiDisiscrizione(email));
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -386,8 +459,11 @@ module.exports = {
     firmaAzienda, firmaAziendaValida, linkB2BAzienda,
     firmaConfermaEmail, firmaConfermaEmailValida, linkConfermaEmail,
     firmaFatturaAderente, firmaFatturaAderenteValida,
+    firmaConsensi, firmaConsensiValida,
     firmaNuovoIncontro, firmaNuovoIncontroValida, linkNuovoIncontro,
     firmaSms, firmaSmsValida, firmaStato, firmaStatoValida,
+    firmaBandiConferma, firmaBandiConfermaValida, firmaBandiDisiscrizione, firmaBandiDisiscrizioneValida,
+    linkBandiConferma, linkBandiDisiscrizione, linkBandiUnClic, PAGINA_BANDI_NEWSLETTER,
     PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, PAGINA_CONFERMA_EMAIL,
     PAGINA_NUOVO_INCONTRO, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,

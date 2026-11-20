@@ -94,6 +94,14 @@ const DATI_FILE = require('../lib/dati-file-azienda');
    freno per indirizzo IP di questo file, il CAPTCHA e un tetto per
    indirizzo. Tutto in lib/domande-sito.js. */
 const DOMANDE = require('../lib/domande-sito');
+/* Le richieste di informazioni dall'area bandi (/bandi/): stesso genere di
+   modulo delle domande, con destinatari suoi (chi segue i bandi). Tutto in
+   lib/richieste-bandi.js. */
+const BANDI = require('../lib/richieste-bandi');
+/* La newsletter dei bandi (/bandi/): l'iscrizione dal modulo, con la mail di
+   conferma, e la conferma dalla pagina /bandi/newsletter/. Tutto in
+   lib/newsletter-bandi.js. */
+const NEWSLETTER_BANDI = require('../lib/newsletter-bandi');
 
 /* stesso trasporto SMTP delle altre mail di servizio, con i tempi massimi:
    senza, un server di posta muto tiene ferma la risposta al modulo fino al
@@ -1618,7 +1626,10 @@ module.exports = async (req, res) => {
                freno suo sulla scheda (due minuti, cinque al giorno). Dallo
                stesso ufficio si iscrivono in tanti, e il freno per IP se lo
                mangerebbero fra loro */
-            'rimanda-conferma']
+            'rimanda-conferma',
+            /* la conferma dell'iscrizione alla newsletter dei bandi: firmata,
+               e dallo stesso ufficio puo' confermare piu' di una persona */
+            'bandi-newsletter-conferma']
             .indexOf(String(body.azione || '')) >= 0;
         /* "cena-leggi" non scrive niente e non spedisce niente: e' la scheda
            della serata (data, termine, quanti ospiti si possono portare) che
@@ -1635,7 +1646,7 @@ module.exports = async (req, res) => {
         const dalDesk = azioneDesk ? DESK.guardia(body).ok : DESK.dalDesk(body);
         if (dalDesk) {
             if (troppeDalDesk(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
-        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && String(body.azione || '') !== 'domanda-sito'
+        } else if (!conFirma && !soloLettura && (VERIFICATA.eventoDi(body.pagina) && ['domanda-sito', 'richiesta-bando', 'bandi-newsletter'].indexOf(String(body.azione || '')) < 0
             ? troppiInvii(ip, inviiVerificate, RL_MAX_VERIFICATE)
             : troppiInvii(ip))) {
             res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati: riprova fra qualche minuto.' }); return;
@@ -1800,6 +1811,28 @@ module.exports = async (req, res) => {
             res.status(r.stato).json(r.corpo);
             return;
         }
+        /* LA RICHIESTA DALL'AREA BANDI (/bandi/). Come la domanda qui sopra:
+           prima della scrittura generica, senza `pagina`, con il freno per
+           IP dei moduli aperti. */
+        if (azione === 'richiesta-bando') {
+            initAdmin(leggiServiceAccount());
+            const r = await BANDI.ricevi(admin.firestore(), body, { ip: ip });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+        /* LA NEWSLETTER DEI BANDI: l'iscrizione dal modulo di /bandi/ (aperto,
+           con il freno per IP qui sopra) e la conferma dalla pagina del
+           collegamento (firmata). Prima della scrittura generica, senza
+           `pagina`: un'iscrizione alla newsletter non e' un'iscrizione a un
+           evento. */
+        if (azione === 'bandi-newsletter' || azione === 'bandi-newsletter-conferma') {
+            initAdmin(leggiServiceAccount());
+            const r = azione === 'bandi-newsletter'
+                ? await NEWSLETTER_BANDI.iscrivi(admin.firestore(), body, { ip: ip })
+                : await NEWSLETTER_BANDI.conferma(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
         /* Le due cene del convegno di Napoli. La pagina chiede prima la
            scheda della serata (cena-leggi) e poi manda la conferma
            (cena-conferma). Le date e il termine li tiene il servizio, non la
@@ -1844,6 +1877,16 @@ module.exports = async (req, res) => {
            PDF. Tutte e due rispondono "non trovato" a chi non ha la chiave
            del cartello o prova fuori dai giorni dell'evento: la ragione sta
            in lib/accredito-desk.js. */
+        /* La pagina /consensi/: i consensi gia' espressi e il consenso partner
+           che manca (lib/consensi-partner.js). La firma vale per quella scheda. */
+        if (azione === 'consensi-leggi' || azione === 'consensi-salva') {
+            initAdmin(leggiServiceAccount());
+            const CP = require('../lib/consensi-partner');
+            const r = azione === 'consensi-leggi' ? await CP.leggi(admin.firestore(), body) : await CP.salva(admin.firestore(), body);
+            if (r.corpo && r.corpo.ok && azione === 'consensi-salva' && !r.corpo.gia) { try { await segnaCambiamento(admin.firestore()); } catch (_) { /* si vedra' alla prossima lettura */ } }
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
         if (azione === 'conferma-email') {
             const cred4 = leggiServiceAccount();
             initAdmin(cred4);
@@ -1970,6 +2013,11 @@ module.exports = async (req, res) => {
            riservata e' il baffetto accanto al numero. */
         // il consenso alle riprese, con il momento in cui e' stato dato
         if (evVerificato && consenso(body.riprese) === true) scheda.consensoRiprese = { quando: Date.now(), come: 'modulo' };
+        /* Il consenso partner (facoltativo): la comunicazione dei dati ai
+           Partner dell'evento. Si scrive SOLO se la casella e' spuntata;
+           senza, sulla scheda non c'e' niente e vale "non acconsentito"
+           (api/iscrizioni.js, app.js stampaConsensi). */
+        if (consenso(body.partner) === true) scheda.consensoPartner = { quando: Date.now(), come: 'modulo' };
         if (numeroVerificato) {
             scheda.telefono = VERIFICATA.leggibile(numeroVerificato);
             scheda.telefonoNumero = numeroVerificato;

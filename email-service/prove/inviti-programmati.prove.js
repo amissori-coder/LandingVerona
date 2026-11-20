@@ -85,6 +85,10 @@ function rifColl(base) {
         startAfter() { return q; },
         limit(n) { tetto = n; return q; },
         select() { return q; },
+        // l'aggregazione: quante schede passano i filtri, senza leggerle
+        count: () => ({ get: async () => ({ data: () => ({ count: (q._conta()) }) }) }),
+        _conta: () => Object.keys(dati).filter(k => k.indexOf(base + '/') === 0 && k.slice(base.length + 1).indexOf('/') < 0
+            && filtri.every(f => f.op !== '==' || (dati[k] || {})[f.campo] === f.val)).length,
         get: async () => {
             const prefisso = base + '/';
             let chiavi = Object.keys(dati).filter(k =>
@@ -814,6 +818,95 @@ async function principale() {
         dati['aziendeInvito/' + idScheda('tardi@x.it')].stato = 'iscritta';
         await GIRO.eseguiGiro(db);
         esigi(spediti.length === 1 && spediti[0].to === 'zitta@x.it', 'chi si iscrive dopo la programmazione non riceve il sollecito', spediti.map(x => x.to).join(','));
+    }
+
+    console.log('\nPEC ed email in parallelo sullo stesso elenco');
+    {
+        // tre aziende con la PEC, due iscritti con la sola email
+        scenario({ 'p1@pec.it': {}, 'p2@pec.it': {}, 'p3@pec.it': {},
+            'm1@x.it': { pec: '', email: 'm1@x.it' }, 'm2@x.it': { pec: '', email: 'm2@x.it' } });
+        const docMail = () => dati['invitiProgrammati/ev1~invito~email'] || null;
+        await chiama('programma', { canale: 'pec', ritmo: { quanti: 2, ogniMin: 15 }, mail: MAIL, quando: Date.now() });
+        await chiama('programma-lotto', { n: 1, ids: ['p1@pec.it', 'p2@pec.it', 'p3@pec.it'].map(idScheda) });
+        await chiama('programma-avvia', {});
+
+        const vecchia = await chiama('programma', { canale: 'email', mail: MAIL, quando: Date.now() });
+        esigi(!vecchia.ok && vecchia.giaProgrammato && !docMail(),
+            'senza chiederlo (area riservata vecchia) la seconda viene respinta come prima');
+        const stesso = await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now(), parallelo: true });
+        esigi(!stesso.ok && stesso.giaProgrammato && /via PEC/.test(stesso.msg), 'sullo stesso canale mai due, nemmeno in parallelo', stesso.msg);
+
+        const r = await chiama('programma', { canale: 'email', ritmo: { quanti: 1000, ogniMin: 60 }, mail: MAIL, quando: Date.now(), parallelo: true });
+        esigi(r.ok && r.corsia === 'email' && docMail() && docMail().stato === 'preparazione' && docMail().canale === 'email',
+            'via email, in parallelo, nasce nella sua corsia', JSON.stringify({ ok: r.ok, corsia: r.corsia }));
+        esigi(docProg().stato === 'programmata' && docProg().canale === 'pec' && docProg().totale === 3, 'e quella via PEC resta com\'e\'');
+        await chiama('programma-lotto', { corsia: 'email', n: 1, ids: ['m1@x.it', 'm2@x.it'].map(idScheda) });
+        esigi(docMail().totale === 2 && docProg().totale === 3, 'i blocchi vanno nella corsia indicata');
+        const acc = await chiama('programma-avvia', { corsia: 'email' });
+        esigi(acc.ok && docMail().stato === 'programmata', 'e si accende la sua');
+
+        const letta = await chiama('programmazione', {});
+        esigi(letta.programmazione && letta.programmazione.canale === 'pec'
+            && (letta.parallele.invito || []).length === 1 && letta.parallele.invito[0].corsia === 'email',
+            'la lettura le porta tutte e due, la seconda con la sua corsia', JSON.stringify(letta.parallele));
+
+        await GIRO.eseguiGiro(db);
+        const aMail = spediti.filter(x => /^m\d@x\.it$/.test(x.to)).length;
+        const aPec = spediti.filter(x => /@pec\.it$/.test(x.to)).length;
+        esigi(aMail === 2 && aPec === 2, 'nello stesso giro partono le email (tutte) e le PEC (al loro ritmo)', 'email ' + aMail + ', pec ' + aPec);
+        esigi(docMail().stato === 'conclusa' && docProg().stato !== 'conclusa', 'l\'email finisce, la PEC va avanti');
+
+        const pausa = await chiama('programma-sospendi', {});
+        esigi(pausa.ok && docProg().stato === 'sospesa', 'la pausa senza corsia tocca quella di sempre');
+        const nuova = await chiama('programma', { canale: 'email', mail: MAIL, quando: Date.now(), parallelo: true });
+        esigi(nuova.ok && nuova.corsia === 'email', 'finita la prima email se ne puo programmare un\'altra, accanto alla PEC in pausa');
+        const ann = await chiama('programma-annulla', { corsia: 'email' });
+        esigi(ann.ok && docMail().stato === 'annullata' && docProg().stato === 'sospesa', 'annullare la corsia email non tocca la PEC');
+        await chiama('programma-annulla', {});
+        const sola = await chiama('programma', { canale: 'email', mail: MAIL, quando: Date.now(), parallelo: true });
+        esigi(sola.ok && sola.corsia === '' && docProg().canale === 'email', 'a elenco libero la programmazione torna nel posto di sempre');
+        await chiama('programma-annulla', {});
+    }
+
+    console.log('\nIl reinvio a scelta: alle selezionate, sul canale che si vuole, saltando chi si e\' fatto vivo');
+    {
+        const gia = { stato: 'inviata', invio: { quando: 1000, canale: 'pec' }, email: 'x@mail.it' };
+        scenario({
+            'muta@x.it': Object.assign({}, gia, { email: 'muta@mail.it' }),
+            'sollecitata@x.it': Object.assign({}, gia, { email: 'soll@mail.it', secondoInvio: { quando: 2000, canale: 'pec' } }),
+            'iscritta@x.it': Object.assign({}, gia, { stato: 'iscritta' }),
+            'risposta@x.it': Object.assign({}, gia, { ricevute: { risposta: { quando: 3000 } } })
+        });
+        const tutte = ['muta@x.it', 'sollecitata@x.it', 'iscritta@x.it', 'risposta@x.it'];
+        const senza = await invia(tutte, {});
+        esigi(spediti.length === 0 && senza.saltate === 4, 'senza chiederlo, chi ha gia\' ricevuto non riceve niente');
+        const r = await invia(tutte, { canale: 'email', forza: true, soloSenzaRisposta: true });
+        esigi(spediti.map(x => x.to).sort().join(',') === 'muta@mail.it,soll@mail.it',
+            'parte a chi non ha risposto, anche se gia\' sollecitata, e sul canale scelto (email)', spediti.map(x => x.to).join(','));
+        esigi(r.saltate === 2, 'chi si e\' iscritta o ha risposto viene saltata', JSON.stringify(r.saltate));
+        const m = dati['aziendeInvito/' + idScheda('muta@x.it')];
+        esigi(m.invio.canale === 'email' && m.secondoInvio && m.secondoInvio.aScelta === true, 'sulla scheda resta il nuovo invio, e il segno del sollecito');
+        spediti = [];
+        await invia(['muta@x.it'], { canale: 'pec', forza: true, soloSenzaRisposta: true });
+        esigi(spediti.length === 1 && spediti[0].to === 'muta@x.it', 'e si puo\' rimandare ancora, questa volta per PEC', spediti.map(x => x.to).join(','));
+    }
+
+    console.log('\nI conti per la card dell\'evento, senza leggere l\'elenco');
+    {
+        scenario({
+            'a@x.it': {}, 'b@x.it': {}, 'c@x.it': { stato: 'inviata' }, 'd@x.it': { stato: 'iscritta' },
+            'e@x.it': { stato: 'risposta' }, 'f@x.it': { stato: 'errore' }, 'g@x.it': { stato: 'esclusa' },
+            'vecchia@x.it': { campagna: undefined, stato: 'inviata' },
+            's1@x.it': { campagna: 'sponsor' }, 's2@x.it': { campagna: 'sponsor', stato: 'inviata' },
+            'altro@x.it': { evento: 'ev2', stato: 'inviata' }
+        });
+        const senza = await chiama('programmazione', {});
+        esigi(senza.ok && senza.conteggi === null, 'senza chiederli non si contano');
+        const r = await chiama('programmazione', { conConteggi: true });
+        const i = (r.conteggi || {}).invito || {}, sp = (r.conteggi || {}).sponsor || {};
+        esigi(i.totale === 8 && i.daInvitare === 2 && i.inviata === 2 && i.iscritta === 1 && i.risposta === 1 && i.errore === 1 && i.esclusa === 1,
+            'l\'invito: totale e stati, comprese le schede senza campagna, e solo di questo evento', JSON.stringify(i));
+        esigi(sp.totale === 2 && sp.daInvitare === 1 && sp.inviata === 1, 'la richiesta di sponsorizzazione ha i suoi', JSON.stringify(sp));
     }
 
     console.log('\n----------------------------------------------------------');

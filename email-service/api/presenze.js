@@ -670,7 +670,9 @@ module.exports = async (req, res) => {
             // il richiamo dopo il convegno porta anche lui il suo elenco di schede
             'invita-nuovo-incontro',
             // il pregresso della conferma email lavora su tutto l'evento: nessun iscritto da indicare
-            'conferma-email-pregresso'];
+            'conferma-email-pregresso',
+            // la mail del consenso partner porta il suo elenco di schede (destinatari)
+            'consenso-partner-invia'];
         if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
@@ -1577,6 +1579,45 @@ module.exports = async (req, res) => {
            Permessi: come l'inserimento a mano (amministratore, equity e
            founding partner). Spostare qualcuno fuori dalla sala e scrivergli
            non e' il gesto di chi segna le presenze al desk. */
+        /* LA MAIL CHE CHIEDE IL CONSENSO PARTNER a chi si e' gia' iscritto
+           (lib/consensi-partner.js). L'elenco lo manda l'area riservata, a
+           blocchi; il testo arriva composto con {{NOME}} e {{CONSENSI}}. Qui
+           i permessi (come lo spostamento: amministratore e partner) e il
+           tempo: quello che non parte entro la scadenza torna in `restanti`,
+           e chi la mail l'ha gia' avuta si salta, quindi ripremere completa
+           l'invio senza doppioni. */
+        if (azione === 'consenso-partner-invia') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono chiedere il consenso partner l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            if (evento === 'tutti') { res.status(400).json({ ok: false, msg: 'Apri l\'evento: dal riepilogo non si scrive a nessuno.' }); return; }
+            if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+                res.status(500).json({ ok: false, msg: 'Invio email non configurato sul servizio (variabili SMTP_USER e SMTP_PASS su Vercel).' }); return;
+            }
+            const destC = (Array.isArray(body.destinatari) ? body.destinatari : []).slice(0, 300)
+                .map(x => ({ id: testo(x && x.id, 300), doc: testo(x && x.doc, 400) })).filter(x => x.id);
+            if (!destC.length) { res.status(400).json({ ok: false, msg: 'Nessuna iscrizione indicata.' }); return; }
+            const mC = body.mail && typeof body.mail === 'object' ? body.mail : {};
+            const htmlC = String(mC.html || '').slice(0, 300000);
+            if (!testo(mC.oggetto, 250) || !htmlC.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
+            if (htmlC.indexOf('{{CONSENSI}}') < 0) { res.status(400).json({ ok: false, msg: 'Nella mail manca il collegamento ai consensi.' }); return; }
+            const fromEmailC = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+            const fromNameC = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+            const transC = trasporto();
+            const r = await require('../lib/consensi-partner').invia(db, {
+                evento: evento, destinatari: destC, forza: body.forza === true,
+                mail: { oggetto: testo(mC.oggetto, 250), html: htmlC, testo: String(mC.testo || '').slice(0, 20000) },
+                scadenza: Date.now() + 40000, trasporto: transC,
+                da: '"' + fromNameC + '" <' + fromEmailC + '>', rispondiA: 'info@nextgenerationbusiness.it',
+                idScheda: idIscrizione, chi: { email: email, collab: collab }
+            });
+            try { transC.close(); } catch (_) { /* niente da chiudere */ }
+            if (r.inviate || r.falliti.length) await segnaCambiamento(db);
+            res.status(200).json(Object.assign({ ok: true }, r));
+            return;
+        }
+
         if (azione === 'sposta-modalita') {
             if (!eAdmin && !(await ePartner(db, ruolo))) {
                 res.status(403).json({ ok: false, msg: 'Possono spostare un\'iscrizione fra le sezioni l\'amministratore, gli equity partner e i founding partner.' });

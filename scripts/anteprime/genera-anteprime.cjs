@@ -73,6 +73,7 @@ const ETICHETTE = {
     'webinar_dicembre_2026': 'Su invito · Webinar online',
     'chi_siamo': 'Chi siamo',
     'contatti': 'Domande e contatti',
+    'bandi': 'Bandi e agevolazioni',
     'approfondimenti': 'Approfondimenti per argomento',
 };
 

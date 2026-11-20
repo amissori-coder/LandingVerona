@@ -104,9 +104,9 @@ function idDoc(evento, contatto, campagna) {
 }
 
 const STATI = ['da-invitare', 'inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
-const MAX_AZIENDE_EVENTO = 50000;
+const MAX_AZIENDE_EVENTO = 90000;
 /* Quante schede per pagina quando si legge l'elenco. Il tetto e' alto, e
-   50.000 schede non stanno ne' in una risposta sola (il corpo ha un tetto
+   90.000 schede non stanno ne' in una risposta sola (il corpo ha un tetto
    di pochi megabyte: oltre, la funzione risponde errore invece
    dell'elenco) ne' comodamente nei 60 secondi della funzione. Quindi
    l'elenco si legge a pagine e chi lo mostra le rimette insieme. */
@@ -130,6 +130,39 @@ function paginaEvento(db, evento, dopo, quante, campi) {
     q = q.orderBy(admin.firestore.FieldPath.documentId()).limit(quante);
     if (dopo) q = q.startAfter(db.collection('aziendeInvito').doc(dopo));
     return q.get();
+}
+
+/* Quante schede per stato, campagna per campagna, SENZA leggerle: sono
+   aggregazioni (count), che costano una lettura ogni mille schede contate.
+   Le schede scritte prima delle campagne non hanno il campo `campagna` e
+   valgono 'invito': percio' si contano tutte, poi quelle delle altre
+   campagne, e l'invito e' la differenza. "Da invitare" e' il resto, cosi'
+   una scheda rimasta senza stato non sparisce dal conto. */
+const STATI_CONTATI = ['inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
+async function contaPerStato(db, evento) {
+    const base = () => db.collection('aziendeInvito').where('evento', '==', evento);
+    const quante = async q => Number((await q.count().get()).data().count) || 0;
+    const vuoto = () => { const c = { totale: 0 }; STATI_CONTATI.forEach(s => { c[s] = 0; }); return c; };
+    const tutte = vuoto();
+    const altre = CAMPAGNE.ELENCO.map(x => x.id).filter(c => c !== CAMPAGNE.PREDEFINITA);
+    const fuori = {};
+    altre.forEach(c => { fuori[c] = vuoto(); });
+    const lavori = [quante(base()).then(n => { tutte.totale = n; })];
+    STATI_CONTATI.forEach(s => lavori.push(quante(base().where('stato', '==', s)).then(n => { tutte[s] = n; })));
+    altre.forEach(c => {
+        lavori.push(quante(base().where('campagna', '==', c)).then(n => { fuori[c].totale = n; }));
+        STATI_CONTATI.forEach(s => lavori.push(
+            quante(base().where('campagna', '==', c).where('stato', '==', s)).then(n => { fuori[c][s] = n; })));
+    });
+    await Promise.all(lavori);
+    const prima = vuoto();
+    Object.keys(prima).forEach(k => { prima[k] = Math.max(0, tutte[k] - altre.reduce((t, c) => t + fuori[c][k], 0)); });
+    fuori[CAMPAGNE.PREDEFINITA] = prima;
+    Object.keys(fuori).forEach(c => {
+        const x = fuori[c];
+        x.daInvitare = Math.max(0, x.totale - STATI_CONTATI.reduce((t, s) => t + x[s], 0));
+    });
+    return fuori;
 }
 
 /* Equity o founding partner: stessa regola di api/presenze.js (conta il RUOLO
@@ -607,7 +640,7 @@ async function esegui(ctx) {
         if (azione === 'esiti-email') {
             if (!puoGestire) { negato(); return; }
             /* Anche questa lettura va a pagine, e chiede i soli tre campi che
-               guarda: con il tetto a 50.000 schede una lettura sola si
+               guarda: con il tetto a 90.000 schede una lettura sola si
                porterebbe dietro l'intero elenco per contare gli indirizzi. */
             const indirizzi = [];
             let dal = 0;
@@ -1067,8 +1100,10 @@ async function esegui(ctx) {
             if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
             const soloNonIscritte = body.soloNonIscritte === true;
-            // il secondo invio e' per definizione a chi ha gia' ricevuto
-            const forza = body.forza === true || soloNonIscritte;
+            // il reinvio a scelta: a chi e' selezionato, saltando chi nel frattempo si e' fatto vivo
+            const soloSenzaRisposta = body.soloSenzaRisposta === true;
+            // il secondo invio e il reinvio sono per definizione a chi ha gia' ricevuto
+            const forza = body.forza === true || soloNonIscritte || soloSenzaRisposta;
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -1101,7 +1136,7 @@ async function esegui(ctx) {
             const r = await MOTORE.inviaSchede(db, {
                 evento: evento, campagna: campagna, canale: canale,
                 ids: daFare, mail: { oggetto: oggetto, html: html }, forza: forza,
-                soloNonIscritte: soloNonIscritte,
+                soloNonIscritte: soloNonIscritte, soloSenzaRisposta: soloSenzaRisposta,
                 email: email, collab: collab,
                 /* Il nome della pagina di iscrizione viaggia col codice: e' l'unico
                    modo che ha il modulo pubblico, che l'evento lo conosce solo per
@@ -1185,15 +1220,35 @@ async function esegui(ctx) {
                 ? body.campagne.slice(0, 5).map(c => CAMPAGNE.normalizza(c))
                 : [campagna];
             const fuori = {};
+            /* le seconde corsie (PEC ed email in parallelo): solo quelle
+               che ci sono, con la loro `corsia`, che i comandi rimandano */
+            const parallele = {};
             for (const c of chieste) {
                 const id = PROG.idDi(evento, c);
                 try {
                     const s = await PROG.rif(db, id).get();
                     fuori[c] = s.exists ? PROG.perVideo(id, s.data() || {}) : null;
                 } catch (_) { fuori[c] = null; }
+                parallele[c] = [];
+                for (const corsia of PROG.CORSIE) {
+                    const idC = PROG.idDi(evento, c, corsia);
+                    try {
+                        const s = await PROG.rif(db, idC).get();
+                        if (s.exists) parallele[c].push(Object.assign(PROG.perVideo(idC, s.data() || {}), { corsia: corsia }));
+                    } catch (_) { /* si vede al prossimo giro */ }
+                }
+            }
+            /* I CONTI PER LA CARD DELL'EVENTO, senza leggere l'elenco. La card
+               mostrava i numeri solo dopo aver aperto la finestra (che legge
+               tutte le schede); qui si contano e basta, con le aggregazioni
+               dell'archivio. Se qualcosa non va la card resta com'era. */
+            let conteggi = null;
+            if (body.conConteggi === true) {
+                try { conteggi = await contaPerStato(db, evento); }
+                catch (e) { console.error('Conteggi degli inviti non letti:', String((e && e.message) || e).slice(0, 200)); }
             }
             res.status(200).json({
-                ok: true, programmazioni: fuori,
+                ok: true, programmazioni: fuori, parallele: parallele, conteggi: conteggi,
                 programmazione: fuori[campagna] || null,
                 /* I ritmi proposti e il passo del lavoro automatico li dice il
                    servizio: sono suoi, e un'area riservata rimasta in cache non
@@ -1236,9 +1291,11 @@ async function esegui(ctx) {
                 return;
             }
             const ritmo = RITMI.normalizza(canale, body.ritmo);
-            const id = PROG.idDi(evento, campagna);
+            let id = PROG.idDi(evento, campagna);
+            let corsiaNuova = '';
             const soloNonIscritte = body.soloNonIscritte === true;
-            const forzaProg = body.forza === true || soloNonIscritte;
+            const soloSenzaRisposta = body.soloSenzaRisposta === true;
+            const forzaProg = body.forza === true || soloNonIscritte || soloSenzaRisposta;
 
             /* Una sola programmazione per elenco, e lo garantisce la
                transazione: due persone che programmano lo stesso elenco, anche
@@ -1251,20 +1308,35 @@ async function esegui(ctx) {
                riga resterebbe li' a bloccare l'elenco per sempre. Dopo mezz'ora
                si considera persa e si puo' ricominciare. */
             const SCADE_PREPARAZIONE_MS = PROG.SCADE_PREPARAZIONE_MS;
-            let conflitto = null;
+            /* DUE INSIEME SOLO SU CANALI DIVERSI (vedi CORSIE in
+               lib/programmazione-inviti.js). Si guardano il documento di
+               sempre e le due corsie: una attiva sullo STESSO canale e' il
+               conflitto di prima; una attiva sull'altro canale lascia passare
+               questa, nel primo posto libero, ma solo a chi lo chiede con
+               `parallelo` - un'area riservata vecchia rimasta in cache non
+               sa dire ai comandi successivi in quale corsia e' finita, e
+               annullerebbe quella sbagliata. */
+            let conflitto = null, conflittoCanale = '';
             await db.runTransaction(async (tx) => {
-                const s = await tx.get(PROG.rif(db, id));
-                if (s.exists) {
+                const idBase = PROG.idDi(evento, campagna);
+                const posti = [idBase].concat(PROG.CORSIE.map(c => PROG.idDi(evento, campagna, c)));
+                const letti = await Promise.all(posti.map(x => tx.get(PROG.rif(db, x))));
+                const occupati = {};
+                letti.forEach((s, i) => {
+                    if (!s.exists) return;
                     const d = s.data() || {};
                     const preparazionePersa = d.stato === PROG.IN_PREPARAZIONE
                         && (adesso - Number((d.creato && d.creato.il) || 0)) > SCADE_PREPARAZIONE_MS;
-                    if (PROG.eAttiva(d.stato) && !preparazionePersa) {
-                        conflitto = d.stato;
-                        return;
-                    }
-                }
+                    if (PROG.eAttiva(d.stato) && !preparazionePersa) occupati[posti[i]] = d;
+                });
+                const attivi = Object.keys(occupati).map(k => occupati[k]);
+                const stesso = attivi.find(d => (d.canale || 'email') === canale);
+                if (stesso) { conflitto = stesso.stato; conflittoCanale = canale; return; }
+                if (attivi.length && body.parallelo !== true) { conflitto = attivi[0].stato; return; }
+                if (occupati[idBase]) { corsiaNuova = canale; id = PROG.idDi(evento, campagna, canale); }
+                else { corsiaNuova = ''; id = idBase; }
                 tx.set(PROG.rif(db, id), {
-                    evento: evento, campagna: campagna, canale: canale,
+                    evento: evento, campagna: campagna, canale: canale, corsia: corsiaNuova,
                     stato: PROG.IN_PREPARAZIONE,
                     /* LA CHIAVE DI QUESTA CORSA, e senza non funziona il secondo
                        invio. Il timbro che il motore lascia sulla scheda serve a
@@ -1293,7 +1365,7 @@ async function esegui(ctx) {
                     mail: { oggetto: oggetto, html: html },
                     pagina: testo(body.pagina, 200),
                     forza: forzaProg,
-                    soloNonIscritte: soloNonIscritte,
+                    soloNonIscritte: soloNonIscritte, soloSenzaRisposta: soloSenzaRisposta,
                     /* il testo com'era scritto nella finestra: il giro lo
                        ricorda per il secondo invio quando i primi messaggi
                        partono davvero */
@@ -1312,7 +1384,10 @@ async function esegui(ctx) {
             if (conflitto !== null) {
                 res.status(409).json({
                     ok: false, giaProgrammato: true, stato: conflitto,
-                    msg: conflitto === 'sospesa'
+                    msg: conflittoCanale
+                        ? 'Su questo elenco c\'e gia un invio programmato via ' + (conflittoCanale === 'pec' ? 'PEC' : 'email')
+                            + (conflitto === 'sospesa' ? ', adesso in pausa' : '') + ': in parallelo ne puo andare uno solo per canale. Annullalo prima di farne un altro.'
+                        : conflitto === 'sospesa'
                         ? 'Su questo elenco c\'e gia un invio programmato, adesso in pausa: riprendilo o annullalo prima di farne un altro.'
                         : 'Su questo elenco c\'e gia un invio programmato. Annullalo prima di farne un altro, altrimenti le stesse aziende riceverebbero due messaggi.'
                 });
@@ -1328,7 +1403,7 @@ async function esegui(ctx) {
             await PROG.cancellaLotti(db, id);
 
             res.status(200).json({
-                ok: true, id: id, perLotto: PROG.PER_LOTTO,
+                ok: true, id: id, corsia: corsiaNuova, perLotto: PROG.PER_LOTTO,
                 ritmo: ritmo, ritmoTesto: RITMI.descrizione(canale, ritmo), quando: quando
             });
             return;
@@ -1336,7 +1411,7 @@ async function esegui(ctx) {
 
         if (azione === 'programma-lotto') {
             if (!puoGestire) { negato(); return; }
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             const n = Math.round(Number(body.n) || 0);
             if (n < 1 || n > 2000) { res.status(400).json({ ok: false, msg: 'Numero del blocco non valido.' }); return; }
             /* Gli identificativi devono essere nomi di documento che Firestore
@@ -1388,7 +1463,7 @@ async function esegui(ctx) {
 
         if (azione === 'programma-avvia') {
             if (!puoGestire) { negato(); return; }
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             let esito = null;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));
@@ -1419,7 +1494,7 @@ async function esegui(ctx) {
         if (azione === 'programma-sospendi' || azione === 'programma-riprendi') {
             if (!puoGestire) { negato(); return; }
             const ferma = azione === 'programma-sospendi';
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             let esito = null;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));
@@ -1462,7 +1537,7 @@ async function esegui(ctx) {
 
         if (azione === 'programma-annulla') {
             if (!puoGestire) { negato(); return; }
-            const id = PROG.idDi(evento, campagna);
+            const id = PROG.idDi(evento, campagna, body.corsia);
             let esito = null;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));

@@ -18,9 +18,15 @@
 
    Scrive con l'account di servizio (Admin SDK): le regole di Firestore non
    entrano in gioco e dal browser nessuno puo' toccare la collezione a mano.
+
+   LA NEWSLETTER DEI BANDI passa di qui con `l=bandi` (nell'indirizzo o nel
+   corpo): firma con il suo contesto, e tocca solo l'elenco dei bandi
+   (lib/newsletter-bandi.js), mai newsletterDisiscritti. La GET rimanda alla
+   pagina dei bandi, /bandi/newsletter/.
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const NB = require('../lib/newsletter-bandi');
 
 /* --- limite per indirizzo IP: l'endpoint e' pubblico --- */
 const RL_FINESTRA_MS = 10 * 60 * 1000;
@@ -50,7 +56,16 @@ module.exports = async (req, res) => {
         ? (() => { try { return JSON.parse(req.body || '{}'); } catch (_) { return {}; } })()
         : (req.body || {});
 
+    const lista = String(q.l || corpo.l || corpo.lista || '').toLowerCase() === 'bandi' ? 'bandi' : '';
+
     // GET: nessuna disiscrizione automatica, si manda alla pagina di conferma
+    if (req.method === 'GET' && lista === 'bandi') {
+        const e = encodeURIComponent(String(q.e || q.email || ''));
+        const t = encodeURIComponent(String(q.t || q.token || ''));
+        res.writeHead(302, { Location: N.PAGINA_BANDI_NEWSLETTER + '?e=' + e + '&t=' + t });
+        res.end();
+        return;
+    }
     if (req.method === 'GET') {
         const e = encodeURIComponent(String(q.e || q.email || ''));
         const t = encodeURIComponent(String(q.t || q.token || ''));
@@ -72,6 +87,18 @@ module.exports = async (req, res) => {
         const azione = unClic ? 'disiscrivi' : (String(corpo.azione || 'disiscrivi') === 'riattiva' ? 'riattiva' : 'disiscrivi');
 
         if (!N.EMAIL_RE.test(email) || !token) { res.status(400).json({ ok: false, msg: 'Richiesta incompleta.' }); return; }
+
+        if (lista === 'bandi') {
+            if (!N.firmaBandiDisiscrizioneValida(email, token)) {
+                res.status(403).json({ ok: false, msg: 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.' });
+                return;
+            }
+            N.initAdmin();
+            const r = await NB.disiscrivi(N.admin.firestore(), email, { riattiva: azione === 'riattiva', origine: unClic ? 'un-clic' : 'pagina' });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+
         if (!N.firmaValida(email, token)) {
             // messaggio unico: non fa capire se l'indirizzo esiste
             res.status(403).json({ ok: false, msg: 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.' });
