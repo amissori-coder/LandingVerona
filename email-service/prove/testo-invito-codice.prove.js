@@ -38,7 +38,12 @@
        sala, il codice da solo dopo il primo capoverso, il "due" del
        servizio, le tre domande del programma, l'oggetto suo, il
        pulsante "Programma e iscrizione" verso la sua pagina, e la
-       finestra non proponga la versione "diretta" (invVersioniDi).
+       finestra non proponga la versione "diretta" (invVersioniDi);
+     - gli ISCRITTI DI MILANO invitati al webinar ricevano la lettera
+       scritta per loro (invitoIscritti), non la PEC alle aziende: il
+       testo proposto nella mail del 20 novembre 2026, con il nome nel
+       saluto, senza codice ne' "Spettabile", con il pulsante della
+       pagina.
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -92,13 +97,15 @@ const pezzi = [
     ritaglia('function invVersionePredefinita(', '{', '}'),
     ritaglia('function invVersioniDi(', '{', '}'),
     ritaglia('function invOggettoPredefinito(', '{', '}'),
+    ritaglia('function invLetteraIscritti(', '{', '}'),
+    ritaglia('function invTestoIscritti(', '{', '}'),
     // la campagna aperta nella finestra: qui quella degli inviti
     'let _invCampagna = \'invito\';'
 ].join('\n');
 const APPJS = new Function(pezzi + '\nreturn {'
     + ' EVENTI_DEF, SITO_PUBBLICO, invTestoSala, invTestoDiretta, invTestoInHtml,'
     + ' invParagrafoCodice, invIscrizioniPerCodice, invInLettere, invOggettoPredefinito,'
-    + ' invVersionePredefinita, invVersioniDi, INV_VERSIONI };')();
+    + ' invVersionePredefinita, invVersioniDi, INV_VERSIONI, invLetteraIscritti, invTestoIscritti };')();
 
 let ok = 0, ko = 0;
 function esigi(cond, cosa, extra) {
@@ -358,6 +365,29 @@ prova('Webinar: l oggetto suo, la pagina sua, e una versione sola', () => {
         'nella mail diventa il riquadro in evidenza, con il titolo in grassetto, prima del pulsante');
     esigi(html.indexOf('>! ') < 0 && html.indexOf('<p style="margin:0 0 14px;line-height:1.6;text-align:justify;-webkit-hyphens:auto;hyphens:auto;">!') < 0, 'il punto esclamativo non si vede nella mail');
     esigi(APPJS.invTestoInHtml(APPJS.invTestoSala(MILANO)).indexOf('>Programma e registrazione</a>') >= 0, 'a Milano il pulsante resta "Programma e registrazione"');
+});
+
+prova('Gli iscritti di Milano invitati al webinar: la lettera scritta per loro', () => {
+    const WEB = APPJS.EVENTI_DEF.find(e => e.id === 'webinar-2026-12-10');
+    const l = APPJS.invLetteraIscritti(WEB, 'milano-2027-02-26');
+    esigi(!!l, 'il webinar ha la lettera per gli iscritti di Milano');
+    esigi(APPJS.invLetteraIscritti(WEB, 'napoli-2026-10-02') === null && APPJS.invLetteraIscritti(WEB, '') === null
+        && APPJS.invLetteraIscritti(MILANO, 'webinar-2026-12-10') === null,
+        'e solo quella: per chi arriva da altri eventi, o a un altro evento, nessuna lettera inventata');
+    if (!l) return;
+    esigi(l.oggetto === 'In attesa del Convegno di Milano, un invito al webinar del 10 dicembre', 'l oggetto e quello della mail', l.oggetto);
+    const t = APPJS.invTestoIscritti(WEB, l);
+    const p = capoversi(t);
+    esigi(p[0] === 'Gentile {referente},', 'il saluto con il nome della persona al posto dei puntini', p[0]);
+    esigi(/^la ringraziamo per la Sua iscrizione al convegno Next Generation Business del 26 febbraio a Milano\. In attesa di incontrarLa, ci fa piacere invitarLa al webinar del 10 dicembre, «Come migliorare il merito creditizio\. Il ruolo del bilancio, della revisione legale e degli adeguati assetti»\.$/.test(p[1]),
+        'il primo capoverso della proposta, con "la Sua iscrizione" che vale per chiunque', p[1]);
+    esigi(/^Sarà l'occasione per parlare di come un bilancio affidabile e una buona organizzazione aziendale possano contribuire a migliorare il dialogo con le banche\. Sono temi che riprenderemo e approfondiremo durante il convegno di Milano\.$/.test(p[2]),
+        'il secondo, con un punto solo in fondo', p[2]);
+    esigi(/giovedì 10 dicembre dalle 15\.00 alle 17\.00/.test(p[3]) && p[4] === 'https://nextgenerationbusiness.it/webinar_dicembre_2026/' && p[5] === 'Un cordiale saluto.' && p.length === 6,
+        'giorno e ora, l indirizzo della pagina da solo su una riga, i saluti della proposta', JSON.stringify(p.slice(3)));
+    esigi(!/\{codice\}|\{ragione_sociale\}|Spettabile|Legale Rappresentante|Vostra azienda/.test(t), 'niente codice, niente ragione sociale, niente lettera alle aziende');
+    const html = APPJS.invTestoInHtml(t);
+    esigi(html.indexOf('>Programma e iscrizione</a>') >= 0 && html.indexOf('Codice riservato') < 0, 'nella mail il pulsante "Programma e iscrizione" e nessun riquadro del codice');
 });
 
 console.log('\nIl codice nella PEC di invito\n');

@@ -234,8 +234,22 @@ const ALIAS = {
     'telefono': 'telefono', 'tel': 'telefono', 'cellulare': 'telefono',
     'email': 'email', 'e-mail': 'email', 'mail': 'email', 'email ordinaria': 'email', 'posta elettronica': 'email',
     'note': 'note', 'nota': 'note', 'settore': 'settore', 'ateco': 'settore', 'attivita': 'settore',
-    'settore di attivita': 'settore'
+    'settore di attivita': 'settore',
+    /* L'evento da cui arriva la riga, quando l'elenco sono gli iscritti di un
+       altro evento ("Oppure: gli iscritti di un altro evento" nell'area
+       riservata, righeDaIscritti): l'identificativo dell'evento, per esempio
+       milano-2027-02-26. Dice che la scheda e' una PERSONA gia' iscritta
+       altrove e non un'azienda del file: la finestra dell'invito le propone
+       la lettera scritta per lei (invitoIscritti in EVENTI_DEF). */
+    'evento di provenienza': 'provenienza', 'provenienza': 'provenienza'
 };
+/* L'identificativo di un evento come si scrive nella colonna: solo lettere
+   minuscole, cifre e trattini, come gli id di EVENTI_DEF. Qualunque altra
+   cosa e' sporcizia del file, non un evento. */
+function idEvento(v) {
+    const s = String(v == null ? '' : v).trim().toLowerCase();
+    return /^[a-z0-9][a-z0-9-]{0,59}$/.test(s) ? s : '';
+}
 /* Il campo di un'intestazione. Prima il nome esatto; se non c'e', lo
    stesso nome senza la parentesi in fondo: il foglio della Lombardia
    scrive "Ragione sociale (file)" e "Comune (sede operativa)", e senza
@@ -413,6 +427,8 @@ function inChiaro(id, d) {
         piva: d.piva || '', cf: d.cf || '', referente: d.referente || '',
         citta: d.citta || '', provincia: d.provincia || '', telefono: d.telefono || '',
         settore: d.settore || '', note: d.note || '',
+        // l'evento da cui arriva la persona, se la scheda e' un iscritto di un altro evento
+        provenienza: d.provenienza || '',
         stato: d.stato || 'da-invitare', extra: d.extra || {},
         campagna: CAMPAGNE.diScheda(d),
         codice: d.codice || '',
@@ -840,8 +856,10 @@ async function esegui(ctx) {
                     if (!et || !val) continue;
                     extra[et.slice(0, 60)] = val.slice(0, 300);
                 }
+                const provenienza = idEvento(cella(riga, col('provenienza')));
                 candidate.push({
                     id: idDoc(evento, contatto, campagna), contatto: contatto,
+                    provenienza: provenienza,
                     dati: {
                         evento: evento, campagna: campagna, pec: pecOk, email: mailOk,
                         ragioneSociale: cella(riga, iRag) || contatto.split('@')[0],
@@ -884,6 +902,11 @@ async function esegui(ctx) {
                 // il tetto ferma solo le schede nuove: un aggiornamento non fa crescere l'elenco
                 if (!esiste && gia + nuove >= MAX_AZIENDE_EVENTO) { oltreIlLimite++; continue; }
                 const dati = c.dati;
+                /* L'evento di provenienza si scrive solo quando la riga lo porta:
+                   un file normale ricaricato sopra la stessa scheda non deve
+                   cancellare il segno che quella e' una persona iscritta
+                   altrove. */
+                if (c.provenienza) dati.provenienza = c.provenienza;
                 /* Lo stato iniziale si scrive SOLO alla creazione della scheda
                    (e a chi era rimasto senza): sulle schede gia' in elenco il
                    merge aggiorna l'anagrafica e non tocca stato ed esito
@@ -969,7 +992,7 @@ async function esegui(ctx) {
                            codice che ha in mano, il segno del secondo invio
                            (senza, il pulsante la ricontava e le arrivava una
                            terza copia), le ricevute e le risposte. */
-                        ['codice', 'secondoInvio', 'ricevute', 'contatto', 'risposto'].forEach(k => {
+                        ['codice', 'secondoInvio', 'ricevute', 'contatto', 'risposto', 'provenienza'].forEach(k => {
                             if (v[k] != null) campi[k] = v[k];
                         });
                     }
@@ -1163,6 +1186,8 @@ async function esegui(ctx) {
             res.status(200).json({
                 ok: true, canale: canale, inviate: r.inviate, saltate: r.saltate,
                 senzaRecapito: r.senzaRecapito, disiscritte: r.disiscritte,
+                // gia' contate fra le saltate: l'indirizzo era gia' iscritto all'evento
+                giaIscritte: r.giaIscritte || 0,
                 falliti: r.falliti.slice(0, 50), esiti: r.esiti,
                 /* Le schede su cui un invio precedente si e' interrotto senza
                    lasciare un esito: non si ritentano, si mostrano. Vedi

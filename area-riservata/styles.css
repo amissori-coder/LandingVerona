@@ -3395,6 +3395,19 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-da-evento { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--blu-100); }
 .inv-da-evento-riga { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
 .inv-da-evento-riga select { flex: 1 1 220px; max-width: 340px; }
+/* Il controllo prima di aggiungere gli iscritti di un altro evento: quanti
+   entrano, chi resta fuori perche' c'e' gia' nell'evento e perche'. L'elenco
+   degli esclusi puo' essere lungo: si apre a richiesta e scorre da solo. */
+.inv-da-evento-esito { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; }
+.inv-da-evento-esito p { margin: 0 0 8px; }
+.inv-da-evento-esito .btn { margin-top: 2px; }
+.inv-da-evento-fuori { margin: 0 0 8px; }
+.inv-da-evento-fuori summary { cursor: pointer; font-weight: 600; }
+.inv-da-evento-fuori ul { margin: 6px 0 0; padding-left: 18px; max-height: 240px; overflow-y: auto; }
+.inv-da-evento-fuori li { margin-bottom: 5px; overflow-wrap: anywhere; }
+.inv-da-evento-fuori li .hint { margin: 0; }
+/* Nella finestra dell'invito: a chi si sta scrivendo, se sono iscritti di un altro evento. */
+.inv-avviso-iscritti { margin: 0 0 10px; padding: 8px 11px; border-left: 3px solid var(--ambra); background: var(--grigio-100); border-radius: 4px; }
 
 /* La spunta del rinvio: quando non c'e' nessuno a cui rimandare resta li' ma
    si vede che non serve, invece di far pensare che si stia dimenticando qualcosa. */

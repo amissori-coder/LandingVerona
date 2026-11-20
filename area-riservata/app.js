@@ -15672,6 +15672,39 @@
                 saluti: 'Nell\'auspicio di poterVi avere fra i partecipanti, restiamo a disposizione per ogni informazione '
                     + 'e porgiamo i nostri più cordiali saluti.'
             },
+            /* LA LETTERA AGLI ISCRITTI DI UN ALTRO EVENTO, evento per evento di
+               provenienza. Non sono aziende da convincere ma persone che si sono
+               gia' iscritte a Milano: la PEC qui sopra ("Spettabile ...",
+               "Alla cortese attenzione del Legale Rappresentante", il codice
+               dell'azienda) a loro non si manda. Il testo e' quello proposto
+               nello scambio di mail del 20 novembre 2026 («In attesa del
+               Convegno di Milano, un invito al webinar del 10 dicembre»), con
+               tre ritocchi: il saluto con il nome al posto dei
+               puntini ({referente}: nome e cognome dell'iscritto, li mette il
+               caricamento da righeDaIscritti), "la Sua iscrizione" al posto di
+               "essersi iscritto", che vale per chiunque la legga, e una riga
+               con giorno, ora e pulsante della pagina, che dal sito non si
+               raggiunge. La finestra dell'invito la propone quando le schede
+               scelte sono tutte iscritti di quell'evento (provenienza), e non la
+               ricorda come "testo dell'invito": il secondo invio alle aziende
+               deve ritrovare la loro PEC, non questa. */
+            invitoIscritti: {
+                'milano-2027-02-26': {
+                    oggetto: 'In attesa del Convegno di Milano, un invito al webinar del 10 dicembre',
+                    lettera: [
+                        'Gentile {referente},',
+                        'la ringraziamo per la Sua iscrizione al convegno Next Generation Business del 26 febbraio a Milano. '
+                            + 'In attesa di incontrarLa, ci fa piacere invitarLa al webinar del 10 dicembre, «Come migliorare '
+                            + 'il merito creditizio. Il ruolo del bilancio, della revisione legale e degli adeguati assetti».',
+                        'Sarà l\'occasione per parlare di come un bilancio affidabile e una buona organizzazione aziendale '
+                            + 'possano contribuire a migliorare il dialogo con le banche. Sono temi che riprenderemo e '
+                            + 'approfondiremo durante il convegno di Milano.',
+                        'Il webinar si terrà giovedì 10 dicembre dalle 15.00 alle 17.00, in diretta online. '
+                            + 'Il programma e il modulo di iscrizione sono qui:'
+                    ],
+                    saluti: 'Un cordiale saluto.'
+                }
+            },
             nota: 'La pagina del webinar è su invito: non compare sul sito e si raggiunge solo dal collegamento mandato per email (lo trovi in «Moduli riservati»). L\'invito parte da «Invii alle aziende»: il servizio assegna a ogni azienda un codice di accesso di 5 caratteri e lo mette nella PEC al posto di {codice}; chi lo scrive nel modulo risulta «azienda selezionata» e l\'azienda, nell\'elenco degli inviti, passa a «iscritta». Le iscrizioni sono aperte: chi si iscrive verifica il cellulare con un codice SMS e poi conferma l\'email; finché non la conferma resta nella sezione «In attesa di conferma mail». Un\'iscrizione per email e per numero, due al massimo per codice invito. Tutti gli iscritti sono online: le credenziali per la diretta arrivano per email. Le iscrizioni arrivate per altre vie si inseriscono con "Aggiungi iscrizione".'
         },
         {
@@ -29626,6 +29659,19 @@
         return quale + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
     }
 
+    /* LA LETTERA AGLI ISCRITTI DI UN ALTRO EVENTO (invitoIscritti in
+       EVENTI_DEF): quella scritta per chi arriva dall'evento `provenienza`,
+       oppure null. Stessa forma della lettera propria di un evento
+       (invTestoSala): i capoversi, il pulsante della pagina, i saluti. */
+    function invLetteraIscritti(ev, provenienza) {
+        const tutte = (ev && ev.invitoIscritti) || {};
+        const l = provenienza ? tutte[provenienza] : null;
+        return (l && Array.isArray(l.lettera) && l.lettera.length) ? l : null;
+    }
+    function invTestoIscritti(ev, l) {
+        return l.lettera.join('\n\n') + '\n\n' + invPaginaEvento(ev) + '\n\n' + (l.saluti || 'Un cordiale saluto.');
+    }
+
     /* La finestra di gestione: elenco, caricamento, correzioni e invio.
        Si ridisegna da sola dopo ogni operazione, cosi' gli stati a video
        sono sempre quelli veri del servizio. */
@@ -30019,7 +30065,7 @@
         const dettagli = [];
         if (c.falliti) dettagli.push('<span class="ev-ko">' + c.falliti + ' non riuscite</span>');
         if (c.incerte) dettagli.push('<span class="ev-ko">' + c.incerte + ' con esito ignoto</span>');
-        if (c.saltate) dettagli.push(c.saltate + ' saltate');
+        if (c.saltate) dettagli.push(c.saltate + ' saltate' + (c.giaIscritte ? ' (' + c.giaIscritte + ' già ' + (c.giaIscritte === 1 ? 'iscritta' : 'iscritte') + ')' : ''));
         if (c.disiscritte) dettagli.push(c.disiscritte + ' disiscritte');
         if (c.senzaRecapito) dettagli.push(c.senzaRecapito + ' senza recapito');
 
@@ -30095,9 +30141,12 @@
         const q = _invFiltro.testo.trim().toLowerCase();
         const canaleDi = a => (a.invio && a.invio.canale) ? a.invio.canale : '';
         const esitoPecDi = a => (canaleDi(a) === 'pec' && a.ricevute) ? (a.ricevute.esito || 'attesa') : '';
+        /* Anche la nota: e' li' che gli iscritti di un altro evento portano da
+           dove arrivano ("Iscritto a Milano (online)"), e cercandola si scelgono
+           solo loro per mandargli la lettera scritta per loro. */
         const combacia = a => (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' '
             + a.provincia + ' ' + a.piva + ' ' + a.referente + ' ' + (a.settore || '')
-            + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
+            + ' ' + (a.codice || '') + ' ' + (a.note || '')).toLowerCase().indexOf(q) >= 0;
         const altriFiltri = a => {
             if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
             /* Due domande nella stessa tendina, perche' la colonna e' una:
@@ -30400,7 +30449,7 @@
             + '<th></th></tr>'
             + '<tr class="inv-riga-filtri">'
             + '<th></th>'
-            + '<th><input type="text" id="inv-cerca" class="inv-f" placeholder="Cerca nome, codice, P.IVA, città..." value="' + esc(_invFiltro.testo) + '"></th>'
+            + '<th><input type="text" id="inv-cerca" class="inv-f" placeholder="Cerca nome, codice, P.IVA, città, nota..." value="' + esc(_invFiltro.testo) + '"></th>'
             + '<th>' + opzioni('inv-fcanale', 'Ogni recapito', [['con-pec', 'Con PEC'], ['solo-mail', 'Solo email (senza PEC)'],
                 ['pec', 'Inviate via PEC'], ['email', 'Inviate via email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
             + '<th>' + opzioni('inv-fstato', 'Ogni stato', Object.keys(INV_STATI).map(x => [x, statoInv(x)]), _invFiltro.stato) + '</th>'
@@ -31173,11 +31222,134 @@
        dichiarata iscrivendosi; vuota vale in presenza, come nell'elenco.
        Un indirizzo, una riga: l'invito parte per email ordinaria e due
        inviti alla stessa casella sarebbero un doppione. Rende le righe nella
-       forma del file (prima riga le intestazioni) e i conti da dire. */
-    function righeDaIscritti(evOrigine, iscrizioni, presenze) {
-        const conta = { presenza: 0, online: 0, altreSezioni: 0, senzaEmail: 0, doppie: 0 };
-        const righe = [['Azienda', 'Email', 'Referente', 'Telefono', 'Note']];
+       forma del file (prima riga le intestazioni) e i conti da dire.
+
+       CHI C'E' GIA' NELL'EVENTO A CUI LI SI INVITA RESTA FUORI (`destino`:
+       { evento, iscrizioni, aziende } - l'evento, i suoi iscritti e il suo
+       elenco degli inviti). E' la regola di quando si invitano gli iscritti
+       di un evento a un altro, gli iscritti di Milano al webinar, ed e' la
+       condizione posta nello scambio di mail del 20 novembre 2026: nessuno
+       deve ricevere un invito che ha gia' avuto. Tre domande, in
+       quest'ordine:
+         1. e' GIA' ISCRITTO all'evento? Stessa email, oppure stesso
+            cellulare: agli eventi con il cellulare verificato per SMS e' la
+            stessa persona anche se si e' iscritta con un altro indirizzo;
+         2. il SUO INDIRIZZO e' gia' nell'elenco degli inviti?
+         3. la SUA AZIENDA e' gia' nell'elenco degli inviti? Si riconosce
+            dalla PEC dell'invito con cui si e' iscritta (la scheda del
+            codice), dal codice fiscale o dalla partita IVA del file di
+            quell'invito, o dalla ragione sociale. La PEC all'azienda e
+            l'email alla persona sono due comunicazioni dello stesso invito.
+       Per la 2 e la 3 non importa se l'invito e' gia' partito o deve ancora
+       partire: in tutti e due i casi arriva da li', e si dice quale dei due.
+       Ogni escluso si elenca con il perche' (`esclusi`): chi prepara l'invio
+       lo puo' controllare e, se serve, aggiungere a mano chi va invitato lo
+       stesso. Le funzioni di servizio stanno qui dentro, cosi' la prova
+       (prove/inviti-da-iscritti.prove.js) ritaglia la funzione intera. */
+    function righeDaIscritti(evOrigine, iscrizioni, presenze, destino) {
+        const conta = {
+            presenza: 0, online: 0, altreSezioni: 0, senzaEmail: 0, doppie: 0,
+            giaIscritti: 0, giaInvitati: 0, giaInElenco: 0
+        };
+        const righe = [['Azienda', 'Email', 'Referente', 'Telefono', 'Note', 'Evento di provenienza']];
+        const esclusi = [];
         const visti = {};
+
+        const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+        // il cellulare italiano in una forma sola (3 e nove o dieci cifre), o ''
+        const cellulare = v => {
+            let t = String(v == null ? '' : v).replace(/[\s().\-\/]/g, '');
+            if (t.indexOf('00') === 0) t = '+' + t.slice(2);
+            if (t.indexOf('+') === 0) {
+                if (t.indexOf('+39') !== 0) return '';
+                t = t.slice(3);
+            } else if (/^393\d{8,9}$/.test(t) && t.length > 10) t = t.slice(2);
+            return /^3\d{8,9}$/.test(t) ? t : '';
+        };
+        // l'indirizzo com'e' dentro l'identificativo della scheda (idDoc del servizio)
+        const chiaveIndirizzo = e => String(e || '').trim().toLowerCase().replace(/[\/\\.#$\[\]]/g, '-');
+        // codice fiscale o partita IVA: maiuscole, senza spazi ne' punti, senza "IT" davanti
+        const fiscale = v => {
+            const t = String(v == null ? '' : v).toUpperCase().replace(/[\s.\-]/g, '').replace(/^IT(?=\d{11}$)/, '');
+            return /^[0-9A-Z]{11,16}$/.test(t) ? t : '';
+        };
+        /* La ragione sociale senza accenti, punteggiatura e forma giuridica in
+           fondo: "ALFA INDUSTRIE S.R.L." e "Alfa Industrie srl" sono la
+           stessa. Sotto i quattro caratteri non si confronta: troppe aziende
+           si chiamerebbero uguale. */
+        const FORME = ['srl', 'srls', 'spa', 'sas', 'snc', 'sapa', 'scarl', 'scrl', 'sc', 'ss', 'coop',
+            'societa', 'cooperativa', 'semplificata', 'unipersonale', 'liquidazione', 'responsabilita',
+            'limitata', 'azioni', 'per', 'a', 'in'];
+        const nomeAzienda = v => {
+            const parole = String(v == null ? '' : v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/\./g, '').replace(/&/g, ' e ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+            while (parole.length > 1 && (FORME.indexOf(parole[parole.length - 1]) >= 0 || parole[parole.length - 1].length === 1)) parole.pop();
+            const n = parole.join(' ');
+            return n.replace(/ /g, '').length >= 4 ? n : '';
+        };
+        const partito = a => !!(a && a.invio && a.invio.quando);
+        // a parita' di chiave vince la scheda a cui l'invito e' gia' partito: e' la risposta piu' forte
+        const metti = (mappa, k, a) => { if (k && (!mappa[k] || (!partito(mappa[k]) && partito(a)))) mappa[k] = a; };
+
+        let dest = null;
+        if (destino) {
+            dest = { email: {}, cellulare: {}, indirizzo: {}, fiscale: {}, nome: {} };
+            (destino.iscrizioni || []).forEach(x => {
+                if (!x) return;
+                const e = String(x.email || '').trim().toLowerCase();
+                if (emailOk(e)) dest.email[e] = x;
+                const c = cellulare(x.telefono);
+                if (c) dest.cellulare[c] = x;
+            });
+            (destino.aziende || []).forEach(a => {
+                if (!a) return;
+                [a.pec, a.email].forEach(e => { if (emailOk(String(e || '').trim().toLowerCase())) metti(dest.indirizzo, chiaveIndirizzo(e), a); });
+                [a.cf, a.piva].forEach(v => metti(dest.fiscale, fiscale(v), a));
+                metti(dest.nome, nomeAzienda(a.ragioneSociale), a);
+            });
+        }
+        // l'azienda di chi si e' iscritto: la PEC, i codici fiscali e i nomi con cui riconoscerla
+        const aziendaDi = r => {
+            const out = { indirizzi: [], fiscali: [], nomi: [] };
+            const inv = r.invito || null;
+            /* La scheda dell'invito con cui si e' iscritto ha per nome
+               evento~indirizzo (~campagna): l'indirizzo e' la PEC dell'azienda,
+               gia' nella forma dell'identificativo. */
+            const parti = String((inv && inv.scheda) || '').split('~');
+            if (parti.length >= 2 && parti[1]) out.indirizzi.push(parti[1]);
+            (Array.isArray(r.datiInvito) ? r.datiInvito : []).forEach(x => {
+                const c = String((x && x.c) || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\*/g, '').replace(/\s*\([^()]*\)\s*$/, '').trim();
+                const v = String((x && x.v) || '').trim();
+                if (!v) return;
+                if (/^(pec|indirizzo pec|email pec|e-mail pec|pec impresa|posta elettronica certificata|domicilio digitale)$/.test(c)) {
+                    if (emailOk(v.toLowerCase())) out.indirizzi.push(chiaveIndirizzo(v));
+                } else if (/^(codice fiscale|cod\. fiscale|cf|partita iva|p\. ?iva|p iva|piva|vat)$/.test(c)) {
+                    const f = fiscale(v);
+                    if (f) out.fiscali.push(f);
+                }
+            });
+            [inv && inv.azienda, r.azienda].forEach(n => { const k = nomeAzienda(n); if (k) out.nomi.push(k); });
+            return out;
+        };
+        const fuoriPerScheda = (a, come) => ({
+            conto: partito(a) ? 'giaInvitati' : 'giaInElenco', come: come,
+            con: String(a.ragioneSociale || a.pec || a.email || ''), quando: partito(a) ? Number(a.invio.quando) || 0 : 0
+        });
+        const perche = (r, em) => {
+            if (!dest) return null;
+            if (dest.email[em]) return { conto: 'giaIscritti', come: 'email' };
+            const c = cellulare(r.telefono);
+            if (c && dest.cellulare[c]) return { conto: 'giaIscritti', come: 'cellulare' };
+            const suo = dest.indirizzo[chiaveIndirizzo(em)];
+            if (suo) return fuoriPerScheda(suo, 'indirizzo');
+            const az = aziendaDi(r);
+            for (const k of az.indirizzi) if (dest.indirizzo[k]) return fuoriPerScheda(dest.indirizzo[k], 'pec');
+            for (const f of az.fiscali) if (dest.fiscale[f]) return fuoriPerScheda(dest.fiscale[f], 'fiscale');
+            for (const n of az.nomi) if (dest.nome[n]) return fuoriPerScheda(dest.nome[n], 'nome');
+            return null;
+        };
+
         (iscrizioni || []).forEach(r => {
             if (!r) return;
             const p = (presenze || {})[r.id] || {};
@@ -31185,15 +31357,23 @@
             if (!SEZIONI_MODALITA.some(x => x.id === m)) m = 'presenza';
             if ((m !== 'presenza' && m !== 'online') || r.soloB2B === true) { conta.altreSezioni++; return; }
             const em = String(r.email || '').trim().toLowerCase();
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { conta.senzaEmail++; return; }
+            if (!emailOk(em)) { conta.senzaEmail++; return; }
             if (visti[em]) { conta.doppie++; return; }
             visti[em] = true;
-            conta[m]++;
             const persona = ((r.nome || '') + ' ' + (r.cognome || '')).trim();
-            righe.push([String(r.azienda || '').trim() || persona || em, em, persona, String(r.telefono || ''),
-                'Iscritto a ' + evOrigine.titolo + ' (' + (m === 'online' ? 'online' : 'in presenza') + ')']);
+            const azienda = String(r.azienda || '').trim();
+            const fuori = perche(r, em);
+            if (fuori) {
+                conta[fuori.conto]++;
+                esclusi.push(Object.assign({ nome: persona, email: em, azienda: azienda || ((r.invito && r.invito.azienda) || '') }, fuori));
+                return;
+            }
+            conta[m]++;
+            righe.push([azienda || persona || em, em, persona, String(r.telefono || ''),
+                'Iscritto a ' + evOrigine.titolo + ' (' + (m === 'online' ? 'online' : 'in presenza') + ')',
+                String(evOrigine.id || '')]);
         });
-        return { righe: righe, conta: conta };
+        return { righe: righe, conta: conta, esclusi: esclusi };
     }
 
     function modaleImportaAziendeInvito(ev) {
@@ -31221,10 +31401,17 @@
             + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
             + (altriEventi.length ? '<div class="ev-imp-passo inv-da-evento"><label for="inv-da-evento"><b>Oppure: gli iscritti di un altro evento</b></label>'
                 + '<div class="inv-da-evento-riga"><select id="inv-da-evento">'
-                + altriEventi.map(x => '<option value="' + esc(x.id) + '">' + esc(x.titolo + ', ' + x.quando) + '</option>').join('')
-                + '</select> <button class="btn btn-secondary btn-sm" id="inv-da-evento-vai">Aggiungi i suoi iscritti</button></div>'
+                /* Si propone l'evento per i cui iscritti questo evento ha una
+                   lettera (invitoIscritti): per il webinar, Milano. */
+                + altriEventi.map(x => '<option value="' + esc(x.id) + '"' + (invLetteraIscritti(ev, x.id) ? ' selected' : '') + '>'
+                    + esc(x.titolo + ', ' + x.quando) + '</option>').join('')
+                + '</select> <button class="btn btn-secondary btn-sm" id="inv-da-evento-vai">Controlla i suoi iscritti</button></div>'
                 + '<p class="hint">Entrano le aziende iscritte <b>in presenza</b> e <b>online</b>, una riga per indirizzo email. '
-                + 'Restano fuori aderenti Revilaw, sponsor e relatori e chi ha annullato. L\'invito a loro parte per <b>email ordinaria</b>.</p></div>' : '')
+                + 'Restano fuori aderenti Revilaw, sponsor e relatori e chi ha annullato, e <b>chi c\'è già in ' + esc(ev.titolo) + '</b>: '
+                + 'chi ha già un\'iscrizione (stessa email o stesso cellulare) e chi l\'invito a ' + esc(ev.titolo) + ' l\'ha già avuto o lo avrà '
+                + 'dall\'elenco, al suo indirizzo o alla sua azienda. Prima di aggiungere, qui sotto si vede chi resta fuori e perché. '
+                + 'L\'invito a loro parte per <b>email ordinaria</b>.</p>'
+                + '<div id="inv-da-evento-anteprima" class="inv-da-evento-anteprima"></div></div>' : '')
             /* La misura si dice PRIMA di caricare: un elenco grosso ci mette
                qualche minuto, e chi non sa che sta partendo a blocchi crede
                che si sia bloccato e chiude la finestra a metà. */
@@ -31327,28 +31514,105 @@
             });
         };
 
+        /* GLI ISCRITTI DI UN ALTRO EVENTO: prima si controlla, poi si
+           aggiunge. Si leggono tre cose - gli iscritti dell'evento di
+           provenienza, quelli di questo evento e il suo elenco degli inviti
+           (sempre quello dell'invito, qualunque lista sia aperta: e' li' che
+           sta chi l'invito l'ha avuto) - e righeDaIscritti lascia fuori chi
+           c'e' gia'. Se una delle tre non arriva non si aggiunge niente: un
+           controllo fatto a meta' direbbe "nessuno gia' invitato" senza
+           saperlo. Il risultato si mostra QUI, con chi resta fuori e perche',
+           e si aggiunge solo con il pulsante: chi prepara l'invio deve poterlo
+           verificare prima, non scoprirlo dopo. */
         const daEvento = document.getElementById('inv-da-evento-vai');
+        const anteprima = document.getElementById('inv-da-evento-anteprima');
+        const COME_FUORI = {
+            email: 'stessa email', cellulare: 'stesso cellulare', indirizzo: 'stesso indirizzo',
+            pec: 'stessa PEC dell\'azienda', fiscale: 'stesso codice fiscale o partita IVA', nome: 'stessa ragione sociale'
+        };
+        const disegnaAnteprima = (origine, x) => {
+            if (!anteprima) return;
+            const c = x.conta;
+            const n = x.righe.length - 1;
+            const q = k => Number(k || 0).toLocaleString('it-IT');
+            const dove = esc(ev.titolo);
+            // "1 persona iscritta", "3 persone iscritte": si conta per persone, e il numero si accorda
+            const persone = (k, una, tante) => '<b>' + q(k) + '</b> ' + (k === 1 ? una : tante);
+            const fuori = [];
+            if (c.giaIscritti) fuori.push(persone(c.giaIscritti, 'persona già iscritta a ', 'persone già iscritte a ') + dove);
+            if (c.giaInvitati) fuori.push(persone(c.giaInvitati, 'persona', 'persone') + ' a cui l\'invito a ' + dove
+                + ' è già partito (' + (c.giaInvitati === 1 ? 'al suo indirizzo o alla sua azienda' : 'al loro indirizzo o alla loro azienda') + ')');
+            if (c.giaInElenco) fuori.push(persone(c.giaInElenco, 'persona', 'persone') + ' con l\'invito a ' + dove
+                + ' già in elenco e non ancora partito (' + (c.giaInElenco === 1 ? 'al suo indirizzo o alla sua azienda' : 'al loro indirizzo o alla loro azienda') + ')');
+            if (c.altreSezioni) fuori.push(q(c.altreSezioni) + ' fra aderenti, sponsor, relatori e soli incontri B2B');
+            if (c.doppie) fuori.push(q(c.doppie) + ' con un indirizzo ripetuto');
+            if (c.senzaEmail) fuori.push(q(c.senzaEmail) + ' senza email');
+            const riga = e => '<li><b>' + esc(e.nome || e.email) + '</b> &middot; ' + esc(e.email)
+                + (e.azienda ? ' &middot; ' + esc(e.azienda) : '') + '<br><span class="hint">'
+                + (e.conto === 'giaIscritti'
+                    ? 'Iscrizione a ' + dove + ' già presente (' + esc(COME_FUORI[e.come] || e.come) + ')'
+                    : (e.conto === 'giaInvitati'
+                        ? 'Invito a ' + dove + ' già partito' + (e.quando ? ' il ' + esc(fmtGiorno(e.quando)) : '')
+                        : 'Già nell\'elenco degli inviti a ' + dove + ', invito non ancora partito')
+                    + ': ' + esc(e.con) + ' (' + esc(COME_FUORI[e.come] || e.come) + ')')
+                + '</span></li>';
+            const esclusi = x.esclusi || [];
+            anteprima.innerHTML = '<div class="inv-da-evento-esito">'
+                + (n
+                    ? '<p>' + persone(n, 'persona iscritta a ', 'persone iscritte a ') + esc(origine.titolo) + ' da aggiungere all\'elenco ('
+                    + q(c.presenza) + ' in presenza, ' + q(c.online) + ' online).</p>'
+                    : '<p><b>Nessuno da aggiungere</b>: tutti gli iscritti di ' + esc(origine.titolo) + ' in presenza e online sono già in '
+                    + dove + ' o restano fuori per le ragioni qui sotto.</p>')
+                + (fuori.length ? '<p>Restano fuori: ' + fuori.join('; ') + '.</p>' : '<p>Nessuno resta fuori.</p>')
+                + (esclusi.length
+                    ? '<details class="inv-da-evento-fuori"><summary>Chi resta fuori perché c\'è già in ' + dove + ' ('
+                    + q(esclusi.length) + ')</summary><ul>' + esclusi.map(riga).join('') + '</ul></details>'
+                    : '')
+                + (n
+                    ? '<p class="hint">Aggiungendoli non parte nessuna mail: l\'invito si manda dopo, dall\'elenco, '
+                    + 'scegliendoli con la ricerca «Iscritto a ' + esc(origine.titolo) + '».'
+                    + (invLetteraIscritti(ev, origine.id) ? ' Per loro la finestra dell\'invito propone la lettera scritta per gli iscritti di ' + esc(origine.titolo) + '.' : '')
+                    + ' Chi si iscrive a ' + dove + ' prima che il suo invito parta viene saltato.</p>'
+                    + '<button class="btn btn-primary btn-sm" id="inv-da-evento-ok">Aggiungi ' + q(n) + (n === 1 ? ' persona' : ' persone') + ' all\'elenco</button>'
+                    : '')
+                + '</div>';
+            const ok = document.getElementById('inv-da-evento-ok');
+            if (ok) ok.addEventListener('click', () => {
+                ok.disabled = true;
+                if (daEvento) daEvento.disabled = true;
+                manda(x.righe.map(r => righeInCsv([r])));
+            });
+        };
         if (daEvento) daEvento.addEventListener('click', () => {
             const origine = EVENTI_DEF.find(x => x.id === document.getElementById('inv-da-evento').value);
             if (!origine) return;
             daEvento.disabled = true;
-            mostra('Leggo gli iscritti di ' + origine.titolo + '...');
-            Cloud.iscrizioniEvento(origine.filtro, origine.id, false, true, null).then(r => {
+            if (anteprima) anteprima.innerHTML = '';
+            mostra('Leggo gli iscritti di ' + origine.titolo + ' e, per lasciare fuori chi c\'è già, gli iscritti e l\'elenco degli inviti di ' + ev.titolo + '...');
+            Promise.all([
+                Cloud.iscrizioniEvento(origine.filtro, origine.id, false, true, null).catch(() => null),
+                Cloud.iscrizioniEvento(ev.filtro, ev.id, false, true, null).catch(() => null),
+                leggiElencoInvito(ev, 'invito').catch(() => null)
+            ]).then(([rO, rD, rL]) => {
                 daEvento.disabled = false;
-                if (!r || !r.ok) { mostra((r && r.msg) || 'Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true); return; }
-                const x = righeDaIscritti(origine, r.iscrizioni, r.presenze);
-                const c = x.conta;
-                if (x.righe.length < 2) { mostra('Nessuna azienda iscritta a ' + origine.titolo + ' in presenza o online con un indirizzo email.', true); return; }
-                const fuori = [];
-                if (c.altreSezioni) fuori.push(c.altreSezioni + ' fra aderenti, sponsor e relatori');
-                if (c.doppie) fuori.push(c.doppie + ' con un indirizzo già in elenco');
-                if (c.senzaEmail) fuori.push(c.senzaEmail + ' senza email');
-                if (!confirm('Aggiungere all\'elenco ' + (x.righe.length - 1) + ' iscritti di ' + origine.titolo + ' ('
-                    + c.presenza + ' in presenza, ' + c.online + ' online)?'
-                    + (fuori.length ? '\n\nRestano fuori: ' + fuori.join(', ') + '.' : '')
-                    + '\n\nNon parte nessuna mail: l\'invito si manda dopo, dall\'elenco.')) { mostra(''); return; }
-                manda(x.righe.map(riga => righeInCsv([riga])));
-            }).catch(() => { daEvento.disabled = false; mostra('Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true); });
+                if (!rO || !rO.ok || !Array.isArray(rO.iscrizioni)) {
+                    mostra((rO && rO.msg) || 'Non riesco a leggere gli iscritti di ' + origine.titolo + '.', true);
+                    return;
+                }
+                if (!rD || !rD.ok || !Array.isArray(rD.iscrizioni)) {
+                    mostra('Non riesco a leggere gli iscritti di ' + ev.titolo + (rD && rD.msg ? ' (' + rD.msg + ')' : '')
+                        + ': senza, non posso lasciare fuori chi è già iscritto, quindi non aggiungo niente. Riprova fra poco.', true);
+                    return;
+                }
+                if (!rL || !rL.ok) {
+                    mostra('Non riesco a leggere l\'elenco degli inviti di ' + ev.titolo + (rL && rL.msg ? ' (' + rL.msg + ')' : '')
+                        + ': senza, non posso lasciare fuori chi l\'invito l\'ha già avuto, quindi non aggiungo niente. Riprova fra poco.', true);
+                    return;
+                }
+                mostra('');
+                disegnaAnteprima(origine, righeDaIscritti(origine, rO.iscrizioni, rO.presenze,
+                    { evento: ev, iscrizioni: rD.iscrizioni, aziende: rL.aziende || [] }));
+            });
         });
 
         document.getElementById('inv-file').addEventListener('change', e => {
@@ -31949,6 +32213,21 @@
                 : 'Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso');
             return;
         }
+        /* GLI ISCRITTI DI UN ALTRO EVENTO (le schede caricate con "gli iscritti
+           di un altro evento": provenienza) sono persone, non aziende. Se le
+           scelte sono tutte loro e l'evento ha la lettera scritta per chi
+           arriva da li' (invitoIscritti in EVENTI_DEF), si propone quella; se
+           sono mescolate alle aziende lo si dice, perche' il testo e' uno solo
+           per tutte. E il loro testo NON si ricorda come "testo dell'invito"
+           (il servizio lo terrebbe per il secondo invio): il sollecito alle
+           aziende deve ritrovare la PEC alle aziende, non la lettera a loro. */
+        const daAltroEvento = scelte.filter(a => a.provenienza);
+        const provenienze = Array.from(new Set(daAltroEvento.map(a => a.provenienza)));
+        const tutteDaAltro = daAltroEvento.length === scelte.length;
+        const letteraIscr = (tutteDaAltro && provenienze.length === 1) ? invLetteraIscritti(ev, provenienze[0]) : null;
+        const ricordaIlTesto = !tutteDaAltro;
+        const titoloDi = id => { const e = EVENTI_DEF.find(x => x.id === id); return e ? e.titolo : id; };
+        const daDove = provenienze.map(titoloDi).join(', ');
         const cEmail = canaleCfg('email'), cPec = canaleCfg('pec');
         // canale iniziale: l'email ordinaria, che e' quella dell'invito normale
         let canale = cEmail.pronto ? 'email' : 'pec';
@@ -31970,7 +32249,7 @@
         const raggiungibili = c => scelte.filter(delCanale(c)).filter(a => recapitoDi(c, a)).length;
         const gia = scelte.filter(a => a.invio && a.invio.quando).length;
         // il testo con cui e' partito l'ultimo invito (per il secondo invio)
-        const ricordato = (secondo || reinvio) ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
+        const ricordato = ((secondo || reinvio) && ricordaIlTesto) ? ((_invCache[invChiave(ev)] || {}).testoInvito || null) : null;
 
         const opzione = (id, nome, etichetta, spiega, attivo, pronto) =>
             '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
@@ -32037,7 +32316,7 @@
            sedere - e una domanda in piu' che non cambia niente e' una
            domanda a cui prima o poi qualcuno risponde male. */
         const versioni = invVersioniDi(ev);
-        const conVersioni = campI.id !== 'sponsor' && versioni.length > 1;
+        const conVersioni = campI.id !== 'sponsor' && versioni.length > 1 && !letteraIscr;
         let versione = conVersioni ? invVersionePredefinita(ev) : 'sala';
         if (ricordato && ricordato.versione && conVersioni && versioni.some(v => v.id === ricordato.versione)) versione = ricordato.versione;
         // quante iscrizioni ammette un codice (a Milano due): lo ricorda l'aiuto sotto il testo
@@ -32047,8 +32326,27 @@
            si puo' incollare in un invito, e in tutti e due i casi la domanda
            "a chi arrivano le risposte" segue il pulsante, non l'etichetta
            della lista. */
-        const testoIniziale = (ricordato && ricordato.testo) ? ricordato.testo : invTestoPredefinito(ev, _invCampagna, versione);
-        const oggettoIniziale = (ricordato && ricordato.oggetto) ? ricordato.oggetto : invOggettoPredefinito(ev, _invCampagna, versione);
+        const testoIniziale = letteraIscr ? invTestoIscritti(ev, letteraIscr)
+            : ((ricordato && ricordato.testo) ? ricordato.testo : invTestoPredefinito(ev, _invCampagna, versione));
+        const oggettoIniziale = letteraIscr ? letteraIscr.oggetto
+            : ((ricordato && ricordato.oggetto) ? ricordato.oggetto : invOggettoPredefinito(ev, _invCampagna, versione));
+        /* La riga che dice a chi si sta scrivendo, quando fra le scelte ci
+           sono iscritti di un altro evento. */
+        const avvisoIscritti = !daAltroEvento.length ? ''
+            : '<p class="hint inv-avviso-iscritti">'
+            + (letteraIscr
+                ? 'Le <b>' + scelte.length.toLocaleString('it-IT') + '</b> schede scelte sono <b>persone iscritte a ' + esc(daDove)
+                + '</b>, non aziende: qui sotto c\'è la lettera scritta per loro, non la PEC alle aziende. '
+                + 'Chi nel frattempo si iscrive a ' + esc(ev.titolo) + ' viene saltato al momento dell\'invio.'
+                : (tutteDaAltro
+                    ? 'Le schede scelte sono <b>persone iscritte a ' + esc(daDove) + '</b>, non aziende, e per loro non c\'è una '
+                    + 'lettera apposta: rileggi il testo, che è quello per le aziende ("Spettabile", il codice dell\'azienda).'
+                    : '<b>Attenzione:</b> fra le ' + scelte.length.toLocaleString('it-IT') + ' schede scelte, <b>'
+                    + daAltroEvento.length.toLocaleString('it-IT') + '</b> ' + (daAltroEvento.length === 1 ? 'è una persona iscritta' : 'sono persone iscritte')
+                    + ' a ' + esc(daDove) + ' e ' + ((scelte.length - daAltroEvento.length) === 1 ? '1 è un\'azienda'
+                        : (scelte.length - daAltroEvento.length).toLocaleString('it-IT') + ' sono aziende')
+                    + ', ma il testo è uno solo per tutte. Fai due invii: per scegliere solo le persone, cerca «Iscritto a» nell\'elenco.'))
+            + '</p>';
         const contatti = contattiDi(ev);
         /* Il blocco compare solo se i destinatari di adesso sono GIA' stati
            letti. Mostrarlo vuoto perche' la lettura non e' ancora tornata
@@ -32070,13 +32368,16 @@
                 + 'Ognuna lo riceve <b>sul canale del primo invio</b>: '
                 + [['pec', 'per PEC'], ['email', 'per email']].map(x => scelte.filter(delCanale(x[0])).length + ' ' + x[1]).join(', ')
                 + '. Qui sotto scegli quale gruppo parte adesso; l\'altro con un secondo passaggio, senza doppioni. '
-                + (ricordato && ricordato.testo
+                + (letteraIscr
+                    ? 'Oggetto e testo sono quelli della lettera agli iscritti di ' + esc(daDove) + ', come al primo invio.'
+                    : ricordato && ricordato.testo
                     ? 'Oggetto e testo sono quelli dell\'invito spedito ' + (ricordato.quando ? 'il ' + esc(fmtDataOra(ricordato.quando)) : 'l\'ultima volta') + '.'
                     : '<b>Il testo del primo invio non risulta salvato</b> (era partito prima di questa funzione): qui sotto c\'è il testo '
                     + 'attuale dell\'invito. Controlla che sia quello che le aziende hanno ricevuto.')
                 + '</p>'
                 : '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai più destinatari insieme: così ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
                 + (gia ? ' <b>' + gia + '</b> hanno già ricevuto il messaggio e vengono saltate, salvo la spunta in fondo.' : '') + '</p>')
+            + avvisoIscritti
             + '<div class="campo"><label>Come far partire ' + esc(campI.spedizione) + '</label>'
             + opzione('inv-c-email', 'email', 'Email ordinaria',
                 cEmail.pronto
@@ -32626,7 +32927,7 @@
                 /* il testo com'e' scritto qui, che il servizio ricorda per il
                    secondo invio, e il secondo invio stesso (solo a chi non si
                    e' fatto vivo, ricontrollato scheda per scheda) */
-                testo: testoInvito, versione: versione, soloNonIscritte: secondo
+                testo: ricordaIlTesto ? testoInvito : '', versione: versione, soloNonIscritte: secondo
             });
             if (!nato.ok) {
                 stato.inCorso = false;
@@ -32733,7 +33034,8 @@
                     }));
                 }
                 const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
-                let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, incerte = 0, msgKo = '';
+                // giaIscritte: saltate perche' gia' iscritte all'evento (sono anche fra le saltate)
+                let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, incerte = 0, giaIscritte = 0, msgKo = '';
                 const totale = elencoInvio.length;
                 const lotti = Math.ceil(totale / lotto);
                 const conti = { inviate: 0, saltate: 0, disiscritte: 0, falliti: 0, incerte: 0, da: Date.now() };
@@ -32754,7 +33056,7 @@
                         r = await Cloud.aziendeInvito({
                             azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza || secondo || reinvio, soloSenzaRisposta: reinvio,
                             // vedi la programmazione qui sopra: il testo da ricordare e il secondo invio
-                            testo: testoInvito, versione: versione, soloNonIscritte: secondo,
+                            testo: ricordaIlTesto ? testoInvito : '', versione: versione, soloNonIscritte: secondo,
                             /* Il nome della pagina di iscrizione viaggia col codice:
                                e' l'unico modo che ha il modulo pubblico, che l'evento
                                lo conosce solo per nome, di accorgersi che gli stanno
@@ -32777,6 +33079,7 @@
                     }
                     inviate += r.inviate || 0;
                     saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
+                    giaIscritte += r.giaIscritte || 0;
                     disiscritte += r.disiscritte || 0;
                     falliti += (r.falliti || []).length;
                     /* Le schede su cui un invio precedente si e' interrotto senza
@@ -32831,7 +33134,10 @@
                 b.disabled = false; b.textContent = 'Invia le restanti';
                 bAnn.disabled = false; bAnn.textContent = 'Chiudi';
                 const riepilogo = inviate + ' ' + quale + ' partite'
-                    + (saltate ? ', ' + saltate + ' saltate (già invitate o senza recapito)' : '')
+                    + (saltate ? ', ' + saltate + ' saltate (' + (giaIscritte
+                        ? giaIscritte + ' perché già ' + (giaIscritte === 1 ? 'iscritta' : 'iscritte') + ' a ' + ev.titolo
+                        + (saltate > giaIscritte ? ', le altre già invitate o senza recapito' : '')
+                        : 'già invitate o senza recapito') + ')' : '')
                     + (disiscritte ? ', ' + disiscritte + ' disiscritte' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '')
                     + (incerte ? ', ' + incerte + ' con esito ignoto da guardare in "Con errore"' : '') + '.';

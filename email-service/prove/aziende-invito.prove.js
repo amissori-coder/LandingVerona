@@ -443,6 +443,25 @@ function dallAreaRiservata(nome) {
     const API_ISCRIZIONI = require('fs').readFileSync(path.join(RADICE, 'api/iscrizioni.js'), 'utf8');
     esigi(/datiInvito:\s*DATI_FILE\.pulito\(v\.datiInvito\)/.test(API_ISCRIZIONI), 'api/iscrizioni.js passa datiInvito, rimesso in forma');
 
+    console.log('\nGli iscritti di un altro evento: la colonna "Evento di provenienza"');
+    /* Le righe preparate dall'area riservata (righeDaIscritti) portano
+       l'evento da cui arriva la persona: la scheda lo tiene, l'elenco lo
+       restituisce, e la finestra dell'invito ci sceglie la lettera. */
+    scenario({}, 0);
+    r = await carica('Azienda;Email;Referente;Telefono;Note;Evento di provenienza\n'
+        + 'Alfa S.p.A.;Anna@Alfa.it;Anna Alfa;333 1234567;Iscritto a Milano (in presenza);milano-2027-02-26\n'
+        + 'Beta S.r.l.;bruno@beta.it;Bruno Beta;;Iscritto a Milano (online);Milano 26/02!');
+    const anna = dati[id('anna@alfa.it')] || {};
+    esigi(r.nuove === 2 && anna.provenienza === 'milano-2027-02-26' && anna.email === 'anna@alfa.it' && !anna.pec
+        && anna.ragioneSociale === 'Alfa S.p.A.' && anna.referente === 'Anna Alfa',
+        'la scheda tiene l\'evento da cui arriva la persona, con email, azienda e referente', JSON.stringify(anna).slice(0, 300));
+    esigi(!(dati[id('bruno@beta.it')] || {}).provenienza, 'un valore che non e\' un identificativo di evento non si scrive');
+    await carica('Azienda;Email\nAlfa S.p.A.;anna@alfa.it');
+    esigi((dati[id('anna@alfa.it')] || {}).provenienza === 'milano-2027-02-26', 'un file senza la colonna, ricaricato sopra, non la cancella');
+    const elencoProv = await leggiElenco('invito');
+    const annaInElenco = elencoProv.aziende.find(a => a.email === 'anna@alfa.it') || {};
+    esigi(annaInElenco.provenienza === 'milano-2027-02-26', 'e l\'elenco la restituisce all\'area riservata', JSON.stringify(annaInElenco).slice(0, 200));
+
     console.log('\n' + '-'.repeat(58));
     console.log(ok + ' verifiche verdi, ' + ko + ' fallite');
     process.exit(ko ? 1 : 0);

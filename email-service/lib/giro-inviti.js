@@ -144,7 +144,10 @@ async function lottiDaFare(db, id, quanti, da) {
     return s.docs;
 }
 
-const CONTI_ZERO = { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, incerte: 0, falliti: 0 };
+/* giaIscritte: le saltate perche' l'indirizzo era gia' iscritto all'evento
+   (lib/invio-inviti.js, iscrittaAllEvento). Sono GIA' dentro `saltate`: il
+   numero a parte serve solo a dirlo nel riquadro, non entra nei totali. */
+const CONTI_ZERO = { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, incerte: 0, falliti: 0, giaIscritte: 0 };
 function sommaConti(vecchi, nuovi) {
     const c = Object.assign({}, CONTI_ZERO, vecchi || {});
     c.inviate += nuovi.inviate || 0;
@@ -152,6 +155,7 @@ function sommaConti(vecchi, nuovi) {
     c.senzaRecapito += nuovi.senzaRecapito || 0;
     c.disiscritte += nuovi.disiscritte || 0;
     c.incerte += nuovi.incerte || 0;
+    c.giaIscritte += nuovi.giaIscritte || 0;
     c.falliti += (nuovi.falliti || []).length;
     return c;
 }
