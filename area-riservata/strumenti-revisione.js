@@ -16,7 +16,8 @@
    aggiungere un documento: copiarlo nella cartella degli allegati,
    aggiungerlo in "allegati" e citarlo nel passo con { a: 'nome-file', et: 'Etichetta' }.
    Collegamento esterno: { l: 'https://...', et: 'Etichetta', tipo: 'modulo' | 'drive' | 'web' }.
-   Ricordarsi di cambiare la versione (?v=) nello <script> di index.html.
+   Il file lo carica app.js solo quando si apre la sezione: dopo ogni
+   modifica cambiare SR_DATI_VERSIONE in app.js (e la ?v= di app.js in index.html).
 ========================================================= */
 window.RV_STRUMENTI_REVISIONE = {
  "anno": 2026,

@@ -1451,9 +1451,10 @@
             // La firma email e' personale: la compone chiunque lavori nell'area
             // (stessa platea delle richieste, quindi fuori gli invitati "solo sondaggio")
             if (sez === 'firma') return this.puoUsareRichieste();
-            // Gli strumenti di revisione (carte di lavoro e documenti tipo) sono per tutti i
-            // team: stessa platea della firma, e non c'e' niente da modificare
-            if (sez === 'strumenti') return this.puoUsareRichieste();
+            // Gli strumenti di revisione (carte di lavoro e documenti tipo) sono pensati per
+            // tutti i team, ma per ora sono in prova: li vede solo chi e' in SR_ANTEPRIMA.
+            // Svuotato l'elenco, li vede chiunque lavori nell'area (stessa platea della firma).
+            if (sez === 'strumenti') return SR_ANTEPRIMA.length ? SR_ANTEPRIMA.includes(this.emailSessione()) : this.puoUsareRichieste();
             // I Controlli qualita hanno un filtro in piu' sulla PERSONA: la sezione compare
             // solo a chi in Aderenti Revilaw e' responsabile qualita o equity partner
             // (e ad amministratore e titolare). Vedi cqProfilo().
@@ -37128,6 +37129,14 @@
        per i team di revisione, non dati dello studio, e non c'e' niente da
        modificare. Fuori solo gli invitati "solo sondaggio".
     ========================================================= */
+    /* In prova: la sezione compare solo a questi indirizzi di accesso (la persona
+       che entra davvero, non l'utente per cui lavora un collaboratore). Per
+       aprirla a tutti basta lasciare l'elenco vuoto: []. */
+    const SR_ANTEPRIMA = [PROPRIETARIO];
+    /* I dati (piano, carte, elenco dei documenti) si scaricano solo quando si apre
+       la sezione: chi non la vede non li carica. Va cambiata a ogni modifica di
+       strumenti-revisione.js, come la "v=" degli script in index.html. */
+    const SR_DATI_VERSIONE = '20261121a';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', drive: 'Google Drive', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', drive: 'Drive', web: 'Web' };
@@ -37136,6 +37145,20 @@
     const _srFiltri = { fase: '', stato: '', q: '' };
 
     function srDati() { return window.RV_STRUMENTI_REVISIONE || null; }
+    let _srCaricamento = null;
+    function srCaricaDati() {
+        if (srDati()) return Promise.resolve(srDati());
+        if (!_srCaricamento) {
+            _srCaricamento = new Promise((ok, ko) => {
+                const s = document.createElement('script');
+                s.src = 'strumenti-revisione.js?v=' + SR_DATI_VERSIONE;
+                s.onload = () => srDati() ? ok(srDati()) : ko(new Error('dati assenti'));
+                s.onerror = () => ko(new Error('file non raggiungibile'));
+                document.head.appendChild(s);
+            }).catch(e => { _srCaricamento = null; throw e; });
+        }
+        return _srCaricamento;
+    }
     function srTesti() {
         if (!_srTesti) {
             const d = srDati();
@@ -37290,8 +37313,14 @@
     function vistaStrumenti() {
         const d = srDati();
         if (!d) {
-            $vista().innerHTML = '<header><div><h1>Strumenti di revisione</h1></div></header>'
-                + '<div class="card"><p class="descrizione">I dati degli strumenti di revisione non si sono caricati. Ricarica la pagina; se il problema resta, avvisa l\'amministratore.</p></div>';
+            const messaggio = testo => {
+                $vista().innerHTML = '<header><div><h1>Strumenti di revisione</h1></div></header>'
+                    + '<div class="card"><p class="descrizione">' + esc(testo) + '</p></div>';
+            };
+            messaggio('Caricamento delle carte di lavoro...');
+            srCaricaDati()
+                .then(() => { if (vistaCorrente === 'strumenti') vistaStrumenti(); })
+                .catch(() => { if (vistaCorrente === 'strumenti') messaggio('I dati degli strumenti di revisione non si sono caricati. Controlla la connessione e riapri la sezione; se il problema resta, avvisa l\'amministratore.'); });
             return;
         }
         const schede = srSchede(d);
