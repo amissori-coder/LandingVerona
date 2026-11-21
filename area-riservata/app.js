@@ -1451,6 +1451,10 @@
             // La firma email e' personale: la compone chiunque lavori nell'area
             // (stessa platea delle richieste, quindi fuori gli invitati "solo sondaggio")
             if (sez === 'firma') return this.puoUsareRichieste();
+            // Gli strumenti di revisione (carte di lavoro e documenti tipo) sono pensati per
+            // tutti i team, ma per ora sono in prova: li vede solo chi e' in SR_ANTEPRIMA.
+            // Svuotato l'elenco, li vede chiunque lavori nell'area (stessa platea della firma).
+            if (sez === 'strumenti') return SR_ANTEPRIMA.length ? SR_ANTEPRIMA.includes(this.emailSessione()) : this.puoUsareRichieste();
             // I Controlli qualita hanno un filtro in piu' sulla PERSONA: la sezione compare
             // solo a chi in Aderenti Revilaw e' responsabile qualita o equity partner
             // (e ad amministratore e titolare). Vedi cqProfilo().
@@ -3871,6 +3875,9 @@
         /* La firma da mettere in fondo alle email: ognuno compila i propri dati,
            li salva e copia la firma pronta nel programma di posta. La vedono tutti. */
         { id: 'firma', nome: 'La mia firma email', icona: 'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z' },
+        /* Le carte di lavoro del piano di revisione, con i documenti da scaricare:
+           servono a chiunque lavori in un team di revisione, quindi le vedono tutti. */
+        { id: 'strumenti', nome: 'Strumenti di revisione', icona: 'M3 7h18v13H3zM8 7V4h8v3M3 13h18M11 12h2v2h-2z' },
         /* MACROAREA DEGLI ADERENTI. L'anagrafica e le due viste che ne derivano
            (chi coordina un territorio, chi e' responsabile di qualita o incarico)
            sono la stessa scheda letta in tre modi: stanno insieme, cosi' si vede
@@ -4074,7 +4081,8 @@
             ratingVerbale: vistaRatingVerbale,
             controlloQualita: vistaControlliQualita,
             controlloQualitaScheda: vistaControlloQualitaScheda,
-            firma: vistaFirma
+            firma: vistaFirma,
+            strumenti: vistaStrumenti
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -4130,7 +4138,9 @@
        degli altri: ridisegnarla serviva solo a ricaricare il modulo dai dati salvati,
        cancellando quanto scritto e non ancora salvato appena il cursore usciva da un
        campo (bastava che un collega facesse qualunque cosa nell'area riservata). */
-    const VISTE_SENZA_RIDISEGNO = ['wizard', 'ratingScheda', 'firma'];
+    /* Strumenti di revisione: dati fissi, non condivisi; ridisegnarla chiudeva le
+       schede e i testi aperti ogni volta che un collega salvava qualcosa. */
+    const VISTE_SENZA_RIDISEGNO = ['wizard', 'ratingScheda', 'firma', 'strumenti'];
     function ridisegnaDaSync() {
         if (!Auth.utenteCorrente || VISTE_SENZA_RIDISEGNO.includes(vistaCorrente)) return;
         if (staModificando()) {
@@ -37104,6 +37114,390 @@
             if (n && !nomi.includes(n)) nomi.push(n);
         });
         return elencoIt(nomi);
+    }
+
+    /* =========================================================
+       STRUMENTI DI REVISIONE
+       Il piano di revisione dell'anno, come nel foglio "PIANO REVISIONE
+       2024-2025-2026", con la carta di lavoro di ogni attivita': i passaggi
+       della checklist e, accanto a ogni passaggio, i documenti da scaricare
+       (email tipo, lettere, verbali, attestazioni, fogli di lavoro).
+       I dati stanno in strumenti-revisione.js, i file in
+       strumenti-revisione/allegati/, il testo dei documenti Word brevi in
+       strumenti-revisione/testi.json (si scarica al primo "Leggi").
+       La vede chiunque lavori nell'area, come la firma email: sono strumenti
+       per i team di revisione, non dati dello studio, e non c'e' niente da
+       modificare. Fuori solo gli invitati "solo sondaggio".
+    ========================================================= */
+    /* In prova: la sezione compare solo a questi indirizzi di accesso (la persona
+       che entra davvero, non l'utente per cui lavora un collaboratore). Per
+       aprirla a tutti basta lasciare l'elenco vuoto: []. */
+    const SR_ANTEPRIMA = [PROPRIETARIO];
+    /* I dati (piano, carte, elenco dei documenti) si scaricano solo quando si apre
+       la sezione: chi non la vede non li carica. Va cambiata a ogni modifica di
+       strumenti-revisione.js, come la "v=" degli script in index.html. */
+    const SR_DATI_VERSIONE = '20261121a';
+    const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
+    const SR_LINK = { modulo: 'Modulo Google', drive: 'Google Drive', web: 'Sito esterno' };
+    const SR_LINK_BREVE = { modulo: 'Modulo', drive: 'Drive', web: 'Web' };
+    let _srTesti = null;            // promessa del file dei testi, caricato al primo "Leggi"
+    const _srAperte = new Set();    // schede aperte: tornando nella sezione si ritrovano come le si era lasciate
+    const _srFiltri = { fase: '', stato: '', q: '' };
+
+    function srDati() { return window.RV_STRUMENTI_REVISIONE || null; }
+    let _srCaricamento = null;
+    function srCaricaDati() {
+        if (srDati()) return Promise.resolve(srDati());
+        if (!_srCaricamento) {
+            _srCaricamento = new Promise((ok, ko) => {
+                const s = document.createElement('script');
+                s.src = 'strumenti-revisione.js?v=' + SR_DATI_VERSIONE;
+                s.onload = () => srDati() ? ok(srDati()) : ko(new Error('dati assenti'));
+                s.onerror = () => ko(new Error('file non raggiungibile'));
+                document.head.appendChild(s);
+            }).catch(e => { _srCaricamento = null; throw e; });
+        }
+        return _srCaricamento;
+    }
+    function srTesti() {
+        if (!_srTesti) {
+            const d = srDati();
+            _srTesti = fetch('strumenti-revisione/testi.json?v=' + encodeURIComponent((d && d.aggiornato) || ''))
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .catch(e => { _srTesti = null; throw e; });
+        }
+        return _srTesti;
+    }
+    // a che punto e' un'attivita' rispetto a oggi
+    function srStato(inizio, fine) {
+        const oggi = oggiISO();
+        if (fine && fine < oggi) return { id: 'conclusa', nome: 'Conclusa', classe: 'grigio' };
+        if (inizio && inizio <= oggi) return { id: 'corso', nome: 'In corso', classe: 'verde' };
+        return { id: 'iniziare', nome: 'Da iniziare', classe: 'neutro' };
+    }
+    function srPeso(kb) {
+        if (!kb) return '';
+        return kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' MB' : kb + ' KB';
+    }
+    /* Una scheda per carta di lavoro, nell'ordine del piano. Le quattro verifiche
+       trimestrali usano la stessa carta: una scheda sola con i quattro periodi,
+       invece della stessa checklist ripetuta quattro volte. */
+    function srSchede(d) {
+        const out = [], perChiave = {};
+        d.piano.forEach((r, i) => {
+            const chiave = r.carta || ('senza-carta-' + i);
+            if (perChiave[chiave]) { perChiave[chiave].righe.push(r); return; }
+            const s = { id: 'sr-' + chiave, chiave, carta: r.carta ? d.carte[r.carta] || null : null, righe: [r] };
+            perChiave[chiave] = s;
+            out.push(s);
+        });
+        return out;
+    }
+    function srTitoloScheda(s) {
+        if (s.chiave === 'trimestrali' && s.righe.length > 1) return 'Verifiche trimestrali (dal 1° al 4° trimestre)';
+        return s.righe.map(r => r.attivita).join(' · ');
+    }
+    /* I documenti di una carta, contati come li vede chi la usa: una cartella vale
+       i suoi file, e un documento citato in due passaggi (i solleciti a 120 e a 180
+       giorni) conta una volta sola. */
+    function srDocumentiCarta(c) {
+        const visti = new Set();
+        const metti = x => { if (x.c) x.c.forEach(a => visti.add('a:' + a)); else visti.add(x.a ? 'a:' + x.a : 'l:' + x.l); };
+        (c.inEvidenza || []).forEach(metti);
+        c.blocchi.forEach(b => b.passi.forEach(p => (p.doc || []).forEach(metti)));
+        return Array.from(visti);
+    }
+    function srAllegatoHtml(d, chiave) {
+        const a = d.allegati[chiave];
+        if (!a) return '';
+        const pdf = a.tipo === 'pdf';
+        const meta = [SR_TIPI[a.tipo] || String(a.tipo || '').toUpperCase(), srPeso(a.kb)].filter(Boolean).join(' · ');
+        const apri = pdf ? ' target="_blank" rel="noopener"' : ' download';
+        return '<li class="sr-doc" data-a="' + esc(chiave) + '">'
+            + '<span class="sr-doc-tipo t-' + esc(a.tipo) + '">' + esc(String(a.tipo || '').toUpperCase()) + '</span>'
+            + '<span class="sr-doc-nome"><a href="' + esc(a.file) + '"' + apri + '>' + esc(a.nome) + '</a>'
+            + '<span class="sr-doc-meta">' + esc(meta) + '</span></span>'
+            + '<span class="sr-doc-azioni">'
+            + (a.testo ? '<button type="button" class="btn btn-sm btn-secondary sr-leggi" aria-expanded="false">Leggi</button>' : '')
+            + (pdf ? '<a class="btn btn-sm btn-secondary" href="' + esc(a.file) + '" target="_blank" rel="noopener">Apri</a>' : '')
+            + '<a class="btn btn-sm btn-secondary" href="' + esc(a.file) + '" download>Scarica</a>'
+            + (a.drive ? '<a class="btn btn-sm btn-ghost" href="' + esc(a.drive) + '" target="_blank" rel="noopener" title="L\'originale su Google Drive' + (a.titoloDrive ? ' («' + esc(a.titoloDrive) + '»)' : '') + ': si apre con l\'account Google abilitato">Drive</a>' : '')
+            + '</span></li>';
+    }
+    function srDocHtml(d, x) {
+        if (x.a) return srAllegatoHtml(d, x.a);
+        if (x.c) {
+            return '<li class="sr-doc sr-cartella"><div class="sr-cartella-tit"><strong>' + esc(x.et) + '</strong>'
+                + '<span class="sr-doc-meta">' + x.c.length + ' documenti'
+                + (x.drive ? ' · <a href="' + esc(x.drive) + '" target="_blank" rel="noopener">cartella su Drive</a>' : '') + '</span></div>'
+                + '<ul class="sr-docs">' + x.c.map(a => srAllegatoHtml(d, a)).join('') + '</ul></li>';
+        }
+        if (x.l) {
+            return '<li class="sr-doc sr-link">'
+                + '<span class="sr-doc-tipo t-' + esc(x.tipo) + '">' + esc(SR_LINK_BREVE[x.tipo] || 'Link') + '</span>'
+                + '<span class="sr-doc-nome"><a href="' + esc(x.l) + '" target="_blank" rel="noopener">' + esc(x.et) + '</a>'
+                + '<span class="sr-doc-meta">' + esc(SR_LINK[x.tipo] || 'Collegamento') + ', si apre in una nuova scheda</span></span></li>';
+        }
+        return '';
+    }
+    function srPassiHtml(d, passi) {
+        return '<ol class="sr-passi">' + passi.map(p => '<li class="sr-passo">'
+            + '<span class="sr-n">' + esc(p.n) + '</span>'
+            + '<div class="sr-passo-corpo"><div class="sr-passo-testo">' + esc(p.testo) + '</div>'
+            + (p.nota ? '<div class="sr-nota">' + esc(p.nota) + '</div>' : '')
+            + (p.doc && p.doc.length ? '<ul class="sr-docs">' + p.doc.map(x => srDocHtml(d, x)).join('') + '</ul>' : '')
+            + '</div></li>').join('') + '</ol>';
+    }
+    function srCorpoHtml(d, s) {
+        const c = s.carta;
+        if (!c) {
+            return '<p class="descrizione">Nel piano di revisione non c\'è una carta di lavoro collegata a questa attività.</p>'
+                + '<p class="hint">Le indicazioni su import del bilancio, materialità e carte di lavoro «Pianificazione» e «Controllo» stanno nella carta della '
+                + '<button type="button" class="btn btn-sm btn-ghost sr-vai" data-vai="sr-qualita">Richiesta controllo di qualità</button></p>';
+        }
+        const vecchia = c.annoCarta !== d.anno && !s.righe.some(r => r.linkAnno2026);
+        return '<p class="sr-fonte">Carta di lavoro: <a href="' + esc(c.drive) + '" target="_blank" rel="noopener">' + esc(c.titolo) + '</a>'
+            + (vecchia ? ' <span class="badge ambra">carta ' + esc(c.annoCarta) + '</span>' : '') + '</p>'
+            + (vecchia ? '<p class="hint">Nel piano la riga ' + esc(d.anno) + ' di questa attività non ha ancora un collegamento: qui c\'è la carta di lavoro ' + esc(c.annoCarta) + ' della stessa attività.</p>' : '')
+            + (c.note || []).map(n => '<div class="sr-avviso">' + esc(n) + '</div>').join('')
+            + (c.inEvidenza ? '<ul class="sr-docs sr-evidenza">' + c.inEvidenza.map(x => srDocHtml(d, x)).join('') + '</ul>' : '')
+            + c.blocchi.map(b => (b.titolo ? '<h3 class="sr-blocco">' + esc(b.titolo) + '</h3>' : '') + srPassiHtml(d, b.passi)).join('')
+            + (c.doveAllegare ? '<h3 class="sr-blocco">Dove inserire gli allegati nelle carte di lavoro</h3>'
+                + '<div class="sr-dove">' + c.doveAllegare.map(x => '<div class="sr-dove-riga"><span>' + esc(x.cosa) + '</span><span class="sr-dove-carta">' + esc(x.carta) + '</span></div>').join('') + '</div>' : '')
+            + (c.noteFinali || []).map(n => '<div class="sr-avviso">' + esc(n) + '</div>').join('');
+    }
+    function srSchedaHtml(d, s) {
+        const r0 = s.righe[0];
+        const periodi = s.righe.map(r => {
+            const st = srStato(r.inizio, r.fine);
+            return '<span class="sr-periodo">' + (s.righe.length > 1 ? esc(r.attivita) + ': ' : '')
+                + esc(fmtData(r.inizio)) + ' - ' + esc(fmtData(r.fine))
+                + ' <span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></span>';
+        }).join('');
+        const c = s.carta;
+        const nPassi = c ? c.blocchi.reduce((t, b) => t + b.passi.length, 0) : 0;
+        const nDoc = c ? srDocumentiCarta(c).length : 0;
+        const conta = c ? (nPassi + (nPassi === 1 ? ' passaggio' : ' passaggi') + ' · ' + nDoc + (nDoc === 1 ? ' documento' : ' documenti')) : 'Nessuna carta di lavoro';
+        return '<section class="card sr-scheda" id="' + esc(s.id) + '">'
+            + '<h2 class="sr-h"><button type="button" class="sr-testa" aria-expanded="false" aria-controls="' + esc(s.id) + '-corpo">'
+            + '<span class="sr-testa-riga"><span class="badge sr-fase f-' + esc(r0.fase) + '">' + esc(d.fasi[r0.fase] || r0.fase) + '</span>'
+            + '<span class="sr-conta">' + esc(conta) + '</span></span>'
+            + '<span class="sr-titolo">' + esc(srTitoloScheda(s)) + '</span>'
+            + '<span class="sr-periodi">' + periodi + '</span>'
+            + '<svg class="sr-freccia" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+            + '</button></h2>'
+            + '<div class="sr-corpo" id="' + esc(s.id) + '-corpo" hidden>' + srCorpoHtml(d, s) + '</div></section>';
+    }
+    // il testo su cui si cerca: attivita', titoli, passaggi, note e nomi dei documenti
+    function srTestoRicerca(d, s) {
+        const parti = s.righe.map(r => r.attivita);
+        const c = s.carta;
+        if (c) {
+            parti.push(c.titolo, ...(c.note || []), ...(c.noteFinali || []));
+            c.blocchi.forEach(b => {
+                parti.push(b.titolo);
+                b.passi.forEach(p => {
+                    parti.push(p.testo, p.nota || '');
+                    (p.doc || []).forEach(x => {
+                        parti.push(x.et || '');
+                        (x.c || (x.a ? [x.a] : [])).forEach(a => { const al = d.allegati[a]; if (al) parti.push(al.nome, al.titoloDrive || ''); });
+                    });
+                });
+            });
+            (c.inEvidenza || []).forEach(x => { const al = x.a && d.allegati[x.a]; if (al) parti.push(al.nome); });
+            (c.doveAllegare || []).forEach(x => parti.push(x.cosa, x.carta));
+        }
+        return parti.join(' ').toLowerCase();
+    }
+
+    function vistaStrumenti() {
+        const d = srDati();
+        if (!d) {
+            const messaggio = testo => {
+                $vista().innerHTML = '<header><div><h1>Strumenti di revisione</h1></div></header>'
+                    + '<div class="card"><p class="descrizione">' + esc(testo) + '</p></div>';
+            };
+            messaggio('Caricamento delle carte di lavoro...');
+            srCaricaDati()
+                .then(() => { if (vistaCorrente === 'strumenti') vistaStrumenti(); })
+                .catch(() => { if (vistaCorrente === 'strumenti') messaggio('I dati degli strumenti di revisione non si sono caricati. Controlla la connessione e riapri la sezione; se il problema resta, avvisa l\'amministratore.'); });
+            return;
+        }
+        const schede = srSchede(d);
+        const schedaDi = {};
+        schede.forEach(s => s.righe.forEach(r => { schedaDi[d.piano.indexOf(r)] = s; }));
+        const nDoc = Object.keys(d.allegati).length;
+        const opz = (v, t, sel) => '<option value="' + esc(v) + '"' + (sel === v ? ' selected' : '') + '>' + esc(t) + '</option>';
+
+        const righe = d.piano.map((r, i) => {
+            const s = schedaDi[i], st = srStato(r.inizio, r.fine);
+            const c = s && s.carta;
+            const vecchia = c && c.annoCarta !== d.anno && !r.linkAnno2026;
+            return '<tr data-i="' + i + '" data-scheda="' + esc(s.id) + '">'
+                + '<td data-label="Fase"><span class="badge sr-fase f-' + esc(r.fase) + '">' + esc(d.fasi[r.fase] || r.fase) + '</span></td>'
+                + '<td data-label="Attività"><strong>' + esc(r.attivita) + '</strong></td>'
+                + '<td data-label="Inizio">' + esc(fmtData(r.inizio)) + '</td>'
+                + '<td data-label="Fine">' + esc(fmtData(r.fine)) + '</td>'
+                + '<td data-label="Stato"><span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></td>'
+                + '<td data-label="Carta di lavoro">'
+                + (c ? '<button type="button" class="btn btn-sm btn-secondary sr-vai" data-vai="' + esc(s.id) + '">Apri la carta</button>'
+                    + (vecchia ? ' <span class="badge ambra" title="Per il ' + esc(d.anno) + ' vale la carta ' + esc(c.annoCarta) + ' della stessa attività">carta ' + esc(c.annoCarta) + '</span>' : '')
+                    : '<span class="hint">Nessuna carta collegata</span>')
+                + '</td></tr>';
+        }).join('');
+
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Strumenti di revisione</h1>
+                    <p class="descrizione">Il piano di revisione ${esc(d.anno)} con le carte di lavoro di ogni attività: i passaggi da seguire e, accanto a ciascuno, i documenti da usare (email tipo, lettere, verbali, attestazioni, fogli di lavoro). Ogni documento si legge qui, si apre o si scarica.</p>
+                </div>
+            </header>
+            <div class="card" id="sr-generali">
+                <h2>Strumenti generali</h2>
+                <ul class="sr-docs">${d.strumenti.map(x => srDocHtml(d, x)).join('')}</ul>
+                <p class="hint">I ${nDoc} documenti delle carte di lavoro sono copie salvate il ${esc(fmtData(d.aggiornato))} dal Drive del piano di revisione: «Scarica» porta la copia, «Drive» apre l'originale, che si vede con l'account Google abilitato. I fogli con i nomi dei clienti (responsabili qualità, invii e risposte delle circolarizzazioni) restano solo su Drive.</p>
+            </div>
+            <div class="card" id="sr-piano">
+                <h2>Piano di revisione ${esc(d.anno)}</h2>
+                <p class="hint">Le attività del foglio «${esc(d.fonte.titolo)}» con anno ${esc(d.anno)}, nello stesso ordine. Lo stato si calcola sulle date di oggi.</p>
+                <div class="filtri">
+                    <div class="campo ricerca"><label for="sr-cerca">Ricerca</label><input type="search" id="sr-cerca" placeholder="Attività, passaggio o documento..." value="${esc(_srFiltri.q)}"></div>
+                    <div class="campo"><label for="sr-fase">Fase</label><select id="sr-fase">${opz('', 'Tutte', _srFiltri.fase)}${Object.keys(d.fasi).map(k => opz(k, d.fasi[k], _srFiltri.fase)).join('')}</select></div>
+                    <div class="campo"><label for="sr-stato">Stato</label><select id="sr-stato">${opz('', 'Tutti', _srFiltri.stato)}${opz('corso', 'In corso', _srFiltri.stato)}${opz('iniziare', 'Da iniziare', _srFiltri.stato)}${opz('conclusa', 'Concluse', _srFiltri.stato)}</select></div>
+                </div>
+                <div class="tabella-wrap"><table class="dati sr-tab">
+                    <thead><tr><th>Fase</th><th>Attività</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Carta di lavoro</th></tr></thead>
+                    <tbody>${righe}</tbody>
+                </table></div>
+                <p class="hint" id="sr-vuoto" hidden>Nessuna attività corrisponde ai filtri.</p>
+            </div>
+            <div class="sr-elenco">
+                <div class="sr-elenco-testa">
+                    <h2 class="sr-elenco-tit">Carte di lavoro per attività</h2>
+                    <div class="header-azioni">
+                        <button type="button" class="btn btn-sm btn-secondary" id="sr-apri-tutte">Apri tutte</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="sr-chiudi-tutte">Chiudi tutte</button>
+                    </div>
+                </div>
+                ${schede.map(s => srSchedaHtml(d, s)).join('')}
+            </div>`;
+
+        const vista = $vista();
+        const testoDi = {};
+        schede.forEach(s => { testoDi[s.id] = srTestoRicerca(d, s); });
+        const elSchede = Array.from(vista.querySelectorAll('.sr-scheda'));
+        const imposta = (el, aperta) => {
+            const b = el.querySelector('.sr-testa'), corpo = el.querySelector('.sr-corpo');
+            el.classList.toggle('aperta', aperta);
+            if (b) b.setAttribute('aria-expanded', aperta ? 'true' : 'false');
+            if (corpo) corpo.hidden = !aperta;
+        };
+        /* Si filtrano insieme la tabella e le schede. Con una ricerca di almeno tre
+           lettere le schede che corrispondono si aprono da sole, cosi' si vede
+           dove sta il passaggio cercato; tolta la ricerca tornano come le si era
+           lasciate. */
+        const applica = () => {
+            const q = _srFiltri.q.trim().toLowerCase();
+            let visibili = 0;
+            vista.querySelectorAll('.sr-tab tbody tr').forEach(tr => {
+                const r = d.piano[Number(tr.dataset.i)];
+                const st = srStato(r.inizio, r.fine).id;
+                const ok = (!_srFiltri.fase || r.fase === _srFiltri.fase) && (!_srFiltri.stato || st === _srFiltri.stato)
+                    && (!q || r.attivita.toLowerCase().includes(q) || (testoDi[tr.dataset.scheda] || '').includes(q));
+                tr.hidden = !ok;
+                if (ok) visibili++;
+            });
+            const vuoto = document.getElementById('sr-vuoto');
+            if (vuoto) vuoto.hidden = visibili > 0;
+            elSchede.forEach(el => {
+                const s = schede.find(x => x.id === el.id);
+                const ok = s.righe.some(r => (!_srFiltri.fase || r.fase === _srFiltri.fase) && (!_srFiltri.stato || srStato(r.inizio, r.fine).id === _srFiltri.stato))
+                    && (!q || testoDi[s.id].includes(q));
+                el.hidden = !ok;
+                imposta(el, _srAperte.has(el.id) || (ok && q.length >= 3));
+            });
+        };
+        const cerca = document.getElementById('sr-cerca');
+        cerca.addEventListener('input', () => { _srFiltri.q = cerca.value; applica(); });
+        ['fase', 'stato'].forEach(k => {
+            const el = document.getElementById('sr-' + k);
+            el.addEventListener('change', () => { _srFiltri[k] = el.value; applica(); });
+        });
+        document.getElementById('sr-apri-tutte').addEventListener('click', () => {
+            elSchede.forEach(el => { if (!el.hidden) { _srAperte.add(el.id); imposta(el, true); } });
+        });
+        document.getElementById('sr-chiudi-tutte').addEventListener('click', () => {
+            _srAperte.clear();
+            elSchede.forEach(el => imposta(el, false));
+        });
+
+        /* Il clic si ascolta sui riquadri appena disegnati, non su #vista: quello
+           resta lo stesso fra una sezione e l'altra e a ogni ritorno qui si
+           sommerebbe un ascoltatore in piu' (due clic = scheda aperta e richiusa). */
+        const clic = ev => {
+            const testa = ev.target.closest('.sr-testa');
+            if (testa) {
+                const el = testa.closest('.sr-scheda');
+                const aperta = !el.classList.contains('aperta');
+                if (aperta) _srAperte.add(el.id); else _srAperte.delete(el.id);
+                imposta(el, aperta);
+                return;
+            }
+            const vai = ev.target.closest('.sr-vai');
+            if (vai) {
+                const el = document.getElementById(vai.dataset.vai);
+                if (!el) return;
+                el.hidden = false;
+                _srAperte.add(el.id);
+                imposta(el, true);
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const b = el.querySelector('.sr-testa');
+                if (b) b.focus({ preventScroll: true });
+                return;
+            }
+            const leggi = ev.target.closest('.sr-leggi');
+            if (leggi) { srMostraTesto(leggi); return; }
+            const copia = ev.target.closest('.sr-copia');
+            if (copia) {
+                const corpo = copia.closest('.sr-testo').querySelector('.sr-testo-corpo');
+                if (corpo) copiaNegliAppunti(corpo.textContent, 'Testo copiato: incollalo nella tua email o nel documento.');
+            }
+        };
+        ['#sr-generali', '#sr-piano', '.sr-elenco'].forEach(sel => { const el = vista.querySelector(sel); if (el) el.addEventListener('click', clic); });
+        applica();
+    }
+    /* "Leggi": il testo del documento Word sotto la sua riga, con il pulsante per
+       copiarlo (le email tipo si incollano cosi' nel programma di posta). Il file
+       dei testi si scarica una volta sola, al primo documento aperto. */
+    function srMostraTesto(btn) {
+        const li = btn.closest('.sr-doc');
+        if (!li) return;
+        let box = li.querySelector(':scope > .sr-testo');
+        if (box) {
+            box.hidden = !box.hidden;
+            btn.setAttribute('aria-expanded', box.hidden ? 'false' : 'true');
+            btn.textContent = box.hidden ? 'Leggi' : 'Chiudi';
+            return;
+        }
+        box = document.createElement('div');
+        box.className = 'sr-testo';
+        box.innerHTML = '<div class="sr-testo-corpo">Caricamento del testo...</div>';
+        li.appendChild(box);
+        btn.setAttribute('aria-expanded', 'true');
+        btn.textContent = 'Chiudi';
+        srTesti().then(testi => {
+            const t = testi[li.dataset.a];
+            if (!t) { box.querySelector('.sr-testo-corpo').textContent = 'Il testo di questo documento non è disponibile: usa «Scarica».'; return; }
+            box.innerHTML = '<div class="sr-testo-barra"><span>Testo del documento (la formattazione completa è nel file)</span>'
+                + '<button type="button" class="btn btn-sm btn-secondary sr-copia">Copia il testo</button></div>'
+                + '<div class="sr-testo-corpo">' + esc(t) + '</div>';
+        }).catch(() => {
+            box.remove();
+            btn.setAttribute('aria-expanded', 'false');
+            btn.textContent = 'Leggi';
+            toast('Testo non caricato: controlla la connessione e riprova.', 'rosso');
+        });
     }
 
     /* =========================================================
