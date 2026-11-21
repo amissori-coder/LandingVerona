@@ -37136,7 +37136,7 @@
     /* I dati (piano, carte, elenco dei documenti) si scaricano solo quando si apre
        la sezione: chi non la vede non li carica. Va cambiata a ogni modifica di
        strumenti-revisione.js, come la "v=" degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261121a';
+    const SR_DATI_VERSIONE = '20261121b';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', drive: 'Google Drive', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', drive: 'Drive', web: 'Web' };
@@ -37326,7 +37326,6 @@
         const schede = srSchede(d);
         const schedaDi = {};
         schede.forEach(s => s.righe.forEach(r => { schedaDi[d.piano.indexOf(r)] = s; }));
-        const nDoc = Object.keys(d.allegati).length;
         const opz = (v, t, sel) => '<option value="' + esc(v) + '"' + (sel === v ? ' selected' : '') + '>' + esc(t) + '</option>';
 
         const righe = d.piano.map((r, i) => {
@@ -37353,11 +37352,6 @@
                     <p class="descrizione">Il piano di revisione ${esc(d.anno)} con le carte di lavoro di ogni attività: i passaggi da seguire e, accanto a ciascuno, i documenti da usare (email tipo, lettere, verbali, attestazioni, fogli di lavoro). Ogni documento si legge qui, si apre o si scarica.</p>
                 </div>
             </header>
-            <div class="card" id="sr-generali">
-                <h2>Strumenti generali</h2>
-                <ul class="sr-docs">${d.strumenti.map(x => srDocHtml(d, x)).join('')}</ul>
-                <p class="hint">I ${nDoc} documenti delle carte di lavoro sono copie salvate il ${esc(fmtData(d.aggiornato))} dal Drive del piano di revisione: «Scarica» porta la copia, «Drive» apre l'originale, che si vede con l'account Google abilitato. I fogli con i nomi dei clienti (responsabili qualità, invii e risposte delle circolarizzazioni) restano solo su Drive.</p>
-            </div>
             <div class="card" id="sr-piano">
                 <h2>Piano di revisione ${esc(d.anno)}</h2>
                 <p class="hint">Le attività del foglio «${esc(d.fonte.titolo)}» con anno ${esc(d.anno)}, nello stesso ordine. Lo stato si calcola sulle date di oggi.</p>
@@ -37464,7 +37458,7 @@
                 if (corpo) copiaNegliAppunti(corpo.textContent, 'Testo copiato: incollalo nella tua email o nel documento.');
             }
         };
-        ['#sr-generali', '#sr-piano', '.sr-elenco'].forEach(sel => { const el = vista.querySelector(sel); if (el) el.addEventListener('click', clic); });
+        ['#sr-piano', '.sr-elenco'].forEach(sel => { const el = vista.querySelector(sel); if (el) el.addEventListener('click', clic); });
         applica();
     }
     /* "Leggi": il testo del documento Word sotto la sua riga, con il pulsante per

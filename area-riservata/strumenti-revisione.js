@@ -1944,23 +1944,6 @@ window.RV_STRUMENTI_REVISIONE = {
    ]
   }
  },
- "strumenti": [
-  {
-   "l": "https://docs.google.com/spreadsheets/d/1UevDcfT96BJ2yhOTiX0pZm6SGXTQ_KHxBqy2maLKkl4/edit?usp=sharing",
-   "et": "Piano revisione 2024-2025-2026 (foglio originale)",
-   "tipo": "drive"
-  },
-  {
-   "l": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8L5tuJBURkJ2dx9LpPnRQnIZEhtbHWMXGAp9_1Q_Yh_ErN_l2Tf3rNFpU3zR40HSEsyt6-zkfGphO/pubhtml?gid=1736961394&single=true",
-   "et": "Timeline del piano di revisione",
-   "tipo": "drive"
-  },
-  {
-   "l": "https://docs.google.com/spreadsheets/d/17ywCgLGfJooPHhVTmTEOP39RnpMaTeebSugWYQ11b1A/edit?usp=sharing",
-   "et": "Responsabile qualità di ogni cliente",
-   "tipo": "drive"
-  }
- ],
  "allegati": {
   "lettera-di-incarico-revisione-legale": {
    "nome": "Lettera di incarico (revisione legale)",

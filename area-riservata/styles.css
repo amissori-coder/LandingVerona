@@ -4170,7 +4170,6 @@ td.cene-az { white-space: nowrap; }
 .sr-elenco-testa { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin: 26px 0 12px; }
 .sr-elenco-tit { font-size: 1.1rem; color: var(--blu-900); margin: 0; }
 .sr-scheda { padding: 0; overflow: hidden; scroll-margin-top: 16px; }
-#sr-generali .hint { margin-top: 12px; }
 .card h2.sr-h { margin: 0; font-size: inherit; }
 .sr-testa {
     display: grid; grid-template-columns: 1fr auto;
