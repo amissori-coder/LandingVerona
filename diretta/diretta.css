@@ -585,6 +585,75 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .aiuto:empty { display: none; }
 .aiuto a { font-weight: 600; }
 
+/* ====================== DOMANDE AL RELATORE ======================
+   Un riquadro solo, che diretta.js sposta nel posto della vista aperta:
+   sotto le carte nell'attesa, subito sotto il video nella diretta, sotto
+   la carta della pausa. */
+.posto-domande {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 calc(16px + var(--sicuro-destra)) 40px calc(16px + var(--sicuro-sinistra));
+}
+#vista-attesa .posto-domande { margin-top: -18px; }
+#vista-diretta .posto-domande { padding-top: 26px; padding-bottom: 0; }
+#vista-diretta .posto-domande + .griglia-carte { padding-top: 22px; }
+.vista-centrata .posto-domande { max-width: 640px; padding: 22px 0 0; }
+.carta-domande { border-top: 4px solid var(--accento); padding: 24px 26px 26px; }
+.domande-testa { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.icona-domande {
+    flex: none;
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    background: #E8F1FA;
+    color: var(--blu);
+    display: flex; align-items: center; justify-content: center;
+}
+.icona-domande .icona { width: 26px; height: 26px; }
+.carta-domande h3 { margin-bottom: 4px; font-size: 18.5px; }
+.domande-nota { font-size: 14.5px; line-height: 1.5; color: var(--tenue); }
+.modulo-domanda { display: grid; gap: 10px; }
+.modulo-domanda textarea {
+    width: 100%;
+    min-height: 104px;
+    resize: vertical;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--testo);
+    background: #fff;
+    border: 1.5px solid #CBD5E1;
+    border-radius: var(--raggio-piccolo);
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.modulo-domanda textarea::placeholder { color: #94A3B8; }
+.modulo-domanda textarea:focus { border-color: var(--accento); box-shadow: 0 0 0 4px rgba(42, 90, 133, .18); outline: none; }
+.modulo-domanda textarea[disabled] { background: var(--chiaro); color: var(--tenue); cursor: not-allowed; }
+.domande-riga { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 14px; }
+.conta-domanda { font-size: 13.5px; color: var(--tenue); font-variant-numeric: tabular-nums; }
+.conta-domanda[data-troppo] { color: #8A0A20; font-weight: 700; }
+.btn-invia-domanda { min-width: 13.5em; }
+.esito-domanda { margin-top: 12px; font-size: 15px; line-height: 1.5; border-radius: var(--raggio-piccolo); }
+.esito-domanda:empty { display: none; }
+.esito-domanda[data-tipo="ok"] { background: #E7F5EE; color: #14532D; padding: 10px 14px; border-left: 3px solid var(--verde); }
+.esito-domanda[data-tipo="errore"] { background: var(--rosso-chiaro); color: #8A0A20; padding: 10px 14px; border-left: 3px solid var(--rosso); }
+.esito-domanda[data-tipo="info"] { background: #E8F1FA; color: var(--scuro); padding: 10px 14px; border-left: 3px solid var(--accento); }
+.blocco-mie { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--bordo); }
+.blocco-mie h4 { margin: 0 0 10px; font-family: var(--font-titoli); font-size: 15px; font-weight: 800; color: var(--scuro); }
+.elenco-mie { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mia-domanda { padding: 11px 14px; border-radius: 10px; background: var(--chiaro); border: 1px solid var(--bordo); }
+.mia-domanda[data-risposta="1"] { background: #F0F8F3; border-color: #CDE7D8; }
+.mia-testo { white-space: pre-line; overflow-wrap: anywhere; color: var(--testo); }
+.mia-stato { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13.5px; color: var(--tenue); }
+.mia-risposta { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: #14532D; }
+.mia-risposta::before {
+    content: "";
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--verde) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center / 11px no-repeat;
+}
+
 /* ====================== DIRETTA ====================== */
 .fascia-video {
     background: linear-gradient(180deg, #071726 0%, #0A2844 100%);
@@ -1256,6 +1325,15 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     .dettagli-evento li { flex-direction: column; gap: 4px; text-align: center; }
 
     .griglia-carte { padding: 18px 12px 30px; gap: 16px; }
+    .posto-domande { padding: 0 12px 30px; }
+    #vista-attesa .posto-domande { margin-top: -14px; }
+    #vista-diretta .posto-domande { padding: 16px 12px 0; }
+    .vista-centrata .posto-domande { padding: 16px 0 0; }
+    .carta-domande { padding: 20px 16px 22px; }
+    .modulo-domanda textarea { font-size: 18px; }
+    .btn-invia-domanda { width: 100%; min-width: 0; }
+    .domande-riga { flex-direction: column-reverse; align-items: stretch; }
+    .conta-domanda { text-align: right; }
 
     /* il video da bordo a bordo, come nelle app */
     .fascia-video { padding: 0; }

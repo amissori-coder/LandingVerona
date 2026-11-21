@@ -7,13 +7,13 @@
          file .js (lo impone la regola qui sotto). La regola dice al browser da
          dove puo' caricare codice, stili, font e dati: se un giorno un nome o
          un'azienda contenessero del codice, il browser si rifiuterebbe di
-         eseguirlo. Il video arriva solo dalla web TV Azoto: frame-src ammette
-         SOLO il suo player (https://cdn.azotosolutions.com), per l'anteprima
-         del player Azoto; media-src e connect-src aperti agli indirizzi https
+         eseguirlo. frame-src ammette SOLO i player da incorporare, per la loro
+         anteprima: YouTube (https://www.youtube-nocookie.com) e Azoto
+         (https://cdn.azotosolutions.com); media-src e connect-src aperti agli indirizzi https
          servono all'anteprima del flusso diretto (il flusso HLS/DASH letto
          dal player, la prova del link dal browser: il server del flusso di
          Azoto non si conosce ancora), worker-src blob: a hls.js. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <title>Gestione della diretta | Next Generation Business</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#0A2844">
@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20260927e">
+    <link rel="stylesheet" href="gestione.css?v=20261121a">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -168,8 +168,8 @@
                                 <legend>Tipo di player</legend>
                                 <label class="opzione">
                                     <input type="radio" name="ev-tipo-player" value="azoto" checked>
-                                    <span><strong>Player Azoto (iframe)</strong> <span class="predefinito">predefinito</span>
-                                        <span class="opzione-riga">Il player della web TV Azoto dentro la nostra pagina, con i comandi di Azoto. È quello da usare adesso.</span></span>
+                                    <span><strong>Player YouTube o Azoto (iframe)</strong> <span class="predefinito">predefinito</span>
+                                        <span class="opzione-riga">Il video di YouTube (o il player della web TV Azoto) dentro la nostra pagina, con i suoi comandi. È quello da usare adesso.</span></span>
                                 </label>
                                 <label class="opzione">
                                     <input type="radio" name="ev-tipo-player" value="flusso" aria-describedby="ev-tipo-flusso-nota">
@@ -183,22 +183,24 @@
 
                             <section id="blocco-azoto" class="campo-intero blocco-player" aria-labelledby="blocco-azoto-titolo">
                                 <div class="blocco-testa">
-                                    <h3 id="blocco-azoto-titolo">Player Azoto</h3>
+                                    <h3 id="blocco-azoto-titolo">Player YouTube o Azoto</h3>
                                     <span class="blocco-uso" data-uso="azoto"></span>
                                 </div>
                                 <div class="campo link-video">
-                                    <label for="ev-azoto">Codice o indirizzo del player Azoto</label>
+                                    <label for="ev-azoto">Link del video YouTube, oppure codice o indirizzo del player Azoto</label>
                                     <div class="link-riga link-riga-alta">
-                                        <textarea id="ev-azoto" name="azotoUrl" rows="3" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-azoto-aiuto ev-azoto-indirizzo" placeholder="&lt;iframe src='https://cdn.azotosolutions.com/cloudtv/…/player' …&gt;&lt;/iframe&gt;  oppure solo  https://cdn.azotosolutions.com/cloudtv/…/player"></textarea>
-                                        <button type="button" id="btn-prova-ev-azoto" class="btn btn-secondario btn-prova-link" aria-label="Prova il player Azoto">Prova il player</button>
+                                        <textarea id="ev-azoto" name="azotoUrl" rows="3" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-azoto-aiuto ev-azoto-indirizzo" placeholder="https://www.youtube.com/live/…  oppure  https://youtu.be/…  oppure il codice di Azoto &lt;iframe src='https://cdn.azotosolutions.com/cloudtv/…/player' …&gt;"></textarea>
+                                        <button type="button" id="btn-prova-ev-azoto" class="btn btn-secondario btn-prova-link" aria-label="Prova il player YouTube o Azoto">Prova il player</button>
                                     </div>
-                                    <p id="ev-azoto-aiuto" class="aiuto">Incolla il codice che vi ha dato Azoto (quello con &lt;iframe src='…'&gt;) oppure solo l'indirizzo del player.
-                                        Si salva SOLO l'indirizzo https di cdn.azotosolutions.com: il resto del codice (script, stili, altri tag) si scarta
-                                        e non entra mai nella pagina. L'indirizzo resta riservato: arriva solo a chi è entrato con la sua email e la password,
+                                    <p id="ev-azoto-aiuto" class="aiuto">Incolla il link del video o della diretta YouTube (va bene anche il codice «Incorpora»),
+                                        oppure il codice che vi ha dato Azoto (quello con &lt;iframe src='…'&gt;) o solo l'indirizzo del suo player.
+                                        Si salva SOLO l'indirizzo del player: per YouTube quello di youtube-nocookie.com ricostruito dal video, per Azoto
+                                        l'indirizzo https di cdn.azotosolutions.com; il resto (script, stili, altri tag, parametri) si scarta e non entra
+                                        mai nella pagina. Su YouTube la diretta va impostata «Non in elenco», con «Consenti incorporamento» attivo. L'indirizzo resta riservato: arriva solo a chi è entrato con la sua email e la password,
                                         mentre l'evento è in onda. Puoi lasciarlo vuoto e inserirlo più tardi, anche dalla scheda Regia.</p>
                                     <p id="ev-azoto-indirizzo" class="link-tipo indirizzo-azoto" role="status" hidden></p>
-                                    <p class="aiuto nota-azoto">Con il player Azoto restano i comandi (e l'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.</p>
-                                    <div id="ev-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player Azoto" hidden></div>
+                                    <p class="aiuto nota-azoto">Con il player incorporato (YouTube o Azoto) restano i suoi comandi e il suo logo: per usare i nostri comandi serve il link .m3u8 di un flusso diretto.</p>
+                                    <div id="ev-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player YouTube o Azoto" hidden></div>
                                     <div id="ev-azoto-anteprima" class="video-anteprima" hidden>
                                         <div class="video-anteprima-cornice"></div>
                                         <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
@@ -335,6 +337,21 @@
                                     È un deterrente contro la condivisione delle credenziali, non un blocco assoluto.</span>
                             </label>
                             <label class="opzione">
+                                <input type="checkbox" id="ev-domande" name="domande">
+                                <span><strong>Domande al relatore.</strong> Nella pagina della diretta compare il riquadro
+                                    «Fai una domanda al relatore». Le domande le leggono solo i relatori qui sotto (nella loro pagina)
+                                    e la regia (scheda Regia): gli altri partecipanti non le vedono mai.</span>
+                            </label>
+                            <div class="campo campo-relatori">
+                                <label for="ev-relatori">Relatori <span class="facoltativo">(email, una per riga; al massimo 10)</span></label>
+                                <textarea id="ev-relatori" name="relatori" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-relatori-aiuto" placeholder="relatore@studio.it"></textarea>
+                                <p id="ev-relatori-aiuto" class="aiuto">Ogni relatore entra in
+                                    <a href="/diretta/relatore/" target="_blank" rel="noopener">nextgenerationbusiness.it/diretta/relatore</a>
+                                    con la sua email: al primo accesso preme «Primo accesso o password dimenticata» e sceglie la password.
+                                    Vede tutte le domande e l'elenco dei partecipanti, e segna quelle a cui ha risposto.
+                                    Togliendo un'email qui, quella persona non entra più.</p>
+                            </div>
+                            <label class="opzione">
                                 <input type="checkbox" id="ev-promemoria-giorno" name="promemoriaGiorno">
                                 <span><strong>Promemoria il giorno prima.</strong> Email automatica con il link della diretta e l'email con cui entrare (mai la password).
                                     <span id="prom-dest-giorno" class="prom-destinatari"></span></span>
@@ -456,16 +473,38 @@
                             <button type="button" id="btn-aggiorna-connessi" class="btn btn-secondario btn-piccolo">Aggiorna adesso</button>
                         </div>
 
+                        <!-- le domande dei partecipanti al relatore: le stesse della pagina del
+                             relatore, con lo stesso segno «Risposta data». Si aggiornano da sole
+                             ogni 8 secondi mentre questa scheda e' aperta (azioni 'domande' e
+                             'domanda-segna' del servizio). -->
+                        <div class="riquadro regia-domande" id="regia-domande">
+                            <div class="regia-domande-testa">
+                                <h2>Domande al relatore</h2>
+                                <a id="link-pagina-relatore" class="btn btn-secondario btn-piccolo" href="/diretta/relatore/" target="_blank" rel="noopener">
+                                    Pagina del relatore
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7"/></svg>
+                                </a>
+                            </div>
+                            <p id="regia-domande-stato" class="regia-dettaglio" aria-live="polite"></p>
+                            <div class="filtri-domande" role="group" aria-label="Quali domande mostrare">
+                                <button type="button" class="filtro-domande" data-filtro="aperte" aria-pressed="true">Da rispondere <span id="regia-num-aperte" class="filtro-numero">0</span></button>
+                                <button type="button" class="filtro-domande" data-filtro="tutte" aria-pressed="false">Tutte <span id="regia-num-tutte" class="filtro-numero">0</span></button>
+                            </div>
+                            <ol id="regia-elenco-domande" class="regia-elenco-domande"></ol>
+                            <p id="regia-domande-vuoto" class="regia-domande-vuoto" hidden></p>
+                            <p id="regia-domande-aggiornato" class="aiuto"></p>
+                        </div>
+
                         <div class="riquadro regia-video-riquadro">
                             <h2>Video</h2>
                             <!-- quale player guardano tutti: la scelta della regia (eventi.tipoPlayer).
                                  Due pulsanti fissi, uno per modo: si vede quello che porta all'altro. -->
                             <p class="sorgente-riga">Player in uso per tutti:
-                                <span id="regia-tipo-player" class="bollino-sorgente bollino-tipo" data-tipo="azoto">Player Azoto</span></p>
+                                <span id="regia-tipo-player" class="bollino-sorgente bollino-tipo" data-tipo="azoto">Player YouTube o Azoto</span></p>
                             <p id="regia-video-pubblico" class="aiuto"></p>
                             <div class="sorgente-comandi tipo-comandi">
                                 <button type="button" id="btn-passa-flusso" class="btn btn-secondario" aria-describedby="regia-player-aiuto">Passa al flusso diretto per tutti</button>
-                                <button type="button" id="btn-passa-azoto" class="btn btn-secondario" aria-describedby="regia-player-aiuto" hidden>Torna al player Azoto per tutti</button>
+                                <button type="button" id="btn-passa-azoto" class="btn btn-secondario" aria-describedby="regia-player-aiuto" hidden>Torna al player YouTube o Azoto per tutti</button>
                             </div>
                             <p id="regia-player-aiuto" class="aiuto"></p>
                             <p id="msg-player" class="msg" role="status" hidden></p>
@@ -473,7 +512,7 @@
                             <!-- Le due parti si aprono da sole: quella del modo in uso aperta,
                                  l'altra chiusa (con il riassunto sempre in vista). -->
                             <details id="regia-blocco-azoto" class="blocco-regia" open>
-                                <summary><span class="blocco-regia-titolo">Player Azoto</span> <span class="blocco-uso" data-uso="azoto"></span>
+                                <summary><span class="blocco-regia-titolo">Player YouTube o Azoto</span> <span class="blocco-uso" data-uso="azoto"></span>
                                     <span id="regia-azoto-riassunto" class="blocco-regia-riassunto"></span></summary>
                                 <div class="blocco-regia-corpo">
                                     <dl class="link-salvati">
@@ -481,7 +520,7 @@
                                             <dt>Indirizzo del player</dt>
                                             <dd>
                                                 <span id="regia-azoto-attuale" class="testo-fisso">nessuno</span>
-                                                <button type="button" id="btn-guarda-azoto" class="btn btn-secondario btn-mini" aria-label="Guarda il player Azoto" hidden>Guarda</button>
+                                                <button type="button" id="btn-guarda-azoto" class="btn btn-secondario btn-mini" aria-label="Guarda il player YouTube o Azoto" hidden>Guarda</button>
                                             </dd>
                                         </div>
                                     </dl>
@@ -491,13 +530,13 @@
                                     </div>
                                     <form id="form-azoto" novalidate>
                                         <div class="campo link-video">
-                                            <label for="regia-azoto">Nuovo codice o indirizzo del player Azoto</label>
+                                            <label for="regia-azoto">Nuovo link YouTube, oppure codice o indirizzo del player Azoto</label>
                                             <div class="link-riga link-riga-alta">
-                                                <textarea id="regia-azoto" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-azoto-indirizzo" placeholder="&lt;iframe src='https://cdn.azotosolutions.com/cloudtv/…/player' …&gt;  oppure solo l'indirizzo"></textarea>
-                                                <button type="button" id="btn-prova-regia-azoto" class="btn btn-secondario btn-prova-link" aria-label="Prova il player Azoto">Prova il player</button>
+                                                <textarea id="regia-azoto" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="regia-azoto-indirizzo" placeholder="https://www.youtube.com/live/…  oppure il codice o l'indirizzo del player Azoto"></textarea>
+                                                <button type="button" id="btn-prova-regia-azoto" class="btn btn-secondario btn-prova-link" aria-label="Prova il player YouTube o Azoto">Prova il player</button>
                                             </div>
                                             <p id="regia-azoto-indirizzo" class="link-tipo indirizzo-azoto" role="status" hidden></p>
-                                            <div id="regia-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player Azoto" hidden></div>
+                                            <div id="regia-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player YouTube o Azoto" hidden></div>
                                             <div id="regia-azoto-anteprima" class="video-anteprima" hidden>
                                                 <div class="video-anteprima-cornice"></div>
                                                 <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
@@ -507,8 +546,8 @@
                                             <button type="submit" id="btn-cambia-azoto" class="btn btn-primario">Cambia il player</button>
                                         </div>
                                     </form>
-                                    <p class="aiuto">Si salva solo l'indirizzo https di cdn.azotosolutions.com, come nella scheda Evento. Prima di cambiarlo
-                                        lo provo; se la diretta è in onda con il player Azoto, chi è collegato passa al nuovo indirizzo da solo,
+                                    <p class="aiuto">Si salva solo l'indirizzo del player (YouTube o Azoto), come nella scheda Evento. Prima di cambiarlo
+                                        lo provo; se la diretta è in onda con questo player, chi è collegato passa al nuovo indirizzo da solo,
                                         senza ricaricare la pagina.</p>
                                     <p id="msg-azoto" class="msg" role="status" hidden></p>
                                 </div>
@@ -1394,9 +1433,9 @@
     <!-- le regole dei link della web TV (le stesse del player e del servizio)
          e gli stessi player della pagina dei partecipanti, per l'anteprima:
          player-webtv.js per il flusso diretto, player-azoto.js per il player Azoto -->
-    <script src="../sorgente-video.js?v=20260925a"></script>
+    <script src="../sorgente-video.js?v=20261121a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20260927e"></script>
+    <script src="gestione.js?v=20261121a"></script>
 </body>
 </html>

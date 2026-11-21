@@ -1,7 +1,7 @@
 /* ============================================================
    ANTEPRIMA - la web TV finta (https://webtv.esempio.it e ogni
    indirizzo *.esempio.it, piu' il player di Azoto:
-   https://cdn.azotosolutions.com)
+   https://cdn.azotosolutions.com, e l'oEmbed di YouTube)
    ------------------------------------------------------------
    Nell'anteprima nessuna richiesta esce in rete. Questa e' la web TV
    che risponde al posto di quella vera, per due usi:
@@ -31,6 +31,8 @@
 const HOST = /(^|\.)esempio\.it$/i;
 // il player di Azoto (lo stesso host di HOST_AZOTO in sorgente-video.js)
 const HOST_AZOTO = /^cdn\.azotosolutions\.com$/i;
+// YouTube, solo per oEmbed (la prova del player della gestione: un video c'e' e si puo' incorporare?)
+const HOST_YOUTUBE = /^www\.youtube\.com$/i;
 const DURATA_SEGMENTO = 4;
 const FINESTRA_S = 300;
 const QUALITA = [
@@ -42,7 +44,8 @@ const QUALITA = [
 function serve(indirizzo) {
     try {
         const u = new URL(String(indirizzo));
-        return u.protocol === 'https:' && (HOST.test(u.hostname) || HOST_AZOTO.test(u.hostname));
+        return u.protocol === 'https:' && (HOST.test(u.hostname) || HOST_AZOTO.test(u.hostname)
+            || (HOST_YOUTUBE.test(u.hostname) && u.pathname === '/oembed'));
     } catch (e) { return false; }
 }
 
@@ -88,6 +91,11 @@ async function fetchFinto(indirizzo, init) {
     const p = u.pathname.toLowerCase();
     if (/\/spenta\//.test(p)) return risposta('non trovato', 404, 'text/plain', metodo);
     const nome = p.slice(p.lastIndexOf('/') + 1);
+    // oEmbed di YouTube: ogni video della prova esiste e si puo' incorporare
+    if (HOST_YOUTUBE.test(u.hostname)) {
+        return risposta(JSON.stringify({ title: 'Diretta di prova (anteprima)', author_name: 'Next Generation Business', type: 'video', provider_name: 'YouTube' }),
+            200, 'application/json', metodo);
+    }
     if (/\.m3u8$/.test(p)) {
         const m = /^qualita_(\d+)\.m3u8$/.exec(nome);
         return risposta(m ? media(m[1]) : master(), 200, 'application/vnd.apple.mpegurl', metodo);
@@ -104,7 +112,7 @@ async function fetchFinto(indirizzo, init) {
 
 // il DNS finto: ogni *.esempio.it (e il player di Azoto) e' un indirizzo pubblico qualsiasi
 async function lookupFinto(host) {
-    if (!HOST.test(String(host || '')) && !HOST_AZOTO.test(String(host || ''))) throw Object.assign(new Error('ENOTFOUND ' + host), { code: 'ENOTFOUND' });
+    if (!HOST.test(String(host || '')) && !HOST_AZOTO.test(String(host || '')) && !HOST_YOUTUBE.test(String(host || ''))) throw Object.assign(new Error('ENOTFOUND ' + host), { code: 'ENOTFOUND' });
     return [{ address: '93.184.215.14', family: 4 }];
 }
 

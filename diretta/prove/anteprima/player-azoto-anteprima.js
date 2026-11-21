@@ -76,19 +76,22 @@
             togli();
             var gen = generazione;
             var u = new URL(url);
+            // il player di YouTube (dal webinar del 10 dicembre) o quello di Azoto: cambia solo il nome a video
+            var V = window.NGBSorgenteVideo;
+            var nomePlayer = V && typeof V.eYouTube === 'function' && V.eYouTube(url) ? 'YouTube' : 'Azoto';
             var r = pezzo('div', 'position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;'
                 + 'background:radial-gradient(ellipse at 50% 35%,#1f4d7a 0%,#0b2440 55%,#061526 100%);color:#fff;'
                 + 'font-family:Inter,system-ui,sans-serif;overflow:hidden;');
             r.className = 'player-azoto-anteprima';
             r.setAttribute('role', 'group');
-            r.setAttribute('aria-label', etichetta() + ' (player Azoto di prova)');
+            r.setAttribute('aria-label', etichetta() + ' (player ' + nomePlayer + ' di prova)');
             r.setAttribute('title', etichetta());
             var centro = pezzo('div', 'flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 14px;text-align:center;');
             var stato = pezzo('p', 'margin:0;font-size:clamp(11px,1.6vw,14px);font-weight:600;color:#9fc3e6;', 'Caricamento del player…');
-            centro.appendChild(pezzo('p', 'margin:0;font-family:Montserrat,Inter,sans-serif;font-weight:800;font-size:clamp(16px,3vw,28px);', 'Player Azoto (anteprima)'));
+            centro.appendChild(pezzo('p', 'margin:0;font-family:Montserrat,Inter,sans-serif;font-weight:800;font-size:clamp(16px,3vw,28px);', 'Player ' + nomePlayer + ' (anteprima)'));
             centro.appendChild(pezzo('p', 'margin:0;font-size:clamp(11px,1.5vw,14px);color:#c8daea;word-break:break-all;', u.hostname + u.pathname));
             centro.appendChild(stato);
-            centro.appendChild(pezzo('p', 'margin:0;max-width:34em;font-size:clamp(10px,1.4vw,13px);color:#9fb7cf;', 'Sul sito qui c\'è il player di Azoto, con i suoi comandi (play, volume, qualità).'));
+            centro.appendChild(pezzo('p', 'margin:0;max-width:34em;font-size:clamp(10px,1.4vw,13px);color:#9fb7cf;', 'Sul sito qui c\'è il player di ' + nomePlayer + ', con i suoi comandi (play, volume, qualità).'));
             r.appendChild(centro);
             // la barra dei comandi di Azoto, disegnata
             var barra = pezzo('div', 'flex:0 0 auto;display:flex;align-items:center;gap:12px;height:clamp(28px,7%,42px);padding:0 12px;background:rgba(0,0,0,.55);font-size:clamp(11px,1.5vw,14px);');
@@ -139,7 +142,7 @@
         function aggiornaTitolo(t) {
             titolo = String(t == null ? '' : t).trim().slice(0, 200);
             if (el) {
-                el.setAttribute('aria-label', etichetta() + ' (player Azoto di prova)');
+                el.setAttribute('aria-label', etichetta() + ' (player ' + (window.NGBSorgenteVideo && window.NGBSorgenteVideo.eYouTube && window.NGBSorgenteVideo.eYouTube(url) ? 'YouTube' : 'Azoto') + ' di prova)');
                 el.setAttribute('title', etichetta());
             }
         }

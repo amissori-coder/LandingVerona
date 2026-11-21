@@ -64,12 +64,15 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
     // prima si ricostruisce l'anteprima dai file veri (un secondo)
     require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'costruisci.js')], { stdio: 'ignore' });
     await new Promise(r => server.listen(PORTA, '127.0.0.1', r));
-    const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+    // il Chromium di Playwright: quello della versione fissata, se c'e', altrimenti quello installato con Playwright
+    const cromo = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(f => fs.existsSync(f));
+    const browser = await chromium.launch(cromo ? { executablePath: cromo } : {});
     const errori = [];
+    let page = null;
     try {
         const context = await browser.newContext({ viewport: { width: 1440, height: 950 }, locale: 'it-IT', timezoneId: 'Europe/Rome' });
         await preparaContesto(context, {});
-        const page = await context.newPage();
+        page = await context.newPage();
         page.on('console', m => { if (m.type() === 'error') errori.push(m.text()); });
         page.on('pageerror', e => errori.push('pageerror: ' + e.message + ' @ ' + String(e.stack || '').split('\n').slice(0, 6).join(' <- ')));
         await page.goto('http://127.0.0.1:' + PORTA + '/ospite.html');
@@ -116,8 +119,77 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
             return { azoto: h.classList.contains('modo-azoto'), intero: vede('btn-schermo-intero'), nota: vede('nota-azoto'), play: vede('btn-play'), audio: vede('btn-attiva-audio'), iframe: document.querySelectorAll('iframe').length };
         });
         vero(modoA.azoto && modoA.intero && modoA.nota && !modoA.play && !modoA.audio && modoA.iframe === 0,
-            'modalità A: il riquadro «Player Azoto (anteprima)», sotto solo «Schermo intero» e la nota ' + JSON.stringify(modoA));
+            'modalità A: il riquadro del player incorporato, sotto solo «Schermo intero» e la nota ' + JSON.stringify(modoA));
+        vero(/Player YouTube \(anteprima\)/.test(await P.locator('.player-azoto-anteprima').innerText()), 'il video dell\'evento di prova è di YouTube');
         await page.screenshot({ path: path.join(FOTO, '04-diretta.png') });
+
+        // 2b. LE DOMANDE AL RELATORE: il riquadro sotto il video, l'invio, la pagina del relatore, la regia
+        await P.locator('#vista-diretta #carta-domande').waitFor({ state: 'visible', timeout: 10000 });
+        vero(/Fai una domanda al relatore/.test(await P.locator('#carta-domande').innerText()), 'sotto il video: «Fai una domanda al relatore»');
+        await P.locator('#testo-domanda').fill('  Quali controlli servono   a una società che si quota in Borsa?  ');
+        await P.locator('#btn-invia-domanda').click();
+        await P.locator('#esito-domanda[data-tipo="ok"]').waitFor({ timeout: 10000 });
+        vero(/Domanda inviata/.test(await P.locator('#esito-domanda').innerText()) && await P.locator('#testo-domanda').inputValue() === '',
+            'la domanda parte: «Domanda inviata» e il campo si svuota');
+        vero(await P.locator('#elenco-mie .mia-domanda').count() === 1
+            && /Quali controlli servono a una società/.test(await P.locator('#elenco-mie').innerText()), 'compare fra «Le tue domande», ripulita');
+        vero(await P.locator('#btn-invia-domanda').isDisabled() && /tra \d+ s/.test(await P.locator('#btn-invia-domanda').innerText()),
+            'per qualche secondo il pulsante aspetta, con il conto alla rovescia');
+        await page.screenshot({ path: path.join(FOTO, '04c-domanda.png') });
+
+        await A.locator('#tab-guida').click();
+        vero(/relatore@anteprima\.it/.test(await A.locator('#relatore-email').innerText()), 'la guida mostra l\'accesso del relatore');
+        await A.locator('#btn-usa-relatore').click();
+        const R = A.frameLocator('#fr-relatore');
+        await R.locator('body[data-vista="app"]').waitFor({ timeout: 20000 });
+        await R.locator('#elenco-domande .domanda').nth(2).waitFor({ timeout: 15000 });
+        const testiR = await R.locator('#elenco-domande .domanda-testo').allInnerTexts();
+        vero(testiR.length === 3 && /Borsa/.test(testiR[2]) && /srl che supera/.test(testiR[0]), 'il relatore vede le tre domande, dalla prima arrivata ' + JSON.stringify(testiR));
+        const terza = await R.locator('#elenco-domande .domanda').nth(2).innerText();
+        vero(/Mario Rossi/.test(terza) && /Rossi Costruzioni/.test(terza) && /n\. 3/.test(terza), 'con numero, nome, cognome e azienda di chi l\'ha scritta');
+        vero(!/@/.test(await R.locator('#elenco-domande').innerText()), 'al relatore nessuna email');
+        await R.locator('#elenco-partecipanti .partecipante').nth(3).waitFor({ timeout: 15000 });
+        const partR = await R.locator('#elenco-partecipanti').innerText();
+        vero(await R.locator('#elenco-partecipanti .partecipante').count() === 4 && /De Luca/.test(partR) && !/@/.test(partR),
+            'il relatore vede i quattro iscritti, senza email');
+        await R.locator('#elenco-partecipanti .partecipante[data-collegato="1"]').first().waitFor({ timeout: 40000 });
+        vero(/4 iscritti · 1 collegato adesso/.test(await R.locator('#conteggi-partecipanti').innerText())
+            && /Rossi Costruzioni/.test(await R.locator('#elenco-partecipanti .partecipante[data-collegato="1"]').first().innerText()),
+            'e chi è collegato adesso (Mario Rossi, dal telefono)');
+        vero(/In onda/i.test(await R.locator('#stato-evento').innerText()), 'la pagina del relatore dice che la diretta è in onda');
+        await page.screenshot({ path: path.join(FOTO, '12-relatore.png') });
+
+        // «Segna come risposta»: esce da «Da rispondere», con «Annulla»
+        await R.locator('#elenco-domande .domanda').nth(2).locator('.btn-segna').click();
+        await R.locator('.avviso-azione').waitFor({ timeout: 10000 });
+        vero(await R.locator('#elenco-domande .domanda').count() === 2 && (await R.locator('#numero-risposte').innerText()).trim() === '1',
+            '«Segna come risposta»: la domanda passa fra «Con risposta»');
+        await R.locator('[data-filtro="risposte"]').click();
+        vero(/Risposta data/.test(await R.locator('#elenco-domande').innerText()) && /Borsa/.test(await R.locator('#elenco-domande').innerText()),
+            'fra «Con risposta», con «Risposta data» e l\'ora');
+        await R.locator('#btn-testo-grande').click();
+        vero(await R.locator('body.testo-grande').count() === 1, '«AA» ingrandisce il testo delle domande');
+        await page.screenshot({ path: path.join(FOTO, '13-relatore-risposta.png') });
+        await R.locator('#btn-testo-grande').click();
+        await R.locator('[data-filtro="aperte"]').click();
+
+        // la regia: le stesse domande, con l'email e chi ha segnato la risposta
+        await A.locator('#tab-gestione').click();
+        await G.locator('#regia-elenco-domande .regia-domanda').first().waitFor({ timeout: 15000 });
+        await G.locator('.filtro-domande[data-filtro="tutte"]').click();
+        // la regia rilegge ogni 8 secondi: la domanda di Mario e il segno del relatore arrivano al giro dopo
+        await G.locator('#regia-elenco-domande .regia-domanda.risposta').first().waitFor({ timeout: 20000 });
+        const regiaD = await G.locator('#regia-elenco-domande').innerText();
+        vero(await G.locator('#regia-elenco-domande .regia-domanda').count() === 3 && /mario\.rossi@esempio\.it/.test(regiaD)
+            && /Risposta data.*relatore@anteprima\.it/.test(regiaD), 'in Regia le stesse tre domande, con le email e chi ha segnato la risposta');
+        await G.locator('#regia-domande').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: path.join(FOTO, '14-regia-domande.png') });
+
+        // il partecipante vede che il relatore ha risposto
+        await A.locator('#tab-partecipante').click();
+        await P.locator('#elenco-mie .mia-risposta').waitFor({ timeout: 30000 });
+        vero(/Il relatore ha risposto/.test(await P.locator('#elenco-mie').innerText()), 'il partecipante vede «Il relatore ha risposto»');
+        await page.screenshot({ path: path.join(FOTO, '15-risposta-partecipante.png') });
 
         // la regia passa tutti al flusso diretto (modalita' B) e poi torna ad Azoto: la pagina del partecipante segue da sola
         await P.locator('html').evaluate(() => { window.__nonRicaricata = true; });
@@ -234,10 +306,24 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await page.screenshot({ path: path.join(FOTO, '09-guida-telefono.png'), fullPage: false });
         const largo = await page.frame({ url: /index\.html/ }).evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
         vero(largo, 'a 390 px la guida non scorre di lato');
+        // la pagina del relatore sul telefono: una sezione alla volta, niente scorrimento di lato
+        await A.locator('#tab-relatore').click();
+        await page.waitForTimeout(600);
+        const relTel = await R.locator('html').evaluate(() => ({
+            largo: document.documentElement.scrollWidth <= window.innerWidth + 1,
+            domande: !!document.getElementById('sezione-domande').offsetWidth,
+            partecipanti: !!document.getElementById('sezione-partecipanti').offsetWidth,
+            scambio: !!document.getElementById('btn-sezione-partecipanti').offsetWidth
+        }));
+        vero(relTel.largo && relTel.domande && !relTel.partecipanti && relTel.scambio, 'a 390 px la pagina del relatore mostra le domande, con il pulsante per i partecipanti ' + JSON.stringify(relTel));
+        await page.screenshot({ path: path.join(FOTO, '16-relatore-telefono.png') });
+        await R.locator('#btn-sezione-partecipanti').click();
+        vero(await R.locator('#sezione-partecipanti').isVisible() && !(await R.locator('#sezione-domande').isVisible()), 'e i partecipanti con un tocco');
         void guscio;
     } catch (e) {
         rossi++;
-        console.log('ROSSO  interrotta: ' + (e && e.message ? e.message.split('\n')[0] : e));
+        console.log('ROSSO  interrotta: ' + (e && e.message ? e.message.split('\n').slice(0, 3).join(' | ') : e));
+        try { if (page) await page.screenshot({ path: path.join(FOTO, '99-interrotta.png') }); } catch (e2) { /* niente */ }
     } finally {
         const rilevanti = errori.filter(t => !/favicon|net::ERR_ABORTED|Failed to load resource: the server responded with a status of 404/.test(t));
         vero(rilevanti.length === 0, 'nessun errore in console: ' + rilevanti.slice(0, 6).join(' | '));

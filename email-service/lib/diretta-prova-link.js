@@ -14,6 +14,8 @@
      CORS sulla playlist e su un segmento (richiesta Range piccola).
    - DASH (.mpd): type dynamic/static, timeShiftBufferDepth, le altezze
      delle Representation, il CORS sul manifest.
+   - YouTube (il player ricostruito da sorgente-video.js): oEmbed dice se
+     il video c'e' e si puo' incorporare, vedi provaYouTube.
    - Il player di Azoto (la pagina da incorporare, l'unica ammessa: un
      indirizzo https di cdn.azotosolutions.com, vedi HOST_AZOTO in
      diretta-sorgente-video.js): risposta 200, text/html, X-Frame-Options
@@ -72,7 +74,7 @@ const PREDEFINITE = {
 const UA = 'NGB-ProvaLink/1.0 (+' + ORIGINE_SITO + ')';
 
 // i problemi che impediscono di salvare il link
-const GRAVI = new Set(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-azoto', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash']);
+const GRAVI = new Set(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-azoto', 'youtube', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash']);
 
 /* ============================================================
    GLI INDIRIZZI PUBBLICI
@@ -851,6 +853,44 @@ async function provaAzoto(ctx, r, url, link) {
     trovati.forEach(t => r.righe.push('Nella pagina del player c\'è un link .m3u8: ' + t + '. Potrebbe essere il flusso diretto, ma prima di usarlo fatevelo confermare da Azoto.'));
 }
 
+/* YOUTUBE. La pagina del player di YouTube si lascia sempre incorporare,
+   anche per un video che non c'e' (lo dice dentro il riquadro): provarla
+   come quella di Azoto non direbbe niente. Quello che conta lo dice
+   oEmbed, il servizio pubblico con cui YouTube descrive un video (il suo
+   indirizzo lo scrive sorgente-video.js): 200 con titolo e canale se il
+   video si vede da fuori e si puo' incorporare; 401 o 403 se e' privato
+   o con l'incorporamento disattivato; 404 o 400 se non lo trova. Non e'
+   mai un errore grave: una diretta programmata puo' essere ancora
+   privata il giorno in cui si prepara l'evento, e la regia la riprova
+   prima di andare in onda. */
+const CONSIGLIO_YOUTUBE = 'Per la diretta su YouTube: visibilità «Non in elenco» e, nelle impostazioni del video o della diretta, «Consenti incorporamento» attivo.';
+async function provaYouTube(ctx, r, url, link) {
+    let risp;
+    try { risp = await richiesta(ctx, V.oembedYouTube(url), { intestazioni: { accept: 'application/json' } }); } catch (e) {
+        problemaDa(ctx, r, e, link, 'YouTube');
+        r.titolo = titoloIntoppo(r, true);
+        return;
+    }
+    r.info.raggiungibile = true;
+    if (risp.stato === 200) {
+        let j = null;
+        try { j = JSON.parse(risp.testo); } catch (_) { j = null; }
+        const titolo = j && typeof j.title === 'string' ? j.title.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200) : '';
+        const canale = j && typeof j.author_name === 'string' ? j.author_name.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120) : '';
+        r.info.incorporabile = true;
+        r.titolo = 'Video YouTube: si può incorporare nella nostra pagina';
+        if (titolo) r.righe.push('Su YouTube: «' + titolo + '»' + (canale ? ', canale ' + canale : '') + '.');
+        r.righe.push(CONSIGLIO_YOUTUBE);
+        return;
+    }
+    r.info.incorporabile = false;
+    const motivo = (risp.stato === 401 || risp.stato === 403)
+        ? 'YouTube non lascia vedere questo video fuori da YouTube (risposta ' + risp.stato + '): è privato, oppure l\'incorporamento è disattivato.'
+        : 'YouTube non trova questo video (risposta ' + risp.stato + '): il link è sbagliato, oppure il video o la diretta sono ancora privati.';
+    aggiungi(r, 'youtube-non-visibile', motivo + ' ' + CONSIGLIO_YOUTUBE, '');
+    r.titolo = 'Il video YouTube non si vede da fuori';
+}
+
 /* ============================================================
    LA PROVA
    ============================================================ */
@@ -878,7 +918,8 @@ async function provaLink(link, opzioni) {
         aggiungi(r, codice, V.messaggio(s), testi[codice] || '');
         r.titolo = {
             https: 'Link in http: serve https', rtmp: 'Link per trasmettere, non per guardare', credenziali: 'Link con nome utente e password',
-            file: 'È un file video, non una diretta', 'non-azoto': 'Non è il player Azoto: indirizzo non consentito'
+            file: 'È un file video, non una diretta', 'non-azoto': 'Non è YouTube né il player Azoto: indirizzo non consentito',
+            youtube: 'Link di YouTube senza un video'
         }[codice] || (s ? 'Link non valido' : 'Nessun link');
         return chiudi(r);
     }
@@ -900,9 +941,10 @@ async function provaLink(link, opzioni) {
         }
         // gli altri intoppi (DNS) li racconta la richiesta vera e propria
     }
-    r.righe.push(V.descrizione(s.tipo));
+    r.righe.push(V.messaggio(s));
     if (s.tipo === 'hls') await provaHls(ctx, r, daProvare, s.valore);
     else if (s.tipo === 'dash') await provaDash(ctx, r, daProvare, s.valore);
+    else if (V.eYouTube(s.valore)) await provaYouTube(ctx, r, daProvare, s.valore);
     else await provaAzoto(ctx, r, daProvare, s.valore);
     if (ctx.firmaAttiva && r.info.raggiungibile) r.righe.push('Provato con la firma impostata per l\'evento (link firmato a tempo).');
     return chiudi(r);

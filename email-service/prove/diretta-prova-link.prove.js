@@ -387,6 +387,34 @@ function webtv(opz) {
             vero(r.esito === 'ok' && r.urlProva === PAGINA && w.registro[0].url === PAGINA && !r.righe.some(x => /firma/.test(x)), 'con la firma dell\'evento il player di Azoto si prova senza firma');
         }
 
+        /* ---------- YouTube: si chiede a oEmbed, mai alla pagina del player ---------- */
+        {
+            const YT = 'https://youtu.be/dQw4w9WgXcQ';
+            const OEMBED = V.oembedYouTube(V.leggi(YT).valore);
+            vero(OEMBED === 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+                'l\'indirizzo di oEmbed lo scrive sorgente-video.js, con il solo identificativo del video', OEMBED);
+            const p = {};
+            p[OEMBED] = { corpo: JSON.stringify({ title: 'Come migliorare il merito creditizio', author_name: 'Revilaw' }), h: { 'content-type': 'application/json' } };
+            const { r, w } = await prova(YT, p);
+            vero(r.esito === 'ok' && r.tipo === 'incorporato' && /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?/.test(r.valore)
+                && r.titolo === 'Video YouTube: si può incorporare nella nostra pagina' && r.info.incorporabile === true
+                && r.righe.some(x => x === 'Su YouTube: «Come migliorare il merito creditizio», canale Revilaw.')
+                && r.righe.some(x => /Non in elenco/.test(x)) && w.registro.length === 1 && w.registro[0].url === OEMBED,
+            'YouTube visibile: ok, con titolo e canale, una sola richiesta (a oEmbed)', JSON.stringify(r));
+            for (const stato of [401, 403, 404, 400]) {
+                const q = {}; q[OEMBED] = { stato: stato, corpo: 'no' };
+                const { r: x } = await prova(YT, q);
+                const pr = problema(x, 'youtube-non-visibile');
+                vero(x.esito === 'avviso' && pr && !pr.grave && x.titolo === 'Il video YouTube non si vede da fuori' && x.info.incorporabile === false
+                    && new RegExp('risposta ' + stato).test(pr.messaggio) && /Consenti incorporamento/.test(pr.messaggio),
+                'YouTube con ' + stato + ': un avviso (si salva lo stesso: la diretta puo\' essere ancora privata), con il consiglio', JSON.stringify(x.problemi));
+            }
+            const { r: giu } = await prova(YT, { [OEMBED]: 'rifiuta' });
+            vero(giu.esito === 'avviso' && !giu.problemi.some(x => x.grave), 'YouTube che non risponde: un avviso, non un errore', JSON.stringify(giu.problemi));
+            const { r: canale, w: wc } = await prova('https://www.youtube.com/@NextGenerationBusiness/live', {});
+            vero(canale.esito === 'errore' && canale.titolo === 'Link di YouTube senza un video' && wc.registro.length === 0, 'un canale YouTube: errore, nessuna richiesta', JSON.stringify(canale));
+        }
+
         /* ---------- quello che non e' il player di Azoto: rifiutato senza scaricare niente ---------- */
         for (const link of [
             'https://player.webtv.esempio.it/embed/napoli',
@@ -400,7 +428,7 @@ function webtv(opz) {
             const { r, w } = await prova(link, html());
             const p = problema(r, 'non-azoto');
             vero(r.esito === 'errore' && codici(r) === 'non-azoto' && p.grave && /cdn\.azotosolutions\.com/.test(p.messaggio) && p.testoWebTv === ''
-                && r.titolo === 'Non è il player Azoto: indirizzo non consentito' && r.tipo === '' && r.urlProva === '' && w.registro.length === 0 && w.risolti.length === 0,
+                && r.titolo === 'Non è YouTube né il player Azoto: indirizzo non consentito' && r.tipo === '' && r.urlProva === '' && w.registro.length === 0 && w.risolti.length === 0,
             'non e\' il player di Azoto: «non-azoto» grave, nessuna richiesta ne\' DNS: ' + link.slice(0, 70), JSON.stringify(r));
         }
         for (const [link, codice] of [

@@ -41,6 +41,7 @@ const PROVE = [
     { nome: 'video', cartella: SERVIZIO, file: 'prove/diretta-video.prove.js' },
     { nome: 'firma', cartella: SERVIZIO, file: 'prove/diretta-firma.prove.js' },
     { nome: 'prova-link', cartella: SERVIZIO, file: 'prove/diretta-prova-link.prove.js' },
+    { nome: 'domande', cartella: SERVIZIO, file: 'prove/diretta-domande.prove.js' },
     { nome: 'regole', cartella: QUI, file: 'regole.prova.js', emulatore: true },
     { nome: 'separazione', cartella: QUI, file: 'separazione.prova.js', emulatore: true },
     { nome: 'doppioni', cartella: QUI, file: 'doppioni.prova.js' },

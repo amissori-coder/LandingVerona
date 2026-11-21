@@ -8,14 +8,21 @@
       gestione lo crea il servizio; qui si fissa la password di prova;
    2. l'evento "Next Generation Business 2026 · Napoli", di oggi, che
       comincia tra circa mezz'ora (conto alla rovescia visibile), con il
-      video in modalita' A: il player di Azoto (tipoPlayer 'azoto', il
-      suo indirizzo: un canale inventato, livetv91). C'e' anche un flusso diretto .m3u8 della
-      web TV finta, per passare alla modalita' B dalla regia;
+      video in modalita' A, il player incorporato: un video di YouTube
+      (tipoPlayer 'azoto', il campo «Player YouTube o Azoto»), come il
+      webinar. C'e' anche un flusso diretto .m3u8 della web TV finta, per
+      passare alla modalita' B dalla regia;
    3. quattro partecipanti, due con lo stesso nome (Mario Rossi e Mario
       Rossi) ma con email diverse: si entra con l'email, niente nomi utente;
    4. le credenziali, spedite con "Reinvia credenziali": le email sono
       nella Posta di prova, con l'email per entrare e le password
-      elencate nella guida.
+      elencate nella guida;
+   5. le DOMANDE AL RELATORE accese per l'evento, con il relatore di
+      prova (relatore@anteprima.it): il suo account lo attiva il servizio
+      con «Primo accesso» della pagina del relatore (l'email «Accesso alla
+      pagina del relatore» e' nella Posta di prova), qui si fissa la password della
+      guida; e due domande gia' arrivate da due partecipanti, mandate
+      dalla porta vera (api/diretta-domande, azione 'invia').
    ============================================================ */
 'use strict';
 const adm = require('./admin');
@@ -24,7 +31,17 @@ const servizio = require('./servizio');
 const ID_EVENTO = 'napoli-anteprima';
 // l'indirizzo del player di Azoto (quello del codice che Azoto ci ha dato)
 const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
+/* Il video dell'evento di prova: un video di YouTube, come il webinar del
+   10 dicembre 2026 (va nello stesso campo del player di Azoto, «Player
+   YouTube o Azoto»). Nell'anteprima al suo posto c'e' il riquadro di prova. */
+const YOUTUBE_URL = 'https://www.youtube.com/live/ngbDiretta1';
 const GESTORE = { email: 'gestore@anteprima.it', password: 'Regia-Napoli-26' };
+const RELATORE = { email: 'relatore@anteprima.it', password: 'Relatore-Napoli-26' };
+// le domande gia' arrivate all'apertura: chi le ha scritte (indice in PARTECIPANTI) e il testo
+const DOMANDE = [
+    { chi: 1, testo: 'Per una srl che supera i limiti per la prima volta, da quando scatta l\'obbligo di nominare il revisore?' },
+    { chi: 2, testo: 'Il collegio sindacale può svolgere anche la revisione legale dei conti, oppure servono due incarichi separati?' }
+];
 const PARTECIPANTI = [
     { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', azienda: 'Rossi Costruzioni srl', password: 'Vesuv9Kaz3' },
     { nome: 'Anna Maria', cognome: 'De Luca', email: 'annamaria.deluca@esempio.it', azienda: 'Studio De Luca', password: 'Capr3Mare7' },
@@ -41,6 +58,8 @@ function partiRoma(ms) {
     return { data: p.year + '-' + p.month + '-' + p.day, ore: Number(p.hour), minuti: Number(p.minute) };
 }
 function hhmm(minuti) { return String(Math.floor(minuti / 60)).padStart(2, '0') + ':' + String(minuti % 60).padStart(2, '0'); }
+// "10:30" piu' 30 minuti -> "11:00"
+function piu(hhmmTesto, minuti) { const [h, m] = String(hhmmTesto).split(':').map(Number); return hhmm(Math.min(h * 60 + m + minuti, 23 * 60 + 59)); }
 function giornoDiOggi() { return partiRoma(Date.now()).data; }
 
 /* Oggi, tra 25-30 minuti (a multipli di 5), per tre ore. Dopo le 21 si
@@ -93,19 +112,34 @@ async function semina(archivio, avanzamento) {
             data: orari.data, oraInizio: orari.oraInizio, oraFine: orari.oraFine,
             // modalita' A (il player di Azoto), e il flusso diretto pronto per la B
             tipoPlayer: 'azoto',
-            azotoUrl: AZOTO_URL,
+            azotoUrl: YOUTUBE_URL,
             videoUrl: 'https://webtv.esempio.it/live/napoli/playlist.m3u8',
             programma: [
+                /* ogni voce con la sua ora: il modulo della scheda Evento non salva
+                   voci senza ora, e l'evento di prova si deve poter modificare */
                 { ora: orari.oraInizio.replace(':', '.'), titolo: 'Apertura dei lavori' },
-                { ora: '', titolo: 'Governance e controlli: cosa cambia per le imprese' },
-                { ora: '', titolo: 'Tavola rotonda con le imprese del territorio' },
+                { ora: piu(orari.oraInizio, 30).replace(':', '.'), titolo: 'Governance e controlli: cosa cambia per le imprese' },
+                { ora: piu(orari.oraInizio, 100).replace(':', '.'), titolo: 'Tavola rotonda con le imprese del territorio' },
                 { ora: orari.oraFine.replace(':', '.'), titolo: 'Chiusura' }
             ],
             paginaEvento: '/napoli_ottobre_2026/',
             unSoloDispositivo: false,
+            // le domande al relatore: il riquadro nella pagina della diretta, la pagina del relatore
+            domande: true,
+            relatori: [RELATORE.email],
             promemoria: { giornoPrima: false, oraPrima: false }
         }
     });
+
+    passo('Attivo l\'account del relatore…');
+    const rr = await servizio.chiama('diretta-accesso', {
+        corpo: { azione: 'relatore-accesso', email: RELATORE.email },
+        intestazioni: { origin: 'https://nextgenerationbusiness.it', 'x-forwarded-for': '151.12.3.5' }
+    });
+    if (rr.stato !== 200) throw new Error('semina: relatore-accesso ' + rr.stato);
+    const rel = adm.perEmail(RELATORE.email);
+    if (!rel) throw new Error('semina: account del relatore non creato');
+    await adm.auth.updateUser(rel.uid, { password: RELATORE.password });
 
     passo('Iscrivo i partecipanti di prova…');
     const creati = await gestione({
@@ -127,7 +161,22 @@ async function semina(archivio, avanzamento) {
         });
     }
 
-    archivio.extra.semina = { giorno: giornoDiOggi(), quando: Date.now(), idEvento: ID_EVENTO, orari, gestore: GESTORE, accessi };
+    passo('Arrivano le prime domande per il relatore…');
+    for (const q of DOMANDE) {
+        const esito = (creati.risultati || [])[q.chi] || {};
+        const u = adm.auth && esito.uid ? await adm.auth.getUser(esito.uid) : null;
+        if (!u) throw new Error('semina: partecipante della domanda non trovato');
+        const r2 = await servizio.chiama('diretta-domande', {
+            corpo: { azione: 'invia', idEvento: ID_EVENTO, testo: q.testo },
+            intestazioni: {
+                authorization: 'Bearer ' + adm.tokenIdentita(adm.perEmail(u.email), 'custom', Date.now()),
+                origin: 'https://nextgenerationbusiness.it', 'x-forwarded-for': '93.44.10.' + (40 + q.chi)
+            }
+        });
+        if (r2.stato !== 200) throw new Error('semina: domanda di prova ' + r2.stato + ' ' + String(r2.corpo || '').slice(0, 160));
+    }
+
+    archivio.extra.semina = { giorno: giornoDiOggi(), quando: Date.now(), idEvento: ID_EVENTO, orari, gestore: GESTORE, relatore: RELATORE, accessi };
     archivio.salva();
     passo('Pronto.');
     return archivio.extra.semina;
@@ -139,4 +188,4 @@ function serveSemina(archivio) {
 }
 
 // gestione(): una chiamata alla gestione come il gestore di prova (la usano anche le prove della diretta)
-module.exports = { semina, serveSemina, gestione, ID_EVENTO, AZOTO_URL, GESTORE, PARTECIPANTI };
+module.exports = { semina, serveSemina, gestione, ID_EVENTO, AZOTO_URL, YOUTUBE_URL, GESTORE, RELATORE, PARTECIPANTI };

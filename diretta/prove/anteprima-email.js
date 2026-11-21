@@ -101,7 +101,7 @@ EMAIL.forEach(([nome, , m]) => console.log('  ' + (nome + '.html').padEnd(30) + 
 /* ---------- le immagini, con --screenshot ---------- */
 async function fotografa() {
     const { chromium } = require(path.resolve(__dirname, 'node_modules/playwright'));
-    const eseguibile = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+    const eseguibile = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p));
     const browser = await chromium.launch(fs.existsSync(eseguibile) ? { executablePath: eseguibile } : {});
     const uscita = path.join(CARTELLA, 'screenshot');
     fs.mkdirSync(uscita, { recursive: true });

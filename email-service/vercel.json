@@ -28,6 +28,7 @@
     "api/diretta-cron.js": { "maxDuration": 300 },
     "api/diretta-gestione.js": { "maxDuration": 60 },
     "api/diretta-accesso.js": { "maxDuration": 60 },
+    "api/diretta-domande.js": { "maxDuration": 30 },
     "api/diretta-stato.js": { "maxDuration": 10 },
     "api/diretta-ascolti.js": { "maxDuration": 60 },
     "api/riepilogo-iscrizioni.js": { "maxDuration": 60 },

@@ -539,6 +539,8 @@ async function salvaEvento(ctx, ingresso) {
         const paginaEvento = String(val('paginaEvento', '') || '').trim();
         if (paginaEvento && !RE_PAGINA.test(paginaEvento)) throw C.errore(400, 'Pagina dell\'evento non valida (per esempio /napoli_ottobre_2026/).', 'pagina');
         const unSoloDispositivo = val('unSoloDispositivo', false) === true;
+        // «Domande al relatore»: la pagina della diretta mostra il riquadro delle domande (lib/diretta-domande.js)
+        const domande = val('domande', false) === true;
         const prom = val('promemoria', {}) || {};
         const promemoria = { giornoPrima: prom.giornoPrima === true, oraPrima: prom.oraPrima === true };
         if (e.iscrizioniAutomatiche !== undefined && typeof e.iscrizioniAutomatiche !== 'boolean') {
@@ -564,7 +566,7 @@ async function salvaEvento(ctx, ingresso) {
         const campi = {
             titolo, luogo, data, oraInizio, oraFine,
             inizio: ctx.Timestamp.fromMillis(inizio), fine: ctx.Timestamp.fromMillis(fine),
-            programma, paginaEvento, unSoloDispositivo, promemoria
+            programma, paginaEvento, unSoloDispositivo, domande, promemoria
         };
         if (nuovo) {
             tx.create(rif, Object.assign(campi, {
