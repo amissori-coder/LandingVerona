@@ -3924,12 +3924,12 @@
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
     // sottopagine di un incarico: entrarci da una sezione (es. Aderenti Revilaw) fa ricordare dove tornare
-    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo', 'ratingVerbale', 'controlloQualitaScheda'];
+    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo', 'ratingVerbale', 'controlloQualitaScheda', 'strumentiAttivita'];
     let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating', ratingVerbale: 'rating', controlloQualitaScheda: 'controlloQualita' };
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating', ratingVerbale: 'rating', controlloQualitaScheda: 'controlloQualita', strumentiAttivita: 'strumenti' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     /* =========================================================
@@ -4082,7 +4082,8 @@
             controlloQualita: vistaControlliQualita,
             controlloQualitaScheda: vistaControlloQualitaScheda,
             firma: vistaFirma,
-            strumenti: vistaStrumenti
+            strumenti: vistaStrumenti,
+            strumentiAttivita: vistaStrumentiAttivita
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -4138,9 +4139,9 @@
        degli altri: ridisegnarla serviva solo a ricaricare il modulo dai dati salvati,
        cancellando quanto scritto e non ancora salvato appena il cursore usciva da un
        campo (bastava che un collega facesse qualunque cosa nell'area riservata). */
-    /* Strumenti di revisione: dati fissi, non condivisi; ridisegnarla chiudeva le
-       schede e i testi aperti ogni volta che un collega salvava qualcosa. */
-    const VISTE_SENZA_RIDISEGNO = ['wizard', 'ratingScheda', 'firma', 'strumenti'];
+    /* Strumenti di revisione: dati fissi, non condivisi; ridisegnarli chiudeva i
+       testi aperti ogni volta che un collega salvava qualcosa. */
+    const VISTE_SENZA_RIDISEGNO = ['wizard', 'ratingScheda', 'firma', 'strumenti', 'strumentiAttivita'];
     function ridisegnaDaSync() {
         if (!Auth.utenteCorrente || VISTE_SENZA_RIDISEGNO.includes(vistaCorrente)) return;
         if (staModificando()) {
@@ -37118,30 +37119,31 @@
 
     /* =========================================================
        STRUMENTI DI REVISIONE
-       Il piano di revisione dell'anno, come nel foglio "PIANO REVISIONE
-       2024-2025-2026", con la carta di lavoro di ogni attivita': i passaggi
-       della checklist e, accanto a ogni passaggio, i documenti da scaricare
-       (email tipo, lettere, verbali, attestazioni, fogli di lavoro).
-       I dati stanno in strumenti-revisione.js, i file in
-       strumenti-revisione/allegati/, il testo dei documenti Word brevi in
-       strumenti-revisione/testi.json (si scarica al primo "Leggi").
-       La vede chiunque lavori nell'area, come la firma email: sono strumenti
-       per i team di revisione, non dati dello studio, e non c'e' niente da
-       modificare. Fuori solo gli invitati "solo sondaggio".
+       Il piano di revisione per anno, con le attivita' del team. In cima le
+       schede degli anni (gli anni dopo il 2026 restano vuoti finche' il piano
+       non c'e'), poi la tabella del piano. Ogni attivita' si apre in una pagina
+       sua: la descrizione (di cosa si tratta, come si svolge, cosa resta agli
+       atti, riferimenti), i passaggi della carta di lavoro e, accanto a ogni
+       passaggio, i documenti da usare, ciascuno con una riga che dice a cosa
+       serve. Nessun collegamento ai fogli Google del piano: la sezione basta a
+       se stessa.
+       I dati stanno in strumenti-revisione.js (caricato quando si apre la
+       sezione), i file in strumenti-revisione/allegati/, il testo dei
+       documenti Word brevi in strumenti-revisione/testi.json (al primo "Leggi").
     ========================================================= */
     /* In prova: la sezione compare solo a questi indirizzi di accesso (la persona
        che entra davvero, non l'utente per cui lavora un collaboratore). Per
        aprirla a tutti basta lasciare l'elenco vuoto: []. */
     const SR_ANTEPRIMA = [PROPRIETARIO];
-    /* I dati (piano, carte, elenco dei documenti) si scaricano solo quando si apre
-       la sezione: chi non la vede non li carica. Va cambiata a ogni modifica di
-       strumenti-revisione.js, come la "v=" degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261121b';
+    /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
+       carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
+       degli script in index.html. */
+    const SR_DATI_VERSIONE = '20261122a';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', drive: 'Google Drive', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', drive: 'Drive', web: 'Web' };
     let _srTesti = null;            // promessa del file dei testi, caricato al primo "Leggi"
-    const _srAperte = new Set();    // schede aperte: tornando nella sezione si ritrovano come le si era lasciate
+    let _srAnno = null;             // anno scelto nelle schede in cima
     const _srFiltri = { fase: '', stato: '', q: '' };
 
     function srDati() { return window.RV_STRUMENTI_REVISIONE || null; }
@@ -37158,6 +37160,18 @@
             }).catch(e => { _srCaricamento = null; throw e; });
         }
         return _srCaricamento;
+    }
+    /* Le due viste partono anche senza dati: mostrano "caricamento", scaricano il
+       file e si ridisegnano, purche' nel frattempo non si sia andati altrove. */
+    function srAttendiDati(vista, disegna) {
+        const messaggio = testo => {
+            $vista().innerHTML = '<header><div><h1>Strumenti di revisione</h1></div></header>'
+                + '<div class="card"><p class="descrizione">' + esc(testo) + '</p></div>';
+        };
+        messaggio('Caricamento delle carte di lavoro...');
+        srCaricaDati()
+            .then(() => { if (vistaCorrente === vista) { disegna(); costruisciSottoMenu(); } })
+            .catch(() => { if (vistaCorrente === vista) messaggio('I dati degli strumenti di revisione non si sono caricati. Controlla la connessione e riapri la sezione; se il problema resta, avvisa l\'amministratore.'); });
     }
     function srTesti() {
         if (!_srTesti) {
@@ -37179,23 +37193,20 @@
         if (!kb) return '';
         return kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' MB' : kb + ' KB';
     }
-    /* Una scheda per carta di lavoro, nell'ordine del piano. Le quattro verifiche
-       trimestrali usano la stessa carta: una scheda sola con i quattro periodi,
-       invece della stessa checklist ripetuta quattro volte. */
-    function srSchede(d) {
-        const out = [], perChiave = {};
-        d.piano.forEach((r, i) => {
-            const chiave = r.carta || ('senza-carta-' + i);
-            if (perChiave[chiave]) { perChiave[chiave].righe.push(r); return; }
-            const s = { id: 'sr-' + chiave, chiave, carta: r.carta ? d.carte[r.carta] || null : null, righe: [r] };
-            perChiave[chiave] = s;
-            out.push(s);
-        });
-        return out;
+    // l'anno mostrato: quello scelto, altrimenti l'anno in corso se c'e', altrimenti il primo
+    function srAnnoScelto(d) {
+        const anni = d.anni.map(a => a.anno);
+        if (_srAnno && anni.includes(_srAnno)) return _srAnno;
+        const oggi = new Date().getFullYear();
+        _srAnno = anni.includes(oggi) ? oggi : anni[0];
+        return _srAnno;
     }
-    function srTitoloScheda(s) {
-        if (s.chiave === 'trimestrali' && s.righe.length > 1) return 'Verifiche trimestrali (dal 1° al 4° trimestre)';
-        return s.righe.map(r => r.attivita).join(' · ');
+    function srPiano(d, anno) { const a = d.anni.find(x => x.anno === anno); return a ? a.piano : []; }
+    // le attivita' di un anno nell'ordine del piano, una volta sola (le verifiche trimestrali sono quattro righe)
+    function srAttivitaAnno(d, anno) {
+        const out = [];
+        srPiano(d, anno).forEach(r => { if (!out.includes(r.attivita)) out.push(r.attivita); });
+        return out;
     }
     /* I documenti di una carta, contati come li vede chi la usa: una cartella vale
        i suoi file, e un documento citato in due passaggi (i solleciti a 120 e a 180
@@ -37216,6 +37227,7 @@
         return '<li class="sr-doc" data-a="' + esc(chiave) + '">'
             + '<span class="sr-doc-tipo t-' + esc(a.tipo) + '">' + esc(String(a.tipo || '').toUpperCase()) + '</span>'
             + '<span class="sr-doc-nome"><a href="' + esc(a.file) + '"' + apri + '>' + esc(a.nome) + '</a>'
+            + (a.descrizione ? '<span class="sr-doc-desc">' + esc(a.descrizione) + '</span>' : '')
             + '<span class="sr-doc-meta">' + esc(meta) + '</span></span>'
             + '<span class="sr-doc-azioni">'
             + (a.testo ? '<button type="button" class="btn btn-sm btn-secondary sr-leggi" aria-expanded="false">Leggi</button>' : '')
@@ -37228,14 +37240,14 @@
         if (x.a) return srAllegatoHtml(d, x.a);
         if (x.c) {
             return '<li class="sr-doc sr-cartella"><div class="sr-cartella-tit"><strong>' + esc(x.et) + '</strong>'
-                + '<span class="sr-doc-meta">' + x.c.length + ' documenti'
-                + (x.drive ? ' · <a href="' + esc(x.drive) + '" target="_blank" rel="noopener">cartella su Drive</a>' : '') + '</span></div>'
+                + '<span class="sr-doc-meta">' + x.c.length + ' documenti</span></div>'
                 + '<ul class="sr-docs">' + x.c.map(a => srAllegatoHtml(d, a)).join('') + '</ul></li>';
         }
         if (x.l) {
             return '<li class="sr-doc sr-link">'
                 + '<span class="sr-doc-tipo t-' + esc(x.tipo) + '">' + esc(SR_LINK_BREVE[x.tipo] || 'Link') + '</span>'
                 + '<span class="sr-doc-nome"><a href="' + esc(x.l) + '" target="_blank" rel="noopener">' + esc(x.et) + '</a>'
+                + (x.descrizione ? '<span class="sr-doc-desc">' + esc(x.descrizione) + '</span>' : '')
                 + '<span class="sr-doc-meta">' + esc(SR_LINK[x.tipo] || 'Collegamento') + ', si apre in una nuova scheda</span></span></li>';
         }
         return '';
@@ -37248,113 +37260,76 @@
             + (p.doc && p.doc.length ? '<ul class="sr-docs">' + p.doc.map(x => srDocHtml(d, x)).join('') + '</ul>' : '')
             + '</div></li>').join('') + '</ol>';
     }
-    function srCorpoHtml(d, s) {
-        const c = s.carta;
-        if (!c) {
-            return '<p class="descrizione">Nel piano di revisione non c\'è una carta di lavoro collegata a questa attività.</p>'
-                + '<p class="hint">Le indicazioni su import del bilancio, materialità e carte di lavoro «Pianificazione» e «Controllo» stanno nella carta della '
-                + '<button type="button" class="btn btn-sm btn-ghost sr-vai" data-vai="sr-qualita">Richiesta controllo di qualità</button></p>';
-        }
-        const vecchia = c.annoCarta !== d.anno && !s.righe.some(r => r.linkAnno2026);
-        return '<p class="sr-fonte">Carta di lavoro: <a href="' + esc(c.drive) + '" target="_blank" rel="noopener">' + esc(c.titolo) + '</a>'
-            + (vecchia ? ' <span class="badge ambra">carta ' + esc(c.annoCarta) + '</span>' : '') + '</p>'
-            + (vecchia ? '<p class="hint">Nel piano la riga ' + esc(d.anno) + ' di questa attività non ha ancora un collegamento: qui c\'è la carta di lavoro ' + esc(c.annoCarta) + ' della stessa attività.</p>' : '')
-            + (c.note || []).map(n => '<div class="sr-avviso">' + esc(n) + '</div>').join('')
-            + (c.inEvidenza ? '<ul class="sr-docs sr-evidenza">' + c.inEvidenza.map(x => srDocHtml(d, x)).join('') + '</ul>' : '')
-            + c.blocchi.map(b => (b.titolo ? '<h3 class="sr-blocco">' + esc(b.titolo) + '</h3>' : '') + srPassiHtml(d, b.passi)).join('')
-            + (c.doveAllegare ? '<h3 class="sr-blocco">Dove inserire gli allegati nelle carte di lavoro</h3>'
-                + '<div class="sr-dove">' + c.doveAllegare.map(x => '<div class="sr-dove-riga"><span>' + esc(x.cosa) + '</span><span class="sr-dove-carta">' + esc(x.carta) + '</span></div>').join('') + '</div>' : '')
-            + (c.noteFinali || []).map(n => '<div class="sr-avviso">' + esc(n) + '</div>').join('');
-    }
-    function srSchedaHtml(d, s) {
-        const r0 = s.righe[0];
-        const periodi = s.righe.map(r => {
-            const st = srStato(r.inizio, r.fine);
-            return '<span class="sr-periodo">' + (s.righe.length > 1 ? esc(r.attivita) + ': ' : '')
-                + esc(fmtData(r.inizio)) + ' - ' + esc(fmtData(r.fine))
-                + ' <span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></span>';
-        }).join('');
-        const c = s.carta;
-        const nPassi = c ? c.blocchi.reduce((t, b) => t + b.passi.length, 0) : 0;
-        const nDoc = c ? srDocumentiCarta(c).length : 0;
-        const conta = c ? (nPassi + (nPassi === 1 ? ' passaggio' : ' passaggi') + ' · ' + nDoc + (nDoc === 1 ? ' documento' : ' documenti')) : 'Nessuna carta di lavoro';
-        return '<section class="card sr-scheda" id="' + esc(s.id) + '">'
-            + '<h2 class="sr-h"><button type="button" class="sr-testa" aria-expanded="false" aria-controls="' + esc(s.id) + '-corpo">'
-            + '<span class="sr-testa-riga"><span class="badge sr-fase f-' + esc(r0.fase) + '">' + esc(d.fasi[r0.fase] || r0.fase) + '</span>'
-            + '<span class="sr-conta">' + esc(conta) + '</span></span>'
-            + '<span class="sr-titolo">' + esc(srTitoloScheda(s)) + '</span>'
-            + '<span class="sr-periodi">' + periodi + '</span>'
-            + '<svg class="sr-freccia" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
-            + '</button></h2>'
-            + '<div class="sr-corpo" id="' + esc(s.id) + '-corpo" hidden>' + srCorpoHtml(d, s) + '</div></section>';
-    }
-    // il testo su cui si cerca: attivita', titoli, passaggi, note e nomi dei documenti
-    function srTestoRicerca(d, s) {
-        const parti = s.righe.map(r => r.attivita);
-        const c = s.carta;
+    // il testo su cui cerca la tabella: descrizione, passaggi, note e nomi dei documenti dell'attivita'
+    function srTestoRicerca(d, id) {
+        const a = d.attivita[id];
+        if (!a) return '';
+        const parti = [a.titolo, a.sintesi, ...(a.come || []), a.agliAtti || '', a.attenzione || '', ...(a.riferimenti || [])];
+        const doc = x => {
+            parti.push(x.et || '', x.descrizione || '');
+            (x.c || (x.a ? [x.a] : [])).forEach(k => { const al = d.allegati[k]; if (al) parti.push(al.nome, al.descrizione || '', al.titoloDrive || ''); });
+        };
+        (a.documentiUtili || []).forEach(doc);
+        const c = a.carta && d.carte[a.carta];
         if (c) {
             parti.push(c.titolo, ...(c.note || []), ...(c.noteFinali || []));
+            (c.inEvidenza || []).forEach(doc);
             c.blocchi.forEach(b => {
-                parti.push(b.titolo);
-                b.passi.forEach(p => {
-                    parti.push(p.testo, p.nota || '');
-                    (p.doc || []).forEach(x => {
-                        parti.push(x.et || '');
-                        (x.c || (x.a ? [x.a] : [])).forEach(a => { const al = d.allegati[a]; if (al) parti.push(al.nome, al.titoloDrive || ''); });
-                    });
-                });
+                parti.push(b.titolo, b.intro || '');
+                b.passi.forEach(p => { parti.push(p.testo, p.nota || ''); (p.doc || []).forEach(doc); });
             });
-            (c.inEvidenza || []).forEach(x => { const al = x.a && d.allegati[x.a]; if (al) parti.push(al.nome); });
             (c.doveAllegare || []).forEach(x => parti.push(x.cosa, x.carta));
         }
         return parti.join(' ').toLowerCase();
     }
+    /* Il clic si ascolta sui riquadri appena disegnati, non su #vista: quello resta
+       lo stesso fra una sezione e l'altra e a ogni ritorno si sommerebbe un
+       ascoltatore in piu'. Gestisce "Leggi" e "Copia il testo" dei documenti. */
+    function srCollegaDocumenti(radici) {
+        const clic = ev => {
+            const leggi = ev.target.closest('.sr-leggi');
+            if (leggi) { srMostraTesto(leggi); return; }
+            const copia = ev.target.closest('.sr-copia');
+            if (copia) {
+                const corpo = copia.closest('.sr-testo').querySelector('.sr-testo-corpo');
+                if (corpo) copiaNegliAppunti(corpo.textContent, 'Testo copiato: incollalo nella tua email o nel documento.');
+            }
+        };
+        radici.forEach(el => el.addEventListener('click', clic));
+    }
 
     function vistaStrumenti() {
         const d = srDati();
-        if (!d) {
-            const messaggio = testo => {
-                $vista().innerHTML = '<header><div><h1>Strumenti di revisione</h1></div></header>'
-                    + '<div class="card"><p class="descrizione">' + esc(testo) + '</p></div>';
-            };
-            messaggio('Caricamento delle carte di lavoro...');
-            srCaricaDati()
-                .then(() => { if (vistaCorrente === 'strumenti') vistaStrumenti(); })
-                .catch(() => { if (vistaCorrente === 'strumenti') messaggio('I dati degli strumenti di revisione non si sono caricati. Controlla la connessione e riapri la sezione; se il problema resta, avvisa l\'amministratore.'); });
-            return;
-        }
-        const schede = srSchede(d);
-        const schedaDi = {};
-        schede.forEach(s => s.righe.forEach(r => { schedaDi[d.piano.indexOf(r)] = s; }));
+        if (!d) { srAttendiDati('strumenti', vistaStrumenti); return; }
+        const anno = srAnnoScelto(d);
+        const piano = srPiano(d, anno);
         const opz = (v, t, sel) => '<option value="' + esc(v) + '"' + (sel === v ? ' selected' : '') + '>' + esc(t) + '</option>';
+        const schedeAnni = '<div class="tab-dest sr-anni" role="tablist" aria-label="Anno del piano di revisione">'
+            + d.anni.map(a => '<button type="button" class="tab-btn' + (a.anno === anno ? ' attivo' : '') + '" role="tab" aria-selected="' + (a.anno === anno) + '" data-anno="' + a.anno + '">'
+                + a.anno + (a.piano.length ? '' : ' <span class="sr-anno-vuoto">da preparare</span>') + '</button>').join('')
+            + '</div>';
 
-        const righe = d.piano.map((r, i) => {
-            const s = schedaDi[i], st = srStato(r.inizio, r.fine);
-            const c = s && s.carta;
-            const vecchia = c && c.annoCarta !== d.anno && !r.linkAnno2026;
-            return '<tr data-i="' + i + '" data-scheda="' + esc(s.id) + '">'
+        const righe = piano.map((r, i) => {
+            const st = srStato(r.inizio, r.fine);
+            const a = d.attivita[r.attivita] || {};
+            const c = a.carta && d.carte[a.carta];
+            return '<tr class="sr-riga" data-i="' + i + '" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">'
                 + '<td data-label="Fase"><span class="badge sr-fase f-' + esc(r.fase) + '">' + esc(d.fasi[r.fase] || r.fase) + '</span></td>'
-                + '<td data-label="Attività"><strong>' + esc(r.attivita) + '</strong></td>'
+                + '<td data-label="Attività"><strong>' + esc(r.nome) + '</strong></td>'
                 + '<td data-label="Inizio">' + esc(fmtData(r.inizio)) + '</td>'
                 + '<td data-label="Fine">' + esc(fmtData(r.fine)) + '</td>'
                 + '<td data-label="Stato"><span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></td>'
                 + '<td data-label="Carta di lavoro">'
-                + (c ? '<button type="button" class="btn btn-sm btn-secondary sr-vai" data-vai="' + esc(s.id) + '">Apri la carta</button>'
-                    + (vecchia ? ' <span class="badge ambra" title="Per il ' + esc(d.anno) + ' vale la carta ' + esc(c.annoCarta) + ' della stessa attività">carta ' + esc(c.annoCarta) + '</span>' : '')
-                    : '<span class="hint">Nessuna carta collegata</span>')
+                + '<button type="button" class="btn btn-sm btn-secondary sr-apri" data-attivita="' + esc(r.attivita) + '">Apri</button>'
+                + (!c ? ' <span class="hint">senza carta di lavoro</span>'
+                    : r.cartaAnnoPrecedente ? ' <span class="badge ambra" title="Per il ' + esc(anno) + ' vale la carta ' + esc(c.annoCarta) + ' della stessa attività">carta ' + esc(c.annoCarta) + '</span>' : '')
                 + '</td></tr>';
         }).join('');
 
-        $vista().innerHTML = `
-            <header>
-                <div>
-                    <h1>Strumenti di revisione</h1>
-                    <p class="descrizione">Il piano di revisione ${esc(d.anno)} con le carte di lavoro di ogni attività: i passaggi da seguire e, accanto a ciascuno, i documenti da usare (email tipo, lettere, verbali, attestazioni, fogli di lavoro). Ogni documento si legge qui, si apre o si scarica.</p>
-                </div>
-            </header>
+        const corpo = piano.length ? `
             <div class="card" id="sr-piano">
-                <h2>Piano di revisione ${esc(d.anno)}</h2>
-                <p class="hint">Le attività del foglio «${esc(d.fonte.titolo)}» con anno ${esc(d.anno)}, nello stesso ordine. Lo stato si calcola sulle date di oggi.</p>
+                <h2>Piano di revisione ${esc(anno)}</h2>
+                <p class="hint">Le attività del piano ${esc(anno)}, nell'ordine del piano. Apri un'attività per leggere di cosa si tratta, i passaggi da seguire e i documenti da usare. Lo stato si calcola sulle date di oggi.</p>
                 <div class="filtri">
                     <div class="campo ricerca"><label for="sr-cerca">Ricerca</label><input type="search" id="sr-cerca" placeholder="Attività, passaggio o documento..." value="${esc(_srFiltri.q)}"></div>
                     <div class="campo"><label for="sr-fase">Fase</label><select id="sr-fase">${opz('', 'Tutte', _srFiltri.fase)}${Object.keys(d.fasi).map(k => opz(k, d.fasi[k], _srFiltri.fase)).join('')}</select></div>
@@ -37365,52 +37340,44 @@
                     <tbody>${righe}</tbody>
                 </table></div>
                 <p class="hint" id="sr-vuoto" hidden>Nessuna attività corrisponde ai filtri.</p>
-            </div>
-            <div class="sr-elenco">
-                <div class="sr-elenco-testa">
-                    <h2 class="sr-elenco-tit">Carte di lavoro per attività</h2>
-                    <div class="header-azioni">
-                        <button type="button" class="btn btn-sm btn-secondary" id="sr-apri-tutte">Apri tutte</button>
-                        <button type="button" class="btn btn-sm btn-secondary" id="sr-chiudi-tutte">Chiudi tutte</button>
-                    </div>
-                </div>
-                ${schede.map(s => srSchedaHtml(d, s)).join('')}
+            </div>` : `
+            <div class="card" id="sr-piano">
+                <h2>Piano di revisione ${esc(anno)}</h2>
+                <p class="descrizione">Il piano di revisione ${esc(anno)} non è ancora pronto. Quando lo sarà, qui troverai le attività dell'anno con le carte di lavoro e i documenti da usare.</p>
             </div>`;
 
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Strumenti di revisione</h1>
+                    <p class="descrizione">Il piano di revisione anno per anno. Per ogni attività: di cosa si tratta, come si svolge, i passaggi della carta di lavoro e i documenti da usare (email tipo, lettere, verbali, attestazioni, fogli di lavoro), da leggere qui, aprire o scaricare.</p>
+                </div>
+            </header>
+            ${schedeAnni}
+            ${corpo}`;
+
         const vista = $vista();
+        vista.querySelectorAll('.sr-anni [data-anno]').forEach(b => b.addEventListener('click', () => {
+            _srAnno = Number(b.dataset.anno);
+            vistaStrumenti();
+            costruisciSottoMenu();
+        }));
+        if (!piano.length) return;
+
         const testoDi = {};
-        schede.forEach(s => { testoDi[s.id] = srTestoRicerca(d, s); });
-        const elSchede = Array.from(vista.querySelectorAll('.sr-scheda'));
-        const imposta = (el, aperta) => {
-            const b = el.querySelector('.sr-testa'), corpo = el.querySelector('.sr-corpo');
-            el.classList.toggle('aperta', aperta);
-            if (b) b.setAttribute('aria-expanded', aperta ? 'true' : 'false');
-            if (corpo) corpo.hidden = !aperta;
-        };
-        /* Si filtrano insieme la tabella e le schede. Con una ricerca di almeno tre
-           lettere le schede che corrispondono si aprono da sole, cosi' si vede
-           dove sta il passaggio cercato; tolta la ricerca tornano come le si era
-           lasciate. */
+        srAttivitaAnno(d, anno).forEach(id => { testoDi[id] = srTestoRicerca(d, id); });
         const applica = () => {
             const q = _srFiltri.q.trim().toLowerCase();
             let visibili = 0;
             vista.querySelectorAll('.sr-tab tbody tr').forEach(tr => {
-                const r = d.piano[Number(tr.dataset.i)];
-                const st = srStato(r.inizio, r.fine).id;
-                const ok = (!_srFiltri.fase || r.fase === _srFiltri.fase) && (!_srFiltri.stato || st === _srFiltri.stato)
-                    && (!q || r.attivita.toLowerCase().includes(q) || (testoDi[tr.dataset.scheda] || '').includes(q));
+                const r = piano[Number(tr.dataset.i)];
+                const ok = (!_srFiltri.fase || r.fase === _srFiltri.fase) && (!_srFiltri.stato || srStato(r.inizio, r.fine).id === _srFiltri.stato)
+                    && (!q || r.nome.toLowerCase().includes(q) || (testoDi[r.attivita] || '').includes(q));
                 tr.hidden = !ok;
                 if (ok) visibili++;
             });
             const vuoto = document.getElementById('sr-vuoto');
             if (vuoto) vuoto.hidden = visibili > 0;
-            elSchede.forEach(el => {
-                const s = schede.find(x => x.id === el.id);
-                const ok = s.righe.some(r => (!_srFiltri.fase || r.fase === _srFiltri.fase) && (!_srFiltri.stato || srStato(r.inizio, r.fine).id === _srFiltri.stato))
-                    && (!q || testoDi[s.id].includes(q));
-                el.hidden = !ok;
-                imposta(el, _srAperte.has(el.id) || (ok && q.length >= 3));
-            });
         };
         const cerca = document.getElementById('sr-cerca');
         cerca.addEventListener('input', () => { _srFiltri.q = cerca.value; applica(); });
@@ -37418,48 +37385,85 @@
             const el = document.getElementById('sr-' + k);
             el.addEventListener('change', () => { _srFiltri[k] = el.value; applica(); });
         });
-        document.getElementById('sr-apri-tutte').addEventListener('click', () => {
-            elSchede.forEach(el => { if (!el.hidden) { _srAperte.add(el.id); imposta(el, true); } });
+        // tutta la riga apre l'attivita'; il pulsante "Apri" c'e' per la tastiera e per chi non lo indovina
+        vista.querySelector('.sr-tab tbody').addEventListener('click', ev => {
+            const tr = ev.target.closest('tr[data-attivita]');
+            if (tr) naviga('strumentiAttivita', { anno, id: tr.dataset.attivita });
         });
-        document.getElementById('sr-chiudi-tutte').addEventListener('click', () => {
-            _srAperte.clear();
-            elSchede.forEach(el => imposta(el, false));
-        });
-
-        /* Il clic si ascolta sui riquadri appena disegnati, non su #vista: quello
-           resta lo stesso fra una sezione e l'altra e a ogni ritorno qui si
-           sommerebbe un ascoltatore in piu' (due clic = scheda aperta e richiusa). */
-        const clic = ev => {
-            const testa = ev.target.closest('.sr-testa');
-            if (testa) {
-                const el = testa.closest('.sr-scheda');
-                const aperta = !el.classList.contains('aperta');
-                if (aperta) _srAperte.add(el.id); else _srAperte.delete(el.id);
-                imposta(el, aperta);
-                return;
-            }
-            const vai = ev.target.closest('.sr-vai');
-            if (vai) {
-                const el = document.getElementById(vai.dataset.vai);
-                if (!el) return;
-                el.hidden = false;
-                _srAperte.add(el.id);
-                imposta(el, true);
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                const b = el.querySelector('.sr-testa');
-                if (b) b.focus({ preventScroll: true });
-                return;
-            }
-            const leggi = ev.target.closest('.sr-leggi');
-            if (leggi) { srMostraTesto(leggi); return; }
-            const copia = ev.target.closest('.sr-copia');
-            if (copia) {
-                const corpo = copia.closest('.sr-testo').querySelector('.sr-testo-corpo');
-                if (corpo) copiaNegliAppunti(corpo.textContent, 'Testo copiato: incollalo nella tua email o nel documento.');
-            }
-        };
-        ['#sr-piano', '.sr-elenco'].forEach(sel => { const el = vista.querySelector(sel); if (el) el.addEventListener('click', clic); });
         applica();
+    }
+
+    function vistaStrumentiAttivita() {
+        const d = srDati();
+        if (!d) { srAttendiDati('strumentiAttivita', vistaStrumentiAttivita); return; }
+        const par = parametriVista || {};
+        const anno = par.anno || srAnnoScelto(d);
+        const a = d.attivita[par.id];
+        const indietro = '<button type="button" class="btn btn-sm btn-ghost sr-indietro">← Piano di revisione ' + esc(anno) + '</button>';
+        const collegaIndietro = () => $vista().querySelectorAll('.sr-indietro').forEach(b =>
+            b.addEventListener('click', () => tornaOrigine(() => naviga('strumenti'))));
+        if (!a) {
+            $vista().innerHTML = '<header><div>' + indietro + '<h1>Attività non trovata</h1></div></header>'
+                + '<div class="card"><p class="descrizione">Questa attività non è più nel piano di revisione.</p></div>';
+            collegaIndietro();
+            return;
+        }
+        const righe = srPiano(d, anno).filter(r => r.attivita === par.id);
+        const r0 = righe[0];
+        const c = a.carta ? d.carte[a.carta] : null;
+        const periodi = righe.map(r => {
+            const st = srStato(r.inizio, r.fine);
+            return '<span class="sr-periodo">' + (righe.length > 1 ? esc(r.nome) + ': ' : '')
+                + esc(fmtData(r.inizio)) + ' - ' + esc(fmtData(r.fine)) + ' <span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></span>';
+        }).join('');
+        const vecchia = c && righe.some(r => r.cartaAnnoPrecedente);
+
+        const descrizione = '<div class="card" id="sr-att-descrizione"><h2>L\'attività</h2>'
+            + '<p class="sr-sintesi">' + esc(a.sintesi) + '</p>'
+            + (a.come && a.come.length ? '<h3 class="sr-blocco">Come si svolge</h3><ol class="sr-come">' + a.come.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>' : '')
+            + (a.agliAtti ? '<div class="sr-agli-atti"><strong>Cosa resta agli atti.</strong> ' + esc(a.agliAtti) + '</div>' : '')
+            + (a.attenzione ? '<div class="sr-avviso"><strong>Attenzione.</strong> ' + esc(a.attenzione) + '</div>' : '')
+            + (a.riferimenti && a.riferimenti.length ? '<div class="sr-rif"><span class="sr-rif-tit">Riferimenti</span>' + a.riferimenti.map(x => '<span class="sr-rif-voce">' + esc(x) + '</span>').join('') + '</div>' : '')
+            + '</div>';
+
+        const passaggi = c ? '<div class="card" id="sr-att-passaggi"><h2>Passaggi e documenti</h2>'
+            + '<p class="sr-fonte">Carta di lavoro «' + esc(c.titolo) + '»' + (vecchia ? ' <span class="badge ambra">carta ' + esc(c.annoCarta) + '</span>' : '') + ' · '
+            + c.blocchi.reduce((t, b) => t + b.passi.length, 0) + ' passaggi · ' + srDocumentiCarta(c).length + ' documenti</p>'
+            + (vecchia ? '<p class="hint">Nel piano ' + esc(anno) + ' questa attività non ha ancora una sua carta di lavoro: qui c\'è quella ' + esc(c.annoCarta) + ' della stessa attività.</p>' : '')
+            + (c.note || []).map(n => '<div class="sr-avviso">' + esc(n) + '</div>').join('')
+            + (c.inEvidenza ? '<ul class="sr-docs sr-evidenza">' + c.inEvidenza.map(x => srDocHtml(d, x)).join('') + '</ul>' : '')
+            + c.blocchi.map(b => (b.titolo ? '<h3 class="sr-blocco">' + esc(b.titolo) + '</h3>' : '')
+                + (b.intro ? '<p class="sr-intro">' + esc(b.intro) + '</p>' : '') + srPassiHtml(d, b.passi)).join('')
+            + (c.noteFinali || []).map(n => '<div class="sr-avviso">' + esc(n) + '</div>').join('')
+            + '</div>' : '';
+
+        const dove = c && c.doveAllegare ? '<div class="card" id="sr-att-dove"><h2>Dove inserire gli allegati nelle carte di lavoro</h2>'
+            + '<div class="sr-dove">' + c.doveAllegare.map(x => '<div class="sr-dove-riga"><span>' + esc(x.cosa) + '</span><span class="sr-dove-carta">' + esc(x.carta) + '</span></div>').join('') + '</div></div>' : '';
+
+        const utili = a.documentiUtili && a.documentiUtili.length ? '<div class="card" id="sr-att-utili"><h2>Documenti utili</h2>'
+            + '<p class="hint">' + (c ? 'Documenti delle altre carte di lavoro che servono anche qui.' : 'Questa attività non ha una carta di lavoro sua: questi sono i documenti delle altre carte che la riguardano.') + '</p>'
+            + '<ul class="sr-docs">' + a.documentiUtili.map(x => srDocHtml(d, x)).join('') + '</ul></div>' : '';
+
+        // l'attivita' prima e dopo nel piano dell'anno, per scorrerle senza tornare alla tabella
+        const ordine = srAttivitaAnno(d, anno), pos = ordine.indexOf(par.id);
+        const vicino = (id, verso) => id && d.attivita[id]
+            ? '<button type="button" class="btn btn-secondary sr-vicina" data-attivita="' + esc(id) + '">' + (verso < 0 ? '← ' : '') + esc(d.attivita[id].titolo) + (verso > 0 ? ' →' : '') + '</button>' : '<span></span>';
+        const scorri = pos >= 0 ? '<nav class="sr-scorri" aria-label="Altre attività del piano">' + vicino(ordine[pos - 1], -1) + vicino(ordine[pos + 1], 1) + '</nav>' : '';
+
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    ${indietro}
+                    <h1>${esc(a.titolo)}</h1>
+                    <div class="sr-att-meta">${r0 ? '<span class="badge sr-fase f-' + esc(r0.fase) + '">' + esc(d.fasi[r0.fase] || r0.fase) + '</span>' : ''}<span class="sr-periodi">${periodi}</span></div>
+                </div>
+            </header>
+            ${descrizione}${passaggi}${dove}${utili}${scorri}`;
+
+        const vista = $vista();
+        collegaIndietro();
+        vista.querySelectorAll('.sr-vicina').forEach(b => b.addEventListener('click', () => naviga('strumentiAttivita', { anno, id: b.dataset.attivita })));
+        srCollegaDocumenti(Array.from(vista.querySelectorAll(':scope > .card')));
     }
     /* "Leggi": il testo del documento Word sotto la sua riga, con il pulsante per
        copiarlo (le email tipo si incollano cosi' nel programma di posta). Il file
