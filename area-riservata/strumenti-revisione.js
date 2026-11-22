@@ -18,6 +18,7 @@
    aggiungere un documento: copiarlo nella cartella degli allegati,
    aggiungerlo in "allegati" e citarlo nel passo con { a: 'nome-file', et: 'Etichetta' }.
    Collegamento esterno: { l: 'https://...', et: 'Etichetta', tipo: 'modulo' | 'drive' | 'web' }.
+   { p: 'pec', et: 'Etichetta' } apre le circolarizzazioni via PEC dell'area riservata.
    I PDF «Stampa tutto» (scheda + documenti di ogni attivita' aperta) li
    prepara scripts/strumenti-revisione/fascicoli.py, che aggiunge in fondo
    a questo file la riga «fascicoli»: va rilanciato dopo ogni modifica.
@@ -394,7 +395,7 @@ window.RV_STRUMENTI_REVISIONE = {
     "Il cliente compila e firma l'attestazione 2026 con l'elenco dei soggetti e delle carte prepagate (o dichiara che non ce ne sono); se non indica legali, firma l'autocertificazione sui rischi legali.",
     "Il team prepara le lettere dai fac-simile 2026 (la data entro cui rispondere si scrive a mano); il cliente le stampa e le firma su carta intestata entro 5 giorni.",
     "Sui mastrini al 31/12/2026 si controlla che nell'attestazione ci siano tutti i soggetti e si verificano le PEC su INI-PEC.",
-    "Attestazione e lettere firmate vanno al responsabile qualità dell'incarico con l'email in formato standard: le spedisce lui dalla PEC circolarizzazionirevilaw@pec.it, così il revisore controlla invio e risposte senza passare dalla società.",
+    "Le lettere firmate si inviano dall'area riservata (Circolarizzazioni via PEC): partono dalla PEC circolarizzazionirevilaw@pec.it con i solleciti già programmati, così il revisore controlla invio e risposte senza passare dalla società.",
     "Con la Centrale Rischi al 31/12/2026 si verificano fondo rischi, saldi dei conti correnti, debiti verso consulenti e informazioni in nota integrativa."
    ],
    "agliAtti": "Risposte allegate nelle carte Revisoft indicate qui sotto; report delle risposte del team nella carta 3.98.",
@@ -429,7 +430,7 @@ window.RV_STRUMENTI_REVISIONE = {
     "Chiedere le schede contabili e gli elenchi xls di clienti e fornitori, anche a saldo zero, che quadrino con il bilancio al 31/12.",
     "Importare gli elenchi in Revisoft (attenzione ai segni dei saldi) e campionare: 3.4.7 per i clienti, 3.4.17 per i fornitori.",
     "Chiedere le PEC dei campionati, preparare le lettere (ai clienti con l'estratto conto al 31/12) e farle firmare su carta intestata entro 5 giorni.",
-    "Verificare le PEC su INI-PEC e inviare con il modulo dalla PEC circolarizzazionirevilaw@pec.it.",
+    "Verificare le PEC su INI-PEC e inviare le lettere dall'area riservata (Circolarizzazioni via PEC), dalla casella circolarizzazionirevilaw@pec.it, con i solleciti già programmati.",
     "Seguire risposte e solleciti; per chi non risponde procedure alternative; controllare le fatture da emettere e ricevere e l'aging di crediti e debiti."
    ],
    "agliAtti": "Risposte nelle carte di campionamento 3.4.7 e 3.4.17; report del team nella 3.98; documenti probativi allegati in Revisoft.",
@@ -1158,12 +1159,12 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 9,
-       "testo": "Mandare al responsabile della qualità dell'incarico l'attestazione e le lettere firmate, con l'email in formato standard: le spedisce lui dalla PEC circolarizzazionirevilaw@pec.it.",
+       "testo": "Inviare le lettere firmate dall'area riservata: una PEC per destinatario dalla casella circolarizzazionirevilaw@pec.it, con la lettera in PDF, la data entro cui rispondere e le date del primo e del secondo sollecito.",
        "doc": [
         {
-         "e": "obbligatorie",
-         "et": "Email al responsabile qualità",
-         "descrizione": "Scegli la società: il responsabile qualità si prende dall'incarico. L'email si apre nel tuo programma di posta già scritta; allega attestazione e lettere firmate e inviala."
+         "p": "pec",
+         "et": "Circolarizzazioni via PEC",
+         "descrizione": "Scegli l'incarico, indica i destinatari con la loro lettera in PDF e le date della risposta e dei solleciti. Qui trovi poi ricevute e risposte, da scaricare e salvare nelle carte."
         }
        ]
       }
@@ -1175,11 +1176,11 @@ window.RV_STRUMENTI_REVISIONE = {
      "passi": [
       {
        "n": 10,
-       "testo": "Verificare eventuali errori di invio."
+       "testo": "Verificare nell'area riservata che ogni PEC risulti consegnata: per quelle non consegnate correggere l'indirizzo e reinviare."
       },
       {
        "n": 11,
-       "testo": "Controllare le risposte ricevute e i solleciti."
+       "testo": "Controllare le risposte ricevute e i solleciti: quelli programmati partono da soli e si fermano quando la risposta arriva."
       },
       {
        "n": 12,
@@ -1189,7 +1190,8 @@ window.RV_STRUMENTI_REVISIONE = {
          "a": "report-del-team-soggetti-obbligatori-e-risposte",
          "et": "Report del team"
         }
-       ]
+       ],
+       "nota": "Ricevute e risposte si scaricano dall'area riservata e si salvano nelle carte di lavoro: a lavoro concluso vengono cancellate dal portale."
       }
      ]
     },
@@ -1456,12 +1458,12 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 10,
-       "testo": "Mandare al responsabile della qualità dell'incarico le lettere firmate e l'elenco con le PEC, con l'email in formato standard: le spedisce lui dalla PEC circolarizzazionirevilaw@pec.it.",
+       "testo": "Inviare le lettere firmate dall'area riservata: una PEC per destinatario dalla casella circolarizzazionirevilaw@pec.it, con la lettera in PDF, la data entro cui rispondere e le date del primo e del secondo sollecito.",
        "doc": [
         {
-         "e": "clientiFornitori",
-         "et": "Email al responsabile qualità",
-         "descrizione": "Scegli la società: il responsabile qualità si prende dall'incarico. L'email si apre nel tuo programma di posta già scritta; allega le lettere firmate e l'elenco con le PEC e inviala."
+         "p": "pec",
+         "et": "Circolarizzazioni via PEC",
+         "descrizione": "Scegli l'incarico, indica i destinatari con la loro lettera in PDF e le date della risposta e dei solleciti. Qui trovi poi ricevute e risposte, da scaricare e salvare nelle carte."
         }
        ]
       }
@@ -1473,11 +1475,11 @@ window.RV_STRUMENTI_REVISIONE = {
      "passi": [
       {
        "n": 11,
-       "testo": "Verificare eventuali errori di invio."
+       "testo": "Verificare nell'area riservata che ogni PEC risulti consegnata: per quelle non consegnate correggere l'indirizzo e reinviare."
       },
       {
        "n": 12,
-       "testo": "Controllare le risposte ricevute e i solleciti."
+       "testo": "Controllare le risposte ricevute e i solleciti: quelli programmati partono da soli e si fermano quando la risposta arriva."
       },
       {
        "n": 13,
@@ -1487,7 +1489,8 @@ window.RV_STRUMENTI_REVISIONE = {
          "a": "report-del-team-clienti-fornitori-e-risposte",
          "et": "Report del team"
         }
-       ]
+       ],
+       "nota": "Ricevute e risposte si scaricano dall'area riservata e si salvano nelle carte di lavoro: a lavoro concluso vengono cancellate dal portale."
       },
       {
        "n": 14,
@@ -3218,4 +3221,4 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  }
 };
-window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=53614daedc", "pagine": 40, "kb": 830, "documenti": 19}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=1ed5fff494", "pagine": 29, "kb": 1250, "documenti": 12}}};
+window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=0444975aca", "pagine": 40, "kb": 830, "documenti": 19}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=7e27baae9d", "pagine": 29, "kb": 1251, "documenti": 12}}};

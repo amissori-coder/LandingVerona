@@ -1,0 +1,357 @@
+/* ============================================================
+   PROVE - circolarizzazioni via PEC (Strumenti di revisione)
+   ------------------------------------------------------------
+       node prove/circolarizzazioni.prove.js
+
+   Niente da installare e niente rete: Firestore, il server di
+   posta e la casella PEC sono finti, il codice provato e' quello
+   vero (api/circolarizzazioni.js e lib/circ-*.js).
+
+   COSA DIMOSTRANO
+     - chi vede che cosa: team, responsabile dell'incarico e della
+       qualita' i propri incarichi; amministratore e supervisori
+       tutto; nessuno la lettera di un incarico altrui;
+     - una lettera non parte senza il suo PDF, e un file che non e'
+       un PDF non entra;
+     - piu' persone che inviano insieme: ogni PEC parte una volta
+       sola (due giri in parallelo non raddoppiano niente);
+     - le ricevute: accettata, consegnata, non consegnata (con i
+       solleciti che si fermano);
+     - i solleciti partono alla loro data con il loro testo, e NON
+       partono se la risposta e' arrivata prima;
+     - a chi appartiene una risposta: per messaggio a cui si
+       risponde, per riferimento nell'oggetto, per indirizzo; e
+       quando non e' sicuro resta "non associata" finche' non la
+       associa l'amministratore;
+     - un giro interrotto a meta' non spedisce due volte, e non
+       lascia una lettera ferma per sempre;
+     - il tetto orario e il rifiuto del server che ferma il giro;
+     - la posta gia' nella casella prima dell'attivazione non entra
+       fra le "non associate", e la casella non si legge piu' del
+       necessario.
+   ============================================================ */
+'use strict';
+
+const F = require('./circ-finti');
+F.orologioFinto('2027-01-11T10:00:00+01:00');
+const { dati, db, posta, ricevuta, risposta, avanti, alle, DateVera } = F;
+const MIN = 60000, ORA = 60 * MIN, GIORNO = 24 * ORA;
+
+const C = require('../lib/circ-comune');
+const DATI = require('../lib/circ-dati');
+const GIRO = require('../lib/circ-giro');
+const LETTORE = require('../lib/circ-lettore');
+const api = require('../api/circolarizzazioni');
+
+// ---------- anagrafica ----------
+const persone = [
+    { id: 'p1', nome: 'Rossi', nomeProprio: 'Marta', email: 'marta@studio.it', attivo: true },
+    { id: 'p2', nome: 'Bianchi', nomeProprio: 'Luca', email: 'luca@studio.it', attivo: true },
+    { id: 'p3', nome: 'Verdi', nomeProprio: 'Anna', email: 'anna@studio.it', attivo: true },
+    { id: 'p4', nome: 'Neri', nomeProprio: 'Ugo', email: 'ugo@studio.it', attivo: true },
+    { id: 'p5', nome: 'Gialli', nomeProprio: 'Sara', email: 'sara@studio.it', attivo: true }
+];
+const incarichi = [
+    { id: 'inc-alfa', cliente: 'ALFA MECCANICA SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Rossi, Bianchi' },
+    { id: 'inc-beta', cliente: 'BETA TESSILE SPA', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Bianchi' },
+    { id: 'inc-gamma', cliente: 'GAMMA SRL', stato: 'proposta', respIncarico: 'Verdi', qualita: 'Neri', team: 'Rossi' }
+];
+dati.set('archivio/incarichi', { json: JSON.stringify(incarichi) });
+dati.set('archivio/persone', { json: JSON.stringify(persone) });
+['marta', 'luca', 'anna', 'ugo', 'sara'].forEach(n => dati.set('utenti/' + n + '@studio.it', { nome: n, ruolo: 'procuratore', attivo: true }));
+dati.set('utenti/a.missori@emvas.tax', { nome: 'Andrea Missori', ruolo: 'admin', attivo: true });
+dati.set('utenti/spento@studio.it', { nome: 'x', ruolo: 'procuratore', attivo: false });
+
+// ---------- attrezzi ----------
+let passate = 0, fallite = 0;
+function verifica(cosa, condizione, dettaglio) {
+    if (condizione) { passate++; return; }
+    fallite++;
+    console.error('  NO  ' + cosa + (dettaglio !== undefined ? '\n        ' + JSON.stringify(dettaglio) : ''));
+}
+async function chiama(chi, corpo, metodo, intestazioni) {
+    let stato = 200, risposta = null;
+    const res = { setHeader() { }, status(s) { stato = s; return res; }, json(j) { risposta = j; return res; }, end() { return res; } };
+    await api({ method: metodo || 'POST', headers: intestazioni || {}, body: Object.assign({ idToken: chi }, corpo) }, res);
+    return Object.assign({ http: stato }, risposta);
+}
+const PDF = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(700 * 1024, 65)]);     // piu' di un pezzo
+async function nuova(chi, incaricoId, campi, file) {
+    file = file || PDF;
+    const oggi = C.giornoRoma();
+    const r = await chiama(chi, Object.assign({
+        azione: 'crea', incaricoId: incaricoId, destinatario: 'Banca di Prova S.p.A.', pec: 'banca@pec.it', categoria: 'banca',
+        bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(oggi, 10),
+        sollecito1: { data: C.aggiungiGiorni(oggi, 11), scadenza: C.aggiungiGiorni(oggi, 18) },
+        sollecito2: { data: C.aggiungiGiorni(oggi, 19), scadenza: C.aggiungiGiorni(oggi, 24) },
+        allegatoNome: 'Lettera banca.pdf', allegatoDimensione: file.length
+    }, campi));
+    if (!r.ok) return r;
+    let ultimo = null;
+    for (let n = 0; n < r.pezzi; n++) {
+        ultimo = await chiama(chi, { azione: 'allegato', id: r.id, n: n, dati: file.slice(n * r.pezzoByte, (n + 1) * r.pezzoByte).toString('base64') });
+        if (!ultimo.ok) return ultimo;
+    }
+    return Object.assign({}, r, ultimo);
+}
+const scheda = async id => (await DATI.leggi(db, id));
+const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
+
+(async () => {
+    // ---------- 1. regole e testi ----------
+    const oggi = C.giornoRoma();
+    verifica('oggi a Roma', oggi === '2027-01-11', oggi);
+    verifica('le 9 di Roma in inverno', new DateVera(C.istanteRoma('2027-01-22', 9)).toISOString() === '2027-01-22T08:00:00.000Z');
+    verifica('le 9 di Roma in estate', new DateVera(C.istanteRoma('2027-07-01', 9)).toISOString() === '2027-07-01T07:00:00.000Z');
+    verifica('riferimento letto dall\'oggetto', C.codiceDa('POSTA CERTIFICATA: R: Richiesta - rif. rvl-7k3m9q') === 'RVL-7K3M9Q');
+    verifica('nessun riferimento inventato', C.codiceDa('Richiesta di conferma REVILAW 2026') === '');
+    const base = { destinatario: 'Banca X', pec: 'x@pec.it', categoria: 'banca', bilancio: '2026-12-31', scadenza: '2027-01-21', allegatoNome: 'a.pdf', allegatoDimensione: 1000 };
+    verifica('scadenza gia\' passata rifiutata', C.controllaRichiesta(Object.assign({}, base, { scadenza: '2027-01-11' }), oggi).ok === false);
+    verifica('PEC non valida rifiutata', C.controllaRichiesta(Object.assign({}, base, { pec: 'x@pec' }), oggi).ok === false);
+    verifica('secondo sollecito senza il primo rifiutato', C.controllaRichiesta(Object.assign({}, base, { sollecito2: { data: '2027-02-01', scadenza: '2027-02-05' } }), oggi).ok === false);
+    verifica('secondo sollecito prima del primo rifiutato', C.controllaRichiesta(Object.assign({}, base, { sollecito1: { data: '2027-01-25', scadenza: '2027-01-30' }, sollecito2: { data: '2027-01-24', scadenza: '2027-02-05' } }), oggi).ok === false);
+    verifica('PDF troppo grande rifiutato', C.controllaRichiesta(Object.assign({}, base, { allegatoDimensione: 6 * 1024 * 1024 }), oggi).ok === false);
+    const d0 = { cliente: 'ALFA MECCANICA SRL', destinatario: 'Banca X', categoria: 'banca', bilancio: '2026-12-31', scadenza: '2027-01-21', codice: 'RVL-ABCDEF', casella: 'c@pec.it', inviatoIl: '2027-01-11', scadenzaPrima: '2027-01-21', sollecito1Il: '2027-01-22' };
+    const t1 = C.testoSemplice('primo', d0), t2 = C.testoSemplice('sollecito1', Object.assign({}, d0, { scadenza: '2027-01-29' })), t3 = C.testoSemplice('sollecito2', Object.assign({}, d0, { scadenza: '2027-02-05' }));
+    verifica('la richiesta dice entro quando rispondere', t1.indexOf('entro il 21 gennaio 2027') > 0 && t1.indexOf('RVL-ABCDEF') > 0 && t1.indexOf('rapporti bancari') > 0);
+    verifica('il primo sollecito ha il suo testo e la sua data', t2.indexOf('11 gennaio 2027') > 0 && t2.indexOf('entro il 29 gennaio 2027') > 0 && t2.indexOf('potrebbe esserVi sfuggita') > 0);
+    verifica('il secondo sollecito cita il primo ed e\' piu\' fermo', t3.indexOf('sollecito del 22 gennaio 2027') > 0 && t3.indexOf('entro e non oltre il 5 febbraio 2027') > 0 && t3.indexOf('procedure alternative') > 0);
+    verifica('oggetti distinti per passo', C.oggetto('primo', d0).indexOf('SOLLECITO') < 0 && /^SOLLECITO - /.test(C.oggetto('sollecito1', d0)) && /^SECONDO SOLLECITO - /.test(C.oggetto('sollecito2', d0)));
+    verifica('HTML senza immagini e con i dati', C.html('primo', d0).indexOf('<img') < 0 && C.html('primo', d0).indexOf('ALFA MECCANICA SRL') > 0);
+
+    // ---------- 2. chi vede che cosa ----------
+    let st = await chiama('marta@studio.it', { azione: 'stato' });
+    verifica('team: vede il suo incarico e non gli altri', st.ok && st.incarichi.length === 1 && st.incarichi[0].id === 'inc-alfa' && st.incarichi[0].ruoli.join() === 'team', st.incarichi);
+    st = await chiama('luca@studio.it', { azione: 'stato' });
+    verifica('team su due incarichi', st.incarichi.map(i => i.id).join() === 'inc-alfa,inc-beta');
+    st = await chiama('anna@studio.it', { azione: 'stato' });
+    verifica('responsabile dell\'incarico', st.incarichi.length === 2 && st.incarichi[0].ruoli.join() === 'responsabile');
+    st = await chiama('ugo@studio.it', { azione: 'stato' });
+    verifica('responsabile della qualita\'', st.incarichi.length === 2 && st.incarichi[0].ruoli.join() === 'qualita');
+    st = await chiama('sara@studio.it', { azione: 'stato' });
+    verifica('chi non e\' su nessun incarico non vede niente', st.ok && st.incarichi.length === 0 && st.profilo.vedeTutto === false);
+    st = await chiama('a.missori@emvas.tax', { azione: 'stato' });
+    verifica('amministratore: tutti gli incarichi partiti', st.profilo.admin && st.incarichi.length === 2 && st.nonAssociate === 0, st.incarichi);
+    verifica('utenza spenta rifiutata', (await chiama('spento@studio.it', { azione: 'stato' })).http === 403);
+    verifica('gettone non valido rifiutato', (await chiama('scaduto', { azione: 'stato' })).http === 401);
+    verifica('incarico altrui: niente elenco', (await chiama('marta@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' })).http === 403);
+    verifica('incarico altrui: niente lettere', (await chiama('marta@studio.it', { azione: 'crea', incaricoId: 'inc-beta' })).http === 403);
+
+    // ---------- 3. una lettera e il suo PDF ----------
+    const nonPdf = await nuova('marta@studio.it', 'inc-alfa', { pec: 'word@pec.it' }, Buffer.concat([Buffer.from('PK docx'), Buffer.alloc(2000, 66)]));
+    verifica('un file che non e\' un PDF non entra', nonPdf.ok === false && /non è un PDF/.test(nonPdf.msg), nonPdf);
+    const a1 = await nuova('marta@studio.it', 'inc-alfa');
+    verifica('lettera creata e in coda', a1.ok && a1.completo && /^RVL-/.test(a1.codice), a1);
+    let s = await scheda(a1.id);
+    verifica('la scheda e\' in coda con i due solleciti programmati', s.stato === 'coda' && s.passi.sollecito1.stato === 'programmato' && s.passi.sollecito2.stato === 'programmato' && s.prossimo <= Date.now());
+    const doppia = await nuova('luca@studio.it', 'inc-alfa');
+    verifica('stessa PEC sullo stesso incarico: avviso di doppione', doppia.ok === false && doppia.doppione === true && doppia.http === 400, doppia);
+    const a2 = await nuova('luca@studio.it', 'inc-alfa', { destinatario: 'Studio Legale Bruni', pec: 'bruni@pec.it', categoria: 'legale' });
+    const b1 = await nuova('luca@studio.it', 'inc-beta', {});      // stessa banca, altra societa'
+    const a3 = await nuova('marta@studio.it', 'inc-alfa', { destinatario: 'Fornitore Zeta', pec: 'zeta@pec.it', categoria: 'fornitore', sollecito1: null, sollecito2: null });
+    verifica('altre tre lettere in coda', a2.ok && b1.ok && a3.ok);
+    verifica('un collega non carica l\'allegato di un altro', (await chiama('luca@studio.it', { azione: 'allegato', id: a1.id, n: 0, dati: 'AAAA' })).http === 409);
+
+    // ---------- 4. piu' persone inviano insieme ----------
+    // nella casella c'e' gia' posta di prima dell'attivazione: non deve finire fra le "non associate"
+    risposta({ da: 'vecchio.cliente@pec.it', oggetto: 'Risposta a una lettera mandata a mano mesi fa' });
+    const giri = await Promise.all([chiama('marta@studio.it', { azione: 'avvia' }), chiama('luca@studio.it', { azione: 'avvia' }), GIRO.giro(db, { da: 'cron' })]);
+    verifica('tre giri insieme: quattro PEC, nessuna doppia', posta.length === 4 && new Set(posta.map(m => m.to)).size === 3 && new Set(posta.map(m => m.messageId)).size === 4, posta.map(m => m.to));
+    verifica('prima di spedire la prima PEC si e\' fissato il punto di partenza della casella', dati.get('meta/circLettore').uidValidity === '777' && dati.get('meta/circLettore').ultimoUid === 1);
+    verifica('uno solo ha spedito, gli altri hanno trovato occupato', giri.filter(g => g.esito === 'occupato').length === 2, giri.map(g => g.esito));
+    const m1 = posta.find(m => m.to === 'banca@pec.it' && m.subject.indexOf('ALFA') > 0);
+    verifica('la PEC porta mittente, riferimento, PDF e data', m1.from.indexOf('circolarizzazionirevilaw@pec.it') > 0 && m1.subject.indexOf(a1.codice) > 0
+        && m1.attachments[0].filename === 'Lettera banca.pdf' && m1.attachments[0].content.equals(PDF) && m1.text.indexOf('entro il 21 gennaio 2027') > 0, m1.subject);
+    s = await scheda(a1.id);
+    verifica('scheda inviata, prossimo = primo sollecito alle 9', s.stato === 'inviata' && s.passi.primo.stato === 'inviato' && s.prossimo === C.istanteRoma('2027-01-22', 9));
+    await GIRO.giro(db, { da: 'cron' });
+    verifica('un altro giro non rispedisce niente', posta.length === 4);
+
+    // ---------- 5. le ricevute ----------
+    const rA1 = rifDi(m1), mA2 = posta.find(m => m.to === 'bruni@pec.it'), mB1 = posta.find(m => m.to === 'banca@pec.it' && m.subject.indexOf('BETA') > 0), mA3 = posta.find(m => m.to === 'zeta@pec.it');
+    ricevuta('accettazione', rA1, { identificativo: 'opec210312.20270111100005.00001.pec@pec.aruba.it' });
+    ricevuta('avvenuta-consegna', rA1, { consegna: 'banca@pec.it' });
+    ricevuta('accettazione', rifDi(mA2));
+    ricevuta('errore-consegna', rifDi(mA2), { errore: 'no-dest', erroreEsteso: '5.1.1 - indirizzo non valido' });
+    ricevuta('accettazione', rifDi(mB1), { identificativo: 'opec-beta@pec.aruba.it' });
+    ricevuta('avvenuta-consegna', rifDi(mB1), { consegna: 'banca@pec.it' });
+    ricevuta('avvenuta-consegna', 'messaggio-di-qualcun-altro@pec.it', { consegna: 'boh@pec.it' });
+    const let1 = await chiama('marta@studio.it', { azione: 'controlla' });
+    verifica('casella letta', let1.ok && let1.letto && let1.ricevute === 6, let1);
+    s = await scheda(a1.id);
+    verifica('accettata e consegnata', s.stato === 'consegnata' && s.passi.primo.accettata && s.passi.primo.consegnata && s.messaggi.length === 2);
+    s = await scheda(a2.id);
+    verifica('non consegnata: errore e solleciti fermi', s.stato === 'errore' && s.passi.sollecito1.stato === 'bloccato' && s.passi.sollecito1.per === 'recapito' && s.prossimo === null, s.passi);
+    await LETTORE.giro(db, {});
+    verifica('rileggere la casella non cambia niente', (await scheda(a1.id)).messaggi.length === 2);
+    const el = await chiama('ugo@studio.it', { azione: 'elenco', incaricoId: 'inc-alfa' });
+    verifica('conteggi dell\'incarico', el.ok && el.conteggi.totale === 3 && el.conteggi.consegnate === 1 && el.conteggi.errori === 1 && el.conteggi.inviate === 3 && el.conteggi.sollecito1.programmati === 1, el.conteggi);
+    const eml = await chiama('marta@studio.it', { azione: 'scarica', id: a1.id, chiave: s.messaggi.length ? (await scheda(a1.id)).messaggi[0].chiave : '' });
+    verifica('la ricevuta si scarica come .eml', eml.ok && eml.fine && Buffer.from(eml.dati, 'base64').toString().indexOf('X-Ricevuta: accettazione') >= 0);
+    verifica('la ricevuta di un altro incarico no', (await chiama('marta@studio.it', { azione: 'scarica', id: b1.id, chiave: 'x' })).http === 403);
+
+    // ---------- 6. correggere l'indirizzo e reinviare ----------
+    const rein = await chiama('luca@studio.it', { azione: 'reinvia', id: a2.id, pec: 'studiobruni@pec.it' });
+    verifica('reinvio accettato', rein.ok && rein.scheda.stato === 'coda' && rein.scheda.pec === 'studiobruni@pec.it' && rein.scheda.passi.sollecito1.stato === 'programmato', rein);
+    await GIRO.giro(db, {});
+    verifica('la lettera corretta e\' ripartita', posta.length === 5 && posta[4].to === 'studiobruni@pec.it');
+    ricevuta('accettazione', rifDi(posta[4]));
+    ricevuta('avvenuta-consegna', rifDi(posta[4]), { consegna: 'studiobruni@pec.it' });
+    await LETTORE.giro(db, {});
+    verifica('ora e\' consegnata, con la storia del primo tentativo', (await scheda(a2.id)).stato === 'consegnata' && (await scheda(a2.id)).storico.length === 1);
+    verifica('non si reinvia una lettera consegnata', (await chiama('luca@studio.it', { azione: 'reinvia', id: a1.id, pec: 'x@pec.it' })).http === 409);
+
+    // ---------- 7. le risposte ----------
+    // a) BETA risponde al nostro messaggio (identificativo del gestore): niente dubbi anche se la banca e' la stessa di ALFA
+    alle('2027-01-15T11:00:00+01:00');
+    const rispBeta = risposta({ da: 'banca@pec.it', oggetto: 'R: conferma saldi', inRisposta: 'opec-beta@pec.aruba.it', pdfByte: 5000 });
+    // b) un fornitore risponde da un altro indirizzo, ma lascia il riferimento nell'oggetto
+    const rispZeta = risposta({ da: 'amministrazione.zeta@legalmail.it', oggetto: 'Re: Richiesta di conferma esterna - rif. ' + a3.codice.toLowerCase() });
+    // c) la banca scrive un messaggio nuovo, senza riferimenti: ha due lettere, ma una e' gia' risposta? no: resta ambigua
+    const rispAmbigua = risposta({ da: 'banca@pec.it', oggetto: 'Invio documentazione richiesta' });
+    // d) un "sono in ferie" non e' una risposta
+    risposta({ da: 'studiobruni@pec.it', oggetto: 'Risposta automatica: assente fino al 20', automatica: true, inRisposta: rifDi(posta[4]) });
+    const let2 = await LETTORE.giro(db, {});
+    verifica('quattro messaggi: tre abbinati, uno no', let2.risposte === 3 && let2.nonAssociate === 1, let2);
+    s = await scheda(b1.id);
+    verifica('risposta per messaggio: sulla lettera di BETA, solleciti fermi', s.stato === 'risposta' && s.risposta.modo === 'pec' && s.risposte[0].via === 'risposta' && s.passi.sollecito1.stato === 'bloccato' && s.passi.sollecito2.stato === 'bloccato' && s.prossimo === null, s.passi.sollecito1);
+    verifica('la lettera di ALFA alla stessa banca NON e\' toccata', (await scheda(a1.id)).risposta === null && (await scheda(a1.id)).passi.sollecito1.stato === 'programmato');
+    s = await scheda(a3.id);
+    verifica('risposta per riferimento nell\'oggetto, da un altro indirizzo', s.stato === 'risposta' && s.risposte[0].via === 'riferimento' && s.risposte[0].da === 'amministrazione.zeta@legalmail.it');
+    s = await scheda(a2.id);
+    verifica('la risposta automatica si elenca ma non ferma i solleciti', s.risposta === null && s.risposte.length === 1 && s.risposte[0].automatica && s.passi.sollecito1.stato === 'programmato');
+    verifica('il team non vede le non associate', (await chiama('marta@studio.it', { azione: 'non-associate' })).http === 403);
+    let na = await chiama('a.missori@emvas.tax', { azione: 'non-associate' });
+    verifica('l\'amministratore vede la non associata, con la lettera candidata', na.ok && na.messaggi.length === 1 && na.messaggi[0].da === 'banca@pec.it' && na.messaggi[0].candidati.length === 2, na.messaggi);
+    const testoNa = await chiama('a.missori@emvas.tax', { azione: 'leggi', chiave: na.messaggi[0].chiave });
+    verifica('la legge prima di associarla', testoNa.ok && testoNa.testo === 'Confermiamo il saldo indicato.', testoNa);
+    const ass = await chiama('a.missori@emvas.tax', { azione: 'associa', chiave: na.messaggi[0].chiave, id: a1.id });
+    verifica('associata a mano', ass.ok && ass.incaricoId === 'inc-alfa', ass);
+    s = await scheda(a1.id);
+    verifica('la lettera di ALFA ora ha la risposta e i solleciti fermi', s.stato === 'risposta' && s.risposte[0].via === 'manuale' && s.risposte[0].associataDa && s.passi.sollecito1.stato === 'bloccato');
+    verifica('non si associa due volte', (await chiama('a.missori@emvas.tax', { azione: 'associa', chiave: na.messaggi[0].chiave, id: b1.id })).http === 409);
+    verifica('nessuna non associata rimasta', (await chiama('a.missori@emvas.tax', { azione: 'non-associate' })).messaggi.length === 0);
+    // il testo e il PDF della risposta, a tratti
+    const testo = await chiama('luca@studio.it', { azione: 'leggi', id: b1.id, chiave: (await scheda(b1.id)).risposte[0].chiave });
+    verifica('il testo della risposta si legge dalla casella', testo.ok && testo.testo === 'Confermiamo il saldo indicato.');
+    const rb = (await scheda(b1.id)).risposte[0];
+    const pezzo = await chiama('luca@studio.it', { azione: 'scarica', id: b1.id, chiave: rb.chiave, parte: rb.allegati[0].parte });
+    const ricomposto = Buffer.from(Buffer.from(pezzo.dati, 'base64').toString('latin1').replace(/[^A-Za-z0-9+/=]/g, ''), 'base64');
+    verifica('il PDF della risposta si scarica e torna identico', pezzo.ok && pezzo.fine && pezzo.codifica === 'base64' && ricomposto.equals(rispBeta.pdf), { fine: pezzo.fine, cod: pezzo.codifica });
+    verifica('un allegato che non e\' di quella risposta no', (await chiama('luca@studio.it', { azione: 'scarica', id: b1.id, chiave: rb.chiave, parte: '9.9' })).http === 404);
+    void rispZeta; void rispAmbigua;
+
+    // ---------- 8. i solleciti ----------
+    // resta senza risposta solo a2 (Studio Bruni): sollecito1 il 22/1 alle 9, sollecito2 il 30/1
+    alle('2027-01-22T08:30:00+01:00');
+    await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('prima delle 9 non parte niente', posta.length === 5);
+    alle('2027-01-22T09:03:00+01:00');
+    const cron = await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('alle 9 parte il primo sollecito, uno solo', cron.ok && posta.length === 6 && /^SOLLECITO - /.test(posta[5].subject) && posta[5].to === 'studiobruni@pec.it', posta.slice(5).map(m => m.subject));
+    verifica('il sollecito cita la prima PEC e la nuova scadenza', posta[5].text.indexOf('in data 11 gennaio 2027') > 0 && posta[5].text.indexOf('entro il 29 gennaio 2027') > 0 && posta[5].attachments[0].content.equals(PDF));
+    const subito = await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('niente da spedire e casella appena letta: non ci si rientra', subito.lettore.esito === 'letta da poco' && posta.length === 6, subito.lettore);
+    verifica('il giro senza segreto non parte', (await chiama('x', {}, 'GET', { authorization: 'Bearer undefined' })).http === 401);
+    // la risposta arriva dopo il primo sollecito: il secondo non deve partire
+    alle('2027-01-26T10:00:00+01:00');
+    risposta({ da: 'studiobruni@pec.it', oggetto: 'Riscontro', ordinaria: true });       // posta ordinaria, indirizzo univoco
+    alle('2027-01-30T09:05:00+01:00');
+    await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    s = await scheda(a2.id);
+    verifica('risposta arrivata: il secondo sollecito e\' bloccato e non parte', posta.length === 6 && s.passi.sollecito2.stato === 'bloccato' && s.risposta.modo === 'email' && s.passi.sollecito1.stato === 'inviato', s.passi.sollecito2);
+
+    // ---------- 9. risposta a mano, date dei solleciti, annullamenti ----------
+    alle('2027-02-01T10:00:00+01:00');
+    const c1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Uno', pec: 'uno@pec.it', categoria: 'cliente' });
+    const c2 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Due', pec: 'due@pec.it', categoria: 'cliente' });
+    verifica('annullare una lettera ancora in coda', (await chiama('anna@studio.it', { azione: 'annulla', id: c2.id })).cosa === 'lettera');
+    await GIRO.giro(db, {});
+    verifica('la lettera annullata non parte', posta.length === 7 && posta[6].to === 'uno@pec.it');
+    const mod = await chiama('luca@studio.it', { azione: 'solleciti', id: c1.id, sollecito1: { data: '2027-02-20', scadenza: '2027-02-27' }, sollecito2: null });
+    verifica('date dei solleciti cambiate', mod.ok && mod.scheda.passi.sollecito1.data === '2027-02-20' && mod.scheda.passi.sollecito2.stato === 'non-previsto' && (await scheda(c1.id)).prossimo === C.istanteRoma('2027-02-20', 9), mod);
+    verifica('data di sollecito nel passato rifiutata', (await chiama('luca@studio.it', { azione: 'solleciti', id: c1.id, sollecito1: { data: '2027-02-01', scadenza: '2027-02-08' } })).http === 400);
+    const man = await chiama('luca@studio.it', { azione: 'risposta-manuale', id: c1.id, nota: 'consegnata a mano al team' });
+    verifica('risposta segnata a mano: sollecito fermo', man.ok && man.scheda.risposta.modo === 'manuale' && man.scheda.passi.sollecito1.stato === 'bloccato');
+    const tolta = await chiama('luca@studio.it', { azione: 'risposta-manuale', id: c1.id, togli: true });
+    verifica('tolta: il sollecito torna in programma', tolta.ok && tolta.scheda.risposta === null && tolta.scheda.passi.sollecito1.stato === 'programmato');
+    verifica('annullare i solleciti di una lettera partita', (await chiama('anna@studio.it', { azione: 'annulla', id: c1.id })).cosa === 'solleciti' && (await scheda(c1.id)).prossimo === null);
+
+    // ---------- 10. un giro interrotto a meta' ----------
+    alle('2027-02-03T10:00:00+01:00');
+    const d1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Tre', pec: 'tre@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    const preso = await DATI.prendi(db, d1.id, Date.now(), 0);       // il giro la prende... e la funzione muore qui
+    verifica('presa in carico', preso.passo === 'primo' && (await scheda(d1.id)).passi.primo.stato === 'invio');
+    await GIRO.giro(db, {});
+    verifica('finche\' e\' "in invio" nessun altro la spedisce', posta.length === 7);
+    avanti(25 * MIN);
+    await GIRO.giro(db, {});
+    verifica('senza una lettura recente della casella non si rischia il doppione', posta.length === 7 && (await scheda(d1.id)).passi.primo.stato === 'invio');
+    // caso A: la PEC era partita davvero -> arriva l'accettazione
+    ricevuta('accettazione', preso.riferimento);
+    await LETTORE.giro(db, {});
+    verifica('l\'accettazione dice che era partita: inviata, senza rispedire', (await scheda(d1.id)).passi.primo.stato === 'inviato' && posta.length === 7);
+    // caso B: non era partita -> la casella letta dopo non ha niente, quindi si rispedisce
+    const d2 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Quattro', pec: 'quattro@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    await DATI.prendi(db, d2.id, Date.now(), 0);
+    avanti(25 * MIN);
+    await LETTORE.giro(db, {});
+    await GIRO.giro(db, {});
+    verifica('nessuna accettazione dopo venti minuti e casella letta: riparte', posta.length === 8 && posta[7].to === 'quattro@pec.it' && (await scheda(d2.id)).passi.primo.stato === 'inviato' && (await scheda(d2.id)).passi.primo.tentativi === 2);
+
+    // ---------- 11. il server rifiuta, e il tetto orario ----------
+    alle('2027-02-04T10:00:00+01:00');
+    const e1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Cinque', pec: 'cinque@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    const e2 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Sei', pec: 'sei@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    F.stato.rifiuta = () => Object.assign(new Error('421 4.7.0 Too many messages, try later'), { responseCode: 421 });
+    const fermo = await GIRO.giro(db, {});
+    verifica('rifiuto che riguarda noi: il giro si ferma e la lettera torna in coda', fermo.esito === 'fermato' && posta.length === 8 && (await scheda(e1.id)).passi.primo.stato === 'coda' && (await scheda(e2.id)).passi.primo.stato === 'coda', fermo);
+    F.stato.rifiuta = m => m.to === 'cinque@pec.it' ? Object.assign(new Error('550 5.1.1 mailbox unavailable'), { responseCode: 550 }) : null;
+    avanti(20 * MIN);
+    await GIRO.giro(db, {});
+    verifica('rifiuto del solo destinatario: errore su quella, le altre partono', (await scheda(e1.id)).stato === 'errore' && (await scheda(e2.id)).passi.primo.stato === 'inviato' && posta.length === 9);
+    F.stato.rifiuta = null;
+    process.env.CIRC_MAX_ORA = '10';      // nell'ora ne e' gia' partita una
+    for (let i = 0; i < 12; i++) await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Fornitore ' + i, pec: 'f' + i + '@pec.it', categoria: 'fornitore', sollecito1: null, sollecito2: null });
+    const tetto1 = await GIRO.giro(db, {});
+    verifica('tetto orario: ne partono nove e le altre aspettano', tetto1.inviate === 9 && tetto1.restanti === true && posta.length === 18, tetto1);
+    verifica('raggiunto il tetto non parte piu\' niente', (await GIRO.giro(db, {})).esito === 'tetto' && posta.length === 18);
+    avanti(ORA);
+    await GIRO.giro(db, {});
+    verifica('nell\'ora dopo partono le rimanenti', posta.length === 21);
+    delete process.env.CIRC_MAX_ORA;
+
+    // ---------- 12. supervisori, riepilogo, cancellazione ----------
+    verifica('solo l\'amministratore nomina i supervisori', (await chiama('anna@studio.it', { azione: 'supervisori', supervisori: ['sara@studio.it'] })).http === 403);
+    verifica('un supervisore deve avere un accesso', (await chiama('a.missori@emvas.tax', { azione: 'supervisori', supervisori: ['nessuno@studio.it'] })).http === 400);
+    verifica('supervisore nominato', (await chiama('a.missori@emvas.tax', { azione: 'supervisori', supervisori: ['Sara@studio.it'] })).supervisori.join() === 'sara@studio.it');
+    st = await chiama('sara@studio.it', { azione: 'stato' });
+    verifica('il supervisore vede tutto, ma non e\' amministratore', st.profilo.vedeTutto && !st.profilo.admin && st.incarichi.length === 2 && st.supervisori === undefined);
+    verifica('il supervisore vede le non associate', (await chiama('sara@studio.it', { azione: 'non-associate' })).ok === true);
+    verifica('il supervisore non cancella', (await chiama('sara@studio.it', { azione: 'cancella-incarico', incaricoId: 'inc-alfa', conferma: 'CANCELLA' })).http === 403);
+    st = await chiama('a.missori@emvas.tax', { azione: 'stato' });
+    const cAlfa = st.incarichi.find(i => i.id === 'inc-alfa').conteggi;
+    verifica('riepilogo dell\'amministratore per incarico', cAlfa.totale === 3 && cAlfa.risposte === 3 && cAlfa.sollecito1.inviati === 1 && cAlfa.sollecito2.bloccati === 2, cAlfa);
+    const perCod = await chiama('a.missori@emvas.tax', { azione: 'per-codice', codice: a1.codice.replace('-', ' ').toLowerCase() });
+    verifica('lettera trovata dal riferimento', perCod.ok && perCod.scheda.id === a1.id);
+    verifica('la cancellazione vuole la conferma', (await chiama('a.missori@emvas.tax', { azione: 'cancella-incarico', incaricoId: 'inc-alfa' })).http === 400);
+    const canc = await chiama('a.missori@emvas.tax', { azione: 'cancella-incarico', incaricoId: 'inc-alfa', conferma: 'CANCELLA' });
+    const tolteAlfa = [a1.id, a2.id, a3.id];
+    const rimaste = [...dati.keys()].filter(k => /^circ(Riferimenti|Messaggi)\//.test(k) && tolteAlfa.indexOf(dati.get(k).invio) >= 0);
+    verifica('incarico cancellato: schede, PDF e indice', canc.ok && canc.tolte === 3 && (await scheda(a1.id)) === null && rimaste.length === 0 && ![...dati.keys()].some(k => k.indexOf('circInvii/' + a1.id + '/') === 0), rimaste);
+    verifica('l\'altro incarico resta', (await scheda(b1.id)) !== null);
+
+    // ---------- 13. pulizie ----------
+    const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });
+    verifica('una bozza non compare in elenco', bozza.ok && !(await chiama('anna@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' })).schede.some(x => x.id === bozza.id));
+    avanti(2 * GIORNO);
+    await DATI.pulizia(db, Date.now(), 20);
+    verifica('la bozza rimasta a meta\' viene tolta', (await scheda(bozza.id)) === null);
+    avanti(40 * GIORNO);
+    await DATI.pulizia(db, Date.now(), 50);
+    s = await scheda(b1.id);
+    verifica('dopo trenta giorni dall\'ultimo passo il PDF si toglie, la scheda resta', s && s.allegato.tolto > 0 && s.stato === 'risposta' && ![...dati.keys()].some(k => k.indexOf('circInvii/' + b1.id + '/') === 0));
+
+    console.log('\ncircolarizzazioni: ' + passate + ' verifiche passate' + (fallite ? ', ' + fallite + ' FALLITE' : ''));
+    process.exit(fallite ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });
