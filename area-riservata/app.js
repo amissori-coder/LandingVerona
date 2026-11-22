@@ -37168,8 +37168,12 @@
     ========================================================= */
     /* In prova: la sezione compare solo a questi indirizzi di accesso (la persona
        che entra davvero, non l'utente per cui lavora un collaboratore). Per
-       aprirla a tutti basta lasciare l'elenco vuoto: []. */
-    const SR_ANTEPRIMA = [PROPRIETARIO];
+       aprirla a tutti basta lasciare l'elenco vuoto: [].
+       Il secondo indirizzo e' l'account di prova del titolare: serve a vedere la
+       sezione come la vedra' chi non amministra (nelle circolarizzazioni via PEC
+       solo gli incarichi in cui quella persona e' nel team o e' responsabile).
+       Gli indirizzi vanno scritti in minuscolo. */
+    const SR_ANTEPRIMA = [PROPRIETARIO, 'andreamissori@revilaw.it'];
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
