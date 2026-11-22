@@ -128,7 +128,7 @@ const AZIONI = {
             ok: true,
             configurato: C.configurato(), casella: C.configurato() ? cfg.mittente : '',
             profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto },
-            limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra },
+            limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni },
             categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome })),
             oggi: C.giornoRoma(), incarichi: incarichi,
             giro: await GIRO.stato(db), lettore: await LETTORE.stato(db)
@@ -308,8 +308,13 @@ async function giroProgrammato(db) {
     const appenaLetta = sl.ultimoGiro && sl.ultimoGiro.esito === 'ok' && !sl.ultimoGiro.restanti && Date.now() - (sl.ultimoGiro.quando || 0) < 9 * 60 * 1000;
     if (haLettere && (dovute > 0 || !appenaLetta)) out.lettore = await LETTORE.giro(db, { da: 'giro programmato', budgetMs: 45000 });
     else out.lettore = { ok: true, esito: haLettere ? 'letta da poco' : 'nessuna lettera' };
-    out.invii = await GIRO.giro(db, { da: 'giro programmato', budgetMs: 190000 });
-    try { out.pulizie = await DATI.pulizia(db, Date.now(), 20); } catch (e) { out.pulizie = 0; console.error('Circolarizzazioni, pulizie:', String((e && e.message) || e).slice(0, 200)); }
+    /* Senza niente di dovuto il giro degli invii non parte nemmeno, e le
+       pulizie si fanno una volta all'ora: a riposo il giro programmato costa
+       a Firestore poche letture e nessuna scrittura. */
+    out.invii = dovute > 0 ? await GIRO.giro(db, { da: 'giro programmato', budgetMs: 190000 }) : { ok: true, esito: 'niente da spedire', inviate: 0 };
+    if (new Date().getUTCMinutes() < 5) {
+        try { out.pulizie = await DATI.pulizia(db, Date.now(), 40); } catch (e) { out.pulizie = 0; console.error('Circolarizzazioni, pulizie:', String((e && e.message) || e).slice(0, 200)); }
+    }
     return out;
 }
 

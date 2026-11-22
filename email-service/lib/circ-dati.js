@@ -41,7 +41,6 @@ const MINUTO = 60 * 1000, GIORNO = 24 * 60 * MINUTO;
 const VERIFICA_MS = 20 * MINUTO;        // un passo "in invio" senza esito si riguarda dopo venti minuti
 const RIPROVA_MS = 15 * MINUTO;         // dopo un rifiuto che riguarda noi (tetto, blocco) si aspetta
 const MAX_TENTATIVI = 3;
-const ALLEGATO_GIORNI = 30;             // il PDF resta trenta giorni dopo l'ultimo passo, poi si toglie
 
 function docImpostazioni(db) { return db.collection('meta').doc('circolarizzazioni'); }
 
@@ -211,8 +210,13 @@ function chiudi(inv, ora) {
     inv.stato = statoDi(inv);
     inv.prossimo = prossimoDi(inv);
     inv.aggiornato = ora;
-    // il PDF serve finche' c'e' un passo da spedire (o da rispedire dopo un errore)
-    if (inv.allegato && !inv.allegato.tolto) inv.allegatoFino = inv.prossimo == null && inv.stato !== 'bozza' ? ora + ALLEGATO_GIORNI * GIORNO : null;
+    /* Quando il PDF si toglie dal portale: un anno (CIRC_PDF_GIORNI) dopo che
+       la lettera e' stata preparata. Mai prima dell'ultimo passo in programma:
+       un sollecito deve poterlo riallegare. */
+    if (inv.allegato && !inv.allegato.tolto) {
+        const nata = Number((inv.creato || {}).il) || ora;
+        inv.allegatoFino = inv.stato === 'bozza' ? null : Math.max(nata + C.LIMITI.pdfGiorni * GIORNO, inv.prossimo != null ? inv.prossimo + GIORNO : 0);
+    }
     return inv;
 }
 function segnaSporco(tx, db, inv) {
@@ -736,7 +740,8 @@ async function cancellaIncarico(db, incaricoId) {
     return { ok: true, tolte: tolte };
 }
 /* Pulizie del giro: bozze rimaste a meta' (il caricamento del PDF si e'
-   interrotto) e PDF di lettere chiuse da piu' di trenta giorni. */
+   interrotto) e PDF delle lettere preparate da piu' di un anno
+   (CIRC_PDF_GIORNI). La scheda resta, con ricevute e risposte. */
 async function pulizia(db, ora, max) {
     let fatte = 0;
     const bozze = await db.collection(INVII).where('stato', '==', 'bozza').get();
@@ -752,7 +757,8 @@ async function pulizia(db, ora, max) {
     const vecchi = await db.collection(INVII).where('allegatoFino', '<=', ora).orderBy('allegatoFino').limit(Math.max(1, max - fatte)).get();
     for (const s of vecchi.docs) {
         const inv = s.data() || {};
-        if (inv.prossimo != null) { await db.collection(INVII).doc(s.id).set({ allegatoFino: null }, { merge: true }); continue; }
+        // c'e' ancora un passo da spedire: il PDF serve, se ne riparla dopo
+        if (inv.prossimo != null) { await db.collection(INVII).doc(s.id).set({ allegatoFino: inv.prossimo + GIORNO }, { merge: true }); continue; }
         await togliAllegato(db, s.id, (inv.allegato || {}).pezzi);
         await db.collection(INVII).doc(s.id).set({ allegato: Object.assign({}, inv.allegato, { tolto: ora }), allegatoFino: null }, { merge: true });
         fatte++;

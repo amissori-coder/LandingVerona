@@ -856,6 +856,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_PEC_IMAP_HOST`, `CIRC_PEC_IMAP_PORT`, `CIRC_PEC_IMAP_CARTELLA` | *(facoltative)* senza: `imaps.pec.aruba.it`, `993`, `INBOX` |
 | `CIRC_PEC_IMAP_USER`, `CIRC_PEC_IMAP_PASS` | *(facoltative)* solo se la lettura ha credenziali diverse dall'invio |
 | `CIRC_PDF_MAX_MB` | *(facoltativa)* quanto puo' pesare la lettera in PDF. Senza: `5` |
+| `CIRC_PDF_GIORNI` | *(facoltativa)* per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale. Senza: `365` |
 | `CIRC_RISPOSTA_MAX_MB` | *(facoltativa)* fino a che peso un allegato di risposta si scarica dall'area riservata; oltre, si apre dalla casella. Senza: `20` |
 | `CIRC_MAX_ORA` | *(facoltativa)* tetto di PEC all'ora, per tutti insieme. Senza: `400` |
 | `CIRC_MAX_GIRO` | *(facoltativa)* quante PEC per giro. Senza: `80` |
@@ -980,8 +981,10 @@ tutto in un archivio ZIP con il riepilogo in Excel.
 Ai team l'area riservata lo dice in ogni pagina: ricevute e risposte vanno
 salvate nelle carte di lavoro, perche' a lavoro concluso i dati si cancellano.
 
-- **Il PDF** della lettera si toglie da solo trenta giorni dopo l'ultimo passo
-  (resta nella ricevuta di consegna, dentro la casella PEC).
+- **Il PDF** della lettera si toglie da solo **365 giorni dopo che la lettera
+  e' stata preparata** (`CIRC_PDF_GIORNI`), e comunque mai prima dell'ultimo
+  sollecito in programma. La scheda resta, con ricevute e risposte; il PDF
+  resta anche nella ricevuta di consegna, dentro la casella PEC.
 - **Le schede** di un incarico le cancella l'amministratore dalla pagina
   dell'incarico ("Cancella i dati di questo incarico", azione
   `cancella-incarico`): schede, PDF, indice dei riferimenti. I solleciti ancora
@@ -989,6 +992,30 @@ salvate nelle carte di lavoro, perche' a lavoro concluso i dati si cancellano.
 - **I messaggi** restano nella casella PEC, che e' l'archivio con valore legale.
 - Le bozze rimaste a meta' (caricamento del PDF interrotto) si tolgono dopo un
   giorno.
+
+### Quanto spazio occupa, e che cosa costa
+
+Su **Firestore** pesano quasi solo i PDF delle lettere, tenuti a pezzi sotto
+ogni scheda per `CIRC_PDF_GIORNI`: 5.000 lettere da mezzo megabyte sono circa
+2,5 GB per un anno. Tutto il resto (schede, indice, segnaposto dei messaggi)
+sta in poche decine di megabyte: il testo e gli allegati delle risposte non
+vengono mai copiati, restano nella casella PEC.
+
+> **Il piano gratuito di Firebase (Spark) non basta per questi volumi.** Ha un
+> tetto di 1 GiB di dati e di 20.000 scritture al giorno, e sono tetti di
+> TUTTO il database, cioe' di tutta l'area riservata: superati, si ferma ogni
+> salvataggio, non solo le circolarizzazioni. Ogni lettera costa una ventina
+> di scritture fra preparazione, invio e ricevute: mille lettere in un giorno
+> esauriscono da sole la quota. Prima di usare la funzione a pieno regime il
+> progetto va portato sul piano a consumo (Blaze), dove quelle quote restano
+> gratuite e si paga solo l'eccedenza: qualche euro l'anno per lo spazio dei
+> PDF, centesimi per le operazioni. Conviene impostare un avviso di spesa.
+
+Su **Vercel** non resta niente: il giro programmato a riposo dura un secondo,
+legge poche righe e non scrive. La **casella PEC** invece si riempie: ogni
+ricevuta di consegna completa contiene la lettera con il suo PDF, e a quelle si
+aggiungono le risposte. Va tenuta d'occhio (e svuotata o archiviata): a casella
+piena le risposte dei terzi vengono respinte.
 
 ### Le prove
 

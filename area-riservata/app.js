@@ -38183,7 +38183,7 @@
             + '<p class="msg-errore" id="pc-sup-err" hidden></p>'
             + '<button type="button" class="btn btn-primary" id="pc-sup-salva">Salva</button></div>'
             + '<div class="card"><h2>La casella e i limiti</h2><table class="sr-dove"><tbody>'
-            + [['Casella PEC di invio e di risposta', st.casella], ['Dimensione massima della lettera in PDF', pcPeso(st.limiti.pdfMaxByte)], ['Dimensione massima di un allegato di risposta scaricabile da qui', pcPeso(st.limiti.rispostaMaxByte)], ['PEC all\'ora, al massimo', String(st.limiti.perOra)], ['Orario dei solleciti', 'alle 9:00 del giorno indicato']]
+            + [['Casella PEC di invio e di risposta', st.casella], ['Dimensione massima della lettera in PDF', pcPeso(st.limiti.pdfMaxByte)], ['Il PDF della lettera resta sul portale', (st.limiti.pdfGiorni || 365) + ' giorni dalla preparazione'], ['Dimensione massima di un allegato di risposta scaricabile da qui', pcPeso(st.limiti.rispostaMaxByte)], ['PEC all\'ora, al massimo', String(st.limiti.perOra)], ['Orario dei solleciti', 'alle 9:00 del giorno indicato']]
                 .map(([a, b]) => '<tr><td>' + esc(a) + '</td><td class="sr-dove-carta">' + esc(b) + '</td></tr>').join('')
             + '</tbody></table><p class="hint" style="margin-top:10px">Si cambiano nelle variabili del servizio su Vercel (README del servizio, «Circolarizzazioni via PEC»).</p></div>';
         document.getElementById('pc-sup-salva').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
@@ -38617,7 +38617,7 @@
         const errore = s.stato === 'errore';
         const sollecitiVivi = ['sollecito1', 'sollecito2'].some(n => s.passi[n].stato === 'programmato');
         const fatti = [['Destinatario', s.destinatario], ['PEC', s.pec], ['Tipo', pcCategoria(s.categoria)], ['Riferimento', s.codice], ['Bilancio al', fmtData(s.bilancio)], ['Rispondere entro', fmtData(s.scadenza)],
-            ['Lettera', s.allegato ? s.allegato.nome + ' (' + pcPeso(s.allegato.dimensione) + ')' : '—'], ['Preparata da', ((s.creato || {}).nome || '') + ' il ' + fmtDataOra((s.creato || {}).il || 0)]];
+            ['Lettera', s.allegato ? s.allegato.nome + ' (' + pcPeso(s.allegato.dimensione) + ')' + (s.allegato.tolto ? ' · non più sul portale' : '') : '—'], ['Preparata da', ((s.creato || {}).nome || '') + ' il ' + fmtDataOra((s.creato || {}).il || 0)]];
         apriModale('<h2>' + esc(s.destinatario) + ' · ' + esc(s.codice) + '</h2>'
             + '<div class="pc-lettera">'
             + (errore ? '<div class="pc-avviso pc-problema" role="alert"><strong>La PEC non è arrivata.</strong> ' + esc(primo.errore || (primo.problema || {}).motivo || '') + ' Controlla l\'indirizzo (INI-PEC) e reinvia: i solleciti restano fermi finché la lettera non è consegnata.</div>' : '')
