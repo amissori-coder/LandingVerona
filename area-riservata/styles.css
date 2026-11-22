@@ -4167,7 +4167,7 @@ td.cene-az { white-space: nowrap; }
    Le regole [hidden] servono perche' sotto i 1200px le righe di table.dati
    diventano griglie: il display della griglia vincerebbe sull'attributo e i
    filtri non nasconderebbero niente. */
-.sr-tab tbody tr[hidden], .sr-testo[hidden], #sr-vuoto[hidden] { display: none !important; }
+.sr-tab tbody tr[hidden], .sr-testo[hidden], #sr-vuoto[hidden], .sr-g-riga[hidden], .sr-g-tip[hidden] { display: none !important; }
 /* Testo sempre giustificato, come .descrizione e .hint nel resto dell'area:
    descrizioni, passaggi, note, nomi e descrizioni dei documenti, testo letto. */
 .sr-sintesi, .sr-come li, .sr-agli-atti, .sr-avviso, .sr-intro, .sr-fonte, .sr-passo-testo, .sr-nota,
@@ -4246,10 +4246,72 @@ td.cene-az { white-space: nowrap; }
 .sr-dove-riga { display: flex; gap: 14px; justify-content: space-between; align-items: baseline; padding: 8px 12px; font-size: 0.86rem; border-bottom: 1px solid var(--grigio-100); }
 .sr-dove-riga:last-child { border-bottom: none; }
 .sr-dove-carta { font-weight: 700; color: var(--blu-700); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.badge.sr-fase.f-interim { background: var(--blu-100); color: var(--blu-700); }
-.badge.sr-fase.f-final { background: #E2EFEC; color: #2C6B5F; }
-.badge.sr-fase.f-newsletter { background: #ECE6FA; color: #5A3EA8; }
-.badge.sr-fase.f-giudizio { background: var(--ambra-bg); color: var(--ambra); }
+/* Il colore della fase: lo stesso sulle etichette e sulle barre del calendario.
+   Blu, acqua, giallo, magenta: verificati per la distinzione dei colori (anche
+   per chi li confonde) e mai da soli, perche' accanto c'e' sempre il nome. */
+:is(.sr-fase, .sr-g-barra, .sr-g-campione).f-interim { --c: #2a78d6; }
+:is(.sr-fase, .sr-g-barra, .sr-g-campione).f-final { --c: #1baf7a; }
+:is(.sr-fase, .sr-g-barra, .sr-g-campione).f-newsletter { --c: #eda100; }
+:is(.sr-fase, .sr-g-barra, .sr-g-campione).f-giudizio { --c: #e87ba4; }
+.badge.sr-fase { background: var(--grigio-100); color: var(--grigio-900); }
+.badge.sr-fase::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--c); margin-right: 5px; }
+/* il calendario (Gantt) */
+.sr-g-legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.8rem; color: var(--grigio-700); margin: 0 0 10px; }
+.sr-g-voce { display: inline-flex; align-items: center; gap: 6px; }
+.sr-g-campione { display: inline-block; width: 16px; height: 10px; border-radius: 3px; background: var(--c); }
+.sr-g-campione-due { position: relative; width: 30px; overflow: hidden; background: transparent; }
+.sr-g-campione-due::before { content: ''; position: absolute; inset: 0; background: var(--c); opacity: .28; }
+.sr-g-campione-due i { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: var(--c); }
+.sr-g-campione-oggi { display: inline-block; width: 2px; height: 14px; background: var(--blu-900); }
+.sr-gantt { position: relative; --g-nomi: 280px; background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio); margin-bottom: 6px; }
+.sr-g-scorri { overflow-x: auto; scrollbar-width: thin; }
+/* i nomi delle righe sono etichette del grafico, non testo corrente: allineate a
+   sinistra (giustificate allargavano gli spazi fra le parole su due righe) */
+.sr-g-corpo { min-width: 800px; padding: 4px 0 8px; }
+.sr-g-riga { display: grid; grid-template-columns: var(--g-nomi) minmax(0, 1fr); align-items: center; min-height: 30px; }
+.sr-g-nome, .sr-g-nome-vuoto { position: sticky; left: 0; z-index: 3; align-self: stretch; background: #fff; }
+.sr-g-nome {
+    display: flex; align-items: center; border: none; border-right: 1px solid var(--grigio-200); padding: 3px 12px;
+    font: inherit; font-size: 0.8rem; line-height: 1.25; color: var(--grigio-900); text-align: left; cursor: pointer;
+}
+.sr-g-nome:hover, .sr-g-nome:focus-visible { color: var(--blu-700); text-decoration: underline; }
+.sr-g-nome-vuoto { border-right: 1px solid var(--grigio-200); }
+.sr-g-traccia { position: relative; height: 30px; }
+.sr-g-asse .sr-g-traccia { height: auto; }
+.sr-g-fascia { position: relative; height: 18px; }
+.sr-g-fascia span { position: absolute; top: 0; text-align: center; white-space: nowrap; font-size: 0.72rem; color: var(--grigio-600); line-height: 18px; }
+.sr-g-anni span { font-weight: 700; color: var(--grigio-900); border-left: 1px solid var(--grigio-200); }
+.sr-g-mesi { border-bottom: 1px solid var(--grigio-200); }
+.sr-g-oggi-etich {
+    width: auto !important; transform: translateX(-50%); padding: 0 7px; border-radius: 999px;
+    background: var(--blu-900); color: #fff !important; font-weight: 700; line-height: 16px !important; top: 1px !important;
+}
+.sr-g-righe { position: relative; }
+.sr-g-griglia { position: absolute; top: 0; bottom: 0; left: var(--g-nomi); right: 0; pointer-events: none; }
+.sr-g-linea { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--grigio-100); }
+.sr-g-linea.anno { background: var(--grigio-200); }
+.sr-g-oggi { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--blu-900); z-index: 2; }
+.sr-g-riga:not(.sr-g-asse) + .sr-g-riga { border-top: 1px solid var(--grigio-050); }
+.sr-g-barra {
+    position: absolute; top: 3px; height: 24px; min-width: 8px; padding: 0; border: none; background: transparent;
+    display: flex; align-items: center; cursor: pointer; z-index: 1;
+}
+.sr-g-barra:focus-visible { outline: none; }
+.sr-g-velo { position: relative; display: block; width: 100%; height: 14px; border-radius: 4px; overflow: hidden; }
+.sr-g-velo::before { content: ''; position: absolute; inset: 0; background: var(--c); opacity: .28; }
+.sr-g-pieno { position: relative; display: block; height: 100%; background: var(--c); }
+.sr-g-barra:hover .sr-g-velo, .sr-g-barra:focus-visible .sr-g-velo { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--c); }
+.sr-g-tip {
+    position: absolute; z-index: 10; pointer-events: none; display: flex; flex-direction: column; gap: 1px; max-width: 280px;
+    background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio); box-shadow: var(--ombra-lg);
+    padding: 6px 10px; font-size: 0.78rem; color: var(--grigio-600);
+}
+.sr-g-tip strong { font-size: 0.84rem; color: var(--grigio-900); font-variant-numeric: tabular-nums; }
+.sr-g-tip-info { font-size: 0.72rem; }
+@media (max-width: 640px) {
+    .sr-gantt { --g-nomi: 150px; }
+    .sr-g-corpo { min-width: 680px; }
+}
 .sr-evidenza { margin: 10px 0 4px; }
 .sr-scorri { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin: 4px 0 24px; }
 .sr-scorri .btn { max-width: 100%; white-space: normal; text-align: left; }

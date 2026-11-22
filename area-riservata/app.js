@@ -37203,11 +37203,129 @@
         return _srAnno;
     }
     function srPiano(d, anno) { const a = d.anni.find(x => x.anno === anno); return a ? a.piano : []; }
-    // le attivita' di un anno nell'ordine del piano, una volta sola (le verifiche trimestrali sono quattro righe)
+    /* Le righe del piano in ordine di data di inizio (a parita', di fine; poi
+       come nel piano). E' l'ordine della tabella, del Gantt e dello scorrimento
+       fra un'attivita' e l'altra. */
+    function srPianoOrdinato(d, anno) {
+        return srPiano(d, anno).map((r, i) => ({ r, i }))
+            .sort((x, y) => x.r.inizio.localeCompare(y.r.inizio) || x.r.fine.localeCompare(y.r.fine) || x.i - y.i)
+            .map(x => x.r);
+    }
+    // le attivita' di un anno in ordine di inizio, una volta sola (le verifiche trimestrali sono quattro righe)
     function srAttivitaAnno(d, anno) {
         const out = [];
-        srPiano(d, anno).forEach(r => { if (!out.includes(r.attivita)) out.push(r.attivita); });
+        srPianoOrdinato(d, anno).forEach(r => { if (!out.includes(r.attivita)) out.push(r.attivita); });
         return out;
+    }
+    /* IL GANTT DEL PIANO. Una riga per attivita' (stesso ordine e stessi filtri
+       della tabella), l'asse dei mesi e la linea di oggi. Il colore dice la fase
+       (blu, acqua, giallo, magenta: palette verificata per chi distingue male i
+       colori, e ogni barra ha comunque il nome accanto); dentro la barra la parte
+       gia' trascorsa e' piena, quella da svolgere e' un velo dello stesso colore.
+       Le posizioni sono in percentuale: il grafico si adatta alla larghezza e,
+       sotto una certa misura, scorre di lato con i nomi fermi a sinistra. */
+    const SR_MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+    function srGiorno(iso) { const [a, m, g] = iso.split('-').map(Number); return Date.UTC(a, m - 1, g) / 864e5; }
+    function srGanttHtml(d, piano) {
+        if (!piano.length) return '';
+        const oggi = oggiISO(), gOggi = srGiorno(oggi);
+        const min = piano.reduce((m, r) => r.inizio < m ? r.inizio : m, piano[0].inizio);
+        const max = piano.reduce((m, r) => r.fine > m ? r.fine : m, piano[0].fine);
+        const [a0, m0] = min.split('-').map(Number), [a1, m1] = max.split('-').map(Number);
+        const t0 = Date.UTC(a0, m0 - 1, 1) / 864e5, t1 = Date.UTC(a1, m1, 1) / 864e5;   // dal primo del mese di inizio al primo del mese dopo la fine
+        const pct = g => (g - t0) / (t1 - t0) * 100;
+        const mesi = [];
+        for (let a = a0, m = m0 - 1; a < a1 || (a === a1 && m <= m1 - 1); ) {
+            const l = pct(Date.UTC(a, m, 1) / 864e5), r = pct(Date.UTC(a, m + 1, 1) / 864e5);
+            mesi.push({ a, m, l, w: r - l });
+            if (++m > 11) { m = 0; a++; }
+        }
+        const anni = [];
+        mesi.forEach(x => { const u = anni[anni.length - 1]; if (u && u.a === x.a) u.w += x.w; else anni.push({ a: x.a, l: x.l, w: x.w }); });
+        const conOggi = gOggi >= t0 && gOggi < t1;
+        const presenti = new Set(piano.map(r => r.fase));
+        const fasi = Object.keys(d.fasi).filter(f => presenti.has(f));   // ordine fisso delle fasi, non quello di comparsa
+        const legenda = '<div class="sr-g-legenda">'
+            + fasi.map(f => '<span class="sr-g-voce"><span class="sr-g-campione f-' + esc(f) + '"></span>' + esc(d.fasi[f] || f) + '</span>').join('')
+            + '<span class="sr-g-voce"><span class="sr-g-campione sr-g-campione-due f-interim"><i></i></span>già trascorso / da svolgere</span>'
+            + (conOggi ? '<span class="sr-g-voce"><span class="sr-g-campione-oggi"></span>oggi, ' + esc(fmtData(oggi)) + '</span>' : '')
+            + '</div>';
+        const xOggi = pct(gOggi + 0.5).toFixed(3);
+        const asse = '<div class="sr-g-riga sr-g-asse" aria-hidden="true"><span class="sr-g-nome-vuoto"></span><div class="sr-g-traccia">'
+            + '<div class="sr-g-fascia">' + (conOggi ? '<span class="sr-g-oggi-etich" style="left:' + xOggi + '%">Oggi</span>' : '') + '</div>'
+            + '<div class="sr-g-fascia sr-g-anni">' + anni.map(x => '<span style="left:' + x.l.toFixed(3) + '%;width:' + x.w.toFixed(3) + '%">' + x.a + '</span>').join('') + '</div>'
+            + '<div class="sr-g-fascia sr-g-mesi">' + mesi.map(x => '<span style="left:' + x.l.toFixed(3) + '%;width:' + x.w.toFixed(3) + '%">' + SR_MESI[x.m] + '</span>').join('') + '</div>'
+            + '</div></div>';
+        const righe = piano.map((r, i) => {
+            const g0 = srGiorno(r.inizio), g1 = srGiorno(r.fine) + 1;          // la data di fine e' compresa
+            const l = pct(g0), w = pct(g1) - l;
+            const pieno = gOggi <= g0 ? 0 : gOggi >= g1 ? 100 : (gOggi - g0) / (g1 - g0) * 100;
+            const st = srStato(r.inizio, r.fine), fase = d.fasi[r.fase] || r.fase;
+            const etich = r.nome + ': dal ' + fmtData(r.inizio) + ' al ' + fmtData(r.fine) + ', ' + fase + ', ' + st.nome.toLowerCase();
+            return '<div class="sr-g-riga" data-i="' + i + '">'
+                + '<button type="button" class="sr-g-nome" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">' + esc(r.nome) + '</button>'
+                + '<div class="sr-g-traccia">'
+                + '<button type="button" class="sr-g-barra f-' + esc(r.fase) + (pieno >= 100 ? ' conclusa' : '') + '" style="left:' + l.toFixed(3) + '%;width:' + w.toFixed(3) + '%"'
+                + ' data-attivita="' + esc(r.attivita) + '" data-i="' + i + '" aria-label="' + esc(etich) + '">'
+                + '<span class="sr-g-velo"><span class="sr-g-pieno" style="width:' + pieno.toFixed(2) + '%"></span></span></button>'
+                + '</div></div>';
+        }).join('');
+        const griglia = '<div class="sr-g-griglia" aria-hidden="true">'
+            + mesi.map(x => '<span class="sr-g-linea' + (x.m === 0 ? ' anno' : '') + '" style="left:' + x.l.toFixed(3) + '%"></span>').join('')
+            + (conOggi ? '<span class="sr-g-oggi" style="left:' + xOggi + '%"></span>' : '')
+            + '</div>';
+        return legenda
+            + '<div class="sr-gantt"><div class="sr-g-scorri"><div class="sr-g-corpo">' + asse + '<div class="sr-g-righe">' + griglia + righe + '</div></div></div>'
+            + '<div class="sr-g-tip" role="tooltip" hidden></div></div>'
+            + (conOggi ? '' : '<p class="hint">Oggi (' + esc(fmtData(oggi)) + ') è fuori dal periodo del piano.</p>');
+    }
+    /* Passando sopra una barra, o arrivandoci con la tastiera, un riquadro dice
+       le date (in evidenza), l'attivita', la fase e lo stato: le stesse cose della
+       tabella qui sotto, che resta la versione completa da leggere. */
+    function srCollegaGantt(contenitore, piano, d, apri) {
+        const g = contenitore.querySelector('.sr-gantt');
+        if (!g) return;
+        const tip = g.querySelector('.sr-g-tip');
+        const mostra = b => {
+            const r = piano[Number(b.dataset.i)];
+            if (!r) return;
+            const st = srStato(r.inizio, r.fine);
+            tip.textContent = '';
+            const date = document.createElement('strong'); date.textContent = fmtData(r.inizio) + ' - ' + fmtData(r.fine);
+            const nome = document.createElement('span'); nome.textContent = r.nome;
+            const info = document.createElement('span'); info.className = 'sr-g-tip-info'; info.textContent = (d.fasi[r.fase] || r.fase) + ' · ' + st.nome;
+            tip.append(date, nome, info);
+            tip.hidden = false;
+            const rg = g.getBoundingClientRect(), rb = b.getBoundingClientRect();
+            const larg = tip.offsetWidth, alt = tip.offsetHeight;
+            let x = rb.left - rg.left + rb.width / 2 - larg / 2;
+            x = Math.max(4, Math.min(x, rg.width - larg - 4));
+            let y = rb.top - rg.top - alt - 6;
+            if (y < 0) y = rb.bottom - rg.top + 6;
+            tip.style.left = x + 'px';
+            tip.style.top = y + 'px';
+        };
+        const nascondi = () => { tip.hidden = true; };
+        g.querySelectorAll('.sr-g-barra').forEach(b => {
+            b.addEventListener('pointerenter', () => mostra(b));
+            b.addEventListener('pointerleave', nascondi);
+            b.addEventListener('focus', () => mostra(b));
+            b.addEventListener('blur', nascondi);
+        });
+        const scorri = g.querySelector('.sr-g-scorri');
+        scorri.addEventListener('scroll', nascondi, { passive: true });
+        /* Dove il calendario non ci sta intero (telefono) parte gia' spostato su
+           oggi: e' la cosa da vedere per prima. */
+        const oggiEl = g.querySelector('.sr-g-oggi'), nomi = g.querySelector('.sr-g-nome');
+        if (oggiEl && scorri.scrollWidth > scorri.clientWidth + 4) requestAnimationFrame(() => {
+            const x = oggiEl.getBoundingClientRect().left - scorri.getBoundingClientRect().left + scorri.scrollLeft;
+            const fermi = nomi ? nomi.offsetWidth : 0;
+            scorri.scrollLeft = Math.max(0, x - fermi - (scorri.clientWidth - fermi) / 2);
+        });
+        g.addEventListener('click', ev => {
+            const el = ev.target.closest('[data-attivita]');
+            if (el) apri(el.dataset.attivita);
+        });
     }
     /* I documenti di una carta, contati come li vede chi la usa: una cartella vale
        i suoi file, e un documento citato in due passaggi (i solleciti a 120 e a 180
@@ -37302,7 +37420,7 @@
         const d = srDati();
         if (!d) { srAttendiDati('strumenti', vistaStrumenti); return; }
         const anno = srAnnoScelto(d);
-        const piano = srPiano(d, anno);
+        const piano = srPianoOrdinato(d, anno);
         const opz = (v, t, sel) => '<option value="' + esc(v) + '"' + (sel === v ? ' selected' : '') + '>' + esc(t) + '</option>';
         const schedeAnni = '<div class="tab-dest sr-anni" role="tablist" aria-label="Anno del piano di revisione">'
             + d.anni.map(a => '<button type="button" class="tab-btn' + (a.anno === anno ? ' attivo' : '') + '" role="tab" aria-selected="' + (a.anno === anno) + '" data-anno="' + a.anno + '">'
@@ -37329,12 +37447,15 @@
         const corpo = piano.length ? `
             <div class="card" id="sr-piano">
                 <h2>Piano di revisione ${esc(anno)}</h2>
-                <p class="hint">Le attività del piano ${esc(anno)}, nell'ordine del piano. Apri un'attività per leggere di cosa si tratta, i passaggi da seguire e i documenti da usare. Lo stato si calcola sulle date di oggi.</p>
+                <p class="hint">Le attività del piano ${esc(anno)} in ordine di data di inizio. Il calendario mostra dove siamo rispetto a oggi; apri un'attività (dal calendario o dall'elenco) per leggere di cosa si tratta, i passaggi da seguire e i documenti da usare. Lo stato si calcola sulle date di oggi.</p>
                 <div class="filtri">
                     <div class="campo ricerca"><label for="sr-cerca">Ricerca</label><input type="search" id="sr-cerca" placeholder="Attività, passaggio o documento..." value="${esc(_srFiltri.q)}"></div>
                     <div class="campo"><label for="sr-fase">Fase</label><select id="sr-fase">${opz('', 'Tutte', _srFiltri.fase)}${Object.keys(d.fasi).map(k => opz(k, d.fasi[k], _srFiltri.fase)).join('')}</select></div>
                     <div class="campo"><label for="sr-stato">Stato</label><select id="sr-stato">${opz('', 'Tutti', _srFiltri.stato)}${opz('corso', 'In corso', _srFiltri.stato)}${opz('iniziare', 'Da iniziare', _srFiltri.stato)}${opz('conclusa', 'Concluse', _srFiltri.stato)}</select></div>
                 </div>
+                <h3 class="sr-blocco">Calendario</h3>
+                ${srGanttHtml(d, piano)}
+                <h3 class="sr-blocco">Elenco delle attività</h3>
                 <div class="tabella-wrap"><table class="dati sr-tab">
                     <thead><tr><th>Fase</th><th>Attività</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Carta di lavoro</th></tr></thead>
                     <tbody>${righe}</tbody>
@@ -37375,6 +37496,8 @@
                     && (!q || r.nome.toLowerCase().includes(q) || (testoDi[r.attivita] || '').includes(q));
                 tr.hidden = !ok;
                 if (ok) visibili++;
+                const g = vista.querySelector('.sr-g-riga[data-i="' + tr.dataset.i + '"]');
+                if (g) g.hidden = !ok;
             });
             const vuoto = document.getElementById('sr-vuoto');
             if (vuoto) vuoto.hidden = visibili > 0;
@@ -37390,6 +37513,7 @@
             const tr = ev.target.closest('tr[data-attivita]');
             if (tr) naviga('strumentiAttivita', { anno, id: tr.dataset.attivita });
         });
+        srCollegaGantt(vista.querySelector('#sr-piano'), piano, d, id => naviga('strumentiAttivita', { anno, id }));
         applica();
     }
 
@@ -37408,7 +37532,7 @@
             collegaIndietro();
             return;
         }
-        const righe = srPiano(d, anno).filter(r => r.attivita === par.id);
+        const righe = srPianoOrdinato(d, anno).filter(r => r.attivita === par.id);
         const r0 = righe[0];
         const c = a.carta ? d.carte[a.carta] : null;
         const periodi = righe.map(r => {
