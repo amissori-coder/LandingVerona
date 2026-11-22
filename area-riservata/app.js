@@ -38051,10 +38051,19 @@
         $vista().innerHTML = pcIntestazione('Circolarizzazioni via PEC', '', indietro)
             + '<div class="card"><p class="descrizione">L\'invio delle PEC è disponibile solo con l\'accesso protetto attivo: in modalità dimostrativa non parte niente.</p></div>';
     }
+    /* Quello che si tiene in memoria e' di chi e' entrato: se nella stessa
+       finestra entra un'altra persona, non deve vedere nemmeno per un attimo
+       gli incarichi di chi c'era prima. */
+    function pcMio() {
+        const io = Auth.emailSessione();
+        if (PC.di !== io) { PC.di = io; PC.stato = null; PC.quando = 0; PC.elenco = null; PC.registro = null; }
+        return io;
+    }
     async function pcCarica(forza) {
+        const io = pcMio();
         if (!forza && PC.stato && Date.now() - PC.quando < 15000) return PC.stato;
         const r = await pcChiama('stato');
-        if (r.ok) { PC.stato = r; PC.quando = Date.now(); }
+        if (r.ok && Auth.emailSessione() === io) { PC.stato = r; PC.quando = Date.now(); }
         return r;
     }
     function vistaStrumentiPec() {
@@ -38164,10 +38173,22 @@
             const senza = document.getElementById('pc-senza');
             if (senza) senza.addEventListener('change', () => { PC.senzaLettere = senza.checked; disegna(PC.stato); });
         };
-        const carica = forza => pcCarica(forza).then(r => {
+        /* `inSottofondo`: l'elenco e' gia' a video (quello visto poco fa) e lo si
+           sta solo rileggendo. Allora non si tocca una scheda che ha i suoi dati
+           (registro, errori, risposte non associate: si ricaricherebbe sotto gli
+           occhi), e se la lettura non riesce resta quello che c'era. */
+        const carica = (forza, inSottofondo) => pcCarica(forza).then(r => {
             if (vistaCorrente !== 'strumentiPec') return;
-            if (!r.ok) { const c = document.getElementById('pc-corpo'); if (c) c.innerHTML = '<div class="card"><p class="descrizione">' + esc(r.msg || 'Servizio non raggiungibile.') + '</p></div>'; return; }
+            if (!r.ok) {
+                if (inSottofondo) { toast(r.msg || 'Servizio non raggiungibile: vedi i dati di poco fa.', 'ambra'); return; }
+                const c = document.getElementById('pc-corpo'); if (c) c.innerHTML = '<div class="card"><p class="descrizione">' + esc(r.msg || 'Servizio non raggiungibile.') + '</p></div>'; return;
+            }
+            if (inSottofondo && PC.scheda !== 'incarichi') return;
+            // chi stava scrivendo nella ricerca non perde il punto in cui era
+            const campo = document.activeElement && document.activeElement.id === 'pc-cerca-inc' ? document.activeElement : null;
+            const pos = campo ? campo.selectionStart : null;
             disegna(r);
+            if (campo) { const n = document.getElementById('pc-cerca-inc'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* alcuni browser non lo permettono sui campi di ricerca */ } } }
         });
         document.getElementById('pc-aggiorna').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
             const r = await pcChiama('controlla');
@@ -38175,7 +38196,13 @@
             else toast(r.esito === 'occupato' ? 'Un controllo della casella è già in corso.' : 'Casella controllata: ' + (r.ricevute || 0) + ' ricevute, ' + (r.risposte || 0) + ' risposte' + (r.nonAssociate ? ', ' + r.nonAssociate + ' da associare' : '') + '.', 'verde');
             await carica(true);
         }, { testo: 'Controllo la casella…' }));
-        carica(true);
+        /* Chi torna qui (da un incarico, da un'altra sezione) rivede subito
+           l'elenco di poco fa, mentre il servizio lo rilegge: niente pagina
+           vuota in attesa. La prima volta non c'e' ancora niente da mostrare. */
+        pcMio();
+        const giaVisto = !!PC.stato;
+        if (giaVisto) disegna(PC.stato);
+        carica(true, giaVisto);
     }
 
     /* Le risposte arrivate nella casella che il servizio non ha saputo abbinare

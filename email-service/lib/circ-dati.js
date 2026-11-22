@@ -110,14 +110,22 @@ async function impostazioni(db) {
 }
 /* `ue` e' il risultato di utenteEffettivo(): per un collaboratore valgono i
    permessi del suo utente di riferimento, e nei timbri resta chi ha agito. */
-async function profilo(db, ue) {
+/* Quello che serve per sapere chi vede che cosa: le impostazioni e le due
+   anagrafiche. Tre letture, fatte INSIEME: una dopo l'altra, ogni chiamata
+   dell'area riservata aspettava tre volte il viaggio fino a Firestore. */
+function leggiBase(db) {
+    return Promise.all([impostazioni(db), leggiArchivio(db, 'incarichi'), leggiArchivio(db, 'persone')])
+        .then(([imp, incarichi, persone]) => ({ imp: imp, incarichi: incarichi, persone: persone }));
+}
+/* `base`: il risultato di leggiBase(), se chi chiama l'ha gia' fatto partire
+   (la porta lo avvia mentre controlla l'utenza, per non aspettare due volte). */
+async function profilo(db, ue, base) {
     const email = String(ue.email || '').toLowerCase();
     const sessione = String((ue.sessione && ue.sessione.email) || email).toLowerCase();
-    const imp = await impostazioni(db);
+    const b = (base && await base) || await leggiBase(db);
+    const imp = b.imp, incarichi = b.incarichi, persone = b.persone;
     const admin = ue.ruolo === 'admin' || email === PROPRIETARIO;
     const supervisore = imp.supervisori.indexOf(email) >= 0 || imp.supervisori.indexOf(sessione) >= 0;
-    const incarichi = await leggiArchivio(db, 'incarichi');
-    const persone = await leggiArchivio(db, 'persone');
     const risolvi = risolutorePersone(persone);
     const mie = new Set(persone.filter(p => p && !p.eliminato && String(p.email || '').trim().toLowerCase() === email).map(p => p.id));
     const visibili = [];
@@ -284,25 +292,32 @@ async function leggi(db, id) {
    che i numeri restano giusti senza tenere contatori da incrementare. */
 async function riepiloghi(db, ids) {
     const oggi = C.giornoRoma();
-    let docs;
-    if (ids) {
-        docs = [];
-        for (const id of ids) { const s = await db.collection(INC).doc(String(id)).get(); if (s.exists) docs.push(s); }
-    } else {
-        docs = (await db.collection(INC).get()).docs;
-    }
+    /* UNA lettura sola, della raccolta intera, anche quando servono solo
+       alcuni incarichi: qui c'e' un documento solo per gli incarichi che
+       hanno lettere, quindi sono pochi. Chiederli uno per uno voleva dire,
+       per chi segue duecento incarichi, duecento viaggi in fila fino a
+       Firestore prima di vedere la pagina. */
+    const voluti = ids ? ids.reduce((m, id) => { m[String(id)] = 1; return m; }, {}) : null;
+    const docs = (await db.collection(INC).get()).docs.filter(s => !voluti || voluti[s.id]);
     const out = {};
-    for (const s of docs) {
+    const daRifare = [];
+    docs.forEach(s => {
         const d = s.data() || {};
-        // i conteggi "scadute" cambiano col calendario: si rifanno anche al cambio di giorno
-        if (d.sporco || !d.conteggi || !d.perAmbito || d.giorno !== oggi) {
-            const schede = await schedeIncarico(db, s.id);
-            d.conteggi = conteggi(schede, oggi);
-            d.perAmbito = conteggiPerAmbito(schede, oggi);
-            d.giorno = oggi;
-            try { await db.collection(INC).doc(s.id).set({ conteggi: d.conteggi, perAmbito: d.perAmbito, giorno: oggi, sporco: false, aggiornato: Date.now() }, { merge: true }); } catch (_) { /* si rifaranno */ }
-        }
+        /* "Oltre il termine" e' l'unico numero che cambia col calendario, e
+           solo se qualche lettera aspetta ancora la risposta: al cambio di
+           giorno si rifanno quelli, non tutti. */
+        const inAttesa = d.conteggi && d.conteggi.senzaRisposta > 0;
+        if (d.sporco || !d.conteggi || !d.perAmbito || (d.giorno !== oggi && inAttesa)) daRifare.push(s.id);
         out[s.id] = { cliente: String(d.cliente || ''), conteggi: d.conteggi, perAmbito: d.perAmbito };
+    });
+    // quelli da rifare, a gruppi e non uno dopo l'altro
+    for (let i = 0; i < daRifare.length; i += 10) {
+        await Promise.all(daRifare.slice(i, i + 10).map(async id => {
+            const schede = await schedeIncarico(db, id);
+            out[id].conteggi = conteggi(schede, oggi);
+            out[id].perAmbito = conteggiPerAmbito(schede, oggi);
+            try { await db.collection(INC).doc(id).set({ conteggi: out[id].conteggi, perAmbito: out[id].perAmbito, giorno: oggi, sporco: false, aggiornato: Date.now() }, { merge: true }); } catch (_) { /* si rifaranno */ }
+        }));
     }
     return out;
 }
@@ -860,7 +875,7 @@ async function pulizia(db, ora, max) {
 
 module.exports = {
     INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, RIPROVA_MS, MAX_TENTATIVI,
-    profilo, incaricoDi, impostazioni, docImpostazioni,
+    profilo, leggiBase, incaricoDi, impostazioni, docImpostazioni,
     statoDi, prossimoDi, passoDovuto, conteggi, conteggiPerAmbito, passo, inviato, esitoPasso,
     schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, caricaIntero, leggiAllegato,
     chiaviMsgId, trovaRiferimento, prendi, esitoInvio,

@@ -39,6 +39,9 @@
        la cancellazione dei dati di un incarico (con il riepilogo
        delle lettere tolte), e ognuno legge solo quello che gli
        spetta;
+     - la pagina degli incarichi si apre con poche letture, sempre le
+       stesse, anche per chi segue centinaia di incarichi (prima erano
+       una per incarico, in fila);
      - la posta gia' nella casella prima dell'attivazione non entra
        fra le "non associate", e la casella non si legge piu' del
        necessario.
@@ -586,6 +589,31 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('registro non scrivibile: l\'azione riesce lo stesso e nasce un errore da controllare', senzaReg.ok && (await scheda(c1.id)).risposta.nota === 'registro spento' && erroreReg.length === 1 && /risposta-manuale/.test(erroreReg[0].dettaglio), erroreReg);
     await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.map(x => x.id) });
     await chiama('anna@studio.it', { azione: 'risposta-manuale', id: c1.id, togli: true });
+
+    // ---------- 12d. la pagina degli incarichi si apre in fretta, anche con tanti incarichi ----------
+    // Luca nel team di altri 300 incarichi (4 dei quali con lettere): le letture non devono crescere con gli incarichi
+    const tanti = incarichi.concat(Array.from({ length: 300 }, (_, i) => ({ id: 'inc-x' + i, cliente: 'SOCIETA ' + i + ' SRL', stato: 'attivo', respIncarico: i % 3 ? 'Verdi' : 'Bianchi', qualita: i % 5 ? 'Neri' : 'Bianchi', team: 'Bianchi' })));
+    dati.set('archivio/incarichi', { json: JSON.stringify(tanti) });
+    await chiama('a.missori@emvas.tax', { azione: 'stato' });          // i conteggi lasciati da rifare dalle prove di prima
+    for (let i = 0; i < 4; i++) await nuova('luca@studio.it', 'inc-x' + i, { destinatario: 'Banca ' + i, pec: 'banca' + i + '@pec.it' });
+    F.letture.azzera();
+    const stTanti = await chiama('luca@studio.it', { azione: 'stato' });
+    const lettureStato = { documenti: F.letture.documenti, raccolte: F.letture.raccolte };
+    verifica('chi segue 300 incarichi li vede tutti, con i conteggi di quelli che hanno lettere', stTanti.ok && stTanti.incarichi.length === 302 && stTanti.incarichi.filter(i => i.conteggi && i.conteggi.totale === 1).length === 4 && stTanti.incarichi.find(i => i.id === 'inc-x0').ruoli.join() === 'responsabile,qualita,team', stTanti.incarichi && stTanti.incarichi.length);
+    // utenza, impostazioni, due anagrafiche, giro, lettore; la raccolta dei conteggi; piu' le 4 schede segnate da rifare
+    verifica('e la pagina si apre con poche letture, non una per incarico', lettureStato.documenti <= 8 && lettureStato.raccolte <= 1 + 4, lettureStato);
+    F.letture.azzera();
+    await chiama('luca@studio.it', { azione: 'stato' });
+    verifica('la seconda volta ancora meno: i conteggi sono gia\' fatti', F.letture.documenti <= 8 && F.letture.raccolte === 1, { documenti: F.letture.documenti, raccolte: F.letture.raccolte });
+    avanti(GIORNO);
+    F.letture.azzera();
+    const stDomani = await chiama('luca@studio.it', { azione: 'stato' });
+    verifica('il giorno dopo si rifanno solo i conteggi degli incarichi con lettere ancora senza risposta', stDomani.ok && F.letture.raccolte <= 1 + 4 && F.letture.documenti <= 8, { documenti: F.letture.documenti, raccolte: F.letture.raccolte });
+    F.letture.azzera();
+    const stAdmin = await chiama('a.missori@emvas.tax', { azione: 'stato' });
+    verifica('anche per chi vede tutto: poche letture, qualunque sia il numero degli incarichi', stAdmin.ok && stAdmin.incarichi.length === 302 && F.letture.documenti <= 10 && F.letture.raccolte <= 3, { documenti: F.letture.documenti, raccolte: F.letture.raccolte });
+    for (let i = 0; i < 4; i++) await chiama('a.missori@emvas.tax', { azione: 'cancella-incarico', incaricoId: 'inc-x' + i, conferma: 'CANCELLA' });
+    dati.set('archivio/incarichi', { json: JSON.stringify(incarichi) });
 
     // ---------- 13. pulizie ----------
     const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });
