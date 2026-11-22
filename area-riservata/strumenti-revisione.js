@@ -5,10 +5,9 @@
    successivi vuoti finche' il piano non e' pronto). Ogni riga del piano
    rimanda a un'attivita' (attivita{}): descrizione per il team, carta di
    lavoro trascritta passo per passo (carte{}) e documenti (allegati{}).
-   cartaAnnoPrecedente: la riga dell'anno non ha ancora una carta e vale
-   quella dell'anno prima della stessa attivita'.
-   apribile: false = la riga resta nel piano e nel calendario ma la sua
-   scheda non si apre (avviso: il perche', mostrato al posto di "Apri").
+   scheda: assente = la scheda dell'attivita' si apre; "disattiva" = il
+   pulsante «Apri» c'e' ma non si clicca; "chiusa" = niente pulsante, al
+   suo posto l'avviso (avviso: il perche').
 
    I documenti collegati nelle carte sono in
    strumenti-revisione/allegati/ (copiati da Drive il 21/11/2026);
@@ -40,7 +39,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Accettazione/mantenimento incarico",
      "inizio": "2026-04-01",
      "fine": "2026-09-30",
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -49,7 +48,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Scambio informazioni revisore uscente",
      "inizio": "2026-04-01",
      "fine": "2026-09-30",
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -58,7 +57,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Pianificazione e identificazione del rischio",
      "inizio": "2026-07-01",
      "fine": "2026-09-30",
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -67,7 +66,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Strategia di audit e piano di revisione",
      "inizio": "2026-09-01",
      "fine": "2026-11-30",
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -76,8 +75,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Modello IVA",
      "inizio": "2026-03-16",
      "fine": "2026-05-16",
-     "cartaAnnoPrecedente": true,
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -86,7 +84,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Modello Redditi/IRAP/CNM/770",
      "inizio": "2026-09-01",
      "fine": "2026-10-31",
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -95,8 +93,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 1° trimestre",
      "inizio": "2026-03-20",
      "fine": "2026-05-16",
-     "cartaAnnoPrecedente": true,
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -105,8 +102,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 2° trimestre",
      "inizio": "2026-06-20",
      "fine": "2026-08-10",
-     "cartaAnnoPrecedente": true,
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -115,8 +111,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 3° trimestre",
      "inizio": "2026-09-16",
      "fine": "2026-11-16",
-     "cartaAnnoPrecedente": true,
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -125,8 +120,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 4° trimestre",
      "inizio": "2026-12-20",
      "fine": "2027-02-16",
-     "cartaAnnoPrecedente": true,
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -135,15 +129,14 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Inventario magazzino",
      "inizio": "2026-12-27",
      "fine": "2027-01-16",
-     "cartaAnnoPrecedente": true
+     "scheda": "disattiva"
     },
     {
      "fase": "final",
      "attivita": "circObbligatorie",
      "nome": "Circolarizzazioni obbligatorie",
      "inizio": "2027-01-07",
-     "fine": "2027-01-31",
-     "cartaAnnoPrecedente": true
+     "fine": "2027-01-31"
     },
     {
      "fase": "final",
@@ -151,15 +144,14 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica cespiti",
      "inizio": "2027-02-10",
      "fine": "2027-02-28",
-     "cartaAnnoPrecedente": true
+     "scheda": "disattiva"
     },
     {
      "fase": "final",
      "attivita": "circClientiFornitori",
      "nome": "Circolarizzazione clienti & fornitori",
      "inizio": "2027-01-16",
-     "fine": "2027-02-28",
-     "cartaAnnoPrecedente": true
+     "fine": "2027-02-28"
     },
     {
      "fase": "newsletter",
@@ -167,7 +159,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Sottoscrizione dichiarazioni fiscali 2026 (2025)",
      "inizio": "2026-02-13",
      "fine": "2026-02-28",
-     "apribile": false,
+     "scheda": "chiusa",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -176,7 +168,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifiche bilancio 120/180 gg",
      "inizio": "2027-03-01",
      "fine": "2027-04-10",
-     "cartaAnnoPrecedente": true
+     "scheda": "disattiva"
     },
     {
      "fase": "giudizio",
@@ -184,7 +176,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Richiesta controllo di qualità",
      "inizio": "2027-03-16",
      "fine": "2027-06-01",
-     "cartaAnnoPrecedente": true
+     "scheda": "disattiva"
     }
    ]
   },
@@ -481,7 +473,6 @@ window.RV_STRUMENTI_REVISIONE = {
  "carte": {
   "indipendenza": {
    "titolo": "Check list indipendenza",
-   "annoCarta": 2026,
    "note": [
     "Lettera di incarico: non è tra i documenti di questa pagina. Per elaborarla rivolgersi agli equity partner."
    ],
@@ -558,7 +549,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "revisoreUscente": {
    "titolo": "Check list revisore uscente",
-   "annoCarta": 2026,
    "blocchi": [
     {
      "titolo": "",
@@ -591,7 +581,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "modelloIva": {
    "titolo": "Modello IVA",
-   "annoCarta": 2025,
    "note": [
     "Il modello IVA non deve essere firmato dal revisore: nel frontespizio non vanno quindi inseriti i codici fiscali di Revilaw e del responsabile della revisione.",
     "Solo se il cliente chiede la sottoscrizione per utilizzare il credito IVA in dichiarazione occorre avvisare il responsabile della qualità, che valuterà l'eventuale compenso."
@@ -616,7 +605,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "redditi": {
    "titolo": "Check list modello Redditi 2026 (2025)",
-   "annoCarta": 2026,
    "blocchi": [
     {
      "titolo": "Sottoscrizione delle dichiarazioni",
@@ -744,7 +732,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "trimestrali": {
    "titolo": "Check list verifiche trimestrali e segnalazione di crisi e insolvenza",
-   "annoCarta": 2025,
    "note": [
     "Non rientra nei compiti del revisore legale, in considerazione del suo ruolo, valutare l'adeguatezza delle azioni pianificate dagli amministratori in risposta allo stato di crisi o di insolvenza oggetto di segnalazione; il revisore legale, inoltre, non ha alcuno strumento per intervenire se gli amministratori non mettono in atto le iniziative programmate. Sulla scorta dei principi di revisione applicabili, potrà fare le proprie considerazioni su tali iniziative ai soli fini delle valutazioni per il giudizio professionale sul bilancio, nelle procedure svolte a tal fine.",
     "Se il revisore legale, nello scambio di informazioni con l'organo di controllo ai sensi dell'art. 2409-septies c.c., viene a sapere che quest'ultimo ha inviato la segnalazione, è raccomandabile che, previe le opportune verifiche e analisi, formalizzi anch'esso le proprie valutazioni, per inviare tempestivamente una propria segnalazione all'organo amministrativo."
@@ -876,7 +863,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "inventario": {
    "titolo": "Check list inventario",
-   "annoCarta": 2025,
    "note": [
     "Tutti i documenti vanno allegati nella carta di lavoro 3.4.4, indicando correttamente il nome del file, descrivendo i controlli nelle memo e riportando nelle memo l'elenco degli allegati."
    ],
@@ -1063,7 +1049,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "circObbligatorie": {
    "titolo": "Check list circolarizzazione soggetti obbligatori",
-   "annoCarta": 2025,
    "note": [
     "Fasi specifiche per gli incarichi affidati al controllo qualità di Elisa e Andrea (PEC: circolarizzazionirevilaw@pec.it)."
    ],
@@ -1255,7 +1240,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "cespiti": {
    "titolo": "Check list verifica cespiti",
-   "annoCarta": 2025,
    "blocchi": [
     {
      "titolo": "",
@@ -1358,7 +1342,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "circClientiFornitori": {
    "titolo": "Check list circolarizzazione clienti/fornitori",
-   "annoCarta": 2025,
    "blocchi": [
     {
      "titolo": "",
@@ -1527,7 +1510,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "dichiarazioni": {
    "titolo": "Check list sottoscrizione dichiarazioni fiscali 2026",
-   "annoCarta": 2026,
    "blocchi": [
     {
      "titolo": "",
@@ -1548,7 +1530,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "bilancio": {
    "titolo": "Check list verifiche bilancio",
-   "annoCarta": 2025,
    "note": [
     "Nessuna relazione di revisione può essere emessa prima dei controlli di qualità di Revilaw. Al termine, se il controllo di qualità riterrà concluse positivamente tutte le verifiche, rilascerà: la lettera di attestazione della direzione su format Revilaw; la relazione di revisione su format Revilaw.",
     "Con l'emissione del giudizio le carte di lavoro vengono stampate con tutti gli allegati, così da essere congelate: dettagliare in modo analitico ogni controllo svolto e allegare tutti i documenti utili."
@@ -1832,7 +1813,6 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "qualita": {
    "titolo": "Check list rilascio attestazione e giudizio",
-   "annoCarta": 2025,
    "note": [
     "Attenzione: prima di chiedere il controllo qualità verificare che tutte le carte di lavoro siano completate come indicato qui sotto."
    ],

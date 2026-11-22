@@ -4279,6 +4279,8 @@ td.cene-az { white-space: nowrap; }
 .sr-g-nome.chiusa { cursor: default; color: var(--grigio-600); }
 .sr-g-nome.chiusa:hover { color: var(--grigio-600); text-decoration: none; }
 .sr-g-barra.chiusa { cursor: default; }
+.sr-apri-off { display: inline-block; cursor: not-allowed; }
+.sr-apri-off .btn[disabled] { opacity: .45; pointer-events: none; }
 .sr-g-nome-vuoto { border-right: 1px solid var(--grigio-200); }
 .sr-g-traccia { position: relative; height: 30px; }
 .sr-g-asse .sr-g-traccia { height: auto; }
