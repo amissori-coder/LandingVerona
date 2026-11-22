@@ -21,7 +21,9 @@
                        (mancata consegna se l'indirizzo contiene "errore")
      /banco/risposta   { pec, oggetto?, inRisposta?: true, ordinaria? }
                        una risposta da quell'indirizzo, con un PDF
-     /banco/giro       il giro programmato (casella, invii, pulizie)
+     /banco/giro       il giro programmato (casella, invii, pulizie, avvisi)
+     /banco/avvisi     le email degli errori partite finora
+     /banco/posta      le PEC partite finora
    ============================================================ */
 'use strict';
 const http = require('http');
@@ -91,6 +93,7 @@ http.createServer((req, res) => {
             if (req.url === '/banco/ricevute') out = { stato: 200, corpo: { ok: true, ricevute: ricevute() } };
             else if (req.url === '/banco/risposta') out = { stato: 200, corpo: { ok: true, risposte: rispondi(b) } };
             else if (req.url === '/banco/giro') out = await chiama('GET', {}, { authorization: 'Bearer ' + process.env.CRON_SECRET });
+            else if (req.url === '/banco/avvisi') out = { stato: 200, corpo: { ok: true, avvisi: F.avvisi.map(m => ({ a: m.to, da: m.from, oggetto: m.subject, testo: m.text, html: m.html })) } };
             else if (req.url === '/banco/posta') out = { stato: 200, corpo: { ok: true, posta: F.posta.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegato: m.attachments[0].filename })) } };
             else out = await chiama('POST', b);
         } catch (e) { out = { stato: 500, corpo: { ok: false, msg: String(e && e.message) } }; }

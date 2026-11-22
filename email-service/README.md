@@ -865,7 +865,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
-`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi` e i documenti
+`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori` e i documenti
 `meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` non hanno un
 `match`, quindi dal browser non si leggono e non si scrivono (stessa scelta di
 `sbloccoIncarichi`). Le interrogazioni usano solo uguaglianze, o un intervallo
@@ -963,7 +963,8 @@ assente") si elenca sulla lettera ma non ferma i solleciti.
 
 **Quando si legge la casella.** Sempre prima di spedire (un sollecito non deve
 partire se la risposta e' gia' arrivata), a richiesta con "Aggiorna ricevute e
-risposte", e altrimenti ogni dieci minuti; mai se nessun incarico ha lettere.
+risposte", e altrimenti ogni dieci minuti (ogni cinque finche' qualche lettera
+partita aspetta ancora le ricevute); mai se nessun incarico ha lettere.
 La primissima lettura la fa il giro degli invii *prima* di spedire la prima
 PEC: fissa il punto di partenza (da li' in poi) e verifica che la lettura
 funzioni. Se la casella non si legge, le lettere restano in coda: spedire senza
@@ -975,6 +976,39 @@ messaggio intero, con la firma del gestore) e gli allegati come file loro
 (`scarica`): il servizio da' i byte a tratti di 2 MB, cosi' come stanno nella
 casella, e li ricompone l'area riservata. "Scarica ricevute e risposte" mette
 tutto in un archivio ZIP con il riepilogo in Excel.
+
+### Il registro degli errori
+
+Tutto quello che va storto finisce in un posto solo (`lib/circ-errori.js`,
+raccolta `circErrori`), e chi amministra viene avvisato per email:
+
+| Tipo | Che cosa |
+|---|---|
+| Recapito | la PEC non e' stata accettata dal gestore o non e' stata consegnata (un preavviso di mancata consegna entra come "da tenere d'occhio") |
+| Invio | la lettera non e' partita: rifiuto del server per quel destinatario, PDF non piu' leggibile, tre tentativi falliti |
+| Server PEC | il server ha sospeso gli invii (tetto superato, indirizzo bloccato, password): le lettere restano in coda |
+| Casella PEC | la casella rifiuta la password (subito), non si legge per due giri di fila, o un messaggio non si e' potuto leggere |
+| Servizio | un errore imprevisto di un'azione dell'area riservata o del giro programmato |
+
+**Una riga per problema.** Ogni errore ha una chiave (la lettera e il passo,
+oppure "casella", "server"): se si ripresenta mentre la riga e' aperta si
+aggiornano il conteggio e la data, senza un'altra email. Nell'area riservata
+(scheda "Errori", per l'amministratore e i supervisori) si **spunta** quando e'
+risolto; se lo stesso problema torna *dopo* la spunta, la riga si riapre da
+sola e l'avviso riparte. Togliendo la spunta si riapre a mano.
+
+**L'email** parte dal giro programmato, quindi entro cinque minuti, ed e' **una
+sola** per tutti gli errori nuovi: cinquanta lettere non consegnate non
+diventano cinquanta messaggi. Parte dalla posta ordinaria del servizio
+(`SMTP_*`, mittente `SMTP_FROM_EMAIL`), non dalla casella PEC. Arriva sempre al
+titolare; ai supervisori se l'amministratore lo sceglie dalle "Impostazioni"
+(`avvisaSupervisori` in `meta/circolarizzazioni`). Se l'email non parte, gli
+errori restano da avvisare e ci riprova il giro dopo.
+
+Quello che il registro **non** puo' dire: se e' il giro programmato a non
+partire affatto (per esempio `CRON_SECRET` mancante) non c'e' nessuno che
+scriva l'errore. Si vede dai Request Logs di Vercel, dove `/api/circolarizzazioni`
+deve comparire ogni cinque minuti.
 
 ### I dati non restano sul portale
 
@@ -1024,7 +1058,8 @@ piena le risposte dei terzi vengono respinte.
 Firestore, il server di posta e la casella sono finti (`prove/circ-finti.js`),
 il codice provato e' quello vero: permessi, PDF, invii concorrenti, ricevute,
 solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
-tetto orario, cancellazione.
+tetto orario, registro degli errori (una riga per problema, una sola email,
+spunta e riapertura), cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:

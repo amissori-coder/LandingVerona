@@ -26,6 +26,9 @@
      - un giro interrotto a meta' non spedisce due volte, e non
        lascia una lettera ferma per sempre;
      - il tetto orario e il rifiuto del server che ferma il giro;
+     - il registro degli errori: una riga per problema, UNA email
+       per gli errori nuovi, la spunta di chi amministra, e la riga
+       che si riapre se il problema si ripresenta;
      - la posta gia' nella casella prima dell'attivazione non entra
        fra le "non associate", e la casella non si legge piu' del
        necessario.
@@ -34,7 +37,7 @@
 
 const F = require('./circ-finti');
 F.orologioFinto('2027-01-11T10:00:00+01:00');
-const { dati, db, posta, ricevuta, risposta, avanti, alle, DateVera } = F;
+const { dati, db, posta, avvisi, ricevuta, risposta, avanti, alle, DateVera } = F;
 const MIN = 60000, ORA = 60 * MIN, GIORNO = 24 * ORA;
 
 const C = require('../lib/circ-comune');
@@ -321,10 +324,74 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('nell\'ora dopo partono le rimanenti', posta.length === 21);
     delete process.env.CIRC_MAX_ORA;
 
+    // ---------- 11 bis. il registro degli errori, l'email, la spunta ----------
+    const cronGiro = () => chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('il team non vede il registro degli errori', (await chiama('marta@studio.it', { azione: 'errori' })).http === 403);
+    let reg = await chiama('a.missori@emvas.tax', { azione: 'errori' });
+    const tipi = reg.aperti.map(x => x.tipo).sort().join();
+    verifica('nel registro: la PEC non consegnata, quella non partita e il server che ha sospeso', reg.ok && reg.aperti.length === 3 && tipi === 'invio,recapito,server', reg.aperti.map(x => x.tipo + ':' + x.titolo));
+    const eRec = reg.aperti.find(x => x.tipo === 'recapito');
+    verifica('l\'errore di recapito dice quale lettera', eRec.titolo === 'PEC non consegnata' && eRec.cliente === 'ALFA MECCANICA SRL' && eRec.destinatario === 'Studio Legale Bruni' && eRec.pec === 'bruni@pec.it' && /^RVL-/.test(eRec.codice) && eRec.incaricoId === 'inc-alfa' && /indirizzo non valido/.test(eRec.dettaglio), eRec);
+    verifica('la prima email e\' partita col primo giro dopo l\'errore, al titolare', avvisi.length === 1 && avvisi[0].to === 'a.missori@emvas.tax' && /PEC non consegnata/.test(avvisi[0].subject) && avvisi[0].html.indexOf('Studio Legale Bruni') > 0 && avvisi[0].from.indexOf('noreply@nextgenerationbusiness.it') > 0, avvisi.map(m => m.subject));
+    verifica('la stessa lettera reinviata e non consegnata di nuovo non fa una seconda riga', reg.aperti.filter(x => x.tipo === 'recapito').length === 1);
+    let giroAvv = await cronGiro();
+    verifica('i due errori nuovi arrivano in UNA sola email', giroAvv.avvisi.avvisati === 2 && avvisi.length === 2 && /2 errori da controllare/.test(avvisi[1].subject) && avvisi[1].text.indexOf('Cliente Cinque') > 0 && avvisi[1].text.indexOf('sospeso gli invii') > 0, avvisi.slice(1).map(m => m.subject));
+    await cronGiro();
+    verifica('per un errore gia\' avvisato non arriva un\'altra email', avvisi.length === 2);
+    const eServer = reg.aperti.find(x => x.tipo === 'server');
+    verifica('solo chi vede tutto spunta', (await chiama('luca@studio.it', { azione: 'errore-risolvi', id: eServer.id })).http === 403);
+    const spunta = await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', id: eServer.id, nota: 'tetto orario: ripartite da sole' });
+    reg = await chiama('a.missori@emvas.tax', { azione: 'errori' });
+    verifica('errore spuntato: passa fra i risolti, con chi e quando', spunta.risolti === 1 && reg.aperti.length === 2 && reg.risolti.length === 1 && /Andrea Missori/.test(reg.risolti[0].risolto.da) && reg.risolti[0].risolto.nota === 'tetto orario: ripartite da sole');
+    verifica('nel conteggio di chi entra ci sono solo gli aperti', (await chiama('a.missori@emvas.tax', { azione: 'stato' })).errori === 2);
+    // lo stesso problema si ripresenta dopo la spunta: la riga si riapre e l'avviso riparte
+    const g1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Sette', pec: 'sette@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    F.stato.rifiuta = () => Object.assign(new Error('421 4.7.0 Too many messages, try later'), { responseCode: 421 });
+    await GIRO.giro(db, {});
+    F.stato.rifiuta = null;
+    reg = await chiama('a.missori@emvas.tax', { azione: 'errori' });
+    const riaperto = reg.aperti.find(x => x.tipo === 'server');
+    verifica('si ripresenta dopo la spunta: riaperto, due volte, da avvisare di nuovo', reg.aperti.length === 3 && reg.risolti.length === 0 && riaperto.volte === 2 && riaperto.riaperto > 0 && riaperto.avvisato === 0, riaperto);
+    F.stato.rifiutaAvvisi = true;
+    giroAvv = await cronGiro();
+    verifica('se l\'email non parte l\'errore resta da avvisare', avvisi.length === 2 && giroAvv.avvisi.ok === false);
+    F.stato.rifiutaAvvisi = false;
+    avanti(20 * MIN);
+    await cronGiro();
+    verifica('e parte al giro dopo (intanto la lettera in coda e\' ripartita)', avvisi.length === 3 && /sospeso gli invii/.test(avvisi[2].subject) && (await scheda(g1.id)).passi.primo.stato === 'inviato');
+    const riap = await chiama('a.missori@emvas.tax', { azione: 'errore-riapri', id: eServer.id });
+    verifica('riaprire una riga aperta non fa danni', riap.ok === true);
+    // la casella rifiuta la password
+    F.stato.rompiImap = () => Object.assign(new Error('Invalid credentials (Failure)'), { authenticationFailed: true });
+    const guasto = await LETTORE.giro(db, { forza: true });
+    F.stato.rompiImap = null;
+    reg = await chiama('a.missori@emvas.tax', { azione: 'errori' });
+    verifica('password della casella rifiutata: nel registro', guasto.ok === false && reg.aperti.some(x => x.tipo === 'casella' && /rifiuta la password/.test(x.titolo)), reg.aperti.map(x => x.titolo));
+    await LETTORE.giro(db, { forza: true });      // la casella torna a leggersi
+    // un errore che non doveva succedere
+    const vera = DATI.schedeIncarico;
+    DATI.schedeIncarico = async () => { throw new Error('indice mancante'); };
+    const rotto = await chiama('anna@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' });
+    DATI.schedeIncarico = vera;
+    reg = await chiama('a.missori@emvas.tax', { azione: 'errori' });
+    verifica('un errore imprevisto del servizio finisce nel registro', rotto.http === 500 && reg.aperti.some(x => x.tipo === 'servizio' && /elenco/.test(x.dettaglio) && /indice mancante/.test(x.dettaglio)));
+    const tutti = await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: reg.aperti.map(x => x.id) });
+    verifica('si spuntano anche tutti insieme', tutti.risolti === reg.aperti.length && (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.length === 0);
+    await cronGiro();
+    const nAvvisi = avvisi.length;
+
     // ---------- 12. supervisori, riepilogo, cancellazione ----------
     verifica('solo l\'amministratore nomina i supervisori', (await chiama('anna@studio.it', { azione: 'supervisori', supervisori: ['sara@studio.it'] })).http === 403);
     verifica('un supervisore deve avere un accesso', (await chiama('a.missori@emvas.tax', { azione: 'supervisori', supervisori: ['nessuno@studio.it'] })).http === 400);
     verifica('supervisore nominato', (await chiama('a.missori@emvas.tax', { azione: 'supervisori', supervisori: ['Sara@studio.it'] })).supervisori.join() === 'sara@studio.it');
+    verifica('solo l\'amministratore decide chi riceve gli avvisi', (await chiama('sara@studio.it', { azione: 'avvisi-errori', supervisori: true })).http === 403);
+    const av = await chiama('a.missori@emvas.tax', { azione: 'avvisi-errori', supervisori: true });
+    verifica('avvisi anche ai supervisori', av.ok && av.avvisiErrori.destinatari.join() === 'a.missori@emvas.tax,sara@studio.it');
+    await require('../lib/circ-errori').segna(db, { chiave: 'prova~supervisori', tipo: 'servizio', titolo: 'Errore di prova' });
+    await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('l\'email arriva al titolare e al supervisore', avvisi.length === nAvvisi + 1 && avvisi[avvisi.length - 1].to === 'a.missori@emvas.tax, sara@studio.it');
+    verifica('il supervisore vede il registro e spunta', (await chiama('sara@studio.it', { azione: 'errori' })).aperti.length === 1
+        && (await chiama('sara@studio.it', { azione: 'errore-risolvi', ids: (await chiama('sara@studio.it', { azione: 'errori' })).aperti.map(x => x.id) })).risolti === 1);
     st = await chiama('sara@studio.it', { azione: 'stato' });
     verifica('il supervisore vede tutto, ma non e\' amministratore', st.profilo.vedeTutto && !st.profilo.admin && st.incarichi.length === 2 && st.supervisori === undefined);
     verifica('il supervisore vede le non associate', (await chiama('sara@studio.it', { azione: 'non-associate' })).ok === true);
@@ -340,6 +407,7 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     const rimaste = [...dati.keys()].filter(k => /^circ(Riferimenti|Messaggi)\//.test(k) && tolteAlfa.indexOf(dati.get(k).invio) >= 0);
     verifica('incarico cancellato: schede, PDF e indice', canc.ok && canc.tolte === 3 && (await scheda(a1.id)) === null && rimaste.length === 0 && ![...dati.keys()].some(k => k.indexOf('circInvii/' + a1.id + '/') === 0), rimaste);
     verifica('l\'altro incarico resta', (await scheda(b1.id)) !== null);
+    verifica('con l\'incarico se ne vanno anche i suoi errori', ![...dati.keys()].some(k => /^circErrori\//.test(k) && dati.get(k).incaricoId === 'inc-alfa') && [...dati.keys()].some(k => /^circErrori\//.test(k) && dati.get(k).incaricoId === 'inc-beta'));
 
     // ---------- 13. pulizie ----------
     const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });

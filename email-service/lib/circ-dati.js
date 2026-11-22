@@ -33,6 +33,7 @@
 const crypto = require('crypto');
 const C = require('./circ-comune');
 const D = require('./daticert');
+const ERRORI = require('./circ-errori');
 
 const INVII = 'circInvii', RIF = 'circRiferimenti', MSG = 'circMessaggi', INC = 'circIncarichi';
 const PEZZI = 'allegato';
@@ -436,7 +437,7 @@ async function trovaRiferimento(db, chiavi) {
    e' l'unica cosa che lo dice. */
 async function prendi(db, id, ora, lettoreOk) {
     const rif = db.collection(INVII).doc(String(id));
-    return db.runTransaction(async tx => {
+    const esito = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         if (!s.exists) return { saltato: 'sparita' };
         const inv = s.data() || {};
@@ -463,9 +464,12 @@ async function prendi(db, id, ora, lettoreOk) {
         if ((Number(p.tentativi) || 0) >= MAX_TENTATIVI) {
             p.stato = 'errore';
             p.errore = p.errore || 'Invio non riuscito dopo ' + MAX_TENTATIVI + ' tentativi.';
-            return salva('troppi tentativi');
+            return Object.assign(salva('troppi tentativi'), { errore: { inv: inv, passo: n, testo: p.errore } });
         }
-        if (!inv.allegato || inv.allegato.tolto) { p.stato = 'errore'; p.errore = 'Il PDF della lettera non è più sul portale: prepara una nuova lettera.'; return salva('senza allegato'); }
+        if (!inv.allegato || inv.allegato.tolto) {
+            p.stato = 'errore'; p.errore = 'Il PDF della lettera non è più sul portale: prepara una nuova lettera.';
+            return Object.assign(salva('senza allegato'), { errore: { inv: inv, passo: n, testo: p.errore } });
+        }
 
         const riferimento = C.riferimentoNuovo();
         p.stato = 'invio';
@@ -482,13 +486,21 @@ async function prendi(db, id, ora, lettoreOk) {
         chiaviMsgId(riferimento).forEach(k => tx.set(db.collection(RIF).doc(k), { invio: String(id), passo: n, destinatario: inv.pec, quando: ora }));
         return { invio: Object.assign({ id: String(id) }, inv), passo: n, riferimento: riferimento };
     });
+    if (esito.errore) {
+        const e = esito.errore;
+        await ERRORI.diLettera(db, e.inv, String(id), e.passo, { chiave: 'invio~' + id + '~' + e.passo, tipo: 'invio', titolo: 'La PEC non è partita', dettaglio: e.testo });
+        delete esito.errore;
+    }
+    return esito;
 }
 /* L'esito della consegna al server di posta. `esito`: { ok } oppure
    { ok: false, msg, riprova } (riprova = il rifiuto riguarda noi, non il
    destinatario: si rimette in coda). */
 async function esitoInvio(db, id, n, riferimento, esito) {
     const rif = db.collection(INVII).doc(String(id));
-    return db.runTransaction(async tx => {
+    let fallita = '';
+    const dopo = await db.runTransaction(async tx => {
+        fallita = '';
         const s = await tx.get(rif);
         if (!s.exists) return null;
         const inv = s.data() || {};
@@ -497,7 +509,7 @@ async function esitoInvio(db, id, n, riferimento, esito) {
         const ora = Date.now();
         if (esito.ok) { p.stato = 'inviato'; p.inviatoIl = ora; delete p.verificaIl; delete p.errore; }
         else if (esito.riprova) { p.stato = 'coda'; p.previsto = ora + RIPROVA_MS; p.errore = String(esito.msg || '').slice(0, 300); }
-        else { p.stato = 'errore'; p.errore = String(esito.msg || 'Invio non riuscito.').slice(0, 300); }
+        else { p.stato = 'errore'; p.errore = String(esito.msg || 'Invio non riuscito.').slice(0, 300); fallita = p.errore; }
         inv.passi = Object.assign({}, inv.passi, { [n]: p });
         if (n === 'primo' && p.stato === 'errore') bloccaSolleciti(inv, 'La prima PEC non è partita: correggi l\'indirizzo e reinvia.', 'recapito');
         chiudi(inv, ora);
@@ -505,6 +517,8 @@ async function esitoInvio(db, id, n, riferimento, esito) {
         segnaSporco(tx, db, inv);
         return inv;
     });
+    if (dopo && fallita) await ERRORI.diLettera(db, dopo, String(id), n, { chiave: 'invio~' + id + '~' + n, tipo: 'invio', titolo: 'La PEC non è partita', dettaglio: fallita });
+    return dopo;
 }
 
 /* ============================================================
@@ -515,7 +529,7 @@ async function esitoInvio(db, id, n, riferimento, esito) {
    ritardo non cancella una consegna gia' registrata. */
 async function applicaRicevuta(db, dove, fatto, coordinate) {
     const rif = db.collection(INVII).doc(String(dove.invio));
-    return db.runTransaction(async tx => {
+    const esito = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         if (!s.exists) return { ok: false };
         const inv = s.data() || {};
@@ -551,8 +565,19 @@ async function applicaRicevuta(db, dove, fatto, coordinate) {
         chiudi(inv, ora);
         tx.set(rif, inv);
         segnaSporco(tx, db, inv);
-        return { ok: true, cambiato: true, incaricoId: inv.incaricoId };
+        return { ok: true, cambiato: true, incaricoId: inv.incaricoId, scheda: inv, problema: fatto.genere === 'problema' ? inv.passi[n].problema : null };
     });
+    // una PEC non accettata o non consegnata va nel registro degli errori; un preavviso, come cosa da tenere d'occhio
+    if (esito.problema) {
+        const pr = esito.problema;
+        await ERRORI.diLettera(db, esito.scheda, String(dove.invio), dove.passo, {
+            chiave: 'recapito~' + dove.invio + '~' + dove.passo, tipo: 'recapito', gravita: pr.definitivo ? 'errore' : 'avviso',
+            titolo: pr.definitivo ? (pr.tipo === 'non-accettazione' ? 'PEC non accettata dal gestore' : 'PEC non consegnata') : 'Consegna della PEC in dubbio',
+            dettaglio: pr.motivo
+        });
+    }
+    delete esito.scheda; delete esito.problema;
+    return esito;
 }
 /* Una risposta sulla scheda. Ferma i solleciti non ancora partiti: e' la
    regola piu' importante di tutte, chi ha risposto non va sollecitato.
@@ -737,6 +762,7 @@ async function cancellaIncarico(db, incaricoId) {
         tolte++;
     }
     try { await db.collection(INC).doc(String(incaricoId)).delete(); } catch (_) { /* si rifa' da solo */ }
+    await ERRORI.dimenticaIncarico(db, incaricoId);
     return { ok: true, tolte: tolte };
 }
 /* Pulizie del giro: bozze rimaste a meta' (il caricamento del PDF si e'

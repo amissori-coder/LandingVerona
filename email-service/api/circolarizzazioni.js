@@ -35,6 +35,7 @@ const C = require('../lib/circ-comune');
 const DATI = require('../lib/circ-dati');
 const GIRO = require('../lib/circ-giro');
 const LETTORE = require('../lib/circ-lettore');
+const ERRORI = require('../lib/circ-errori');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -134,11 +135,16 @@ const AZIONI = {
             giro: await GIRO.stato(db), lettore: await LETTORE.stato(db)
         };
         if (prof.vedeTutto) {
+            out.errori = await ERRORI.conta(db);
             out.nonAssociate = (await DATI.nonAssociate(db)).length;
             // incarichi con lettere ma non piu' in elenco (cancellati dall'anagrafica): l'amministratore li vede lo stesso
             out.orfani = Object.keys(conDati).filter(id => !incarichi.some(i => i.id === id)).map(id => ({ id: id, cliente: conDati[id].cliente, conteggi: conDati[id].conteggi }));
         }
-        if (prof.admin) out.supervisori = (await DATI.impostazioni(db)).supervisori;
+        if (prof.admin) {
+            out.supervisori = (await DATI.impostazioni(db)).supervisori;
+            const av = await ERRORI.destinatari(db);
+            out.avvisiErrori = { destinatari: av.lista, supervisori: av.supervisori, posta: ERRORI.postaConfigurata() };
+        }
         return out;
     },
     async elenco(db, prof, b) {
@@ -258,6 +264,34 @@ const AZIONI = {
         soloChiVedeTutto(prof);
         return daEsito(await DATI.scarta(db, String(b.chiave || ''), prof));
     },
+    /* Il registro degli errori: lo vede chi vede tutto, e spunta quelli risolti. */
+    async errori(db, prof) {
+        soloChiVedeTutto(prof);
+        const e = await ERRORI.elenco(db);
+        const perArea = x => ({
+            id: x.id, tipo: x.tipo, gravita: x.gravita, titolo: x.titolo, dettaglio: x.dettaglio, incaricoId: x.incaricoId, cliente: x.cliente,
+            invio: x.invio, destinatario: x.destinatario, pec: x.pec, codice: x.codice, passo: x.passo,
+            primo: x.primo || 0, ultimo: x.ultimo || 0, volte: x.volte || 1, avvisato: x.avvisato || 0, riaperto: x.riaperto || 0, risolto: x.risolto || null
+        });
+        return { ok: true, aperti: e.aperti.map(perArea), risolti: e.risolti.map(perArea) };
+    },
+    async 'errore-risolvi'(db, prof, b) {
+        soloChiVedeTutto(prof);
+        const ids = (Array.isArray(b.ids) ? b.ids : [b.id]).map(x => String(x || '')).filter(Boolean);
+        if (!ids.length) esci(400, 'Errore non indicato.');
+        return ERRORI.risolvi(db, ids, b.nota, prof);
+    },
+    async 'errore-riapri'(db, prof, b) {
+        soloChiVedeTutto(prof);
+        return daEsito(await ERRORI.riapri(db, b.id));
+    },
+    /* A chi arriva l'email degli errori: sempre al titolare; ai supervisori se l'amministratore lo vuole. */
+    async 'avvisi-errori'(db, prof, b) {
+        soloAdmin(prof);
+        await DATI.docImpostazioni(db).set({ avvisaSupervisori: b.supervisori === true, aggiornato: Date.now(), da: prof.firma }, { merge: true });
+        const av = await ERRORI.destinatari(db);
+        return { ok: true, avvisiErrori: { destinatari: av.lista, supervisori: av.supervisori, posta: ERRORI.postaConfigurata() } };
+    },
     async supervisori(db, prof, b) {
         soloAdmin(prof);
         const lista = (Array.isArray(b.supervisori) ? b.supervisori : []).map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
@@ -297,8 +331,9 @@ async function nonAssociata(db, prof, chiave, parte) {
 /* Il giro programmato: casella, invii, pulizie. */
 /* La casella si legge sempre prima di spedire qualcosa (un sollecito non deve
    partire se la risposta e' gia' arrivata). Quando invece non c'e' niente da
-   spedire basta leggerla ogni dieci minuti, e se nessun incarico ha lettere
-   non si legge affatto: ogni lettura e' un accesso alla casella PEC, e il
+   spedire basta leggerla ogni dieci minuti (ogni cinque finche' qualche
+   lettera aspetta le ricevute), e se nessun incarico ha lettere non si legge
+   affatto: ogni lettura e' un accesso alla casella PEC, e il
    gestore li conta. */
 async function giroProgrammato(db) {
     const out = { ok: true };
@@ -306,7 +341,10 @@ async function giroProgrammato(db) {
     const sl = await LETTORE.stato(db);
     const haLettere = dovute > 0 || (await db.collection(DATI.INC).limit(1).get()).docs.length > 0;
     const appenaLetta = sl.ultimoGiro && sl.ultimoGiro.esito === 'ok' && !sl.ultimoGiro.restanti && Date.now() - (sl.ultimoGiro.quando || 0) < 9 * 60 * 1000;
-    if (haLettere && (dovute > 0 || !appenaLetta)) out.lettore = await LETTORE.giro(db, { da: 'giro programmato', budgetMs: 45000 });
+    // lettere partite che aspettano ancora le ricevute: si legge a ogni giro, chi ha inviato vuole vedere "consegnata"
+    const inAttesaDiRicevute = haLettere && appenaLetta && dovute === 0
+        ? (await db.collection(DATI.INVII).where('stato', '==', 'inviata').limit(1).get()).docs.length > 0 : false;
+    if (haLettere && (dovute > 0 || !appenaLetta || inAttesaDiRicevute)) out.lettore = await LETTORE.giro(db, { da: 'giro programmato', budgetMs: 45000 });
     else out.lettore = { ok: true, esito: haLettere ? 'letta da poco' : 'nessuna lettera' };
     /* Senza niente di dovuto il giro degli invii non parte nemmeno, e le
        pulizie si fanno una volta all'ora: a riposo il giro programmato costa
@@ -315,6 +353,8 @@ async function giroProgrammato(db) {
     if (new Date().getUTCMinutes() < 5) {
         try { out.pulizie = await DATI.pulizia(db, Date.now(), 40); } catch (e) { out.pulizie = 0; console.error('Circolarizzazioni, pulizie:', String((e && e.message) || e).slice(0, 200)); }
     }
+    // gli errori nuovi, tutti in una sola email
+    out.avvisi = await ERRORI.avvisa(db);
     return out;
 }
 
@@ -335,6 +375,7 @@ module.exports = async (req, res) => {
             res.status(200).json(await giroProgrammato(admin.firestore()));
         } catch (e) {
             console.error('Circolarizzazioni, giro:', String((e && e.stack) || e).slice(0, 400));
+            try { await ERRORI.segna(admin.firestore(), { chiave: 'servizio~giro~' + String((e && e.message) || e).slice(0, 80), tipo: 'servizio', titolo: 'Il giro programmato si è interrotto', dettaglio: String((e && e.message) || e).slice(0, 400) }); } catch (_) { /* gia' scritto nei log */ }
             res.status(500).json({ ok: false, msg: 'Giro non riuscito.' });
         }
         return;
@@ -362,6 +403,8 @@ module.exports = async (req, res) => {
     } catch (e) {
         if (e instanceof Rifiuto) { res.status(e.stato).json(Object.assign({ ok: false, msg: e.message }, e.extra || {})); return; }
         console.error('circolarizzazioni (' + azione + '):', String((e && e.stack) || e).slice(0, 600));
+        // un errore che non doveva succedere: nel registro, cosi' chi amministra lo viene a sapere
+        try { await ERRORI.segna(admin.firestore(), { chiave: 'servizio~' + azione + '~' + String((e && e.message) || e).slice(0, 80), tipo: 'servizio', titolo: 'Errore imprevisto del servizio', dettaglio: 'Azione «' + azione + '»: ' + String((e && e.message) || e).slice(0, 400) }); } catch (_) { /* gia' scritto nei log */ }
         res.status(500).json({ ok: false, msg: 'Servizio non disponibile: riprova tra poco.' });
     }
 };

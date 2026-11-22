@@ -4498,6 +4498,13 @@ table.pc-tab tr.pc-annullata td { color: var(--grigio-500); }
 table.pc-tab tr.pc-annullata strong { font-weight: 600; color: var(--grigio-600); text-decoration: line-through; }
 .pc-codice { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--grigio-700); white-space: nowrap; }
 .pc-sotto { margin: 12px 0 0; }
+/* il registro degli errori: la spunta a sinistra, i risolti in tono spento */
+table.pc-errori td:first-child { white-space: nowrap; }
+table.pc-errori tr.pc-risolto td { color: var(--grigio-600); }
+table.pc-errori tr.pc-risolto strong { color: var(--grigio-700); font-weight: 600; }
+table.pc-errori .pc-link { display: block; margin-top: 4px; }
+.pc-nota.pc-rosso { color: var(--rosso); font-weight: 600; }
+.pc-avviso .pc-link { color: inherit; margin-left: 6px; }
 .pc-spunta { display: inline-flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--grigio-900); cursor: pointer; }
 .pc-spunta input { margin: 0; }
 .pc-link { background: none; border: none; padding: 0; font: inherit; font-size: 0.84rem; font-weight: 600; color: var(--blu-700); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; text-align: left; }
@@ -4556,7 +4563,7 @@ table.pc-righe tr.pc-fatta td { background: #F3FAF6; }
     table.pc-righe input[type="text"], table.pc-righe input[type="email"], table.pc-righe select { min-width: 0; }
 }
 @media print {
-    .pc-schede, .pc-casella, table.pc-tab td:last-child, table.pc-tab th:last-child { display: none !important; }
+    .pc-schede, .pc-casella, table.pc-tab:not(.pc-errori) td:last-child, table.pc-tab:not(.pc-errori) th:last-child { display: none !important; }
     .pc-avviso, .pc-kpi .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .pc-fatti { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

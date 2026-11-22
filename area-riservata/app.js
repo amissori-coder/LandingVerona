@@ -38052,13 +38052,18 @@
             const conLettere = tutti.filter(i => i.conteggi && (i.conteggi.totale || i.conteggi.annullate));
             const somma = pcSomma(conLettere.map(i => i.conteggi));
             const schede = p.vedeTutto ? '<div class="tab-dest pc-schede" role="tablist">'
-                + [['incarichi', 'Incarichi'], ['nonAssociate', 'Risposte non associate' + (st.nonAssociate ? ' (' + st.nonAssociate + ')' : '')]].concat(p.admin ? [['impostazioni', 'Impostazioni']] : [])
+                + [['incarichi', 'Incarichi'], ['nonAssociate', 'Risposte non associate' + (st.nonAssociate ? ' (' + st.nonAssociate + ')' : '')], ['errori', 'Errori' + (st.errori ? ' (' + st.errori + ')' : '')]].concat(p.admin ? [['impostazioni', 'Impostazioni']] : [])
                     .map(([id, et]) => '<button type="button" class="tab-btn' + (PC.scheda === id ? ' attivo' : '') + '" role="tab" data-scheda="' + id + '">' + esc(et) + '</button>').join('')
                 + '</div>' : '';
-            corpo.innerHTML = pcAvvisoHtml() + (p.vedeTutto ? pcKpi(somma) : '') + pcCasellaHtml(st) + schede + '<div id="pc-scheda"></div>';
+            const daVedere = p.vedeTutto && st.errori && PC.scheda !== 'errori'
+                ? '<div class="pc-avviso pc-problema" role="alert"><strong>' + (st.errori === 1 ? 'C\'è un errore da controllare.' : 'Ci sono ' + st.errori + ' errori da controllare.') + '</strong> <button type="button" class="pc-link" id="pc-vai-errori">Vedi gli errori</button></div>' : '';
+            corpo.innerHTML = daVedere + pcAvvisoHtml() + (p.vedeTutto ? pcKpi(somma) : '') + pcCasellaHtml(st) + schede + '<div id="pc-scheda"></div>';
             corpo.querySelectorAll('.pc-schede [data-scheda]').forEach(b => b.addEventListener('click', () => { PC.scheda = b.dataset.scheda; disegna(PC.stato); }));
+            const vai = document.getElementById('pc-vai-errori');
+            if (vai) vai.addEventListener('click', () => { PC.scheda = 'errori'; disegna(PC.stato); });
             const dentro = document.getElementById('pc-scheda');
             if (p.vedeTutto && PC.scheda === 'nonAssociate') { pcSchedaNonAssociate(dentro, tutti); return; }
+            if (p.vedeTutto && PC.scheda === 'errori') { pcSchedaErrori(dentro, () => disegna(PC.stato)); return; }
             if (p.admin && PC.scheda === 'impostazioni') { pcSchedaImpostazioni(dentro, st); return; }
             PC.scheda = 'incarichi';
             // chi vede tutto ha centinaia di incarichi: di norma solo quelli con lettere
@@ -38138,6 +38143,55 @@
             });
         });
     }
+    /* Il registro degli errori: tutto quello che e' andato storto, una riga
+       per problema. Chi vede tutto lo spunta quando l'ha risolto; se si
+       ripresenta, la riga torna qui da sola (e riparte l'email). */
+    const PC_TIPI_ERRORE = { recapito: 'Recapito', invio: 'Invio', server: 'Server PEC', casella: 'Casella PEC', servizio: 'Servizio' };
+    function pcSchedaErrori(dentro, ridisegna) {
+        dentro.innerHTML = '<div class="card"><h2>Errori</h2><p class="hint">Carico il registro…</p></div>';
+        pcChiama('errori').then(r => {
+            if (!dentro.isConnected) return;
+            if (!r.ok) { dentro.innerHTML = '<div class="card"><p class="descrizione">' + esc(r.msg) + '</p></div>'; return; }
+            const righe = (lista, risolti) => lista.map(e => {
+                const dove = [e.destinatario, e.pec, e.codice, e.passo && e.passo !== 'primo' && PC_PASSI[e.passo] ? PC_PASSI[e.passo].toLowerCase() : ''].filter(Boolean).join(' · ');
+                return '<tr data-id="' + esc(e.id) + '"' + (risolti ? ' class="pc-risolto"' : '') + '>'
+                    + '<td data-label="Risolto"><label class="pc-spunta"><input type="checkbox" class="pc-e-ok"' + (risolti ? ' checked' : '') + ' aria-label="' + (risolti ? 'Riapri' : 'Segna come risolto') + '"> <span>Risolto</span></label>'
+                    + (risolti && e.risolto ? '<span class="pc-nota">il ' + esc(fmtDataOra(e.risolto.il)) + ' da ' + esc(String(e.risolto.da || '').replace(/\s*<.*$/, '')) + '</span>' : '') + '</td>'
+                    + '<td data-label="Quando">' + esc(fmtDataOra(e.primo)) + (e.volte > 1 ? '<span class="pc-nota">' + e.volte + ' volte, l\'ultima il ' + esc(fmtDataOra(e.ultimo)) + '</span>' : '')
+                    + (e.riaperto && !risolti ? '<span class="pc-nota pc-rosso">si è ripresentato dopo la spunta</span>' : '') + '</td>'
+                    + '<td data-label="Tipo">' + pcBadge(e.gravita === 'avviso' ? 'ambra' : 'rosso', PC_TIPI_ERRORE[e.tipo] || e.tipo) + (e.gravita === 'avviso' ? '<span class="pc-nota">da tenere d\'occhio</span>' : '') + '</td>'
+                    + '<td data-label="Dove">' + (e.cliente ? '<strong>' + esc(e.cliente) + '</strong>' : '<span class="pc-muto">Tutta la funzione</span>') + (dove ? '<span class="pc-nota">' + esc(dove) + '</span>' : '')
+                    + (e.incaricoId ? '<button type="button" class="pc-link pc-e-apri" data-inc="' + esc(e.incaricoId) + '">Apri l\'incarico</button>' : '') + '</td>'
+                    + '<td data-label="Che cosa è successo"><strong>' + esc(e.titolo) + '</strong>' + (e.dettaglio ? '<span class="pc-nota">' + esc(e.dettaglio) + '</span>' : '') + '</td>'
+                    + '<td data-label="Avviso per email">' + (e.avvisato ? esc(fmtDataOra(e.avvisato)) : '<span class="pc-muto">' + (risolti ? '—' : 'entro cinque minuti') + '</span>') + '</td></tr>';
+            }).join('');
+            const testa = '<thead><tr><th>Risolto</th><th>Quando</th><th>Tipo</th><th>Dove</th><th>Che cosa è successo</th><th>Avviso per email</th></tr></thead>';
+            dentro.innerHTML = '<div class="card"><h2>Errori</h2>'
+                + '<p class="hint">Qui finisce tutto quello che va storto nelle circolarizzazioni: PEC non consegnate o non partite, problemi con la casella o con il server PEC, errori imprevisti. Per ogni errore nuovo ricevi un\'email. Quando hai risolto, spunta la riga: se il problema si ripresenta, torna in elenco da sola.</p>'
+                + (r.aperti.length ? '<div class="tabella-wrap"><table class="dati pc-tab pc-errori">' + testa + '<tbody>' + righe(r.aperti, false) + '</tbody></table></div>'
+                    + (r.aperti.length > 1 ? '<p class="pc-sotto"><button type="button" class="btn btn-sm btn-secondary" id="pc-e-tutti">Segna tutti come risolti</button></p>' : '')
+                    : '<p class="descrizione">Nessun errore aperto.</p>')
+                + '</div>'
+                + (r.risolti.length ? '<div class="card"><h2>Risolti</h2><p class="hint">Gli ultimi errori spuntati. Togli la spunta per riaprirne uno.</p>'
+                    + '<div class="tabella-wrap"><table class="dati pc-tab pc-errori">' + testa + '<tbody>' + righe(r.risolti, true) + '</tbody></table></div></div>' : '');
+            const dopo = async x => {
+                if (!x.ok) toast(x.msg, 'rosso');
+                const st = await pcCarica(true);
+                if (st.ok && dentro.isConnected) ridisegna();
+            };
+            dentro.querySelectorAll('.pc-e-ok').forEach(c => c.addEventListener('change', () => {
+                const id = c.closest('tr').dataset.id;
+                c.disabled = true;
+                pcChiama(c.checked ? 'errore-risolvi' : 'errore-riapri', { id: id }).then(dopo);
+            }));
+            dentro.querySelectorAll('.pc-e-apri').forEach(b => b.addEventListener('click', () => naviga('strumentiPecIncarico', { incaricoId: b.dataset.inc })));
+            const tutti = document.getElementById('pc-e-tutti');
+            if (tutti) tutti.addEventListener('click', () => {
+                if (!window.confirm('Segnare come risolti tutti i ' + r.aperti.length + ' errori aperti?')) return;
+                conAttesa(tutti, () => pcChiama('errore-risolvi', { ids: r.aperti.map(e => e.id) }).then(dopo));
+            });
+        });
+    }
     function pcModaleAssocia(m, incarichi, fatto) {
         const conLettere = incarichi.filter(i => i.conteggi && i.conteggi.totale);
         const candidati = m.candidati.map(c => '<label class="pc-scelta"><input type="radio" name="pc-ass" value="' + esc(c.id) + '"> <span><strong>' + esc(c.destinatario) + '</strong> · ' + esc(c.cliente) + ' <span class="pc-muto">' + esc(c.codice) + '</span></span></label>').join('');
@@ -38176,12 +38230,18 @@
         }));
     }
     function pcSchedaImpostazioni(dentro, st) {
+        const av = st.avvisiErrori || {};
         dentro.innerHTML = '<div class="card"><h2>Chi vede tutte le circolarizzazioni</h2>'
             + '<p class="hint">L\'amministratore vede sempre tutto. Qui indichi i collaboratori che, come te, vedono le circolarizzazioni di tutti gli incarichi, il riepilogo e le risposte non associate. Gli altri vedono solo gli incarichi in cui sono nel team, responsabili dell\'incarico o della qualità.</p>'
             + '<div class="campo"><label for="pc-sup">Indirizzi email dei supervisori, uno per riga</label><textarea id="pc-sup" rows="5" spellcheck="false">' + esc((st.supervisori || []).join('\n')) + '</textarea>'
             + '<p class="hint">Devono avere un accesso attivo all\'area riservata.</p></div>'
             + '<p class="msg-errore" id="pc-sup-err" hidden></p>'
             + '<button type="button" class="btn btn-primary" id="pc-sup-salva">Salva</button></div>'
+            + '<div class="card"><h2>Avvisi degli errori</h2>'
+            + '<p class="hint">Per ogni errore nuovo parte un\'email (una sola anche se gli errori sono tanti, entro cinque minuti). Gli errori si vedono e si spuntano nella scheda «Errori».</p>'
+            + (av.posta === false ? '<div class="pc-avviso pc-problema" role="alert">La posta ordinaria del servizio non è configurata: gli errori si vedono qui, ma l\'email non parte.</div>' : '')
+            + '<p class="pc-casella">L\'email arriva a <strong id="pc-av-dest">' + esc((av.destinatari || []).join(', ')) + '</strong></p>'
+            + '<label class="pc-spunta"><input type="checkbox" id="pc-av-sup"' + (av.supervisori ? ' checked' : '') + '> <span>Avvisa anche i supervisori</span></label></div>'
             + '<div class="card"><h2>La casella e i limiti</h2><table class="sr-dove"><tbody>'
             + [['Casella PEC di invio e di risposta', st.casella], ['Dimensione massima della lettera in PDF', pcPeso(st.limiti.pdfMaxByte)], ['Il PDF della lettera resta sul portale', (st.limiti.pdfGiorni || 365) + ' giorni dalla preparazione'], ['Dimensione massima di un allegato di risposta scaricabile da qui', pcPeso(st.limiti.rispostaMaxByte)], ['PEC all\'ora, al massimo', String(st.limiti.perOra)], ['Orario dei solleciti', 'alle 9:00 del giorno indicato']]
                 .map(([a, b]) => '<tr><td>' + esc(a) + '</td><td class="sr-dove-carta">' + esc(b) + '</td></tr>').join('')
@@ -38193,7 +38253,16 @@
             if (!r.ok) { err.textContent = r.msg; err.hidden = false; return; }
             PC.stato.supervisori = r.supervisori;
             toast('Supervisori salvati.', 'verde');
+            const st2 = await pcCarica(true);      // i destinatari degli avvisi dipendono dai supervisori
+            if (st2.ok && document.getElementById('pc-av-dest')) document.getElementById('pc-av-dest').textContent = ((st2.avvisiErrori || {}).destinatari || []).join(', ');
         }));
+        document.getElementById('pc-av-sup').addEventListener('change', async ev => {
+            const r = await pcChiama('avvisi-errori', { supervisori: ev.target.checked });
+            if (!r.ok) { toast(r.msg, 'rosso'); ev.target.checked = !ev.target.checked; return; }
+            PC.stato.avvisiErrori = r.avvisiErrori;
+            document.getElementById('pc-av-dest').textContent = (r.avvisiErrori.destinatari || []).join(', ');
+            toast('Avvisi aggiornati.', 'verde');
+        });
     }
     /* Il testo di un messaggio della casella, in una finestra sopra. */
     async function pcApriTesto(corpo, titolo) {
