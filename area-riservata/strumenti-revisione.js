@@ -7,7 +7,7 @@
    lavoro trascritta passo per passo (carte{}) e documenti (allegati{}).
    scheda: assente = la scheda dell'attivita' si apre; "disattiva" = il
    pulsante «Apri» c'e' ma non si clicca; "chiusa" = niente pulsante, al
-   suo posto l'avviso (avviso: il perche').
+   suo posto l'etichetta breve (etichetta) e, in nota, l'avviso (il perche').
 
    I documenti collegati nelle carte sono in
    strumenti-revisione/allegati/ (copiati da Drive il 21/11/2026);
@@ -18,6 +18,9 @@
    aggiungere un documento: copiarlo nella cartella degli allegati,
    aggiungerlo in "allegati" e citarlo nel passo con { a: 'nome-file', et: 'Etichetta' }.
    Collegamento esterno: { l: 'https://...', et: 'Etichetta', tipo: 'modulo' | 'drive' | 'web' }.
+   I PDF «Stampa tutto» (scheda + documenti di ogni attivita' aperta) li
+   prepara scripts/strumenti-revisione/fascicoli.py, che aggiunge in fondo
+   a questo file la riga «fascicoli»: va rilanciato dopo ogni modifica.
    Il file lo carica app.js solo quando si apre la sezione: dopo ogni
    modifica cambiare SR_DATI_VERSIONE in app.js (e la ?v= di app.js in index.html).
 ========================================================= */
@@ -40,6 +43,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-04-01",
      "fine": "2026-09-30",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -49,6 +53,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-04-01",
      "fine": "2026-09-30",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -58,6 +63,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-07-01",
      "fine": "2026-09-30",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -67,6 +73,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-09-01",
      "fine": "2026-11-30",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -76,6 +83,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-03-16",
      "fine": "2026-05-16",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -85,6 +93,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-09-01",
      "fine": "2026-10-31",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -94,6 +103,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-03-20",
      "fine": "2026-05-16",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -103,6 +113,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-06-20",
      "fine": "2026-08-10",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -112,6 +123,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-09-16",
      "fine": "2026-11-16",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -121,6 +133,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-12-20",
      "fine": "2027-02-16",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -160,6 +173,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "inizio": "2026-02-13",
      "fine": "2026-02-28",
      "scheda": "chiusa",
+     "etichetta": "Piano 2027",
      "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
@@ -3204,3 +3218,4 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  }
 };
+window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=7f6cb42ef6", "pagine": 40, "kb": 828, "documenti": 19}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=8ac115d830", "pagine": 29, "kb": 1249, "documenti": 12}}};
