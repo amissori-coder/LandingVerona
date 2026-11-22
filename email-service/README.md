@@ -901,6 +901,35 @@ chi chiama, e un messaggio della casella si apre solo se e' elencato su quella
 lettera: senza, basterebbe un numero a caso per leggere la posta di un altro
 incarico. Gli incarichi in stato "proposta" o "non accettato" non compaiono.
 
+### Quanto ci mette ad aprirsi
+
+Ogni lettura di Firestore e' un viaggio dal servizio al database, e una dopo
+l'altra i viaggi si sommano. Per questo la pagina degli incarichi (azione
+`stato`) ne fa pochi, e **sempre gli stessi qualunque sia il numero degli
+incarichi** di chi entra:
+
+- le impostazioni e le due anagrafiche (`leggiBase`) partono insieme, mentre
+  si controlla l'utenza;
+- i conteggi si leggono con **una lettura sola** della raccolta
+  `circIncarichi`, dove c'e' un documento solo per gli incarichi che hanno
+  lettere. Chiederli incarico per incarico voleva dire, per chi ne segue
+  duecento, duecento viaggi in fila prima di vedere la pagina;
+- stato del giro, della casella, errori e risposte non associate partono
+  insieme ai conteggi;
+- i conteggi si rifanno solo per gli incarichi toccati (`sporco`) e, al cambio
+  di giorno, solo per quelli con lettere ancora senza risposta ("oltre il
+  termine" e' l'unico numero che dipende dal calendario), a gruppi di dieci.
+
+Nell'area riservata chi torna all'elenco (da un incarico, da un'altra sezione)
+rivede subito quello di poco fa, mentre il servizio lo rilegge.
+
+Se le pagine restano lente, la cosa da guardare e' **dove gira il servizio
+rispetto al database**: su Vercel, Settings -> Functions -> Function Region.
+Con Firestore in Europa (`europe-west8`, `eur3`) e le funzioni nella regione
+predefinita di Vercel (Washington), ogni lettura attraversa due volte
+l'oceano: portare le funzioni a Francoforte (`fra1`) accorcia tutte le
+chiamate del servizio, non solo queste.
+
 ### Due aree, e dentro ogni area le tipologie di lettera
 
 Le lettere stanno in **due aree** (`AMBITI` in `lib/circ-comune.js`), le
@@ -1218,7 +1247,8 @@ spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
 conteggi, saldo e note, la bozza sul portale (ripresa da un altro computer,
 conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza), il
 registro delle operazioni (una voce per ogni azione riuscita, nessuna per
-quelle rifiutate, chi lo legge, che resta dopo la cancellazione),
+quelle rifiutate, chi lo legge, che resta dopo la cancellazione), le letture
+della pagina degli incarichi (poche, e non crescono con gli incarichi),
 cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un

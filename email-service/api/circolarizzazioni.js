@@ -183,7 +183,16 @@ function messaggioDi(inv, chiave, parte) {
 const AZIONI = {
     /* Che cosa vede chi entra: la casella, i limiti, i suoi incarichi con i conteggi. */
     async stato(db, prof) {
-        const conDati = await DATI.riepiloghi(db, prof.vedeTutto ? null : prof.incarichi.map(i => i.id));
+        /* Le letture non dipendono l'una dall'altra: partono insieme. In fila,
+           la pagina aspettava una mezza dozzina di viaggi fino a Firestore. */
+        const [conDati, giro, lettore, errori, nonAssociate, impAdmin, avvisi] = await Promise.all([
+            DATI.riepiloghi(db, prof.vedeTutto ? null : prof.incarichi.map(i => i.id)),
+            GIRO.stato(db), LETTORE.stato(db),
+            prof.vedeTutto ? ERRORI.conta(db) : null,
+            prof.vedeTutto ? DATI.nonAssociate(db) : null,
+            prof.admin ? DATI.impostazioni(db) : null,
+            prof.admin ? ERRORI.destinatari(db) : null
+        ]);
         const incarichi = prof.incarichi.map(i => Object.assign({}, i, { conteggi: conDati[i.id] ? conDati[i.id].conteggi : null, perAmbito: conDati[i.id] ? conDati[i.id].perAmbito : null }));
         const cfg = C.configurazione();
         const out = {
@@ -194,18 +203,17 @@ const AZIONI = {
             ambiti: Object.keys(C.AMBITI).map(k => ({ id: k, nome: C.AMBITI[k] })),
             categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome, uno: C.CATEGORIE[k].uno, ambito: C.ambitoDi(k), saldo: !!C.CATEGORIE[k].saldo })),
             oggi: C.giornoRoma(), incarichi: incarichi,
-            giro: await GIRO.stato(db), lettore: await LETTORE.stato(db)
+            giro: giro, lettore: lettore
         };
         if (prof.vedeTutto) {
-            out.errori = await ERRORI.conta(db);
-            out.nonAssociate = (await DATI.nonAssociate(db)).length;
+            out.errori = errori;
+            out.nonAssociate = nonAssociate.length;
             // incarichi con lettere ma non piu' in elenco (cancellati dall'anagrafica): l'amministratore li vede lo stesso
             out.orfani = Object.keys(conDati).filter(id => !incarichi.some(i => i.id === id)).map(id => ({ id: id, cliente: conDati[id].cliente, conteggi: conDati[id].conteggi, perAmbito: conDati[id].perAmbito }));
         }
         if (prof.admin) {
-            out.supervisori = (await DATI.impostazioni(db)).supervisori;
-            const av = await ERRORI.destinatari(db);
-            out.avvisiErrori = { destinatari: av.lista, supervisori: av.supervisori, posta: ERRORI.postaConfigurata() };
+            out.supervisori = impAdmin.supervisori;
+            out.avvisiErrori = { destinatari: avvisi.lista, supervisori: avvisi.supervisori, posta: ERRORI.postaConfigurata() };
         }
         return out;
     },
@@ -557,11 +565,15 @@ module.exports = async (req, res) => {
         try { decoded = await admin.auth().verifyIdToken(idToken); }
         catch (_) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
         const db = admin.firestore();
+        if (!Object.prototype.hasOwnProperty.call(AZIONI, azione)) { res.status(400).json({ ok: false, msg: 'Azione non riconosciuta.' }); return; }
+        /* Il gettone e' buono: mentre si controlla l'utenza partono gia' le
+           letture che servono per sapere che cosa vede (un viaggio fino a
+           Firestore invece di due). Se l'utenza non passa, non si usano. */
+        const base = DATI.leggiBase(db).catch(() => null);
         const ue = await utenteEffettivo(db, String(decoded.email || '').toLowerCase());
         if (!ue.ok) { res.status(403).json({ ok: false, msg: ue.msg || 'Utenza non abilitata.' }); return; }
         if (/^sondaggio_/.test(String(ue.ruolo || ''))) { res.status(403).json({ ok: false, msg: 'Il tuo accesso non comprende questa sezione.' }); return; }
-        if (!Object.prototype.hasOwnProperty.call(AZIONI, azione)) { res.status(400).json({ ok: false, msg: 'Azione non riconosciuta.' }); return; }
-        const prof = await DATI.profilo(db, ue);
+        const prof = await DATI.profilo(db, ue, base);
         res.status(200).json(await AZIONI[azione](db, prof, body));
     } catch (e) {
         if (e instanceof Rifiuto) { res.status(e.stato).json(Object.assign({ ok: false, msg: e.message }, e.extra || {})); return; }

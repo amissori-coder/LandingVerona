@@ -44,10 +44,12 @@ function fondi(base, patch) {       // come Firestore con merge: le mappe si fon
     return out;
 }
 let contatoreId = 0;
+// quante letture fa il codice: ogni get() di un documento o di una raccolta e' un viaggio fino a Firestore
+const letture = { documenti: 0, raccolte: 0, azzera() { this.documenti = 0; this.raccolte = 0; } };
 function docRef(percorso) {
     const self = {
         id: percorso.split('/').pop(), percorso: percorso,
-        get: async () => ({ exists: dati.has(percorso), id: self.id, data: () => clona(dati.get(percorso)), ref: self }),
+        get: async () => { letture.documenti++; return { exists: dati.has(percorso), id: self.id, data: () => clona(dati.get(percorso)), ref: self }; },
         set: async (patch, opz) => { dati.set(percorso, opz && opz.merge ? fondi(dati.get(percorso), patch) : clona(patch)); },
         delete: async () => { dati.delete(percorso); },
         collection: nome => collRef(percorso + '/' + nome)
@@ -63,6 +65,7 @@ function collRef(percorso, filtri, ordine, tetto) {
         orderBy: (campo, verso) => collRef(percorso, filtri, [campo, verso === 'desc' ? -1 : 1], tetto),
         limit: n => collRef(percorso, filtri, ordine, n),
         get: async () => {
+            letture.raccolte++;
             let ds = figli().map(k => ({ k: k, v: dati.get(k) })).filter(x => filtri.every(([c, op, val]) => {
                 const a = x.v[c];
                 if (op === '==') return a === val;
@@ -190,5 +193,5 @@ Module.prototype.require = function (nome) {
 Object.assign(process.env, { CIRC_PEC_USER: 'circolarizzazionirevilaw@pec.it', CIRC_PEC_PASS: 'segreta', CIRC_PAUSA_MS: '0', CRON_SECRET: 'cron', FIREBASE_SERVICE_ACCOUNT: '{}',
     SMTP_HOST: 'posta-ordinaria.finta', SMTP_PORT: '587', SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_FROM_EMAIL: 'noreply@nextgenerationbusiness.it', APP_BASE_URL: 'https://nextgenerationbusiness.it' });
 
-module.exports = { dati, db, posta, avvisi, notizie, casella, stato, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
+module.exports = { dati, db, posta, avvisi, notizie, casella, stato, letture, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
 
