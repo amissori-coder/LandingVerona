@@ -207,6 +207,17 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
    > Aggiungere un `match` che la apra allo staff vanificherebbe l'approvazione:
    > chi chiede lo sblocco potrebbe leggersi il gettone e approvarsi da solo.
 
+   > **Circolarizzazioni via PEC: anche `circInvii`, `circRiferimenti`,
+   > `circMessaggi` e `circIncarichi` restano fuori dalle regole.** Le lettere
+   > di circolarizzazione, le loro ricevute e le risposte dei terzi si vedono
+   > incarico per incarico (team, responsabile dell'incarico, responsabile
+   > della qualita'; tutto solo per l'amministratore e i supervisori), e le
+   > regole non possono controllare chi e' nel team di un incarico. Percio' NON
+   > c'e' un `match`: le legge e le scrive solo l'account di servizio
+   > (`email-service/api/circolarizzazioni.js`), che a ogni chiamata verifica
+   > chi chiede. Aggiungere un `match` che le apra allo staff farebbe vedere a
+   > tutti le circolarizzazioni di tutti gli incarichi.
+
    > **Messaggi tra utenti connessi.** Il blocco `match /messaggi/{email}` serve
    > ai messaggi privati tra colleghi (popup con risposta). Se le regole
    > pubblicate sulla console sono una versione precedente senza quel blocco,
