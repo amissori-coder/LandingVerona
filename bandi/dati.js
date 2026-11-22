@@ -585,11 +585,11 @@
                     'attivi immateriali: brevetti, licenze, know-how e diritti di proprietà intellettuale, con perizia tecnica asseverata sulla congruità (per le grandi imprese entro il 50% dei costi totali);',
                     'ricerca e sviluppo: personale dedicato, strumenti e attrezzature per la ricerca, ricerca contrattuale, consulenze scientifiche, materiali direttamente imputabili.'
                 ] },
-                { t: 'Esclusioni e vincoli', p: ['Sono escluse le spese di formazione, i mezzi di trasporto, i beni usati e i documenti di spesa inferiori a 500 euro. Le spese sono ammissibili solo se sostenute dopo la presentazione della candidatura. Il progetto dura al massimo 36 mesi. I contributi non sono cumulabili con altri aiuti pubblici, nazionali, regionali o comunitari, per le stesse spese ammissibili, compresi benefici fiscali e garanzie.'] },
+                { t: 'Esclusioni e vincoli', p: ['Sono escluse le spese di formazione, i mezzi di trasporto, i beni usati e i documenti di spesa inferiori a 500 euro. Le spese sono ammissibili solo se sostenute dopo la presentazione della candidatura. Il progetto va concluso entro 30 mesi dalla concessione del contributo, e comunque non oltre il 30 aprile 2030; il termine si può prorogare al massimo di 6 mesi, con richiesta motivata approvata dalla Regione. I contributi non sono cumulabili con altri aiuti pubblici, nazionali, regionali o comunitari, per le stesse spese ammissibili, compresi benefici fiscali e garanzie.'] },
                 { t: 'Come e quando presentare domanda', p: ['Esclusivamente via PEC all\'indirizzo sviluppoitaliamolise@legalmail.it, in un unico plico in formato .zip e con un unico invio dalla casella del proponente o del capofila: invii multipli o separati rendono irricevibile l\'intera candidatura. Lo sportello è aperto dalle 12:00 del 26 ottobre 2026 alle 12:00 del 30 aprile 2027, salvo chiusura anticipata per esaurimento delle risorse. Procedura valutativa a sportello: l\'istruttoria segue l\'ordine cronologico di arrivo, distinto per ciascuna linea di intervento.'] }
             ],
             pdf: 'molise-step.pdf',
-            aggiornata: '2026-11-22'
+            aggiornata: '2026-11-23'
         },
         {
             id: 'piemonte-energie-rinnovabili',
