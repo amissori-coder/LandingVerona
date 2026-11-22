@@ -4168,6 +4168,10 @@ td.cene-az { white-space: nowrap; }
    diventano griglie: il display della griglia vincerebbe sull'attributo e i
    filtri non nasconderebbero niente. */
 .sr-tab tbody tr[hidden], .sr-testo[hidden], #sr-vuoto[hidden] { display: none !important; }
+/* Testo sempre giustificato, come .descrizione e .hint nel resto dell'area:
+   descrizioni, passaggi, note, nomi e descrizioni dei documenti, testo letto. */
+.sr-sintesi, .sr-come li, .sr-agli-atti, .sr-avviso, .sr-intro, .sr-fonte, .sr-passo-testo, .sr-nota,
+.sr-doc-nome a, .sr-doc-desc, .sr-testo-corpo, .sr-dove-riga > span:first-child, .sr-cartella-tit strong { text-align: justify; hyphens: manual; }
 .sr-anni { margin-bottom: 16px; }
 .sr-anno-vuoto { font-size: 0.7rem; font-weight: 500; color: var(--grigio-500); margin-left: 4px; }
 .sr-tab tbody tr.sr-riga { cursor: pointer; }
