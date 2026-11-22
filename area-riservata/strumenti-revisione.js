@@ -375,15 +375,16 @@ window.RV_STRUMENTI_REVISIONE = {
   "circObbligatorie": {
    "titolo": "Circolarizzazioni obbligatorie",
    "carta": "circObbligatorie",
-   "sintesi": "Sono le conferme esterne chieste direttamente a banche, enti finanziatori, amministrazione postale, società di leasing e di factor, compagnie assicurative, consulenti (del lavoro, fiscali, legali), depositari di merci e parti correlate, per confermare saldi, garanzie, contenziosi e impegni. Si chiamano obbligatorie perché tutti i soggetti indicati nell'attestazione devono rispondere.",
+   "sintesi": "Sono le conferme esterne chieste direttamente a banche, enti finanziatori, amministrazione postale, società di leasing e di factoring, compagnie assicurative, consulenti (del lavoro, fiscali, legali), depositari di merci e parti correlate, per confermare saldi, garanzie, contenziosi e impegni al 31/12/2026. Si chiamano obbligatorie perché tutti i soggetti indicati nell'attestazione devono rispondere. Dal 2026 l'attestazione chiede anche tutte le carte prepagate della società, di qualsiasi emittente, e la lettera alle banche ne chiede conferma.",
    "come": [
-    "Il cliente compila e firma l'attestazione con l'elenco dei soggetti; se non indica legali, firma l'autocertificazione sui rischi legali.",
-    "Il team prepara le lettere dai fac-simile; il cliente le stampa e le firma su carta intestata entro 5 giorni.",
-    "Sui mastrini al 31/12 si controlla che nell'attestazione ci siano tutti i soggetti e si verificano le PEC su INI-PEC.",
-    "Le richieste partono con il modulo dalla PEC circolarizzazionirevilaw@pec.it: il revisore controlla invio e risposte, senza passare dalla società.",
-    "Con la Centrale Rischi al 31/12 si verificano fondo rischi, saldi dei conti correnti, debiti verso consulenti e informazioni in nota integrativa."
+    "Il cliente compila e firma l'attestazione 2026 con l'elenco dei soggetti e delle carte prepagate (o dichiara che non ce ne sono); se non indica legali, firma l'autocertificazione sui rischi legali.",
+    "Il team prepara le lettere dai fac-simile 2026 (la data entro cui rispondere si scrive a mano); il cliente le stampa e le firma su carta intestata entro 5 giorni.",
+    "Sui mastrini al 31/12/2026 si controlla che nell'attestazione ci siano tutti i soggetti e si verificano le PEC su INI-PEC.",
+    "Attestazione e lettere firmate vanno al responsabile qualità dell'incarico con l'email in formato standard: le spedisce lui dalla PEC circolarizzazionirevilaw@pec.it, così il revisore controlla invio e risposte senza passare dalla società.",
+    "Con la Centrale Rischi al 31/12/2026 si verificano fondo rischi, saldi dei conti correnti, debiti verso consulenti e informazioni in nota integrativa."
    ],
    "agliAtti": "Risposte allegate nelle carte Revisoft indicate qui sotto; report delle risposte del team nella carta 3.98.",
+   "attenzione": "Per ogni carta prepagata indicata la società mette a disposizione l'estratto conto trimestrale e la riconciliazione dei movimenti, con chi usa la carta e la natura dei costi.",
    "riferimenti": [
     "ISA Italia 505 (conferme esterne)",
     "ISA Italia 501 (contenziosi)",
@@ -1065,7 +1066,7 @@ window.RV_STRUMENTI_REVISIONE = {
          "et": "Email"
         },
         {
-         "a": "attestazione-dei-soggetti-obbligatori-pdf-compilabile",
+         "a": "attestazione-dei-soggetti-obbligatori-2026-con-carte-prepagate",
          "et": "Attestazione"
         }
        ]
@@ -1105,7 +1106,7 @@ window.RV_STRUMENTI_REVISIONE = {
           "lettera-alle-societa-di-leasing",
           "lettera-alle-societa-di-factor",
           "lettera-ai-depositanti-delle-rimanenze-di-magazzino",
-          "lettera-alle-parti-correlate-gruppi-societari"
+          "lettera-alle-parti-correlate-e-societa-del-gruppo"
          ],
          "et": "Fac-simile delle lettere"
         }
@@ -1127,7 +1128,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 7,
-       "testo": "Sui mastrini al 31/12 verificare che nell'attestazione ci siano tutti i soggetti obbligatori."
+       "testo": "Sui mastrini al 31/12/2026 verificare che nell'attestazione ci siano tutti i soggetti obbligatori."
       },
       {
        "n": 8,
@@ -1143,13 +1144,12 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 9,
-       "testo": "Inviare le circolarizzazioni con il modulo (partono dalla PEC circolarizzazionirevilaw@pec.it).",
+       "testo": "Mandare al responsabile della qualità dell'incarico l'attestazione e le lettere firmate, con l'email in formato standard: le spedisce lui dalla PEC circolarizzazionirevilaw@pec.it.",
        "doc": [
         {
-         "l": "https://forms.gle/btkRZP3sPAmMQ7x39",
-         "et": "Modulo di invio delle circolarizzazioni",
-         "tipo": "modulo",
-         "descrizione": "Il modulo con cui le circolarizzazioni partono dalla PEC di Revilaw."
+         "e": "obbligatorie",
+         "et": "Email al responsabile qualità",
+         "descrizione": "Scegli la società: il responsabile qualità si prende dall'incarico. L'email si apre nel tuo programma di posta già scritta; allega attestazione e lettere firmate e inviala."
         }
        ]
       }
@@ -1185,7 +1185,7 @@ window.RV_STRUMENTI_REVISIONE = {
      "passi": [
       {
        "n": 13,
-       "testo": "Chiedere all'azienda la Centrale Rischi al 31/12.",
+       "testo": "Chiedere all'azienda la Centrale Rischi al 31/12/2026.",
        "doc": [
         {
          "a": "email-richiesta-della-centrale-rischi",
@@ -1442,13 +1442,12 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 10,
-       "testo": "Inviare le circolarizzazioni con il modulo (partono dalla PEC circolarizzazionirevilaw@pec.it).",
+       "testo": "Mandare al responsabile della qualità dell'incarico le lettere firmate e l'elenco con le PEC, con l'email in formato standard: le spedisce lui dalla PEC circolarizzazionirevilaw@pec.it.",
        "doc": [
         {
-         "l": "https://docs.google.com/forms/d/e/1FAIpQLScrBmP_Zv46lwsbU86KC44cH-FHT0WuMwlsRH_LNfgVtuBKsw/viewform",
-         "et": "Modulo di invio delle circolarizzazioni",
-         "tipo": "modulo",
-         "descrizione": "Il modulo con cui le circolarizzazioni partono dalla PEC di Revilaw."
+         "e": "clientiFornitori",
+         "et": "Email al responsabile qualità",
+         "descrizione": "Scegli la società: il responsabile qualità si prende dall'incarico. L'email si apre nel tuo programma di posta già scritta; allega le lettere firmate e l'elenco con le PEC e inviala."
         }
        ]
       }
@@ -1607,7 +1606,7 @@ window.RV_STRUMENTI_REVISIONE = {
          "et": "Modello"
         },
         {
-         "a": "lettera-alle-parti-correlate-gruppi-societari",
+         "a": "lettera-alle-parti-correlate-e-societa-del-gruppo",
          "et": "Per i soli gruppi"
         }
        ],
@@ -1730,7 +1729,7 @@ window.RV_STRUMENTI_REVISIONE = {
          "et": "Modello"
         },
         {
-         "a": "lettera-alle-parti-correlate-gruppi-societari",
+         "a": "lettera-alle-parti-correlate-e-societa-del-gruppo",
          "et": "Per i soli gruppi"
         }
        ],
@@ -2543,18 +2542,18 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "email-al-cliente-richiesta-dell-attestazione-per-le-circolarizzazioni": {
    "nome": "Email al cliente: richiesta dell'attestazione per le circolarizzazioni",
-   "descrizione": "Testo dell'email al cliente per far compilare l'attestazione con i soggetti da circolarizzare.",
+   "descrizione": "Testo dell'email al cliente per far compilare l'attestazione 2026 con i soggetti da circolarizzare.",
    "file": "strumenti-revisione/allegati/email-al-cliente-richiesta-dell-attestazione-per-le-circolarizzazioni.docx",
    "tipo": "docx",
    "kb": 8,
    "testo": true
   },
-  "attestazione-dei-soggetti-obbligatori-pdf-compilabile": {
-   "nome": "Attestazione dei soggetti obbligatori (PDF compilabile)",
-   "descrizione": "L'attestazione (PDF compilabile) in cui la società elenca banche, finanziatori, consulenti e gli altri soggetti obbligatori.",
-   "file": "strumenti-revisione/allegati/attestazione-dei-soggetti-obbligatori-pdf-compilabile.pdf",
+  "attestazione-dei-soggetti-obbligatori-2026-con-carte-prepagate": {
+   "nome": "Attestazione dei soggetti obbligatori 2026 (con carte prepagate)",
+   "descrizione": "L'attestazione 2026 in cui la società elenca banche, finanziatori, leasing, factoring, posta, consulenti, assicurazioni, depositari e tutte le carte prepagate, firmata dal legale rappresentante.",
+   "file": "strumenti-revisione/allegati/attestazione-dei-soggetti-obbligatori-2026-con-carte-prepagate.pdf",
    "tipo": "pdf",
-   "kb": 243
+   "kb": 242
   },
   "autocertificazione-rischi-legali": {
    "nome": "Autocertificazione rischi legali",
@@ -2590,10 +2589,10 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "lettera-agli-istituti-di-credito": {
    "nome": "Lettera agli istituti di credito",
-   "descrizione": "Lettera di conferma alle banche (rapporti, saldi, garanzie).",
+   "descrizione": "Lettera di conferma alle banche (rapporti, saldi, garanzie), che chiede anche le carte prepagate emesse alla società.",
    "file": "strumenti-revisione/allegati/lettera-agli-istituti-di-credito.docx",
    "tipo": "docx",
-   "kb": 18,
+   "kb": 15,
    "testo": true
   },
   "lettera-all-amministrazione-postale": {
@@ -2601,7 +2600,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma all'amministrazione postale.",
    "file": "strumenti-revisione/allegati/lettera-all-amministrazione-postale.docx",
    "tipo": "docx",
-   "kb": 16,
+   "kb": 14,
    "testo": true
   },
   "lettera-ai-consulenti-del-lavoro": {
@@ -2617,7 +2616,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma al consulente fiscale.",
    "file": "strumenti-revisione/allegati/lettera-ai-consulenti-fiscali.docx",
    "tipo": "docx",
-   "kb": 17,
+   "kb": 15,
    "testo": true
   },
   "lettera-ai-consulenti-legali": {
@@ -2625,7 +2624,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera ai legali su contenziosi e passività potenziali.",
    "file": "strumenti-revisione/allegati/lettera-ai-consulenti-legali.docx",
    "tipo": "docx",
-   "kb": 17,
+   "kb": 14,
    "testo": true
   },
   "lettera-alle-compagnie-assicurative": {
@@ -2633,7 +2632,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma alle compagnie assicurative.",
    "file": "strumenti-revisione/allegati/lettera-alle-compagnie-assicurative.docx",
    "tipo": "docx",
-   "kb": 16,
+   "kb": 14,
    "testo": true
   },
   "lettera-alle-societa-di-leasing": {
@@ -2641,7 +2640,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma alle società di leasing.",
    "file": "strumenti-revisione/allegati/lettera-alle-societa-di-leasing.docx",
    "tipo": "docx",
-   "kb": 16,
+   "kb": 14,
    "testo": true
   },
   "lettera-alle-societa-di-factor": {
@@ -2649,7 +2648,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma alle società di factoring.",
    "file": "strumenti-revisione/allegati/lettera-alle-societa-di-factor.docx",
    "tipo": "docx",
-   "kb": 17,
+   "kb": 14,
    "testo": true
   },
   "lettera-ai-depositanti-delle-rimanenze-di-magazzino": {
@@ -2657,15 +2656,15 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma a chi custodisce merci della società.",
    "file": "strumenti-revisione/allegati/lettera-ai-depositanti-delle-rimanenze-di-magazzino.docx",
    "tipo": "docx",
-   "kb": 15,
+   "kb": 13,
    "testo": true
   },
-  "lettera-alle-parti-correlate-gruppi-societari": {
-   "nome": "Lettera alle parti correlate (gruppi societari)",
-   "descrizione": "Lettera di conferma alle società del gruppo e alle altre parti correlate.",
-   "file": "strumenti-revisione/allegati/lettera-alle-parti-correlate-gruppi-societari.docx",
+  "lettera-alle-parti-correlate-e-societa-del-gruppo": {
+   "nome": "Lettera alle parti correlate e società del gruppo",
+   "descrizione": "Lettera di conferma dei rapporti, crediti e debiti con le società del gruppo e le altre parti correlate.",
+   "file": "strumenti-revisione/allegati/lettera-alle-parti-correlate-e-societa-del-gruppo.docx",
    "tipo": "docx",
-   "kb": 17,
+   "kb": 15,
    "testo": true
   },
   "email-invio-delle-lettere-di-circolarizzazione": {
@@ -2685,7 +2684,7 @@ window.RV_STRUMENTI_REVISIONE = {
   },
   "email-richiesta-della-centrale-rischi": {
    "nome": "Email: richiesta della Centrale Rischi",
-   "descrizione": "Testo dell'email per chiedere al cliente l'estratto della Centrale Rischi al 31/12.",
+   "descrizione": "Testo dell'email per chiedere al cliente l'estratto della Centrale Rischi al 31/12/2026.",
    "file": "strumenti-revisione/allegati/email-richiesta-della-centrale-rischi.docx",
    "tipo": "docx",
    "kb": 7,

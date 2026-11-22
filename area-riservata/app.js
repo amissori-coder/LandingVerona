@@ -37139,7 +37139,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122e';
+    const SR_DATI_VERSIONE = '20261122f';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
@@ -37337,7 +37337,7 @@
        giorni) conta una volta sola. */
     function srDocumentiCarta(c) {
         const visti = new Set();
-        const metti = x => { if (x.c) x.c.forEach(a => visti.add('a:' + a)); else visti.add(x.a ? 'a:' + x.a : 'l:' + x.l); };
+        const metti = x => { if (x.e) return; if (x.c) x.c.forEach(a => visti.add('a:' + a)); else visti.add(x.a ? 'a:' + x.a : 'l:' + x.l); };
         (c.inEvidenza || []).forEach(metti);
         c.blocchi.forEach(b => b.passi.forEach(p => (p.doc || []).forEach(metti)));
         return Array.from(visti);
@@ -37365,6 +37365,13 @@
             return '<li class="sr-doc sr-cartella"><div class="sr-cartella-tit"><strong>' + esc(x.et) + '</strong>'
                 + '<span class="sr-doc-meta">' + x.c.length + ' documenti</span></div>'
                 + '<ul class="sr-docs">' + x.c.map(a => srAllegatoHtml(d, a)).join('') + '</ul></li>';
+        }
+        if (x.e) {
+            return '<li class="sr-doc sr-azione">'
+                + '<span class="sr-doc-tipo t-email">Email</span>'
+                + '<span class="sr-doc-nome"><strong>' + esc(x.et) + '</strong>'
+                + (x.descrizione ? '<span class="sr-doc-desc">' + esc(x.descrizione) + '</span>' : '') + '</span>'
+                + '<span class="sr-doc-azioni"><button type="button" class="btn btn-sm btn-primary sr-email-rq" data-tipo="' + esc(x.e) + '">Prepara l\'email</button></span></li>';
         }
         if (x.l) {
             return '<li class="sr-doc sr-link">'
@@ -37408,8 +37415,10 @@
     /* Il clic si ascolta sui riquadri appena disegnati, non su #vista: quello resta
        lo stesso fra una sezione e l'altra e a ogni ritorno si sommerebbe un
        ascoltatore in piu'. Gestisce "Leggi" e "Copia il testo" dei documenti. */
-    function srCollegaDocumenti(radici) {
+    function srCollegaDocumenti(radici, anno) {
         const clic = ev => {
+            const email = ev.target.closest('.sr-email-rq');
+            if (email) { srModaleEmailRQ(email.dataset.tipo, anno); return; }
             const leggi = ev.target.closest('.sr-leggi');
             if (leggi) { srMostraTesto(leggi); return; }
             const copia = ev.target.closest('.sr-copia');
@@ -37598,7 +37607,7 @@
         const vista = $vista();
         collegaIndietro();
         vista.querySelectorAll('.sr-vicina').forEach(b => b.addEventListener('click', () => naviga('strumentiAttivita', { anno, id: b.dataset.attivita })));
-        srCollegaDocumenti(Array.from(vista.querySelectorAll(':scope > .card')));
+        srCollegaDocumenti(Array.from(vista.querySelectorAll(':scope > .card')), anno);
     }
     /* "Leggi": il testo del documento Word sotto la sua riga, con il pulsante per
        copiarlo (le email tipo si incollano cosi' nel programma di posta). Il file
@@ -37631,6 +37640,147 @@
             btn.textContent = 'Leggi';
             toast('Testo non caricato: controlla la connessione e riprova.', 'rosso');
         });
+    }
+
+    /* =========================================================
+       EMAIL AL RESPONSABILE QUALITA' (invio delle circolarizzazioni)
+       Al posto del modulo Google: l'area compone l'email in formato standard
+       e la apre nel programma di posta di chi la manda, gia' indirizzata al
+       responsabile qualita' indicato sull'incarico della societa'. Le lettere
+       firmate si allegano li': il servizio email dell'area non porta allegati,
+       e senza le lettere il responsabile non potrebbe spedire le PEC.
+    ========================================================= */
+    const SR_PEC_CIRC = 'circolarizzazionirevilaw@pec.it';
+    const SR_EMAIL_RQ = {
+        obbligatorie: {
+            titolo: 'Circolarizzazioni obbligatorie',
+            elenco: 'Soggetti da circolarizzare',
+            oggetto: v => 'Circolarizzazioni obbligatorie ' + v.anno + ' - ' + (v.societa || '[società]') + ' - invio PEC',
+            apertura: v => 'ti mando l\'attestazione e le lettere di circolarizzazione dei soggetti obbligatori di ' + (v.societa || '[società]')
+                + ' per la revisione del bilancio al 31/12/' + v.anno + ', firmate dal legale rappresentante su carta intestata, da spedire dalla PEC ' + SR_PEC_CIRC + '.',
+            allegati: v => ['attestazione dei soggetti obbligatori ' + v.anno + ', firmata;', 'lettere di circolarizzazione firmate, una per soggetto;',
+                'autocertificazione sui rischi legali (se nell\'attestazione non sono indicati legali).'],
+            vuoto: 'vedi l\'attestazione allegata',
+            controlli: v => 'Ho controllato sui mastrini al 31/12/' + v.anno + ' che nell\'attestazione ci siano tutti i soggetti e ho verificato le PEC su INI-PEC.'
+        },
+        clientiFornitori: {
+            titolo: 'Circolarizzazione di clienti e fornitori',
+            elenco: 'Clienti e fornitori da circolarizzare',
+            oggetto: v => 'Circolarizzazione clienti e fornitori ' + v.anno + ' - ' + (v.societa || '[società]') + ' - invio PEC',
+            apertura: v => 'ti mando le lettere di circolarizzazione dei clienti e dei fornitori campionati di ' + (v.societa || '[società]')
+                + ' per la revisione del bilancio al 31/12/' + v.anno + ', firmate dal legale rappresentante su carta intestata (quelle ai clienti con l\'estratto conto al 31/12/'
+                + v.anno + '), da spedire dalla PEC ' + SR_PEC_CIRC + '.',
+            allegati: () => ['lettere di circolarizzazione firmate, una per soggetto;', 'elenco dei clienti e fornitori campionati con le PEC.'],
+            vuoto: 'vedi l\'elenco allegato',
+            controlli: () => 'Ho verificato le PEC su INI-PEC.'
+        }
+    };
+    function srTestoEmailRQ(tipo, v) {
+        const f = SR_EMAIL_RQ[tipo];
+        const righe = v.soggetti.length ? v.soggetti.map(x => '- ' + x) : ['- ' + f.vuoto];
+        return ['Gentile ' + (v.nomeRQ || '[responsabile qualità]') + ',', '', f.apertura(v), '',
+            f.elenco + ' (denominazione - PEC):', ...righe, '',
+            'In allegato:', ...f.allegati(v).map(x => '- ' + x), '',
+            f.controlli(v)]
+            .concat(v.note ? ['', v.note] : [])
+            .concat(['', 'Grazie,', v.mittente || ''])
+            .join('\n').trim();
+    }
+    function srModaleEmailRQ(tipo, anno) {
+        const f = SR_EMAIL_RQ[tipo];
+        if (!f) return;
+        anno = anno || new Date().getFullYear();
+        // le societa' degli incarichi visibili e i responsabili qualita' attivi dell'anagrafica
+        const incarichi = Incarichi.visibili().filter(i => i && i.cliente && i.stato !== 'eliminato');
+        const clienti = Array.from(new Set(incarichi.map(i => String(i.cliente).trim()))).sort((a, b) => a.localeCompare(b));
+        const persone = Persone.tutte();
+        const rq = persone.filter(p => p.qualita && p.attivo && !p.eliminato)
+            .sort((a, b) => cqNomePersona(a).localeCompare(cqNomePersona(b)));
+        const risolvi = risolutorePersone(persone);
+        apriModale(`<h2>Email al responsabile qualità</h2>
+            <p class="descrizione">${esc(f.titolo)} ${esc(anno)}: l'email si apre nel tuo programma di posta già indirizzata e scritta in formato standard. Prima di inviarla allega ${tipo === 'obbligatorie' ? 'l\'attestazione e le lettere firmate' : 'le lettere firmate e l\'elenco con le PEC'}. Se non si apre nulla, usa «Copia il testo».</p>
+            <div class="griglia-2">
+                <div class="campo"><label for="sr-em-soc">Società</label>
+                    <input type="text" id="sr-em-soc" list="sr-em-soc-dl" placeholder="Scrivi o scegli la società" autocomplete="off">
+                    <datalist id="sr-em-soc-dl">${clienti.map(c => '<option value="' + esc(c) + '"></option>').join('')}</datalist>
+                    <div class="hint" id="sr-em-soc-hint">Il responsabile qualità si prende dall'incarico della società.</div></div>
+                <div class="campo"><label for="sr-em-rq">Responsabile qualità</label>
+                    <select id="sr-em-rq"><option value="">Scegli...</option>${rq.map(p => '<option value="' + esc(p.id) + '">' + esc(cqNomePersona(p)) + (p.email ? '' : ' (senza email)') + '</option>').join('')}</select></div>
+            </div>
+            <div class="campo"><label for="sr-em-a">Email del responsabile qualità</label><input type="email" id="sr-em-a" placeholder="nome@revilaw.it"></div>
+            <div class="campo"><label for="sr-em-sogg">${esc(f.elenco)} (uno per riga: denominazione - PEC)</label>
+                <textarea id="sr-em-sogg" rows="5" placeholder="Banca Esempio S.p.A. - bancaesempio@pec.it"></textarea>
+                <div class="hint">Facoltativo: se lo lasci vuoto, l'email rimanda ${tipo === 'obbligatorie' ? 'all\'attestazione allegata' : 'all\'elenco allegato'}.</div></div>
+            <div class="campo"><label for="sr-em-note">Note per il responsabile (facoltative)</label><textarea id="sr-em-note" rows="2"></textarea></div>
+            <div class="campo"><label for="sr-em-ogg">Oggetto</label><input type="text" id="sr-em-ogg"></div>
+            <div class="campo"><label>Testo</label><div class="sr-em-anteprima" id="sr-em-testo"></div></div>
+            <div class="msg-errore hidden" id="sr-em-err"></div>
+            <div class="modale-azioni">
+                <button type="button" class="btn btn-secondary" id="sr-em-chiudi">Chiudi</button>
+                <button type="button" class="btn btn-secondary" id="sr-em-copia">Copia il testo</button>
+                <button type="button" class="btn btn-primary" id="sr-em-apri">${ICO_EMAIL}Apri l'email</button>
+            </div>`, { classe: 'larga', finestra: true });   // il titolo e' l'h2, che sale nella barra
+        const $ = id => document.getElementById(id);
+        let oggettoToccato = false;
+        const valori = () => {
+            const p = persone.find(x => x.id === $('sr-em-rq').value);
+            return {
+                anno, societa: $('sr-em-soc').value.trim(),
+                nomeRQ: p ? (p.nomeProprio || cqNomePersona(p)) : '',
+                soggetti: $('sr-em-sogg').value.split('\n').map(x => x.trim()).filter(Boolean),
+                note: $('sr-em-note').value.trim(),
+                mittente: Auth.nomeSessione()
+            };
+        };
+        const aggiorna = () => {
+            const v = valori();
+            if (!oggettoToccato) $('sr-em-ogg').value = f.oggetto(v);
+            $('sr-em-testo').textContent = srTestoEmailRQ(tipo, v);
+        };
+        const scegliRQ = p => {
+            $('sr-em-rq').value = p ? p.id : '';
+            $('sr-em-a').value = p && p.email ? p.email : '';
+        };
+        // scelta la societa', il responsabile qualita' viene dal suo incarico
+        $('sr-em-soc').addEventListener('input', () => {
+            const nome = $('sr-em-soc').value.trim().toLowerCase();
+            const inc = nome ? incarichi.find(i => String(i.cliente).trim().toLowerCase() === nome) : null;
+            const hint = $('sr-em-soc-hint');
+            if (inc) {
+                const p = inc.qualita ? risolvi(inc.qualita) : null;
+                if (p) { scegliRQ(p); hint.textContent = 'Responsabile qualità dell\'incarico: ' + cqNomePersona(p) + (p.email ? '' : ' (nella sua scheda manca l\'email: scrivila qui sotto)') + '.'; }
+                else hint.textContent = inc.qualita ? 'Sull\'incarico c\'è «' + inc.qualita + '», che non trovo in Aderenti Revilaw: sceglilo dall\'elenco.' : 'Sull\'incarico non è indicato un responsabile qualità: sceglilo dall\'elenco.';
+            } else hint.textContent = nome ? 'Società non trovata fra gli incarichi: scegli il responsabile qualità dall\'elenco.' : 'Il responsabile qualità si prende dall\'incarico della società.';
+            aggiorna();
+        });
+        $('sr-em-rq').addEventListener('change', () => { scegliRQ(persone.find(x => x.id === $('sr-em-rq').value) || null); aggiorna(); });
+        ['sr-em-sogg', 'sr-em-note'].forEach(id => $(id).addEventListener('input', aggiorna));
+        $('sr-em-ogg').addEventListener('input', () => { oggettoToccato = true; });
+        $('sr-em-chiudi').addEventListener('click', chiudiModale);
+        $('sr-em-copia').addEventListener('click', () => copiaNegliAppunti($('sr-em-ogg').value + '\n\n' + srTestoEmailRQ(tipo, valori()), 'Oggetto e testo copiati.'));
+        $('sr-em-apri').addEventListener('click', () => {
+            const err = $('sr-em-err');
+            const a = $('sr-em-a').value.trim();
+            const errore = !valori().societa ? 'Indica la società.' : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a) ? 'Indica l\'email del responsabile qualità.' : '';
+            if (errore) { err.textContent = errore; err.classList.remove('hidden'); return; }
+            err.classList.add('hidden');
+            const oggetto = $('sr-em-ogg').value.trim() || f.oggetto(valori());
+            const testo = srTestoEmailRQ(tipo, valori());
+            let url = 'mailto:' + encodeURIComponent(a) + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent(testo);
+            /* Alcuni programmi di posta tagliano i collegamenti mailto troppo lunghi: in quel
+               caso il testo va negli appunti e l'email si apre con l'invito a incollarlo. */
+            if (url.length > 1900) {
+                copiaNegliAppunti(testo, 'Il testo è lungo: è negli appunti, incollalo nell\'email.');
+                url = 'mailto:' + encodeURIComponent(a) + '?subject=' + encodeURIComponent(oggetto) + '&body=' + encodeURIComponent('(Incolla qui il testo: è già negli appunti.)');
+            }
+            const link = document.createElement('a');
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        });
+        aggiorna();
+        $('sr-em-soc').focus();
     }
 
     /* =========================================================
