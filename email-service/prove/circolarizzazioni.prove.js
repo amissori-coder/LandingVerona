@@ -350,7 +350,14 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     avanti(40 * GIORNO);
     await DATI.pulizia(db, Date.now(), 50);
     s = await scheda(b1.id);
-    verifica('dopo trenta giorni dall\'ultimo passo il PDF si toglie, la scheda resta', s && s.allegato.tolto > 0 && s.stato === 'risposta' && ![...dati.keys()].some(k => k.indexOf('circInvii/' + b1.id + '/') === 0));
+    verifica('dopo un mese il PDF e\' ancora sul portale', s && !s.allegato.tolto && [...dati.keys()].some(k => k.indexOf('circInvii/' + b1.id + '/') === 0));
+    alle('2028-01-12T10:00:00+01:00');       // la lettera di BETA era stata preparata l'11 gennaio 2027
+    await DATI.pulizia(db, Date.now(), 50);
+    s = await scheda(b1.id);
+    verifica('a 365 giorni dalla preparazione il PDF si toglie, la scheda resta', s && s.allegato.tolto > 0 && s.stato === 'risposta' && s.risposte.length === 1 && ![...dati.keys()].some(k => k.indexOf('circInvii/' + b1.id + '/') === 0));
+    s = await scheda(c1.id);
+    verifica('una lettera preparata dopo (1 febbraio) il suo PDF lo ha ancora', s && !s.allegato.tolto);
+    verifica('il giro programmato a riposo non spedisce e non prende il lucchetto', (await chiama('x', {}, 'GET', { authorization: 'Bearer cron' })).invii.esito === 'niente da spedire');
 
     console.log('\ncircolarizzazioni: ' + passate + ' verifiche passate' + (fallite ? ', ' + fallite + ' FALLITE' : ''));
     process.exit(fallite ? 1 : 0);

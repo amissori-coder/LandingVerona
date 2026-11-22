@@ -67,7 +67,9 @@ const LIMITI = {
     get perGiro() { return Math.round(numero(process.env.CIRC_MAX_GIRO, 80, 1, 400)); },
     get perOra() { return Math.round(numero(process.env.CIRC_MAX_ORA, 400, 1, 5000)); },
     get pausaMs() { return Math.round(numero(process.env.CIRC_PAUSA_MS, 1200, 0, 10000)); },
-    oraSollecito: 9                         // i solleciti partono alle 9 del giorno indicato (ora italiana)
+    oraSollecito: 9,                        // i solleciti partono alle 9 del giorno indicato (ora italiana)
+    // per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale
+    get pdfGiorni() { return Math.round(numero(process.env.CIRC_PDF_GIORNI, 365, 1, 3650)); }
 };
 
 /* ---------- le categorie dei destinatari ----------
