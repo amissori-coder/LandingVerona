@@ -102,9 +102,13 @@ const adminFinto = {
 // ---------- server di posta finto ----------
 const posta = [];
 const stato = { rifiuta: null, prossimoUid: 1 };       // rifiuta: funzione (msg) -> Error | null
+const avvisi = [];         // le email ordinarie (avvisi degli errori): partono dal server SMTP_HOST, non dalla PEC
 const nodemailerFinto = {
-    createTransport: () => ({
-        sendMail: async msg => { const e = stato.rifiuta ? stato.rifiuta(msg) : null; if (e) throw e; posta.push(msg); return { response: '250 ok' }; },
+    createTransport: o => ({
+        sendMail: async msg => {
+            if (o && o.host === process.env.SMTP_HOST) { if (stato.rifiutaAvvisi) throw new Error('posta ordinaria giu\''); avvisi.push(msg); return { response: '250 ok' }; }
+            const e = stato.rifiuta ? stato.rifiuta(msg) : null; if (e) throw e; posta.push(msg); return { response: '250 ok' };
+        },
         close: () => { }
     })
 };
@@ -114,7 +118,7 @@ const casella = [];        // { uid, internalDate, size, headers, bodyStructure,
 class ImapFinto {
     constructor() { this.usable = true; }
     on() { }
-    async connect() { }
+    async connect() { if (stato.rompiImap) throw stato.rompiImap(); }
     async logout() { }
     close() { }
     async mailboxOpen() { return { uidValidity: 777, uidNext: stato.prossimoUid }; }
@@ -178,7 +182,8 @@ Module.prototype.require = function (nome) {
     if (nome === 'imapflow') return { ImapFlow: ImapFinto };
     return veroRequire.apply(this, arguments);
 };
-Object.assign(process.env, { CIRC_PEC_USER: 'circolarizzazionirevilaw@pec.it', CIRC_PEC_PASS: 'segreta', CIRC_PAUSA_MS: '0', CRON_SECRET: 'cron', FIREBASE_SERVICE_ACCOUNT: '{}' });
+Object.assign(process.env, { CIRC_PEC_USER: 'circolarizzazionirevilaw@pec.it', CIRC_PEC_PASS: 'segreta', CIRC_PAUSA_MS: '0', CRON_SECRET: 'cron', FIREBASE_SERVICE_ACCOUNT: '{}',
+    SMTP_HOST: 'posta-ordinaria.finta', SMTP_PORT: '587', SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_FROM_EMAIL: 'noreply@nextgenerationbusiness.it', APP_BASE_URL: 'https://nextgenerationbusiness.it' });
 
-module.exports = { dati, db, posta, casella, stato, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
+module.exports = { dati, db, posta, avvisi, casella, stato, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
 

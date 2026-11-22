@@ -36,6 +36,7 @@
 const C = require('./circ-comune');
 const D = require('./daticert');
 const DATI = require('./circ-dati');
+const ERRORI = require('./circ-errori');
 
 let _ImapFlow = null;
 function ImapFlowClasse() {
@@ -298,6 +299,10 @@ async function giro(db, opz) {
                 catch (e) {
                     if (client.usable === false) throw e;     // connessione caduta: non e' colpa del messaggio
                     annotato = { stato: 'ignorato', tipo: 'illeggibile' };
+                    await ERRORI.segna(db, {
+                        chiave: 'casella~messaggio~' + uidValidity + '_' + uid, tipo: 'casella', gravita: 'avviso', titolo: 'Un messaggio della casella PEC non si è potuto leggere',
+                        dettaglio: 'Messaggio del ' + new Date(m.internalDate || Date.now()).toISOString().slice(0, 16).replace('T', ' ') + ' UTC: ' + String((e && e.message) || 'errore').slice(0, 200) + '. Se è una ricevuta o una risposta, va guardata dalla casella.'
+                    });
                 }
                 // il segnaposto si scrive DOPO il lavoro: scritto prima, un guasto a meta' farebbe perdere il messaggio
                 try {
@@ -314,6 +319,15 @@ async function giro(db, opz) {
         esito = 'errore';
         motivo = auth ? 'La casella PEC ha rifiutato le credenziali: ' + testo : testo;
         try { await docMeta(db).set({ erroriAuth: auth ? (Number(prima.erroriAuth) || 0) + 1 : 0 }, { merge: true }); } catch (_) { /* niente da fare */ }
+        /* Nel registro degli errori: la password rifiutata subito (dopo tre
+           volte il lettore si ferma); un collegamento caduto solo se e' la
+           seconda volta di fila, perche' una caduta isolata si sistema da sola
+           al giro dopo e non merita un avviso. */
+        if (auth) {
+            await ERRORI.segna(db, { chiave: 'casella~credenziali', tipo: 'casella', titolo: 'La casella PEC rifiuta la password', dettaglio: testo + '. Dopo tre rifiuti la lettura si ferma: va rinnovata la password per i programmi di posta e aggiornata su Vercel (CIRC_PEC_PASS).' });
+        } else if (ultimo.esito === 'errore') {
+            await ERRORI.segna(db, { chiave: 'casella~lettura', tipo: 'casella', titolo: 'La casella PEC non si riesce a leggere', dettaglio: testo + '. Finché non si legge, ricevute e risposte non si aggiornano e i solleciti non vengono fermati dalle risposte.' });
+        }
     } finally {
         await chiudi(client);
     }

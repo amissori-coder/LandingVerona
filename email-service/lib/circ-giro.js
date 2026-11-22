@@ -32,6 +32,7 @@
 const nodemailer = require('nodemailer');
 const C = require('./circ-comune');
 const DATI = require('./circ-dati');
+const ERRORI = require('./circ-errori');
 
 const LUCCHETTO_MS = 6 * 60 * 1000;
 function docGiro(db) { return db.collection('meta').doc('circGiro'); }
@@ -135,6 +136,7 @@ async function giro(db, opz) {
             const primo = await require('./circ-lettore').giro(db, { da: 'primo avvio', forza: true, budgetMs: 20000 });
             if (!primo.ok) {
                 await mollaLucchetto(db);
+                await ERRORI.segna(db, { chiave: 'casella~primo-avvio', tipo: 'casella', titolo: 'Le lettere restano in coda: la casella PEC non si legge', dettaglio: primo.msg || 'Prima di spedire la prima PEC va letta la casella, e la lettura non è riuscita.' });
                 return { ok: false, esito: 'casella', msg: 'Le lettere restano in coda: prima di spedire va letta la casella PEC, e la lettura non è riuscita' + (primo.msg ? ' (' + primo.msg + ')' : '') + '.', inviate: 0, errori: 0, restanti: true };
             }
             lettoreOk = Number(primo.quando) || Date.now();
@@ -189,6 +191,8 @@ async function giro(db, opz) {
         if (posta) { try { posta.close(); } catch (_) { /* gia' chiusa */ } }
     }
 
+    // il giro si e' fermato per un rifiuto che riguarda la casella (tetto, blocco, password) o per un guasto
+    if (fermato) await ERRORI.segna(db, { chiave: 'server~invii-sospesi', tipo: 'server', titolo: 'Il server PEC ha sospeso gli invii', dettaglio: fermato + '. Le lettere restano in coda e ripartono da sole al prossimo giro.' });
     const riepilogo = {
         quando: Date.now(), durataMs: Date.now() - inizio, da: String(opz.da || 'giro').slice(0, 120),
         inviate: conto.inviate, solleciti: conto.solleciti, errori: conto.errori, saltate: conto.saltate,
