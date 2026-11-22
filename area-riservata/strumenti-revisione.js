@@ -179,6 +179,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "carta": "indipendenza",
    "sintesi": "Ogni anno, prima di proseguire con un incarico (o all'avvio di uno nuovo), si verifica di poterlo mantenere: si identifica e si verifica il cliente ai fini antiriciclaggio (adeguata verifica), si aggiorna l'informativa privacy e Revilaw conferma la propria indipendenza con un'attestazione firmata dal socio responsabile, che viene comunicata al cliente.",
    "come": [
+    "Lettera di incarico: per elaborarla rivolgersi agli equity partner.",
     "Inviare al cliente l'email di aggiornamento annuale con la scheda di identificazione, gli allegati privacy e il modulo per indicare l'indirizzo email amministrativo.",
     "Controllare la visura camerale aggiornata e che la documentazione di adeguata verifica sia completa.",
     "In Revisoft creare la sessione dell'anno e completare la carta AREA 1.REV.3 (riesame dell'incarico).",
@@ -457,15 +458,8 @@ window.RV_STRUMENTI_REVISIONE = {
   "indipendenza": {
    "titolo": "Check list indipendenza",
    "annoCarta": 2026,
-   "inEvidenza": [
-    {
-     "a": "lettera-di-incarico-revisione-legale",
-     "et": "Lettera di incarico"
-    },
-    {
-     "a": "lettera-di-incarico-volontaria-revisione-limitata-annuale",
-     "et": "Lettera di incarico «volontaria»"
-    }
+   "note": [
+    "Lettera di incarico: non è tra i documenti di questa pagina. Per elaborarla rivolgersi agli equity partner."
    ],
    "blocchi": [
     {
@@ -2236,24 +2230,6 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  },
  "allegati": {
-  "lettera-di-incarico-revisione-legale": {
-   "nome": "Lettera di incarico (revisione legale)",
-   "descrizione": "Il modello Revilaw della lettera di incarico per la revisione legale, con le condizioni dell'incarico.",
-   "file": "strumenti-revisione/allegati/lettera-di-incarico-revisione-legale.pdf",
-   "tipo": "pdf",
-   "kb": 5204,
-   "drive": "https://drive.google.com/file/d/125YJvjVWF2Uvi8eKUyLIjl3wskwhddKY/view?usp=sharing",
-   "titoloDrive": "Incarico_att_v2026_AI"
-  },
-  "lettera-di-incarico-volontaria-revisione-limitata-annuale": {
-   "nome": "Lettera di incarico «volontaria» (revisione limitata annuale)",
-   "descrizione": "Il modello compilabile della lettera di incarico per la revisione limitata volontaria annuale.",
-   "file": "strumenti-revisione/allegati/lettera-di-incarico-volontaria-revisione-limitata-annuale.pdf",
-   "tipo": "pdf",
-   "kb": 1518,
-   "drive": "https://drive.google.com/file/d/1sfWOzNpsfEJrKsoGfZCLdFAVyF7rGP1h/view?usp=sharing",
-   "titoloDrive": "Incarico_revisione_limitata_volontaria_annuale_EDITABILE"
-  },
   "memorandum-verifica-annuale-di-adeguata-verifica-privacy-e-indipendenza": {
    "nome": "Memorandum: verifica annuale di adeguata verifica, privacy e indipendenza",
    "descrizione": "Per il team: cosa fare ogni anno (adeguata verifica, privacy, carta 1.REV.3) e quando inviare l'attestazione di indipendenza.",

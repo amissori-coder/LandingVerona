@@ -37138,7 +37138,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122a';
+    const SR_DATI_VERSIONE = '20261122b';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', drive: 'Google Drive', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', drive: 'Drive', web: 'Web' };
