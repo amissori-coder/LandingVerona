@@ -266,7 +266,9 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
 
     // ---------- 9. risposta a mano, date dei solleciti, annullamenti ----------
     alle('2027-02-01T10:00:00+01:00');
-    const c1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Uno', pec: 'uno@pec.it', categoria: 'cliente' });
+    const c1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Uno', pec: 'uno@pec.it', categoria: 'cliente', saldo: '12.345,67', nota: 'cod. 1001' });
+    verifica('saldo scritto all\'italiana e nota: sulla scheda, per il report', (await scheda(c1.id)).saldo === 12345.67 && (await scheda(c1.id)).nota === 'cod. 1001');
+    verifica('un saldo che non e\' un numero viene rifiutato', (await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'X Srl', pec: 'x@pec.it', categoria: 'cliente', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), saldo: 'circa mille', allegatoNome: 'x.pdf', allegatoDimensione: 5000 })).http === 400);
     const c2 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Due', pec: 'due@pec.it', categoria: 'cliente' });
     verifica('annullare una lettera ancora in coda', (await chiama('anna@studio.it', { azione: 'annulla', id: c2.id })).cosa === 'lettera');
     await GIRO.giro(db, {});
@@ -278,6 +280,12 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('risposta segnata a mano: sollecito fermo', man.ok && man.scheda.risposta.modo === 'manuale' && man.scheda.passi.sollecito1.stato === 'bloccato');
     const tolta = await chiama('luca@studio.it', { azione: 'risposta-manuale', id: c1.id, togli: true });
     verifica('tolta: il sollecito torna in programma', tolta.ok && tolta.scheda.risposta === null && tolta.scheda.passi.sollecito1.stato === 'programmato');
+    const stB = await chiama('anna@studio.it', { azione: 'stato' });
+    const pa = stB.incarichi.find(i => i.id === 'inc-beta').perAmbito;
+    verifica('le tipologie dicono a quale area appartengono', stB.categorie.find(x => x.id === 'cliente').ambito === 'clientiFornitori' && stB.categorie.find(x => x.id === 'cliente').saldo === true && stB.categorie.find(x => x.id === 'banca').ambito === 'obbligatorie' && stB.ambiti.length === 2);
+    verifica('conteggi divisi per area: la banca fra le obbligatorie, il cliente fra clienti e fornitori', pa.obbligatorie.totale === 1 && pa.clientiFornitori.totale === 1 && pa.clientiFornitori.annullate === 1, pa);
+    const elB = await chiama('anna@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' });
+    verifica('l\'elenco porta area, saldo e nota di ogni lettera', elB.schede.find(x => x.id === c1.id).ambito === 'clientiFornitori' && elB.schede.find(x => x.id === c1.id).saldo === 12345.67 && elB.schede.find(x => x.id === b1.id).ambito === 'obbligatorie' && elB.perAmbito.obbligatorie.risposte === 1);
     verifica('annullare i solleciti di una lettera partita', (await chiama('anna@studio.it', { azione: 'annulla', id: c1.id })).cosa === 'solleciti' && (await scheda(c1.id)).prossimo === null);
 
     // ---------- 10. un giro interrotto a meta' ----------

@@ -78,7 +78,8 @@ function perArea(inv) {
     const passi = inv.passi || {};
     return {
         id: inv.id, incaricoId: inv.incaricoId, cliente: inv.cliente, destinatario: inv.destinatario, pec: inv.pec,
-        categoria: inv.categoria, bilancio: inv.bilancio, scadenza: inv.scadenza, codice: inv.codice, stato: inv.stato,
+        categoria: inv.categoria, ambito: C.ambitoDi(inv.categoria), saldo: inv.saldo == null ? null : inv.saldo, nota: inv.nota || '',
+        bilancio: inv.bilancio, scadenza: inv.scadenza, codice: inv.codice, stato: inv.stato,
         allegato: inv.allegato ? { nome: inv.allegato.nome, dimensione: inv.allegato.dimensione, tolto: !!inv.allegato.tolto } : null,
         creato: inv.creato || null, annullato: inv.annullato || null,
         passi: { primo: passo(passi.primo), sollecito1: passo(passi.sollecito1), sollecito2: passo(passi.sollecito2) },
@@ -124,14 +125,15 @@ const AZIONI = {
     /* Che cosa vede chi entra: la casella, i limiti, i suoi incarichi con i conteggi. */
     async stato(db, prof) {
         const conDati = await DATI.riepiloghi(db, prof.vedeTutto ? null : prof.incarichi.map(i => i.id));
-        const incarichi = prof.incarichi.map(i => Object.assign({}, i, { conteggi: conDati[i.id] ? conDati[i.id].conteggi : null }));
+        const incarichi = prof.incarichi.map(i => Object.assign({}, i, { conteggi: conDati[i.id] ? conDati[i.id].conteggi : null, perAmbito: conDati[i.id] ? conDati[i.id].perAmbito : null }));
         const cfg = C.configurazione();
         const out = {
             ok: true,
             configurato: C.configurato(), casella: C.configurato() ? cfg.mittente : '',
             profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto },
             limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni },
-            categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome })),
+            ambiti: Object.keys(C.AMBITI).map(k => ({ id: k, nome: C.AMBITI[k] })),
+            categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome, uno: C.CATEGORIE[k].uno, ambito: C.ambitoDi(k), saldo: !!C.CATEGORIE[k].saldo })),
             oggi: C.giornoRoma(), incarichi: incarichi,
             giro: await GIRO.stato(db), lettore: await LETTORE.stato(db)
         };
@@ -139,7 +141,7 @@ const AZIONI = {
             out.errori = await ERRORI.conta(db);
             out.nonAssociate = (await DATI.nonAssociate(db)).length;
             // incarichi con lettere ma non piu' in elenco (cancellati dall'anagrafica): l'amministratore li vede lo stesso
-            out.orfani = Object.keys(conDati).filter(id => !incarichi.some(i => i.id === id)).map(id => ({ id: id, cliente: conDati[id].cliente, conteggi: conDati[id].conteggi }));
+            out.orfani = Object.keys(conDati).filter(id => !incarichi.some(i => i.id === id)).map(id => ({ id: id, cliente: conDati[id].cliente, conteggi: conDati[id].conteggi, perAmbito: conDati[id].perAmbito }));
         }
         if (prof.admin) {
             out.supervisori = (await DATI.impostazioni(db)).supervisori;
@@ -152,7 +154,7 @@ const AZIONI = {
         const inc = DATI.incaricoDi(prof, b.incaricoId) || (prof.vedeTutto ? { id: String(b.incaricoId || ''), cliente: '', ruoli: [] } : null);
         if (!inc || !inc.id) esci(403, 'Non segui questo incarico.');
         const schede = await DATI.schedeIncarico(db, inc.id);
-        return { ok: true, incarico: inc, schede: schede.map(perArea), conteggi: DATI.conteggi(schede, C.giornoRoma()), oggi: C.giornoRoma() };
+        return { ok: true, incarico: inc, schede: schede.map(perArea), conteggi: DATI.conteggi(schede, C.giornoRoma()), perAmbito: DATI.conteggiPerAmbito(schede, C.giornoRoma()), oggi: C.giornoRoma() };
     },
     async dettaglio(db, prof, b) {
         return { ok: true, scheda: perArea(await letteraDi(db, prof, b.id)) };

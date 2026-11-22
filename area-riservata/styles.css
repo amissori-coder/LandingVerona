@@ -4472,6 +4472,29 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
    dice il quando o il perche' (pc-nota). */
 .sr-azioni-riga { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sr-azioni-riga .btn { margin: 0; white-space: nowrap; }
+/* le due aree: obbligatorie, clienti e fornitori */
+.pc-ambiti { display: inline-flex; flex-wrap: wrap; gap: 0; margin: 0 0 16px; border: 1px solid var(--grigio-200); border-radius: var(--raggio); background: #fff; overflow: hidden; }
+.pc-ambito { border: none; background: transparent; padding: 9px 18px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--grigio-600); cursor: pointer; }
+.pc-ambito + .pc-ambito { border-left: 1px solid var(--grigio-200); }
+.pc-ambito:hover { background: var(--blu-050); color: var(--blu-900); }
+.pc-ambito.attivo { background: var(--blu-700); color: #fff; }
+/* una tabella per tipologia di lettera: il titolo con i conteggi a destra */
+.pc-tipo + .pc-tipo, .pc-n-sez + .pc-n-sez { margin-top: 22px; }
+.pc-tipo-tit {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 14px; margin: 0 0 8px; padding: 8px 12px;
+    font-size: 0.92rem; font-weight: 700; color: var(--blu-900); background: var(--grigio-050); border-left: 3px solid var(--blu-700); border-radius: 0 var(--raggio-sm) var(--raggio-sm) 0;
+}
+.pc-tipo-tit span { font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); white-space: nowrap; }
+.pc-tipi { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 16px; }
+.pc-tipi-et { flex-basis: 100%; font-size: 0.8rem; font-weight: 600; color: var(--grigio-700); }
+.pc-tipi .btn { margin: 0; }
+.pc-n-vuoto { margin: 0 0 12px; }
+.pc-bozza { margin: 0 0 14px; padding: 9px 12px; font-size: 0.84rem; line-height: 1.5; color: var(--grigio-700); background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: var(--raggio); text-align: justify; }
+.pc-bozza strong { color: var(--blu-900); }
+.pc-bozza .pc-link { margin-left: 4px; }
+table.pc-righe input.pc-r-saldo { min-width: 110px; text-align: right; font-variant-numeric: tabular-nums; }
+/* il report degli invii esiste solo in stampa */
+#pc-report { display: none; }
 .pc-nota { display: block; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); margin-top: 3px; font-weight: 400; }
 .badge + .pc-nota { margin-top: 4px; }
 .pc-muto { color: var(--grigio-500); font-weight: 400; }
@@ -4489,6 +4512,10 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
 .pc-fatti strong { overflow-wrap: anywhere; }
 table.pc-tab td { vertical-align: top; }
 table.pc-tab .pc-num { font-variant-numeric: tabular-nums; }
+/* tabelle delle tipologie incolonnate fra loro (pcIncolonna): larghezze imposte,
+   quindi il testo lungo va a capo dentro la sua cella invece di uscirne */
+table.pc-tab.pc-incolonnata { table-layout: fixed; width: 100%; }
+table.pc-tab.pc-incolonnata td { overflow-wrap: anywhere; white-space: normal !important; }
 table.pc-tab tr.pc-annullata td { color: var(--grigio-500); }
 table.pc-tab tr.pc-annullata strong { font-weight: 600; color: var(--grigio-600); text-decoration: line-through; }
 .pc-codice { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--grigio-700); white-space: nowrap; }
@@ -4558,6 +4585,36 @@ table.pc-righe tr.pc-fatta td { background: #F3FAF6; }
     table.pc-righe input[type="text"], table.pc-righe input[type="email"], table.pc-righe select { min-width: 0; }
 }
 @media print {
+    /* il report degli invii: in stampa c'e' solo lui, in orizzontale (la pagina la imposta chi lo lancia) */
+    body.pc-stampa-report #vista > *:not(#pc-report) { display: none !important; }
+    body.pc-stampa-report #pc-report { display: block; font-family: Arial, Helvetica, sans-serif; color: #0A2844; }
+    #pc-report .pc-rep-testa { border-bottom: 2px solid #0A2844; padding-bottom: 6px; margin-bottom: 8px; }
+    #pc-report .pc-rep-marchio { font-size: 7.5pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
+    #pc-report h1 { font-size: 14pt; margin: 3px 0 2px; color: #0A2844; }
+    #pc-report .pc-rep-quando { font-size: 8pt; color: #475569; }
+    #pc-report dl { display: grid; gap: 0; margin: 0 0 8px; border: 1px solid #CBD5E1; }
+    #pc-report .pc-rep-dati { grid-template-columns: repeat(3, 1fr); }
+    #pc-report .pc-rep-numeri { grid-template-columns: repeat(6, 1fr); }
+    #pc-report dl > div { padding: 4px 8px; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+    #pc-report dt { font-size: 6.5pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748B; }
+    #pc-report dd { margin: 1px 0 0; font-size: 9pt; font-weight: 700; }
+    #pc-report .pc-rep-numeri dd { font-size: 12pt; }
+    #pc-report h2 { font-size: 10.5pt; margin: 12px 0 4px; padding: 3px 8px; background: #EEF4FA; border-left: 3px solid #164068; break-after: avoid; page-break-after: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* colonne di larghezza fissa: le tabelle delle diverse tipologie restano incolonnate fra loro */
+    #pc-report .pc-rep-tab { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.6pt; line-height: 1.3; }
+    #pc-report .pc-rep-tab .c-den { width: 14%; } #pc-report .pc-rep-tab .c-pec { width: 13.5%; } #pc-report .pc-rep-tab .c-rif { width: 7.5%; }
+    #pc-report .pc-rep-tab .c-saldo { width: 8%; } #pc-report .pc-rep-tab .c-data { width: 6.5%; } #pc-report .pc-rep-tab .c-rec { width: 10.5%; }
+    #pc-report .pc-rep-tab .c-sol { width: 9%; } #pc-report .pc-rep-tab .c-risp { width: 10%; }   /* il resto alle note */
+    #pc-report .pc-rep-tab th { text-align: left; font-size: 6.6pt; letter-spacing: .04em; text-transform: uppercase; color: #475569; border-bottom: 1.2px solid #0A2844; padding: 3px 5px; vertical-align: bottom; }
+    #pc-report .pc-rep-tab td { border-bottom: 1px solid #E2E8F0; padding: 3px 5px; vertical-align: top; overflow-wrap: anywhere; }
+    #pc-report .pc-rep-tab tr { break-inside: avoid; page-break-inside: avoid; }
+    #pc-report .pc-rep-tab .n { width: 3%; text-align: right; color: #64748B; }
+    #pc-report .pc-rep-tab .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #pc-report .pc-rep-tab tfoot td { border-bottom: none; border-top: 1.2px solid #0A2844; font-weight: 700; padding-top: 4px; }
+    #pc-report .pc-rep-piede { font-size: 7.5pt; color: #475569; margin: 12px 0 0; text-align: justify; }
+    #pc-report .pc-rep-firme { display: flex; gap: 60px; margin-top: 26px; break-inside: avoid; }
+    #pc-report .pc-rep-firme span { flex: 1; border-top: 1px solid #0A2844; padding-top: 3px; font-size: 7.5pt; color: #475569; }
+    .pc-tipo-tit { -webkit-print-color-adjust: exact; print-color-adjust: exact; break-after: avoid; page-break-after: avoid; }
     .pc-schede, .pc-casella, table.pc-tab:not(.pc-errori) td:last-child, table.pc-tab:not(.pc-errori) th:last-child { display: none !important; }
     .pc-avviso, .pc-kpi .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .pc-fatti { grid-template-columns: repeat(4, minmax(0, 1fr)); }

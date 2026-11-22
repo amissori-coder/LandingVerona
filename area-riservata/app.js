@@ -37173,7 +37173,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122n';
+    const SR_DATI_VERSIONE = '20261122o';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
@@ -37373,7 +37373,9 @@
        circolarizzazioni): nel piano, accanto ad "Apri", c'e' "Invia le PEC". */
     function srHaPec(d, id) {
         const a = d.attivita[id], c = a && a.carta ? d.carte[a.carta] : null;
-        return !!c && c.blocchi.some(b => b.passi.some(p => (p.doc || []).some(x => x.p)));
+        let area = '';
+        if (c) c.blocchi.forEach(b => b.passi.forEach(p => (p.doc || []).forEach(x => { if (x.p && !area) area = x.p; })));
+        return area;      // 'obbligatorie' | 'clientiFornitori' | ''
     }
     function srDocumentiCarta(c) {
         const visti = new Set();
@@ -37417,7 +37419,7 @@
                 + '<span class="sr-doc-tipo t-email">PEC</span>'
                 + '<span class="sr-doc-nome"><span class="sr-doc-tit">' + esc(x.et) + '</span>'
                 + (x.descrizione ? '<span class="sr-doc-desc">' + esc(x.descrizione) + '</span>' : '') + '</span>'
-                + '<span class="sr-doc-azioni"><button type="button" class="btn btn-sm btn-primary sr-apri-pec">Apri</button></span></li>';
+                + '<span class="sr-doc-azioni"><button type="button" class="btn btn-sm btn-primary sr-apri-pec" data-ambito="' + esc(x.p) + '">Apri</button></span></li>';
         }
         if (x.l) {
             return '<li class="sr-doc sr-link">'
@@ -37480,7 +37482,8 @@
        ascoltatore in piu'. Gestisce "Leggi" e "Copia il testo" dei documenti. */
     function srCollegaDocumenti(radici, anno) {
         const clic = ev => {
-            if (ev.target.closest('.sr-apri-pec')) { naviga('strumentiPec'); return; }
+            const pec = ev.target.closest('.sr-apri-pec');
+            if (pec) { naviga('strumentiPec', { ambito: pec.dataset.ambito }); return; }
             const raccolta = ev.target.closest('.sr-raccolta');
             if (raccolta) {
                 const elenco = raccolta.closest('.sr-cartella').querySelector('.sr-raccolta-elenco');
@@ -37543,7 +37546,7 @@
             const carta = stato === 'chiusa' ? '<span class="sr-etich-muta" title="' + esc(r.avviso || '') + '">' + esc(r.etichetta || 'Senza scheda') + '</span>'
                 : stato === 'disattiva' ? '<span class="sr-apri-off" title="Scheda in preparazione"><button type="button" class="btn btn-sm btn-secondary" disabled>Apri</button></span>'
                 : '<span class="sr-azioni-riga"><button type="button" class="btn btn-sm btn-secondary sr-apri" data-attivita="' + esc(r.attivita) + '">Apri</button>'
-                    + (srHaPec(d, r.attivita) ? '<button type="button" class="btn btn-sm btn-primary sr-pec" title="Invia le lettere a mezzo PEC, programma i solleciti e segui ricevute e risposte">Invia le PEC</button>' : '') + '</span>';
+                    + (srHaPec(d, r.attivita) ? '<button type="button" class="btn btn-sm btn-primary sr-pec" data-ambito="' + esc(srHaPec(d, r.attivita)) + '" title="Invia le lettere a mezzo PEC, programma i solleciti e segui ricevute e risposte">Invia le PEC</button>' : '') + '</span>';
             return stato === 'aperta'
                 ? '<tr class="sr-riga" data-i="' + i + '" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">' + celle + '<td data-label="Scheda">' + carta + '</td></tr>'
                 : '<tr data-i="' + i + '">' + celle + '<td data-label="Scheda">' + carta + '</td></tr>';
@@ -37594,7 +37597,7 @@
             ${corpo}`;
 
         // "Invia le PEC" sta nella riga, che e' tutta cliccabile: il suo clic non deve aprire anche la scheda
-        $vista().querySelectorAll('.sr-pec').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); naviga('strumentiPec'); }));
+        $vista().querySelectorAll('.sr-pec').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); naviga('strumentiPec', { ambito: b.dataset.ambito }); }));
         const stampaPiano = document.getElementById('sr-stampa-piano');
         if (stampaPiano) stampaPiano.addEventListener('click', () => window.print());
         const vista = $vista();
@@ -37823,7 +37826,7 @@
        pagina di un incarico, con tre tabelle - invii, solleciti,
        risposte.
        ========================================================= */
-    const PC = { stato: null, quando: 0, scheda: 'incarichi', tab: 'invii', filtri: { q: '', stato: '' }, elenco: null, timer: null, senzaLettere: false };
+    const PC = { stato: null, quando: 0, ambito: 'obbligatorie', scheda: 'incarichi', tab: 'invii', filtri: { q: '', stato: '' }, elenco: null, timer: null, senzaLettere: false };
     const PC_RUOLI = { responsabile: 'Responsabile dell\'incarico', qualita: 'Responsabile della qualità', team: 'Team' };
     const PC_PASSI = { primo: 'Invio', sollecito1: 'Primo sollecito', sollecito2: 'Secondo sollecito' };
     const PC_RICEVUTE = {
@@ -37839,7 +37842,25 @@
         if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB';
         return Math.max(1, Math.round(n / 1024)) + ' KB';
     }
-    function pcCategoria(id) { const c = ((PC.stato || {}).categorie || []).find(x => x.id === id); return c ? c.nome : ''; }
+    function pcCategoria(id) { const c = ((PC.stato || {}).categorie || []).find(x => x.id === id); return c ? (c.uno || c.nome) : ''; }
+    // importi all'italiana, con il punto delle migliaia anche a quattro cifre (8.200,00 €)
+    function pcEuro(n) {
+        const v = Math.round(Math.abs(Number(n) || 0) * 100), interi = String(Math.floor(v / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return (Number(n) < 0 ? '-' : '') + interi + ',' + String(v % 100).padStart(2, '0') + ' €';
+    }
+    /* Le due aree del piano: circolarizzazioni obbligatorie, clienti e fornitori.
+       Si arriva gia' nell'area giusta dal pulsante «Invia le PEC» della sua riga;
+       da dentro ci si sposta con le due linguette in alto. */
+    function pcAmbito(st) { const a = (st && st.ambiti) || []; return a.some(x => x.id === PC.ambito) ? PC.ambito : (a[0] ? a[0].id : 'obbligatorie'); }
+    function pcNomeAmbito(st, id) { const a = ((st && st.ambiti) || []).find(x => x.id === id); return a ? a.nome : ''; }
+    function pcAmbitiHtml(st) {
+        const amb = pcAmbito(st);
+        return '<div class="pc-ambiti no-stampa" role="tablist" aria-label="Area">' + ((st && st.ambiti) || []).map(a =>
+            '<button type="button" class="pc-ambito' + (a.id === amb ? ' attivo' : '') + '" role="tab" aria-selected="' + (a.id === amb) + '" data-ambito="' + esc(a.id) + '">' + esc(a.nome) + '</button>').join('') + '</div>';
+    }
+    function pcCollegaAmbiti(radice, ridisegna) {
+        radice.querySelectorAll('.pc-ambiti [data-ambito]').forEach(b => b.addEventListener('click', () => { if (PC.ambito !== b.dataset.ambito) { PC.ambito = b.dataset.ambito; ridisegna(); } }));
+    }
     function pcPiuGiorni(g, n) { const d = new Date(g + 'T12:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     function pcBadge(classe, testo, titolo) { return '<span class="badge ' + classe + '"' + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>' + esc(testo) + '</span>'; }
     function pcFermaTimer() { if (PC.timer) { clearTimeout(PC.timer); PC.timer = null; } }
@@ -38004,11 +38025,11 @@
         const oggi = (PC.stato || {}).oggi || oggiISO();
         const quando = ms => ms ? fmtDataOra(ms) : '';
         const sol = p => !p || p.stato === 'non-previsto' ? 'non previsto' : (p.stato === 'inviato' ? 'inviato il ' + fmtGiorno(p.inviatoIl) : (p.stato === 'programmato' ? 'in programma per il ' + fmtData(p.data) : (p.stato === 'bloccato' ? 'non inviato: ' + (p.motivo || '') : p.stato)));
-        const colonne = [['Società revisionata', 28], ['Destinatario', 34], ['PEC', 30], ['Tipo', 22], ['Riferimento', 14], ['Lettera', 30], ['Inviata il', 17], ['Recapito', 20], ['Accettata il', 17], ['Consegnata il', 17],
+        const colonne = [['Società revisionata', 28], ['Destinatario', 34], ['PEC', 30], ['Tipo', 22], ['Riferimento', 14], ['Saldo', 14], ['Note', 28], ['Lettera', 30], ['Inviata il', 17], ['Recapito', 20], ['Accettata il', 17], ['Consegnata il', 17],
             ['Problema di recapito', 34], ['Rispondere entro', 15], ['Primo sollecito', 30], ['Secondo sollecito', 30], ['Risposta', 16], ['Risposta ricevuta il', 17], ['Risposta da', 30], ['Allegati della risposta', 34], ['Preparata da', 22]];
         const righe = schede.map(s => {
             const p = s.passi.primo, r = pcRecapito(p), vere = (s.risposte || []).filter(x => !x.automatica);
-            return [s.cliente, s.destinatario, s.pec, pcCategoria(s.categoria), s.codice, (s.allegato || {}).nome || '', quando(p.inviatoIl), s.stato === 'annullata' ? 'Annullata' : r.testo, quando(p.accettata), quando(p.consegnata),
+            return [s.cliente, s.destinatario, s.pec, pcCategoria(s.categoria), s.codice, s.saldo == null ? '' : pcEuro(s.saldo), s.nota || '', (s.allegato || {}).nome || '', quando(p.inviatoIl), s.stato === 'annullata' ? 'Annullata' : r.testo, quando(p.accettata), quando(p.consegnata),
                 p.errore || (p.problema || {}).motivo || '', fmtData(s.scadenza), sol(s.passi.sollecito1), sol(s.passi.sollecito2),
                 s.risposta ? (s.risposta.modo === 'manuale' ? 'registrata a mano' : 'ricevuta') : (p.stato === 'inviato' && s.stato !== 'errore' ? (s.scadenza < oggi ? 'non pervenuta' : 'in attesa') : ''),
                 s.risposta ? quando(s.risposta.il) : '', s.risposta ? (s.risposta.da || '') : '', vere.map(x => (x.allegati || []).map(a => a.nome).join(', ')).filter(Boolean).join(' | '), (s.creato || {}).nome || ''];
@@ -38033,6 +38054,7 @@
     }
     function vistaStrumentiPec() {
         pcFermaTimer();
+        if ((parametriVista || {}).ambito) PC.ambito = parametriVista.ambito;
         const indietro = '<button type="button" class="btn btn-sm btn-ghost sr-indietro" id="pc-indietro">← Strumenti di revisione</button>';
         const torna = () => { const b = document.getElementById('pc-indietro'); if (b) b.addEventListener('click', () => naviga('strumenti')); };
         if (!pcDisponibile()) { pcNonDisponibile(indietro); torna(); return; }
@@ -38052,7 +38074,10 @@
                     : 'L\'invio delle PEC dall\'area riservata non è ancora stato attivato. Ti avviseremo quando sarà disponibile.') + '</p></div>';
                 return;
             }
-            const tutti = st.incarichi.concat((st.orfani || []).map(o => ({ id: o.id, cliente: o.cliente || 'Incarico non più in anagrafica', ruoli: [], conteggi: o.conteggi, orfano: true })));
+            // i conteggi sono quelli dell'area scelta (obbligatorie, oppure clienti e fornitori)
+            const amb = pcAmbito(st);
+            const tutti = st.incarichi.concat((st.orfani || []).map(o => ({ id: o.id, cliente: o.cliente || 'Incarico non più in anagrafica', ruoli: [], perAmbito: o.perAmbito, orfano: true })))
+                .map(i => Object.assign({}, i, { conteggi: i.perAmbito ? i.perAmbito[amb] : null }));
             const conLettere = tutti.filter(i => i.conteggi && (i.conteggi.totale || i.conteggi.annullate));
             const somma = pcSomma(conLettere.map(i => i.conteggi));
             const schede = p.vedeTutto ? '<div class="tab-dest pc-schede" role="tablist">'
@@ -38061,7 +38086,8 @@
                 + '</div>' : '';
             const daVedere = p.vedeTutto && st.errori && PC.scheda !== 'errori'
                 ? '<div class="pc-avviso pc-problema" role="alert"><strong>' + (st.errori === 1 ? 'C\'è un errore da controllare.' : 'Ci sono ' + st.errori + ' errori da controllare.') + '</strong> <button type="button" class="pc-link" id="pc-vai-errori">Vedi gli errori</button></div>' : '';
-            corpo.innerHTML = daVedere + pcAvvisoHtml() + (p.vedeTutto ? pcKpi(somma) : '') + pcCasellaHtml(st) + schede + '<div id="pc-scheda"></div>';
+            corpo.innerHTML = daVedere + pcAmbitiHtml(st) + pcAvvisoHtml() + (p.vedeTutto ? pcKpi(somma) : '') + pcCasellaHtml(st) + schede + '<div id="pc-scheda"></div>';
+            pcCollegaAmbiti(corpo, () => disegna(PC.stato));
             corpo.querySelectorAll('.pc-schede [data-scheda]').forEach(b => b.addEventListener('click', () => { PC.scheda = b.dataset.scheda; disegna(PC.stato); }));
             const vai = document.getElementById('pc-vai-errori');
             if (vai) vai.addEventListener('click', () => { PC.scheda = 'errori'; disegna(PC.stato); });
@@ -38092,7 +38118,7 @@
                 + '<h2>' + (p.vedeTutto ? 'Incarichi' : 'I tuoi incarichi') + '</h2>'
                 + (mostra.length ? '<p class="hint">' + (p.vedeTutto ? 'Vedi le circolarizzazioni di tutti gli incarichi.' : 'Gli incarichi in cui sei nel team, responsabile dell\'incarico o responsabile della qualità.') + ' Apri un incarico per preparare le lettere e seguire ricevute e risposte.</p>'
                     + '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr><th>Società</th><th>Il tuo ruolo</th><th>Lettere</th><th>Consegnate</th><th>Non consegnate</th><th>Risposte</th><th>Senza risposta</th><th>Solleciti in programma</th><th></th></tr></thead><tbody>' + righe + '</tbody></table></div>'
-                    : '<p class="descrizione">' + (p.vedeTutto ? 'Nessun incarico ha ancora lettere di circolarizzazione.' : 'Non risulti nel team, responsabile dell\'incarico o responsabile della qualità di nessun incarico: se manca un incarico, chiedi di aggiornare la sua scheda.') + '</p>')
+                    : '<p class="descrizione">' + (p.vedeTutto ? 'Nessun incarico ha ancora lettere in «' + esc(pcNomeAmbito(st, amb)) + '».' : 'Non risulti nel team, responsabile dell\'incarico o responsabile della qualità di nessun incarico: se manca un incarico, chiedi di aggiornare la sua scheda.') + '</p>')
                 + (p.vedeTutto ? '<p class="pc-sotto"><label class="pc-spunta"><input type="checkbox" id="pc-senza"' + (PC.senzaLettere ? ' checked' : '') + '> Mostra anche gli incarichi senza lettere (' + (tutti.length - conLettere.length) + ')</label></p>' : '')
                 + '</div>';
             dentro.querySelectorAll('tr[data-inc]').forEach(tr => tr.addEventListener('click', () => naviga('strumentiPecIncarico', { incaricoId: tr.dataset.inc })));
@@ -38280,10 +38306,17 @@
         f.corpo.querySelector('#pc-testo-copia').addEventListener('click', () => copiaNegliAppunti(r.testo || '', 'Testo copiato.'));
     }
 
-    /* ---------- la pagina di un incarico: invii, solleciti, risposte ---------- */
+    /* ---------- la pagina di un incarico: invii, solleciti, risposte ----------
+       Le lettere dell'area scelta (obbligatorie, oppure clienti e fornitori),
+       in tre viste - invii, solleciti, risposte - e ogni vista divisa per
+       tipologia di lettera: una tabella per gli istituti di credito, una per
+       i consulenti legali, e cosi' via. E' la stessa divisione delle tabelle
+       con cui si preparano le lettere e del report che si stampa. */
     function vistaStrumentiPecIncarico() {
         pcFermaTimer();
-        const incaricoId = (parametriVista || {}).incaricoId;
+        const par = parametriVista || {};
+        const incaricoId = par.incaricoId;
+        if (par.ambito) PC.ambito = par.ambito;
         const indietro = '<button type="button" class="btn btn-sm btn-ghost sr-indietro" id="pc-indietro">← Circolarizzazioni via PEC</button>';
         const torna = () => { const b = document.getElementById('pc-indietro'); if (b) b.addEventListener('click', () => naviga('strumentiPec')); };
         if (!pcDisponibile()) { pcNonDisponibile(indietro); torna(); return; }
@@ -38293,53 +38326,74 @@
 
         const disegna = () => {
             if (!qui()) return;
-            const st = PC.stato, e = PC.elenco, inc = e.incarico, oggi = e.oggi, c = e.conteggi;
-            const schede = e.schede;
+            const st = PC.stato, e = PC.elenco, inc = e.incarico, oggi = e.oggi;
+            const amb = pcAmbito(st);
+            const categorie = st.categorie.filter(x => x.ambito === amb);
+            const schede = e.schede.filter(s => s.ambito === amb);
+            const c = (e.perAmbito || {})[amb] || pcSomma([]);
             const azioni = '<button type="button" class="btn btn-secondary" id="pc-aggiorna">Aggiorna ricevute e risposte</button>'
-                + (schede.length ? '<button type="button" class="btn btn-secondary" id="pc-zip" title="Ricevute (.eml), risposte con i loro allegati e riepilogo in Excel">Scarica ricevute e risposte</button>' : '')
+                + (schede.length ? '<button type="button" class="btn btn-secondary" id="pc-zip" title="Ricevute (.eml), risposte con i loro allegati e riepilogo in Excel">Scarica ricevute e risposte</button>'
+                    + '<button type="button" class="btn btn-secondary" id="pc-report-btn" title="Il report degli invii e delle risposte di questa società, diviso per tipologia di lettera">' + SR_ICO_STAMPA + 'Stampa il report</button>' : '')
                 + '<button type="button" class="btn btn-primary" id="pc-nuove">Nuove lettere</button>';
             const q = PC.filtri.q.trim().toLowerCase();
-            const passa = s => (!q || (s.destinatario + ' ' + s.pec + ' ' + s.codice + ' ' + pcCategoria(s.categoria)).toLowerCase().includes(q))
+            const passa = s => (!q || (s.destinatario + ' ' + s.pec + ' ' + s.codice + ' ' + (s.nota || '')).toLowerCase().includes(q))
                 && (!PC.filtri.stato || (PC.filtri.stato === 'senza' ? (!s.risposta && s.passi.primo.stato === 'inviato' && s.stato !== 'errore') : (PC.filtri.stato === 'risposta' ? !!s.risposta : s.stato === PC.filtri.stato)));
             const viste = schede.filter(passa);
-            const dest = s => '<td data-label="Destinatario"><strong>' + esc(s.destinatario) + '</strong><span class="pc-nota">' + esc(s.pec) + ' · ' + esc(pcCategoria(s.categoria)) + '</span></td>';
+            const dest = s => '<td data-label="Destinatario"><strong>' + esc(s.destinatario) + '</strong><span class="pc-nota">' + esc(s.pec) + (s.nota ? ' · ' + esc(s.nota) : '') + '</span></td>';
             const apri = '<td data-label=""><button type="button" class="btn btn-sm btn-secondary pc-apri">Apri</button></td>';
             const riga = (s, celle) => '<tr class="cliccabile' + (s.stato === 'annullata' ? ' pc-annullata' : '') + '" data-id="' + esc(s.id) + '">' + celle + '</tr>';
-            let tabella;
+            /* Una tabella per tipologia. `fai(cat, lettere)` torna { testa, righe[] }
+               oppure null se per quella tipologia in questa vista non c'e' niente. */
+            const perTipologia = fai => categorie.map(cat => {
+                const lettere = viste.filter(s => s.categoria === cat.id);
+                const t = lettere.length ? fai(cat, lettere) : null;
+                if (!t || !t.righe.length) return '';
+                const risposte = lettere.filter(s => s.risposta).length;
+                return '<section class="pc-tipo"><h3 class="pc-tipo-tit">' + esc(cat.nome) + '<span>' + lettere.length + (lettere.length === 1 ? ' lettera' : ' lettere') + ' · ' + risposte + (risposte === 1 ? ' risposta' : ' risposte') + '</span></h3>'
+                    + '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr>' + t.testa.map(x => '<th>' + x + '</th>').join('') + '<th></th></tr></thead><tbody>' + t.righe.join('') + '</tbody></table></div></section>';
+            }).join('');
+            let tabelle;
             if (PC.tab === 'solleciti') {
-                tabella = '<thead><tr><th>Destinatario</th><th>Rispondere entro</th><th>Primo sollecito</th><th>Secondo sollecito</th><th>Risposta</th><th></th></tr></thead><tbody>'
-                    + viste.filter(s => s.stato !== 'annullata').map(s => riga(s, dest(s)
+                tabelle = perTipologia((cat, lettere) => ({
+                    testa: ['Destinatario', 'Rispondere entro', 'Primo sollecito', 'Secondo sollecito', 'Risposta'],
+                    righe: lettere.filter(s => s.stato !== 'annullata').map(s => riga(s, dest(s)
                         + '<td data-label="Rispondere entro">' + esc(fmtData(s.scadenza)) + '</td>'
                         + '<td data-label="Primo sollecito">' + pcSollecitoHtml(s.passi.sollecito1) + '</td>'
                         + '<td data-label="Secondo sollecito">' + pcSollecitoHtml(s.passi.sollecito2) + '</td>'
-                        + '<td data-label="Risposta">' + pcRispostaHtml(s, oggi) + '</td>' + apri)).join('') + '</tbody>';
+                        + '<td data-label="Risposta">' + pcRispostaHtml(s, oggi) + '</td>' + apri))
+                }));
             } else if (PC.tab === 'risposte') {
-                const righe = [];
-                viste.forEach(s => {
-                    (s.risposte || []).forEach(r => righe.push(riga(s, dest(s)
-                        + '<td data-label="Ricevuta il">' + esc(fmtDataOra(r.quando)) + '</td>'
-                        + '<td data-label="Da">' + esc(r.da) + '<span class="pc-nota">' + (r.automatica ? 'risposta automatica' : (r.certificata ? 'PEC' : 'posta ordinaria')) + (r.via === 'manuale' ? ' · associata a mano' : '') + '</span></td>'
-                        + '<td data-label="Oggetto">' + esc(r.oggetto || '(senza oggetto)') + '</td>'
-                        + '<td data-label="Allegati">' + ((r.allegati || []).length ? esc(r.allegati.map(a => a.nome).join(', ')) : '<span class="pc-muto">nessuno</span>') + '</td>' + apri)));
-                    if (s.risposta && s.risposta.modo === 'manuale') righe.push(riga(s, dest(s)
-                        + '<td data-label="Ricevuta il">' + esc(fmtDataOra(s.risposta.il)) + '</td><td data-label="Da"><span class="pc-muto">registrata a mano da ' + esc(String(s.risposta.da || '').replace(/\s*<.*$/, '')) + '</span></td>'
-                        + '<td data-label="Oggetto">' + esc(s.risposta.nota || 'Risposta arrivata fuori dalla casella PEC') + '</td><td data-label="Allegati"><span class="pc-muto">—</span></td>' + apri));
+                tabelle = perTipologia((cat, lettere) => {
+                    const righe = [];
+                    lettere.forEach(s => {
+                        (s.risposte || []).forEach(r => righe.push(riga(s, dest(s)
+                            + '<td data-label="Ricevuta il">' + esc(fmtDataOra(r.quando)) + '</td>'
+                            + '<td data-label="Da">' + esc(r.da) + '<span class="pc-nota">' + (r.automatica ? 'risposta automatica' : (r.certificata ? 'PEC' : 'posta ordinaria')) + (r.via === 'manuale' ? ' · associata a mano' : '') + '</span></td>'
+                            + '<td data-label="Oggetto">' + esc(r.oggetto || '(senza oggetto)') + '</td>'
+                            + '<td data-label="Allegati">' + ((r.allegati || []).length ? esc(r.allegati.map(a => a.nome).join(', ')) : '<span class="pc-muto">nessuno</span>') + '</td>' + apri)));
+                        if (s.risposta && s.risposta.modo === 'manuale') righe.push(riga(s, dest(s)
+                            + '<td data-label="Ricevuta il">' + esc(fmtDataOra(s.risposta.il)) + '</td><td data-label="Da"><span class="pc-muto">registrata a mano da ' + esc(String(s.risposta.da || '').replace(/\s*<.*$/, '')) + '</span></td>'
+                            + '<td data-label="Oggetto">' + esc(s.risposta.nota || 'Risposta arrivata fuori dalla casella PEC') + '</td><td data-label="Allegati"><span class="pc-muto">—</span></td>' + apri));
+                    });
+                    return { testa: ['Destinatario', 'Ricevuta il', 'Da', 'Oggetto', 'Allegati'], righe: righe };
                 });
-                tabella = '<thead><tr><th>Destinatario</th><th>Ricevuta il</th><th>Da</th><th>Oggetto</th><th>Allegati</th><th></th></tr></thead><tbody>' + righe.join('') + '</tbody>';
-                if (!righe.length) tabella = '';
             } else {
-                tabella = '<thead><tr><th>Destinatario</th><th>Riferimento</th><th>Inviata il</th><th>Recapito</th><th>Rispondere entro</th><th>Risposta</th><th></th></tr></thead><tbody>'
-                    + viste.map(s => riga(s, dest(s)
+                tabelle = perTipologia((cat, lettere) => ({
+                    testa: ['Destinatario', 'Riferimento'].concat(cat.saldo ? ['Saldo'] : []).concat(['Inviata il', 'Recapito', 'Rispondere entro', 'Risposta']),
+                    righe: lettere.map(s => riga(s, dest(s)
                         + '<td data-label="Riferimento"><span class="pc-codice">' + esc(s.codice) + '</span></td>'
+                        + (cat.saldo ? '<td data-label="Saldo" class="pc-num">' + (s.saldo == null ? '<span class="pc-muto">—</span>' : esc(pcEuro(s.saldo))) + '</td>' : '')
                         + '<td data-label="Inviata il">' + (s.passi.primo.inviatoIl ? esc(fmtDataOra(s.passi.primo.inviatoIl)) : '<span class="pc-muto">—</span>') + '</td>'
                         + '<td data-label="Recapito">' + (s.stato === 'annullata' ? pcBadge('grigio', 'Annullata') : pcRecapitoHtml(s.passi.primo)) + '</td>'
                         + '<td data-label="Rispondere entro">' + esc(fmtData(s.scadenza)) + '</td>'
-                        + '<td data-label="Risposta">' + pcRispostaHtml(s, oggi) + '</td>' + apri)).join('') + '</tbody>';
+                        + '<td data-label="Risposta">' + pcRispostaHtml(s, oggi) + '</td>' + apri))
+                }));
             }
             const nRisposte = schede.reduce((t, s) => t + (s.risposte || []).filter(r => !r.automatica).length + (s.risposta && s.risposta.modo === 'manuale' ? 1 : 0), 0);
             const opz = (v, t) => '<option value="' + v + '"' + (PC.filtri.stato === v ? ' selected' : '') + '>' + t + '</option>';
+            const area = pcNomeAmbito(st, amb);
             $vista().innerHTML = pcIntestazione(inc.cliente || 'Incarico', '', indietro, azioni)
-                + '<div class="intest-stampa"><div class="is-marchio">Revilaw S.p.A. · Circolarizzazioni via PEC</div><div class="is-tit">' + esc(inc.cliente || '') + '</div><div class="is-meta">Situazione al ' + esc(fmtDataOra(Date.now())) + '</div></div>'
+                + pcAmbitiHtml(st)
                 + '<div class="sr-fatti pc-fatti">'
                 + [['Responsabile dell\'incarico', inc.responsabile], ['Responsabile della qualità', inc.qualita], ['Team', inc.team], ['Casella PEC', st.casella]]
                     .map(([a, b]) => '<div class="sr-fatto"><span class="sr-oggi-et">' + esc(a) + '</span><span class="sr-fatto-riga"><strong>' + esc(b || '—') + '</strong></span></div>').join('')
@@ -38352,13 +38406,16 @@
                 + '</div>'
                 + (schede.length ? '<div class="filtri no-stampa"><div class="campo ricerca"><label for="pc-cerca">Ricerca</label><input type="search" id="pc-cerca" placeholder="Destinatario, PEC o riferimento…" value="' + esc(PC.filtri.q) + '"></div>'
                     + '<div class="campo"><label for="pc-stato">Mostra</label><select id="pc-stato">' + opz('', 'Tutte le lettere') + opz('coda', 'In coda') + opz('errore', 'Non consegnate') + opz('senza', 'Senza risposta') + opz('risposta', 'Con risposta') + opz('annullata', 'Annullate') + '</select></div></div>' : '')
-                + (!schede.length ? '<p class="descrizione">Per questo incarico non ci sono ancora lettere. Premi <strong>Nuove lettere</strong>: indichi i destinatari, alleghi a ciascuno la sua lettera in PDF e scegli le date della risposta e dei solleciti.</p>'
-                    : (tabella ? '<div class="tabella-wrap"><table class="dati pc-tab">' + tabella + '</table></div>' + (viste.length ? '' : '<p class="hint">Nessuna lettera corrisponde ai filtri.</p>')
-                        : '<p class="descrizione">Non è ancora arrivata nessuna risposta. Quando arrivano compaiono qui, e i solleciti in programma per quelle lettere si fermano da soli.</p>'))
+                + (!schede.length ? '<p class="descrizione">Per questa società non ci sono ancora lettere in «' + esc(area) + '». Premi <strong>Nuove lettere</strong>: per ogni tipologia compili la tabella dei destinatari, alleghi a ciascuno la sua lettera in PDF e scegli le date della risposta e dei solleciti.</p>'
+                    : (tabelle || (PC.tab === 'risposte' && !q && !PC.filtri.stato
+                        ? '<p class="descrizione">Non è ancora arrivata nessuna risposta. Quando arrivano compaiono qui, divise per tipologia, e i solleciti in programma per quelle lettere si fermano da soli.</p>'
+                        : '<p class="hint">Nessuna lettera corrisponde ai filtri.</p>')))
                 + '</div>'
-                + (st.profilo.admin && schede.length ? '<div class="card no-stampa"><h2>Chiusura</h2><p class="hint">A lavoro concluso, dopo che il team ha salvato ricevute e risposte, i dati di questo incarico si tolgono dal portale. I messaggi restano nella casella PEC.</p><button type="button" class="btn btn-ghost pc-pericolo" id="pc-cancella">Cancella i dati di questo incarico</button></div>' : '');
+                + (st.profilo.admin && e.schede.length ? '<div class="card no-stampa"><h2>Chiusura</h2><p class="hint">A lavoro concluso, dopo che il team ha salvato ricevute e risposte, i dati di questo incarico (tutte e due le aree) si tolgono dal portale. I messaggi restano nella casella PEC.</p><button type="button" class="btn btn-ghost pc-pericolo" id="pc-cancella">Cancella i dati di questo incarico</button></div>' : '');
             torna();
             const vista = $vista();
+            pcIncolonna(vista);
+            pcCollegaAmbiti(vista, disegna);
             vista.querySelectorAll('.pc-schede [data-tab]').forEach(b => b.addEventListener('click', () => { PC.tab = b.dataset.tab; disegna(); }));
             vista.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => pcModaleLettera(schede.find(s => s.id === tr.dataset.id), carica)));
             const cerca = document.getElementById('pc-cerca');
@@ -38366,7 +38423,7 @@
                 cerca.addEventListener('input', () => { PC.filtri.q = cerca.value; const p = cerca.selectionStart; disegna(); const n = document.getElementById('pc-cerca'); n.focus(); n.setSelectionRange(p, p); });
                 document.getElementById('pc-stato').addEventListener('change', ev => { PC.filtri.stato = ev.target.value; disegna(); });
             }
-            document.getElementById('pc-nuove').addEventListener('click', () => pcModaleNuove(inc, carica));
+            document.getElementById('pc-nuove').addEventListener('click', () => pcModaleNuove(inc, amb, carica));
             document.getElementById('pc-aggiorna').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
                 const r = await pcChiama('controlla');
                 if (r.letto === false && r.msg) toast(r.msg, 'ambra');
@@ -38374,7 +38431,9 @@
                 await carica();
             }, { testo: 'Controllo la casella…' }));
             const zip = document.getElementById('pc-zip');
-            if (zip) zip.addEventListener('click', () => { if (zip.dataset.attesa !== '1') { zip.dataset.attesa = '1'; pcScaricaZip(viste.length ? viste : schede, pcNomeFile('Circolarizzazioni ' + (inc.cliente || '')), zip).finally(() => { zip.dataset.attesa = ''; }); } });
+            if (zip) zip.addEventListener('click', () => { if (zip.dataset.attesa !== '1') { zip.dataset.attesa = '1'; pcScaricaZip(viste.length ? viste : schede, pcNomeFile(area + ' ' + (inc.cliente || '')), zip).finally(() => { zip.dataset.attesa = ''; }); } });
+            const rep = document.getElementById('pc-report-btn');
+            if (rep) rep.addEventListener('click', () => pcStampaReport(inc, st, amb, categorie, schede, c, oggi));
             const canc = document.getElementById('pc-cancella');
             if (canc) canc.addEventListener('click', () => pcModaleCancella(inc));
             // finche' c'e' qualcosa in coda la pagina si aggiorna da sola
@@ -38393,6 +38452,90 @@
             disegna();
         };
         carica();
+    }
+
+    /* Le tabelle delle tipologie hanno le stesse colonne, ma ognuna le
+       allargherebbe a modo suo secondo i nomi che contiene. Qui si incolonnano
+       fra loro: per ogni colonna vale la larghezza piu' ampia fra tutte le
+       tabelle. Solo quando la tabella e' una griglia: sugli schermi stretti
+       diventa a schede e l'intestazione non c'e'. */
+    function pcIncolonna(dentro) {
+        const tab = Array.from((dentro || document).querySelectorAll('.pc-tipo table.pc-tab')).filter(t => t.tHead && t.tHead.rows[0]);
+        const celle = t => Array.from(t.tHead.rows[0].cells);
+        tab.forEach(t => { t.classList.remove('pc-incolonnata'); celle(t).forEach(th => { th.style.width = ''; }); });
+        if (tab.length < 2 || getComputedStyle(tab[0].tHead).display === 'none') return;
+        const larg = [];
+        tab.forEach(t => celle(t).forEach((th, i) => { larg[i] = Math.max(larg[i] || 0, th.getBoundingClientRect().width); }));
+        const tot = larg.reduce((a, b) => a + b, 0);
+        if (!tot || tab.some(t => celle(t).length !== larg.length)) return;
+        tab.forEach(t => { t.classList.add('pc-incolonnata'); celle(t).forEach((th, i) => { th.style.width = (larg[i] / tot * 100).toFixed(2) + '%'; }); });
+    }
+    let pcIncolonnaTimer = null;
+    window.addEventListener('resize', () => {
+        clearTimeout(pcIncolonnaTimer);
+        pcIncolonnaTimer = setTimeout(() => { if (document.getElementById('pc-lettere')) pcIncolonna(document.getElementById('pc-lettere')); }, 150);
+    });
+
+    /* ---------- il report degli invii di una societa' ----------
+       Quello che il team allega alle carte: per ogni tipologia di lettera la
+       tabella dei destinatari con il primo invio, il recapito, i solleciti e la
+       risposta. Esce solo in stampa (orizzontale): a video c'e' gia' la pagina. */
+    function pcStampaReport(inc, st, amb, categorie, schede, c, oggi) {
+        const valide = schede.filter(s => s.stato !== 'annullata');
+        const giorno = ms => ms ? fmtGiorno(ms) : '';
+        const recapito = s => {
+            const p = s.passi.primo, r = pcRecapito(p);
+            if (r.testo === 'Consegnata') return 'Consegnata' + (p.consegnata ? ' il ' + giorno(p.consegnata) : '');
+            return r.testo + (r.classe === 'rosso' && r.nota ? ': ' + r.nota : '');
+        };
+        const sollecito = p => !p || p.stato === 'non-previsto' ? '—'
+            : p.stato === 'inviato' ? 'Inviato il ' + giorno(p.inviatoIl)
+                : p.stato === 'programmato' ? 'In programma per il ' + fmtData(p.data)
+                    : p.stato === 'bloccato' ? (p.per === 'risposta' || p.per === 'manuale' ? 'Non serve: risposta ricevuta' : 'Fermo: PEC non consegnata')
+                        : p.stato === 'annullato' ? 'Annullato' : pcRecapito(p).testo;
+        const risposta = s => s.risposta
+            ? 'Ricevuta il ' + giorno(s.risposta.il) + (s.risposta.modo === 'manuale' ? ' (fuori PEC)' : (s.risposta.modo === 'email' ? ' (posta ordinaria)' : ' (PEC)'))
+            : (s.passi.primo.stato !== 'inviato' || s.stato === 'errore' ? '—' : (s.scadenza < oggi ? 'Non pervenuta' : 'In attesa, entro il ' + fmtData(s.scadenza)));
+        const bilanci = Array.from(new Set(valide.map(s => s.bilancio).filter(Boolean)));
+        // la colonna del saldo c'e' o non c'e' per tutta l'area: le tabelle delle tipologie restano incolonnate
+        const conSaldo = categorie.some(cat => cat.saldo) && valide.some(s => s.saldo != null);
+        const sezioni = categorie.map(cat => {
+            const l = valide.filter(s => s.categoria === cat.id);
+            if (!l.length) return '';
+            const tot = l.reduce((t, s) => t + (Number(s.saldo) || 0), 0), risp = l.filter(s => s.risposta).length;
+            return '<section class="pc-rep-sez"><h2>' + esc(cat.nome) + '</h2><table class="pc-rep-tab"><thead><tr><th class="n">N.</th><th class="c-den">Denominazione</th><th class="c-pec">PEC</th><th class="c-rif">Riferimento</th>'
+                + (conSaldo ? '<th class="num c-saldo">Saldo</th>' : '') + '<th class="c-data">Primo invio</th><th class="c-rec">Recapito</th><th class="c-sol">Primo sollecito</th><th class="c-sol">Secondo sollecito</th><th class="c-risp">Risposta</th><th>Note</th></tr></thead><tbody>'
+                + l.map((s, i) => '<tr><td class="n">' + (i + 1) + '</td><td><strong>' + esc(s.destinatario) + '</strong></td><td>' + esc(s.pec) + '</td><td>' + esc(s.codice) + '</td>'
+                    + (conSaldo ? '<td class="num">' + (s.saldo == null ? '' : esc(pcEuro(s.saldo))) + '</td>' : '')
+                    + '<td>' + esc(giorno(s.passi.primo.inviatoIl) || '—') + '</td><td>' + esc(recapito(s)) + '</td><td>' + esc(sollecito(s.passi.sollecito1)) + '</td><td>' + esc(sollecito(s.passi.sollecito2)) + '</td>'
+                    + '<td>' + esc(risposta(s)) + '</td><td>' + esc(s.nota || '') + '</td></tr>').join('')
+                + '</tbody><tfoot><tr><td colspan="' + (conSaldo ? 4 : 10) + '">' + l.length + (l.length === 1 ? ' lettera' : ' lettere') + ' · ' + risp + (risp === 1 ? ' risposta ricevuta' : ' risposte ricevute') + ' · ' + (l.length - risp) + ' senza risposta</td>'
+                + (conSaldo ? '<td class="num">' + esc(pcEuro(tot)) + '</td><td colspan="6"></td>' : '') + '</tr></tfoot></table></section>';
+        }).join('');
+        const dati = [['Società revisionata', inc.cliente], ['Bilancio al', bilanci.map(fmtData).join(', ')], ['Responsabile dell\'incarico', inc.responsabile], ['Responsabile della qualità', inc.qualita], ['Team', inc.team], ['Casella PEC di invio e di risposta', st.casella]];
+        const riepilogo = [['Lettere', c.totale], ['Consegnate', c.consegnate], ['Non consegnate', c.errori], ['Risposte ricevute', c.risposte], ['Senza risposta', c.senzaRisposta], ['Solleciti inviati', c.sollecito1.inviati + c.sollecito2.inviati]];
+        const html = '<div class="pc-rep-testa"><div class="pc-rep-marchio">Revilaw S.p.A. · Società di revisione legale</div>'
+            + '<h1>' + esc(pcNomeAmbito(st, amb)) + ': report degli invii e delle risposte</h1>'
+            + '<div class="pc-rep-quando">Situazione al ' + esc(fmtDataOra(Date.now())) + ' · stampato da ' + esc(st.profilo.nome) + '</div></div>'
+            + '<dl class="pc-rep-dati">' + dati.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b || '—') + '</dd></div>').join('') + '</dl>'
+            + '<dl class="pc-rep-numeri">' + riepilogo.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b) + '</dd></div>').join('') + '</dl>'
+            + (sezioni || '<p>Nessuna lettera inviata.</p>')
+            + '<p class="pc-rep-piede">Le lettere sono partite a mezzo PEC dalla casella indicata. Le ricevute di accettazione e di consegna e le risposte dei terzi sono conservate nella casella PEC e allegate alle carte di lavoro dell\'incarico.</p>'
+            + '<div class="pc-rep-firme"><span>Preparato da</span><span>Verificato da</span></div>';
+        const vecchio = document.getElementById('pc-report');
+        if (vecchio) vecchio.remove();
+        const div = document.createElement('div');
+        div.id = 'pc-report';
+        div.innerHTML = html;
+        $vista().appendChild(div);
+        const pagina = document.createElement('style');
+        pagina.id = 'pc-report-pagina';
+        pagina.textContent = '@page { size: A4 landscape; margin: 11mm 12mm 13mm; }';
+        document.head.appendChild(pagina);
+        document.body.classList.add('pc-stampa-report');
+        const fine = () => { document.body.classList.remove('pc-stampa-report'); div.remove(); pagina.remove(); window.removeEventListener('afterprint', fine); };
+        window.addEventListener('afterprint', fine);
+        window.print();
     }
     function pcModaleCancella(inc) {
         apriModale('<h2>Cancellare i dati di ' + esc(inc.cliente) + '?</h2>'
@@ -38436,19 +38579,63 @@
         mostra();
     }
 
+    /* ---------- la bozza delle nuove lettere ----------
+       Mentre si compilano le tabelle, righe e date si salvano da sole in questo
+       browser (localStorage) e i PDF allegati in IndexedDB: se cade la
+       connessione, scade la sessione o si chiude la pagina, riaprendo «Nuove
+       lettere» si ritrova tutto. La bozza e' di chi l'ha scritta, su quel
+       computer, per quella societa' e quell'area; le lettere partite ne escono. */
+    function pcIdb() {
+        return new Promise(risolvi => {
+            try {
+                const r = indexedDB.open('rvCircBozze', 1);
+                r.onupgradeneeded = () => { r.result.createObjectStore('pdf'); };
+                r.onsuccess = () => risolvi(r.result);
+                r.onerror = () => risolvi(null);
+            } catch (e) { risolvi(null); }
+        });
+    }
+    async function pcIdbFai(modo, fn) {
+        const db = await pcIdb();
+        if (!db) return null;
+        return new Promise(risolvi => {
+            try {
+                const tx = db.transaction('pdf', modo);
+                const r = fn(tx.objectStore('pdf'));
+                tx.oncomplete = () => { db.close(); risolvi(r && r.result !== undefined ? r.result : true); };
+                tx.onerror = tx.onabort = () => { db.close(); risolvi(null); };
+            } catch (e) { risolvi(null); }
+        });
+    }
+    const pcIdbMetti = (k, file) => pcIdbFai('readwrite', s => s.put(file, k));
+    const pcIdbPrendi = k => pcIdbFai('readonly', s => s.get(k));
+    const pcIdbTogli = k => pcIdbFai('readwrite', s => s.delete(k));
+
     /* ---------- nuove lettere ----------
-       Le date valgono per tutte le lettere preparate insieme; ogni riga ha il
-       suo destinatario e il suo PDF. All'invio ogni lettera sale da sola
-       (scheda, poi il PDF a pezzi): se una non va, le altre partono lo stesso
-       e quella resta in elenco con il suo motivo. */
-    function pcModaleNuove(inc, fatto) {
+       Una tabella per tipologia di lettera, la stessa divisione del report:
+       per ogni destinatario la denominazione, la PEC, la lettera firmata in
+       PDF e, dove serve al report, il saldo da confermare e una nota. Le date
+       valgono per tutte le lettere preparate insieme. All'invio ogni lettera
+       sale da sola (scheda, poi il PDF a pezzi): se una non va, le altre
+       partono lo stesso e quella resta in tabella con il suo motivo. */
+    function pcModaleNuove(inc, amb, fatto) {
         const st = PC.stato, oggi = st.oggi, lim = st.limiti;
+        const categorie = st.categorie.filter(x => x.ambito === amb);
+        const tutteAperte = categorie.length <= 3;          // clienti e fornitori: le due tabelle ci sono sempre
         const anno = Number(oggi.slice(0, 4));
         const scad0 = pcPiuGiorni(oggi, 10);
-        const righe = [{ nome: '', pec: '', categoria: '', file: null, stato: '', msg: '' }];
         const reEmail = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
+        const reSaldo = /^-?\s*€?\s*\d[\d.\s]*(,\d{1,2})?$|^-?\d+(\.\d{1,2})?$/;
+        const chiaveBozza = 'rvArea.circBozza.' + st.profilo.email + '.' + inc.id + '.' + amb;
+        const righe = [];
+        const aperte = {};
+        let nId = 0;
+        const nuovaRiga = (cat, v) => Object.assign({ id: 'r' + Date.now().toString(36) + (nId++), categoria: cat, nome: '', pec: '', saldo: '', nota: '', file: null, stato: '', msg: '' }, v || {});
+        const vuota = r => !r.nome.trim() && !r.pec && !r.file && !String(r.saldo).trim() && !r.nota.trim();
+
         apriModale('<h2>Nuove lettere · ' + esc(inc.cliente) + '</h2>'
             + '<div class="pc-nuove">'
+            + '<p class="pc-bozza" id="pc-n-bozza"></p>'
             + '<h3 class="sr-sottotit">Date</h3>'
             + '<div class="pc-date">'
             + '<div class="campo"><label for="pc-n-bil">Bilancio al</label><input type="date" id="pc-n-bil" value="' + ((Number(oggi.slice(5, 7)) <= 9 ? anno - 1 : anno) + '-12-31') + '"></div>'
@@ -38462,111 +38649,186 @@
             + '<div class="campo"><label for="pc-n-s2s">Nuovo termine per rispondere</label><input type="date" id="pc-n-s2s" value="' + pcPiuGiorni(scad0, 14) + '"></div></div></div>'
             + '<p class="hint">I solleciti partono alle 9:00 del giorno indicato e si fermano da soli se nel frattempo arriva la risposta. Le date si possono cambiare anche dopo, lettera per lettera.</p>'
             + '<h3 class="sr-sottotit">Destinatari e lettere</h3>'
-            + '<p class="hint">Una riga per destinatario, ognuno con la sua lettera firmata in PDF (al massimo ' + esc(pcPeso(lim.pdfMaxByte)) + ').</p>'
-            + '<div class="tabella-wrap"><table class="dati pc-righe"><thead><tr><th>Denominazione</th><th>PEC</th><th>Tipo</th><th>Lettera in PDF</th><th></th></tr></thead><tbody id="pc-n-righe"></tbody></table></div>'
-            + '<div class="pc-barra"><button type="button" class="btn btn-sm btn-secondary" id="pc-n-piu">Aggiungi una riga</button>'
-            + '<button type="button" class="btn btn-sm btn-secondary" id="pc-n-incolla">Incolla da Excel</button>'
-            + '<label class="btn btn-sm btn-secondary pc-file-btn">Carica più PDF insieme<input type="file" id="pc-n-pdf" accept="application/pdf,.pdf" multiple hidden></label>'
+            + '<p class="hint">Una tabella per ogni tipologia di lettera, come nel report. Per ogni destinatario servono la denominazione, la PEC e la lettera firmata in PDF (al massimo ' + esc(pcPeso(lim.pdfMaxByte)) + ')'
+            + (categorie.some(x => x.saldo) ? '; il saldo da confermare e la nota sono facoltativi e finiscono nel report.' : '; la nota è facoltativa e finisce nel report.') + '</p>'
+            + (tutteAperte ? '' : '<div class="pc-tipi" id="pc-n-tipi"></div>')
+            + '<div id="pc-n-sezioni"></div>'
+            + '<div class="pc-barra"><label class="btn btn-sm btn-secondary pc-file-btn">Carica più PDF insieme<input type="file" id="pc-n-pdf" accept="application/pdf,.pdf" multiple hidden></label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="pc-n-anteprima">Vedi il testo della PEC</button></div>'
-            + '<div class="pc-incolla" id="pc-n-incolla-box" hidden><div class="campo"><label for="pc-n-testo">Incolla qui le righe copiate da Excel: denominazione e PEC (in due colonne, oppure separate da punto e virgola)</label>'
-            + '<textarea id="pc-n-testo" rows="5" spellcheck="false" placeholder="Banca di Prova S.p.A.&#9;banca@pec.it"></textarea></div>'
-            + '<div class="campo"><label for="pc-n-tipo-tutti">Tipo per le righe incollate</label><select id="pc-n-tipo-tutti"><option value="">Da scegliere riga per riga</option>' + st.categorie.map(c => '<option value="' + esc(c.id) + '">' + esc(c.nome) + '</option>').join('') + '</select></div>'
-            + '<button type="button" class="btn btn-sm btn-primary" id="pc-n-incolla-ok">Aggiungi le righe</button></div>'
             + '<p class="msg-errore" id="pc-n-err" hidden></p>'
             + '</div>'
-            + '<div class="modale-azioni"><button type="button" class="btn btn-ghost" id="pc-n-no">Chiudi</button><button type="button" class="btn btn-primary" id="pc-n-si">Invia le lettere</button></div>',
-            { classe: 'larga', finestra: true });
+            + '<div class="modale-azioni"><button type="button" class="btn btn-ghost" id="pc-n-no">Chiudi</button><button type="button" class="btn btn-secondary" id="pc-n-salva">Salva la bozza</button><button type="button" class="btn btn-primary" id="pc-n-si">Invia le lettere</button></div>',
+            { classe: 'larga', finestra: true, massimizzata: true });
         const $ = id => document.getElementById(id);
-        const corpo = $('pc-n-righe');
-        const tipi = sel => '<option value="">Scegli…</option>' + st.categorie.map(c => '<option value="' + esc(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + esc(c.nome) + '</option>').join('');
+        const sezioni = $('pc-n-sezioni');
+        const CAMPI_DATA = ['pc-n-bil', 'pc-n-scad', 'pc-n-s1d', 'pc-n-s1s', 'pc-n-s2d', 'pc-n-s2s'];
+
+        /* --- la bozza --- */
+        let timerBozza = null, ultimaBozza = 0;
+        const dettoBozza = t => { const el = $('pc-n-bozza'); if (el) el.innerHTML = t; };
+        const statoBozza = () => {
+            const n = righe.filter(r => r.stato !== 'fatto' && !vuota(r)).length;
+            dettoBozza(ultimaBozza && n
+                ? '<strong>Bozza salvata su questo computer</strong> alle ' + esc(fmtDataOra(ultimaBozza).slice(11)) + ' (' + n + (n === 1 ? ' destinatario' : ' destinatari') + '). Se cade la connessione o chiudi la pagina, la ritrovi riaprendo «Nuove lettere». <button type="button" class="pc-link" id="pc-n-svuota">Svuota</button>'
+                : 'Quello che scrivi si salva da solo su questo computer: se cade la connessione o chiudi la pagina, lo ritrovi riaprendo «Nuove lettere».');
+            const sv = $('pc-n-svuota');
+            if (sv) sv.addEventListener('click', () => {
+                if (!window.confirm('Svuotare la bozza? Le righe non ancora inviate vengono tolte.')) return;
+                righe.filter(r => r.stato !== 'fatto').forEach(r => pcIdbTogli(chiaveBozza + '|' + r.id));
+                for (let i = righe.length - 1; i >= 0; i--) if (righe[i].stato !== 'fatto') righe.splice(i, 1);
+                Object.keys(aperte).forEach(k => delete aperte[k]);
+                salvaBozza();
+                disegna();
+            });
+        };
+        const salvaBozza = () => {
+            clearTimeout(timerBozza);
+            if (!$('pc-n-sezioni')) return;
+            const vive = righe.filter(r => r.stato !== 'fatto' && !vuota(r));
+            try {
+                if (!vive.length) localStorage.removeItem(chiaveBozza);
+                else {
+                    const date = {}; CAMPI_DATA.forEach(id => { date[id] = $(id).value; });
+                    localStorage.setItem(chiaveBozza, JSON.stringify({
+                        quando: Date.now(), date: date, s1: $('pc-n-s1').checked, s2: $('pc-n-s2').checked, aperte: Object.keys(aperte),
+                        righe: vive.map(r => ({ id: r.id, categoria: r.categoria, nome: r.nome, pec: r.pec, saldo: r.saldo, nota: r.nota, forza: !!r.forza, file: r.file ? { nome: r.file.name, peso: r.file.size } : null }))
+                    }));
+                    ultimaBozza = Date.now();
+                }
+            } catch (e) { /* spazio esaurito o navigazione privata: si continua senza bozza */ }
+            if (!vive.length) ultimaBozza = 0;
+            statoBozza();
+        };
+        const tocca = () => { clearTimeout(timerBozza); timerBozza = setTimeout(salvaBozza, 700); };
+        const fileDi = (r, f) => { r.file = f; if (f) pcIdbMetti(chiaveBozza + '|' + r.id, f); else pcIdbTogli(chiaveBozza + '|' + r.id); };
+
+        /* --- le tabelle --- */
         const statoRiga = r => r.stato === 'fatto' ? pcBadge('verde', 'In coda') + '<span class="pc-nota">' + esc(r.codice || '') + '</span>'
             : r.stato === 'invio' ? '<span class="pc-nota">' + esc(r.msg || 'Carico…') + '</span>'
-                : r.stato === 'doppione' ? '<span class="pc-errore-riga">' + esc(r.msg) + '</span><label class="pc-spunta"><input type="checkbox" class="pc-r-forza"' + (r.forza ? ' checked' : '') + '> Inviala comunque</label>'
+                : r.stato === 'doppione' ? '<span class="pc-errore-riga">' + esc(r.msg) + '</span><label class="pc-spunta"><input type="checkbox" class="pc-r-forza"' + (r.forza ? ' checked' : '') + '> <span>Inviala comunque</span></label>'
                     : r.msg ? '<span class="pc-errore-riga">' + esc(r.msg) + '</span>' : '';
-        const disegnaRighe = () => {
-            corpo.innerHTML = righe.map((r, i) => {
-                const fermo = r.stato === 'fatto' || r.stato === 'invio';
-                return '<tr data-i="' + i + '"' + (r.stato === 'fatto' ? ' class="pc-fatta"' : '') + '>'
-                    + '<td data-label="Denominazione"><input type="text" class="pc-r-nome" value="' + esc(r.nome) + '" placeholder="Ragione sociale" maxlength="160"' + (fermo ? ' disabled' : '') + '></td>'
-                    + '<td data-label="PEC"><input type="email" class="pc-r-pec" value="' + esc(r.pec) + '" placeholder="indirizzo@pec.it" maxlength="200" spellcheck="false"' + (fermo ? ' disabled' : '') + '></td>'
-                    + '<td data-label="Tipo"><select class="pc-r-cat"' + (fermo ? ' disabled' : '') + '>' + tipi(r.categoria) + '</select></td>'
-                    + '<td data-label="Lettera in PDF">' + (r.file ? '<span class="pc-file">' + esc(r.file.name) + ' <span class="pc-muto">' + esc(pcPeso(r.file.size)) + '</span></span>' : '')
-                    + (fermo ? '' : '<label class="pc-link pc-file-btn">' + (r.file ? 'Cambia' : 'Scegli il PDF') + '<input type="file" class="pc-r-file" accept="application/pdf,.pdf" hidden></label>')
-                    + '<div class="pc-r-stato">' + statoRiga(r) + '</div></td>'
-                    + '<td data-label="">' + (fermo ? '' : '<button type="button" class="pc-link pc-r-via" title="Togli la riga" aria-label="Togli la riga">Togli</button>') + '</td></tr>';
-            }).join('');
-            const daInviare = righe.filter(r => r.stato !== 'fatto').length, invia = $('pc-n-si');
+        const rigaHtml = (r, cat) => {
+            const fermo = r.stato === 'fatto' || r.stato === 'invio';
+            return '<tr data-id="' + esc(r.id) + '"' + (r.stato === 'fatto' ? ' class="pc-fatta"' : '') + '>'
+                + '<td data-label="Denominazione"><input type="text" class="pc-r-nome" value="' + esc(r.nome) + '" placeholder="Ragione sociale" maxlength="160"' + (fermo ? ' disabled' : '') + '></td>'
+                + '<td data-label="PEC"><input type="email" class="pc-r-pec" value="' + esc(r.pec) + '" placeholder="indirizzo@pec.it" maxlength="200" spellcheck="false"' + (fermo ? ' disabled' : '') + '></td>'
+                + (cat.saldo ? '<td data-label="Saldo"><input type="text" class="pc-r-saldo" value="' + esc(r.saldo) + '" placeholder="0,00" inputmode="decimal" maxlength="20"' + (fermo ? ' disabled' : '') + '></td>' : '')
+                + '<td data-label="Note"><input type="text" class="pc-r-nota" value="' + esc(r.nota) + '" placeholder="Facoltativa" maxlength="200"' + (fermo ? ' disabled' : '') + '></td>'
+                + '<td data-label="Lettera in PDF">' + (r.file ? '<span class="pc-file">' + esc(r.file.name) + ' <span class="pc-muto">' + esc(pcPeso(r.file.size)) + '</span></span>' : (r.fileAtteso ? '<span class="pc-errore-riga">Da riallegare: ' + esc(r.fileAtteso) + '</span>' : ''))
+                + (fermo ? '' : '<label class="pc-link pc-file-btn">' + (r.file ? 'Cambia' : 'Scegli il PDF') + '<input type="file" class="pc-r-file" accept="application/pdf,.pdf" hidden></label>')
+                + '<div class="pc-r-stato">' + statoRiga(r) + '</div></td>'
+                + '<td data-label="">' + (fermo ? '' : '<button type="button" class="pc-link pc-r-via" title="Togli la riga">Togli</button>') + '</td></tr>';
+        };
+        const disegna = () => {
+            const mostrate = categorie.filter(cat => tutteAperte || aperte[cat.id] || righe.some(r => r.categoria === cat.id));
+            const tipi = $('pc-n-tipi');
+            if (tipi) {
+                const altre = categorie.filter(cat => mostrate.indexOf(cat) < 0);
+                tipi.innerHTML = altre.length ? '<span class="pc-tipi-et">' + (mostrate.length ? 'Aggiungi un\'altra tipologia' : 'Scegli la tipologia di lettera') + '</span>'
+                    + altre.map(cat => '<button type="button" class="btn btn-sm btn-secondary" data-cat="' + esc(cat.id) + '">' + esc(cat.nome) + '</button>').join('') : '';
+            }
+            sezioni.innerHTML = mostrate.map(cat => {
+                const sue = righe.filter(r => r.categoria === cat.id);
+                return '<section class="pc-n-sez" data-cat="' + esc(cat.id) + '"><h4 class="pc-tipo-tit">' + esc(cat.nome) + '<span>' + sue.filter(r => !vuota(r)).length + (sue.filter(r => !vuota(r)).length === 1 ? ' destinatario' : ' destinatari') + '</span></h4>'
+                    + '<div class="tabella-wrap"><table class="dati pc-righe"><thead><tr><th>Denominazione</th><th>PEC</th>' + (cat.saldo ? '<th>Saldo al ' + esc(fmtData($('pc-n-bil').value || '')) + '</th>' : '') + '<th>Note</th><th>Lettera in PDF</th><th></th></tr></thead>'
+                    + '<tbody>' + sue.map(r => rigaHtml(r, cat)).join('') + '</tbody></table></div>'
+                    + '<div class="pc-barra"><button type="button" class="btn btn-sm btn-secondary pc-n-piu">Aggiungi una riga</button><button type="button" class="btn btn-sm btn-secondary pc-n-incolla">Incolla da Excel</button></div>'
+                    + '<div class="pc-incolla" hidden><div class="campo"><label>Incolla qui le righe copiate da Excel: denominazione e PEC' + (cat.saldo ? ', poi il saldo' : '') + ' (in colonne, oppure separate da punto e virgola)</label>'
+                    + '<textarea rows="4" spellcheck="false" placeholder="' + esc(cat.uno) + ' di Prova S.r.l.&#9;indirizzo@pec.it' + (cat.saldo ? '&#9;1.250,00' : '') + '"></textarea></div>'
+                    + '<button type="button" class="btn btn-sm btn-primary pc-n-incolla-ok">Aggiungi le righe</button></div></section>';
+            }).join('') || (tutteAperte ? '' : '<p class="descrizione pc-n-vuoto">Scegli qui sopra la tipologia: si apre la sua tabella, e puoi aggiungerne altre.</p>');
+            const daInviare = righe.filter(r => r.stato !== 'fatto' && !vuota(r)).length, invia = $('pc-n-si');
             if (invia.dataset.attesa !== '1') {       // durante l'invio il pulsante mostra l'attesa
-                invia.textContent = daInviare === 1 ? 'Invia la lettera' : 'Invia ' + daInviare + ' lettere';
+                invia.textContent = daInviare === 1 ? 'Invia la lettera' : (daInviare ? 'Invia ' + daInviare + ' lettere' : 'Invia le lettere');
                 invia.disabled = !daInviare;
             }
+            statoBozza();
         };
-        corpo.addEventListener('input', ev => {
-            const tr = ev.target.closest('tr'); if (!tr) return;
-            const r = righe[Number(tr.dataset.i)];
-            if (ev.target.classList.contains('pc-r-nome')) r.nome = ev.target.value;
-            if (ev.target.classList.contains('pc-r-pec')) r.pec = ev.target.value.trim();
+        const rigaDi = el => righe.find(r => r.id === el.closest('tr').dataset.id);
+        const tipi = $('pc-n-tipi');
+        if (tipi) tipi.addEventListener('click', ev => {
+            const b = ev.target.closest('[data-cat]'); if (!b) return;
+            aperte[b.dataset.cat] = 1;
+            righe.push(nuovaRiga(b.dataset.cat));
+            disegna();
+            const primo = sezioni.querySelector('.pc-n-sez[data-cat="' + b.dataset.cat + '"] .pc-r-nome');
+            if (primo) primo.focus();
         });
-        corpo.addEventListener('change', ev => {
-            const tr = ev.target.closest('tr'); if (!tr) return;
-            const r = righe[Number(tr.dataset.i)];
-            if (ev.target.classList.contains('pc-r-cat')) r.categoria = ev.target.value;
-            if (ev.target.classList.contains('pc-r-forza')) r.forza = ev.target.checked;
-            if (ev.target.classList.contains('pc-r-file') && ev.target.files[0]) { r.file = ev.target.files[0]; r.msg = ''; if (r.stato !== 'doppione') r.stato = ''; disegnaRighe(); }
+        sezioni.addEventListener('input', ev => {
+            if (!ev.target.closest('tr[data-id]')) return;
+            const r = rigaDi(ev.target), c = ev.target.classList;
+            if (c.contains('pc-r-nome')) r.nome = ev.target.value;
+            if (c.contains('pc-r-pec')) r.pec = ev.target.value.trim();
+            if (c.contains('pc-r-saldo')) r.saldo = ev.target.value;
+            if (c.contains('pc-r-nota')) r.nota = ev.target.value;
+            tocca();
         });
-        corpo.addEventListener('click', ev => {
-            if (!ev.target.classList.contains('pc-r-via')) return;
-            righe.splice(Number(ev.target.closest('tr').dataset.i), 1);
-            if (!righe.length) righe.push({ nome: '', pec: '', categoria: '', file: null, stato: '', msg: '' });
-            disegnaRighe();
+        sezioni.addEventListener('change', ev => {
+            if (!ev.target.closest('tr[data-id]')) return;
+            const r = rigaDi(ev.target);
+            if (ev.target.classList.contains('pc-r-forza')) { r.forza = ev.target.checked; tocca(); }
+            if (ev.target.classList.contains('pc-r-file') && ev.target.files[0]) { fileDi(r, ev.target.files[0]); r.fileAtteso = ''; r.msg = ''; if (r.stato !== 'doppione') r.stato = ''; disegna(); tocca(); }
         });
-        const vuota = r => !r.nome.trim() && !r.pec && !r.file;
-        $('pc-n-piu').addEventListener('click', () => { righe.push({ nome: '', pec: '', categoria: righe.length ? righe[righe.length - 1].categoria : '', file: null, stato: '', msg: '' }); disegnaRighe(); corpo.querySelector('tr:last-child .pc-r-nome').focus(); });
-        $('pc-n-incolla').addEventListener('click', () => { $('pc-n-incolla-box').hidden = !$('pc-n-incolla-box').hidden; if (!$('pc-n-incolla-box').hidden) $('pc-n-testo').focus(); });
-        $('pc-n-incolla-ok').addEventListener('click', () => {
-            const cat = $('pc-n-tipo-tutti').value;
-            let aggiunte = 0;
-            $('pc-n-testo').value.split(/\r?\n/).forEach(linea => {
-                const celle = linea.split(/\t|;/).map(x => x.trim()).filter(Boolean);
-                if (!celle.length) return;
-                const pec = celle.find(x => reEmail.test(x)) || '';
-                const nome = celle.find(x => x !== pec) || '';
-                if (!nome && !pec) return;
-                const libera = righe.findIndex(vuota);
-                const nuova = { nome: nome, pec: pec.toLowerCase(), categoria: cat, file: null, stato: '', msg: '' };
-                if (libera >= 0) righe[libera] = nuova; else righe.push(nuova);
-                aggiunte++;
-            });
-            if (!aggiunte) { toast('Non ho trovato righe da aggiungere.', 'ambra'); return; }
-            $('pc-n-testo').value = ''; $('pc-n-incolla-box').hidden = true;
-            disegnaRighe();
-            toast(aggiunte + (aggiunte === 1 ? ' riga aggiunta' : ' righe aggiunte') + ': ora allega i PDF.', 'verde');
+        sezioni.addEventListener('click', ev => {
+            const sez = ev.target.closest('.pc-n-sez'); if (!sez) return;
+            const cat = categorie.find(x => x.id === sez.dataset.cat);
+            if (ev.target.classList.contains('pc-r-via')) {
+                const r = rigaDi(ev.target);
+                pcIdbTogli(chiaveBozza + '|' + r.id);
+                righe.splice(righe.indexOf(r), 1);
+                if (!righe.some(x => x.categoria === cat.id) && tutteAperte) righe.push(nuovaRiga(cat.id));
+                if (!righe.some(x => x.categoria === cat.id)) delete aperte[cat.id];
+                disegna(); tocca();
+            } else if (ev.target.classList.contains('pc-n-piu')) {
+                righe.push(nuovaRiga(cat.id));
+                disegna();
+                const campi = sez.ownerDocument.querySelectorAll('.pc-n-sez[data-cat="' + cat.id + '"] .pc-r-nome');
+                if (campi.length) campi[campi.length - 1].focus();
+            } else if (ev.target.classList.contains('pc-n-incolla')) {
+                const box = sez.querySelector('.pc-incolla');
+                box.hidden = !box.hidden;
+                if (!box.hidden) box.querySelector('textarea').focus();
+            } else if (ev.target.classList.contains('pc-n-incolla-ok')) {
+                let aggiunte = 0;
+                sez.querySelector('textarea').value.split(/\r?\n/).forEach(linea => {
+                    const celle = linea.split(/\t|;/).map(x => x.trim()).filter(Boolean);
+                    if (!celle.length) return;
+                    const pec = celle.find(x => reEmail.test(x)) || '';
+                    const resto = celle.filter(x => x !== pec);
+                    const nome = resto.shift() || '';
+                    if (!nome && !pec) return;
+                    const saldo = cat.saldo ? (resto.find(x => reSaldo.test(x)) || '') : '';
+                    const nuova = nuovaRiga(cat.id, { nome: nome, pec: pec.toLowerCase(), saldo: saldo, nota: resto.filter(x => x !== saldo).join(' ').slice(0, 200) });
+                    const libera = righe.findIndex(r => r.categoria === cat.id && vuota(r));
+                    if (libera >= 0) righe[libera] = nuova; else righe.push(nuova);
+                    aggiunte++;
+                });
+                if (!aggiunte) { toast('Non ho trovato righe da aggiungere.', 'ambra'); return; }
+                disegna(); tocca();
+                toast(aggiunte + (aggiunte === 1 ? ' riga aggiunta' : ' righe aggiunte') + ' in «' + cat.nome + '»: ora allega i PDF.', 'verde');
+            }
         });
         /* Piu' PDF insieme: ognuno va alla riga il cui nome compare nel nome del
-           file; quelli che non si riconoscono riempiono le righe ancora senza
-           lettera, nell'ordine, e se le righe non bastano se ne aggiungono. */
+           file; gli altri riempiono, nell'ordine, le righe ancora senza lettera. */
         $('pc-n-pdf').addEventListener('change', ev => {
             const file = Array.from(ev.target.files || []);
             ev.target.value = '';
             const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+            const libere = () => righe.filter(r => !r.file && r.stato !== 'fatto' && !vuota(r));
             const resto = [];
             file.forEach(f => {
                 const n = ' ' + norm(f.name.replace(/\.pdf$/i, '')) + ' ';
                 let migliore = null, punti = 0;
-                righe.forEach(r => {
-                    if (r.file || r.stato === 'fatto' || !r.nome.trim()) return;
+                libere().forEach(r => {
                     const p = norm(r.nome).split(' ').filter(w => w.length >= 3 && !/^(srl|spa|sas|snc|societa|studio|banca|dott)$/.test(w) && n.includes(' ' + w + ' ')).length;
                     if (p > punti) { punti = p; migliore = r; }
                 });
-                if (migliore) migliore.file = f; else resto.push(f);
+                if (migliore) { fileDi(migliore, f); migliore.fileAtteso = ''; } else resto.push(f);
             });
-            resto.forEach(f => {
-                const libera = righe.find(r => !r.file && r.stato !== 'fatto');
-                if (libera) libera.file = f;
-                else righe.push({ nome: f.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim(), pec: '', categoria: '', file: f, stato: '', msg: '' });
-            });
-            disegnaRighe();
-            if (file.length) toast(file.length + ' PDF assegnati: controlla che ogni riga abbia la sua lettera.', 'verde');
+            let fuori = 0;
+            resto.forEach(f => { const r = libere()[0]; if (r) { fileDi(r, f); r.fileAtteso = ''; } else fuori++; });
+            disegna(); tocca();
+            if (file.length) toast(fuori ? (file.length - fuori) + ' PDF assegnati, ' + fuori + ' senza una riga: aggiungi prima i destinatari.' : file.length + ' PDF assegnati: controlla che ogni riga abbia la sua lettera.', fuori ? 'ambra' : 'verde');
         });
         const date = () => ({
             bilancio: $('pc-n-bil').value, scadenza: $('pc-n-scad').value,
@@ -38579,19 +38841,20 @@
             $('pc-n-s2').disabled = !s1;
             ['pc-n-s2d', 'pc-n-s2s'].forEach(id => { $(id).disabled = !s1 || !$('pc-n-s2').checked; });
         };
-        $('pc-n-s1').addEventListener('change', accendi);
-        $('pc-n-s2').addEventListener('change', accendi);
+        $('pc-n-s1').addEventListener('change', () => { accendi(); tocca(); });
+        $('pc-n-s2').addEventListener('change', () => { accendi(); tocca(); });
         // cambiando il termine, le date dei solleciti lo seguono (finche' non le si tocca a mano)
         let toccate = false;
-        ['pc-n-s1d', 'pc-n-s1s', 'pc-n-s2d', 'pc-n-s2s'].forEach(id => $(id).addEventListener('change', () => { toccate = true; }));
+        ['pc-n-s1d', 'pc-n-s1s', 'pc-n-s2d', 'pc-n-s2s'].forEach(id => $(id).addEventListener('change', () => { toccate = true; tocca(); }));
+        $('pc-n-bil').addEventListener('change', () => { disegna(); tocca(); });
         $('pc-n-scad').addEventListener('change', () => {
             const s = $('pc-n-scad').value;
-            if (toccate || !s) return;
-            $('pc-n-s1d').value = pcPiuGiorni(s, 1); $('pc-n-s1s').value = pcPiuGiorni(s, 8); $('pc-n-s2d').value = pcPiuGiorni(s, 9); $('pc-n-s2s').value = pcPiuGiorni(s, 14);
+            if (!toccate && s) { $('pc-n-s1d').value = pcPiuGiorni(s, 1); $('pc-n-s1s').value = pcPiuGiorni(s, 8); $('pc-n-s2d').value = pcPiuGiorni(s, 9); $('pc-n-s2s').value = pcPiuGiorni(s, 14); }
+            tocca();
         });
         $('pc-n-anteprima').addEventListener('click', () => {
             const r = righe.find(x => x.nome.trim()) || {};
-            pcAnteprima(Object.assign({ incaricoId: inc.id, destinatario: r.nome || '', categoria: r.categoria || 'altro' }, date()));
+            pcAnteprima(Object.assign({ incaricoId: inc.id, destinatario: r.nome || '', categoria: r.categoria || categorie[0].id }, date()));
         });
         const errore = t => { $('pc-n-err').textContent = t || ''; $('pc-n-err').hidden = !t; };
         const controlla = () => {
@@ -38609,11 +38872,11 @@
             let sbagliate = 0;
             const viste = {};
             righe.forEach(r => {
-                if (r.stato === 'fatto') return;
+                if (r.stato === 'fatto' || vuota(r)) return;
                 let m = '';
                 if (r.nome.trim().length < 2) m = 'Manca la denominazione.';
                 else if (!reEmail.test(r.pec)) m = 'L\'indirizzo PEC non è valido.';
-                else if (!r.categoria) m = 'Scegli il tipo di destinatario.';
+                else if (String(r.saldo).trim() && !reSaldo.test(String(r.saldo).trim())) m = 'Il saldo non è un numero (per esempio 1.250,00).';
                 else if (!r.file) m = 'Allega la lettera in PDF.';
                 else if (!/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf') m = 'La lettera deve essere un PDF.';
                 else if (r.file.size > lim.pdfMaxByte) m = 'Il PDF supera ' + pcPeso(lim.pdfMaxByte) + ': riducilo (scansione in bianco e nero a 150 dpi).';
@@ -38623,35 +38886,42 @@
             });
             return sbagliate ? (sbagliate === 1 ? 'Una riga è da completare.' : sbagliate + ' righe sono da completare.') : '';
         };
-        $('pc-n-no').addEventListener('click', () => { chiudiModale(); fatto(); });
+        $('pc-n-no').addEventListener('click', () => { salvaBozza(); chiudiModale(); fatto(); });
+        $('pc-n-salva').addEventListener('click', () => {
+            salvaBozza();
+            toast(ultimaBozza ? 'Bozza salvata su questo computer: la ritrovi riaprendo «Nuove lettere».' : 'Non c\'è ancora niente da salvare.', ultimaBozza ? 'verde' : 'ambra');
+        });
         $('pc-n-si').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
             const problema = controlla();
             errore(problema);
-            disegnaRighe();
+            disegna();
             if (problema) return;
             const d = date();
             let partite = 0;
             for (const r of righe) {
-                if (r.stato === 'fatto') continue;
-                r.stato = 'invio'; r.msg = 'Preparo la lettera…'; disegnaRighe();
-                const c = await pcChiama('crea', Object.assign({ incaricoId: inc.id, destinatario: r.nome.trim(), pec: r.pec, categoria: r.categoria, allegatoNome: r.file.name, allegatoDimensione: r.file.size, forza: !!r.forza }, d));
-                if (!c.ok) { r.stato = c.doppione ? 'doppione' : ''; r.msg = c.msg || 'Lettera non preparata.'; disegnaRighe(); continue; }
+                if (r.stato === 'fatto' || vuota(r)) continue;
+                r.stato = 'invio'; r.msg = 'Preparo la lettera…'; disegna();
+                const c = await pcChiama('crea', Object.assign({ incaricoId: inc.id, destinatario: r.nome.trim(), pec: r.pec, categoria: r.categoria, saldo: String(r.saldo).trim(), nota: r.nota.trim(), allegatoNome: r.file.name, allegatoDimensione: r.file.size, forza: !!r.forza }, d));
+                if (!c.ok) { r.stato = c.doppione ? 'doppione' : ''; r.msg = c.msg || 'Lettera non preparata.'; disegna(); continue; }
                 const bytes = new Uint8Array(await r.file.arrayBuffer());
                 let esito = c;
                 for (let n = 0; n < c.pezzi && esito.ok; n++) {
-                    r.msg = 'Carico il PDF… ' + Math.round((n + 1) / c.pezzi * 100) + '%'; disegnaRighe();
+                    r.msg = 'Carico il PDF… ' + Math.round((n + 1) / c.pezzi * 100) + '%'; disegna();
                     esito = await pcChiama('allegato', { id: c.id, n: n, dati: Modelli._b64DaBytes(bytes.subarray(n * c.pezzoByte, (n + 1) * c.pezzoByte)) });
                 }
-                if (!esito.ok) { r.stato = ''; r.msg = esito.msg || 'PDF non caricato: riprova.'; disegnaRighe(); continue; }
+                if (!esito.ok) { r.stato = ''; r.msg = esito.msg || 'PDF non caricato: riprova.'; disegna(); continue; }
                 r.stato = 'fatto'; r.codice = c.codice; r.msg = ''; partite++;
-                disegnaRighe();
+                pcIdbTogli(chiaveBozza + '|' + r.id);
+                salvaBozza();                           // la lettera partita esce dalla bozza subito
+                disegna();
             }
             if (partite) {
                 // parte subito quello che e' in coda; il resto lo prende il giro ogni cinque minuti
                 pcChiama('avvia').then(a => { if (a.ok && a.inviato === false && a.msg) toast(a.msg, 'ambra'); fatto(); });
             }
-            const rimaste = righe.filter(r => r.stato !== 'fatto').length;
+            const rimaste = righe.filter(r => r.stato !== 'fatto' && !vuota(r)).length;
             if (!rimaste) {
+                salvaBozza();
                 chiudiModale();
                 toast(partite === 1 ? 'Lettera in coda: parte fra pochi istanti.' : partite + ' lettere in coda: partono fra pochi istanti.', 'verde');
                 PC.quando = 0;
@@ -38659,10 +38929,32 @@
             } else {
                 errore(rimaste === 1 ? 'Una lettera non è partita: correggi la riga e premi di nuovo Invia.' : rimaste + ' lettere non sono partite: correggi le righe e premi di nuovo Invia.');
             }
-        }, { testo: 'Invio…' }).then(() => { if ($('pc-n-si')) disegnaRighe(); }));
+        }, { testo: 'Invio…' }).then(() => { if ($('pc-n-si')) disegna(); }));
+
+        /* --- si riparte dalla bozza, se c'e' --- */
+        let bozza = null;
+        try { bozza = JSON.parse(localStorage.getItem(chiaveBozza) || 'null'); } catch (e) { bozza = null; }
+        if (bozza && Array.isArray(bozza.righe) && bozza.righe.length) {
+            CAMPI_DATA.forEach(id => { if (bozza.date && bozza.date[id]) $(id).value = bozza.date[id]; });
+            $('pc-n-s1').checked = bozza.s1 !== false; $('pc-n-s2').checked = bozza.s2 !== false;
+            toccate = true;
+            (bozza.aperte || []).forEach(k => { if (categorie.some(x => x.id === k)) aperte[k] = 1; });
+            bozza.righe.forEach(b => {
+                if (!categorie.some(x => x.id === b.categoria)) return;
+                righe.push(nuovaRiga(b.categoria, { id: String(b.id), nome: String(b.nome || ''), pec: String(b.pec || ''), saldo: String(b.saldo || ''), nota: String(b.nota || ''), forza: !!b.forza, fileAtteso: b.file ? String(b.file.nome || '') : '' }));
+            });
+            ultimaBozza = Number(bozza.quando) || 0;
+            // i PDF arrivano da IndexedDB un attimo dopo: la riga dice "da riallegare" solo se non c'e' piu'
+            Promise.all(righe.filter(r => r.fileAtteso).map(r => pcIdbPrendi(chiaveBozza + '|' + r.id).then(f => {
+                if (f && typeof f.size === 'number') { r.file = f instanceof File ? f : new File([f], r.fileAtteso, { type: 'application/pdf' }); r.fileAtteso = ''; }
+            }))).then(() => { if ($('pc-n-sezioni')) disegna(); });
+            toast('Ripresa la bozza salvata il ' + fmtDataOra(ultimaBozza) + '.', 'verde');
+        }
+        if (tutteAperte) categorie.forEach(cat => { if (!righe.some(r => r.categoria === cat.id)) righe.push(nuovaRiga(cat.id)); });
         accendi();
-        disegnaRighe();
-        corpo.querySelector('.pc-r-nome').focus();
+        disegna();
+        const primoCampo = sezioni.querySelector('.pc-r-nome') || (tipi && tipi.querySelector('button'));
+        if (primoCampo) primoCampo.focus();
     }
 
     /* ---------- una lettera: recapito, solleciti, risposte, file da salvare ---------- */
@@ -38690,7 +38982,8 @@
         const errore = s.stato === 'errore';
         const sollecitiVivi = ['sollecito1', 'sollecito2'].some(n => s.passi[n].stato === 'programmato');
         const fatti = [['Destinatario', s.destinatario], ['PEC', s.pec], ['Tipo', pcCategoria(s.categoria)], ['Riferimento', s.codice], ['Bilancio al', fmtData(s.bilancio)], ['Rispondere entro', fmtData(s.scadenza)],
-            ['Lettera', s.allegato ? s.allegato.nome + ' (' + pcPeso(s.allegato.dimensione) + ')' + (s.allegato.tolto ? ' · non più sul portale' : '') : '—'], ['Preparata da', ((s.creato || {}).nome || '') + ' il ' + fmtDataOra((s.creato || {}).il || 0)]];
+            ['Lettera', s.allegato ? s.allegato.nome + ' (' + pcPeso(s.allegato.dimensione) + ')' + (s.allegato.tolto ? ' · non più sul portale' : '') : '—'],
+            ['Saldo', s.saldo == null ? '—' : pcEuro(s.saldo)], ['Note', s.nota || '—'], ['Preparata da', ((s.creato || {}).nome || '') + ' il ' + fmtDataOra((s.creato || {}).il || 0)]];
         apriModale('<h2>' + esc(s.destinatario) + ' · ' + esc(s.codice) + '</h2>'
             + '<div class="pc-lettera">'
             + (errore ? '<div class="pc-avviso pc-problema" role="alert"><strong>La PEC non è arrivata.</strong> ' + esc(primo.errore || (primo.problema || {}).motivo || '') + ' Controlla l\'indirizzo (INI-PEC) e reinvia: i solleciti restano fermi finché la lettera non è consegnata.</div>' : '')
