@@ -60,7 +60,7 @@ function collRef(percorso, filtri, ordine, tetto) {
     return {
         doc: id => docRef(percorso + '/' + (id || ('auto' + (++contatoreId)))),
         where: (campo, op, valore) => collRef(percorso, filtri.concat([[campo, op, valore]]), ordine, tetto),
-        orderBy: campo => collRef(percorso, filtri, campo, tetto),
+        orderBy: (campo, verso) => collRef(percorso, filtri, [campo, verso === 'desc' ? -1 : 1], tetto),
         limit: n => collRef(percorso, filtri, ordine, n),
         get: async () => {
             let ds = figli().map(k => ({ k: k, v: dati.get(k) })).filter(x => filtri.every(([c, op, val]) => {
@@ -69,7 +69,7 @@ function collRef(percorso, filtri, ordine, tetto) {
                 if (op === '<=') return typeof a === 'number' && a <= val;
                 throw new Error('operatore non previsto: ' + op);
             }));
-            if (ordine) ds.sort((a, b) => a.v[ordine] - b.v[ordine]);
+            if (ordine) ds.sort((a, b) => (a.v[ordine[0]] - b.v[ordine[0]]) * ordine[1]);
             if (tetto) ds = ds.slice(0, tetto);
             const docs = ds.map(x => ({ id: x.k.split('/').pop(), data: () => clona(x.v), ref: docRef(x.k) }));
             return { docs: docs, size: docs.length, forEach: f => docs.forEach(f) };

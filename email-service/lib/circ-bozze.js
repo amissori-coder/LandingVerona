@@ -124,7 +124,7 @@ async function salva(db, prof, inc, ambito, bozza, base) {
         Object.keys(vecchi).forEach(k => { if (vive[k]) pdf[k] = vecchi[k]; else daTogliere.push([k, (vecchi[k] || {}).pezzi]); });
         if (!b.righe.length) {
             if (s.exists) tx.delete(ref);
-            return { ok: true, versione: 0, quando: 0 };
+            return { ok: true, versione: 0, quando: 0, svuotate: v ? (v.righe || []).length : 0 };      // quante righe c'erano: va nel registro
         }
         tx.set(ref, Object.assign(v || nuova(prof, inc, ambito, ora), b, { pdf: pdf, versione: cur + 1, quando: ora, nome: prof.nome || '', cliente: String(inc.cliente || '') }));
         return { ok: true, versione: cur + 1, quando: ora };
@@ -261,8 +261,9 @@ async function togliTutta(ref, d) {
 async function togli(db, prof, incaricoId, ambito) {
     const ref = rifBozza(db, prof, incaricoId, ambito);
     const s = await ref.get();
-    if (s.exists) await togliTutta(ref, s.data());
-    return { ok: true, versione: 0 };
+    const d = s.exists ? (s.data() || {}) : null;
+    if (d) await togliTutta(ref, d);
+    return { ok: true, versione: 0, svuotate: d ? (d.righe || []).length : 0 };      // quante righe c'erano: va nel registro
 }
 /* Con i dati di un incarico se ne vanno anche le bozze di chi ci stava lavorando. */
 async function dimenticaIncarico(db, incaricoId) {

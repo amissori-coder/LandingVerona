@@ -828,8 +828,8 @@ async function cancellaIncarico(db, incaricoId) {
     }
     try { await db.collection(INC).doc(String(incaricoId)).delete(); } catch (_) { /* si rifa' da solo */ }
     await ERRORI.dimenticaIncarico(db, incaricoId);
-    await BOZZE.dimenticaIncarico(db, incaricoId);          // e le bozze non inviate di chi ci stava lavorando
-    return { ok: true, tolte: tolte };
+    const bozze = await BOZZE.dimenticaIncarico(db, incaricoId);        // e le bozze non inviate di chi ci stava lavorando
+    return { ok: true, tolte: tolte, bozze: bozze };
 }
 /* Pulizie del giro: bozze rimaste a meta' (il caricamento del PDF si e'
    interrotto) e PDF delle lettere preparate da piu' di un anno

@@ -37830,8 +37830,9 @@
        pagina di un incarico, con tre tabelle - invii, solleciti,
        risposte.
        ========================================================= */
-    const PC = { stato: null, quando: 0, ambito: 'obbligatorie', scheda: 'incarichi', tab: 'invii', filtri: { q: '', stato: '' }, elenco: null, timer: null, senzaLettere: false };
+    const PC = { stato: null, quando: 0, ambito: 'obbligatorie', scheda: 'incarichi', tab: 'invii', filtri: { q: '', stato: '' }, elenco: null, timer: null, senzaLettere: false, ruolo: '', cercaInc: '', registro: null };
     const PC_RUOLI = { responsabile: 'Responsabile dell\'incarico', qualita: 'Responsabile della qualità', team: 'Team' };
+    const PC_ORDINE_RUOLI = ['responsabile', 'qualita', 'team'];       // dal ruolo piu' alto: e' l'ordine dei gruppi nell'elenco
     const PC_PASSI = { primo: 'Invio', sollecito1: 'Primo sollecito', sollecito2: 'Secondo sollecito' };
     const PC_RICEVUTE = {
         accettazione: 'Ricevuta di accettazione', 'avvenuta-consegna': 'Ricevuta di consegna', 'errore-consegna': 'Avviso di mancata consegna',
@@ -38085,7 +38086,7 @@
             const conLettere = tutti.filter(i => i.conteggi && (i.conteggi.totale || i.conteggi.annullate));
             const somma = pcSomma(conLettere.map(i => i.conteggi));
             const schede = p.vedeTutto ? '<div class="tab-dest pc-schede" role="tablist">'
-                + [['incarichi', 'Incarichi'], ['nonAssociate', 'Risposte non associate' + (st.nonAssociate ? ' (' + st.nonAssociate + ')' : '')], ['errori', 'Errori' + (st.errori ? ' (' + st.errori + ')' : '')]].concat(p.admin ? [['impostazioni', 'Impostazioni']] : [])
+                + [['incarichi', 'Incarichi'], ['nonAssociate', 'Risposte non associate' + (st.nonAssociate ? ' (' + st.nonAssociate + ')' : '')], ['errori', 'Errori' + (st.errori ? ' (' + st.errori + ')' : '')], ['registro', 'Registro']].concat(p.admin ? [['impostazioni', 'Impostazioni']] : [])
                     .map(([id, et]) => '<button type="button" class="tab-btn' + (PC.scheda === id ? ' attivo' : '') + '" role="tab" data-scheda="' + id + '">' + esc(et) + '</button>').join('')
                 + '</div>' : '';
             const daVedere = p.vedeTutto && st.errori && PC.scheda !== 'errori'
@@ -38098,18 +38099,32 @@
             const dentro = document.getElementById('pc-scheda');
             if (p.vedeTutto && PC.scheda === 'nonAssociate') { pcSchedaNonAssociate(dentro, tutti); return; }
             if (p.vedeTutto && PC.scheda === 'errori') { pcSchedaErrori(dentro, () => disegna(PC.stato)); return; }
+            if (p.vedeTutto && PC.scheda === 'registro') { pcSchedaRegistro(dentro, st); return; }
             if (p.admin && PC.scheda === 'impostazioni') { pcSchedaImpostazioni(dentro, st); return; }
             PC.scheda = 'incarichi';
+            /* L'elenco e' diviso per il ruolo che chi guarda ha sull'incarico:
+               responsabile dell'incarico, responsabile della qualita', team. Chi ha
+               piu' ruoli sullo stesso incarico lo trova una volta sola, sotto il
+               piu' alto, con tutti i suoi ruoli scritti nella riga. Chi vede tutto
+               ha in fondo anche gli incarichi su cui non ha un ruolo. */
+            const haRuolo = (i, r) => r === 'altro' ? !(i.ruoli || []).length : (i.ruoli || []).indexOf(r) >= 0;
+            const gruppoDi = i => PC_ORDINE_RUOLI.find(r => haRuolo(i, r)) || 'altro';
             // chi vede tutto ha centinaia di incarichi: di norma solo quelli con lettere
-            const mostra = (p.vedeTutto && !PC.senzaLettere ? conLettere : tutti).slice()
-                .sort((a, b) => ((b.conteggi ? 1 : 0) - (a.conteggi ? 1 : 0)) || String(a.cliente).localeCompare(String(b.cliente), 'it'));
+            const base = p.vedeTutto && !PC.senzaLettere ? conLettere : tutti;
+            const gruppi = PC_ORDINE_RUOLI.concat(['altro']).filter(r => base.some(i => haRuolo(i, r)));
+            if (PC.ruolo && gruppi.indexOf(PC.ruolo) < 0) PC.ruolo = '';
+            const cerca = String(PC.cercaInc || '').trim().toLowerCase();
+            const mostra = base.filter(i => (!PC.ruolo || haRuolo(i, PC.ruolo)) && (!cerca || (i.cliente + ' ' + (i.responsabile || '') + ' ' + (i.qualita || '') + ' ' + (i.team || '')).toLowerCase().includes(cerca)))
+                .sort((x, y) => ((y.conteggi ? 1 : 0) - (x.conteggi ? 1 : 0)) || String(x.cliente).localeCompare(String(y.cliente), 'it'));
+            const nomeGruppo = r => r === 'altro' ? 'Altri incarichi' : (r === 'team' ? 'Team di revisione' : PC_RUOLI[r]);
             const n = v => v ? String(v) : '<span class="pc-muto">0</span>';
-            const righe = mostra.map(i => {
+            const incarichi = k => k + (k === 1 ? ' incarico' : ' incarichi');
+            const rigaDi = i => {
                 const c = i.conteggi || pcSomma([]);
                 const prog = c.sollecito1.programmati + c.sollecito2.programmati;
                 return '<tr class="cliccabile" data-inc="' + esc(i.id) + '">'
                     + '<td data-label="Società"><strong>' + esc(i.cliente) + '</strong>' + (i.responsabile ? '<span class="pc-nota">Resp. ' + esc(i.responsabile) + (i.qualita ? ' · Qualità ' + esc(i.qualita) : '') + '</span>' : '') + '</td>'
-                    + '<td data-label="Il tuo ruolo">' + (i.ruoli.length ? esc(i.ruoli.map(r => PC_RUOLI[r] || r).join(', ')) : '<span class="pc-muto">' + (p.admin ? 'Amministratore' : 'Supervisore') + '</span>') + '</td>'
+                    + '<td data-label="Il tuo ruolo">' + ((i.ruoli || []).length ? i.ruoli.map(r => '<span class="pc-ruolo ' + esc(r) + '">' + esc(PC_RUOLI[r] || r) + '</span>').join('') : '<span class="pc-ruolo altro">' + (p.admin ? 'Amministratore' : 'Supervisore') + '</span>') + '</td>'
                     + '<td data-label="Lettere" class="pc-num">' + n(c.totale) + (c.inCoda ? '<span class="pc-nota">' + c.inCoda + ' in coda</span>' : '') + '</td>'
                     + '<td data-label="Consegnate" class="pc-num">' + n(c.consegnate) + '</td>'
                     + '<td data-label="Non consegnate" class="pc-num">' + (c.errori ? pcBadge('rosso', String(c.errori)) : n(0)) + '</td>'
@@ -38117,15 +38132,35 @@
                     + '<td data-label="Senza risposta" class="pc-num">' + n(c.senzaRisposta) + (c.scadute ? '<span class="pc-nota">' + c.scadute + ' oltre il termine</span>' : '') + '</td>'
                     + '<td data-label="Solleciti in programma" class="pc-num">' + n(prog) + '</td>'
                     + '<td data-label=""><button type="button" class="btn btn-sm btn-secondary">Apri</button></td></tr>';
+            };
+            const tabella = lista => '<div class="tabella-wrap"><table class="dati pc-tab pc-tab-incarichi"><thead><tr><th>Società</th><th>Il tuo ruolo</th><th>Lettere</th><th>Consegnate</th><th>Non consegnate</th><th>Risposte</th><th>Senza risposta</th><th>Solleciti in programma</th><th></th></tr></thead><tbody>' + lista.map(rigaDi).join('') + '</tbody></table></div>';
+            // con «Tutti» una tabella per ruolo; scelto un ruolo, la sua tabella sola (con dentro anche gli incarichi in cui se ne ha un altro)
+            const sezioni = (PC.ruolo ? [PC.ruolo] : gruppi).map(r => {
+                const suoi = mostra.filter(i => PC.ruolo ? true : gruppoDi(i) === r);
+                return suoi.length ? '<section class="pc-tipo"><h3 class="pc-tipo-tit pc-gruppo-ruolo ' + esc(r) + '">' + esc(nomeGruppo(r)) + '<span>' + incarichi(suoi.length) + '</span></h3>' + tabella(suoi) + '</section>' : '';
             }).join('');
+            const filtroRuoli = gruppi.length > 1 ? '<div class="pc-ruoli" role="group" aria-label="Mostra gli incarichi per ruolo">'
+                + [['', 'Tutti', base.length]].concat(gruppi.map(r => [r, nomeGruppo(r), base.filter(i => haRuolo(i, r)).length]))
+                    .map(([r, et, quanti]) => '<button type="button" class="pc-ruolo-btn' + (r ? ' ' + esc(r) : '') + (PC.ruolo === r ? ' attivo' : '') + '" data-ruolo="' + esc(r) + '" aria-pressed="' + (PC.ruolo === r) + '">' + esc(et) + '<span>' + quanti + '</span></button>').join('')
+                + '</div>' : '';
+            const ricerca = base.length >= 8 ? '<div class="campo ricerca pc-cerca-inc"><label for="pc-cerca-inc">Ricerca</label><input type="search" id="pc-cerca-inc" placeholder="Società, responsabile, componente del team…" value="' + esc(PC.cercaInc || '') + '"></div>' : '';
             dentro.innerHTML = '<div class="card">'
                 + '<h2>' + (p.vedeTutto ? 'Incarichi' : 'I tuoi incarichi') + '</h2>'
-                + (mostra.length ? '<p class="hint">' + (p.vedeTutto ? 'Vedi le circolarizzazioni di tutti gli incarichi.' : 'Gli incarichi in cui sei nel team, responsabile dell\'incarico o responsabile della qualità.') + ' Apri un incarico per preparare le lettere e seguire ricevute e risposte.</p>'
-                    + '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr><th>Società</th><th>Il tuo ruolo</th><th>Lettere</th><th>Consegnate</th><th>Non consegnate</th><th>Risposte</th><th>Senza risposta</th><th>Solleciti in programma</th><th></th></tr></thead><tbody>' + righe + '</tbody></table></div>'
+                + (base.length ? '<p class="hint">' + (p.vedeTutto ? 'Vedi le circolarizzazioni di tutti gli incarichi; quelli in cui hai un ruolo sono in cima, divisi per ruolo.' : 'Gli incarichi in cui sei responsabile dell\'incarico, responsabile della qualità o nel team, divisi per ruolo.') + ' Apri un incarico per preparare le lettere e seguire ricevute e risposte.</p>'
+                    + ((filtroRuoli || ricerca) ? '<div class="pc-barra-ruoli no-stampa">' + filtroRuoli + ricerca + '</div>' : '')
+                    + (sezioni || '<p class="hint">Nessun incarico corrisponde alla ricerca.</p>')
                     : '<p class="descrizione">' + (p.vedeTutto ? 'Nessun incarico ha ancora lettere in «' + esc(pcNomeAmbito(st, amb)) + '».' : 'Non risulti nel team, responsabile dell\'incarico o responsabile della qualità di nessun incarico: se manca un incarico, chiedi di aggiornare la sua scheda.') + '</p>')
                 + (p.vedeTutto ? '<p class="pc-sotto"><label class="pc-spunta"><input type="checkbox" id="pc-senza"' + (PC.senzaLettere ? ' checked' : '') + '> Mostra anche gli incarichi senza lettere (' + (tutti.length - conLettere.length) + ')</label></p>' : '')
                 + '</div>';
+            pcIncolonna(dentro);
             dentro.querySelectorAll('tr[data-inc]').forEach(tr => tr.addEventListener('click', () => naviga('strumentiPecIncarico', { incaricoId: tr.dataset.inc })));
+            dentro.querySelectorAll('.pc-ruolo-btn').forEach(b => b.addEventListener('click', () => { PC.ruolo = b.dataset.ruolo; disegna(PC.stato); }));
+            const campoCerca = document.getElementById('pc-cerca-inc');
+            if (campoCerca) campoCerca.addEventListener('input', () => {
+                PC.cercaInc = campoCerca.value; const pos = campoCerca.selectionStart;
+                disegna(PC.stato);
+                const nuovo = document.getElementById('pc-cerca-inc'); if (nuovo) { nuovo.focus(); try { nuovo.setSelectionRange(pos, pos); } catch (e) { /* alcuni browser non lo permettono sui campi di ricerca */ } }
+            });
             const senza = document.getElementById('pc-senza');
             if (senza) senza.addEventListener('change', () => { PC.senzaLettere = senza.checked; disegna(PC.stato); });
         };
@@ -38310,6 +38345,120 @@
         f.corpo.querySelector('#pc-testo-copia').addEventListener('click', () => copiaNegliAppunti(r.testo || '', 'Testo copiato.'));
     }
 
+    /* ---------- il registro delle operazioni ----------
+       Chi ha fatto che cosa, e quando. Lo scrive il servizio a ogni azione che
+       cambia qualcosa (lib/circ-registro.js) e non si cancella: resta anche
+       quando i dati di un incarico vengono tolti dal portale, con il riepilogo
+       delle lettere tolte. Qui lo si legge soltanto: per tutti gli incarichi
+       chi vede tutto, per il proprio incarico chi lo segue. */
+    const PC_REG_VUOTO = () => ({ q: '', chi: '', azione: '', dal: '', al: '' });
+    // lo stato di una lettera, in parole (nel riepilogo di quelle tolte dal portale)
+    const PC_STATI = { bozza: 'senza allegato', coda: 'in coda', inviata: 'inviata', consegnata: 'consegnata', 'in-dubbio': 'consegna in dubbio', errore: 'non consegnata', risposta: 'con risposta', annullata: 'annullata' };
+    function pcRegFiltra(voci, f) {
+        const q = String(f.q || '').trim().toLowerCase();
+        const dal = f.dal ? new Date(f.dal + 'T00:00:00').getTime() : 0, al = f.al ? new Date(f.al + 'T23:59:59').getTime() : 0;
+        return voci.filter(v => (!f.chi || v.da === f.chi) && (!f.azione || v.azione === f.azione) && (!dal || v.quando >= dal) && (!al || v.quando <= al)
+            && (!q || [v.nome, v.da, v.perConto, v.titolo, v.cliente, v.destinatario, v.pec, v.codice, v.dettaglio].concat((v.campi || []).map(c => c.campo + ' ' + c.prima + ' ' + c.dopo)).join(' ').toLowerCase().includes(q)));
+    }
+    /* I filtri: ricerca, persona, operazione, periodo. Le tendine si riempiono con quello che c'e' nelle voci caricate. */
+    function pcRegFiltriHtml(voci, f, azioni) {
+        const persone = {}, operazioni = {};
+        voci.forEach(v => { persone[v.da] = v.nome || v.da; operazioni[v.azione] = v.titolo; });
+        const opz = (mappa, scelto) => Object.keys(mappa).sort((a, b) => String(mappa[a]).localeCompare(String(mappa[b]), 'it')).map(k => '<option value="' + esc(k) + '"' + (scelto === k ? ' selected' : '') + '>' + esc(mappa[k]) + '</option>').join('');
+        return '<div class="filtri no-stampa pc-reg-filtri"><div class="campo ricerca"><label for="pc-reg-q">Ricerca</label><input type="search" id="pc-reg-q" placeholder="Società, destinatario, riferimento, persona…" value="' + esc(f.q) + '"></div>'
+            + '<div class="campo"><label for="pc-reg-chi">Chi</label><select id="pc-reg-chi"><option value="">Tutti</option>' + opz(persone, f.chi) + '</select></div>'
+            + '<div class="campo"><label for="pc-reg-azione">Operazione</label><select id="pc-reg-azione"><option value="">Tutte</option>' + opz(operazioni, f.azione) + '</select></div>'
+            + '<div class="campo"><label for="pc-reg-dal">Dal</label><input type="date" id="pc-reg-dal" value="' + esc(f.dal) + '"></div>'
+            + '<div class="campo"><label for="pc-reg-al">Al</label><input type="date" id="pc-reg-al" value="' + esc(f.al) + '"></div>'
+            + '<div class="barra-tabella-azioni">' + (azioni || '') + '</div></div>';
+    }
+    function pcRegTabellaHtml(voci, st, conSocieta) {
+        const muto = '<span class="pc-muto">—</span>';
+        const area = v => { const a = (st.ambiti || []).find(x => x.id === v.ambito); return a ? '<span class="pc-nota">' + esc(a.nome) + '</span>' : ''; };
+        return '<div class="tabella-wrap"><table class="dati pc-tab pc-reg"><thead><tr><th class="r-data">Data e ora</th><th class="r-chi">Chi</th><th class="r-op">Operazione</th>' + (conSocieta ? '<th class="r-soc">Società</th>' : '') + '<th class="r-let">Lettera</th><th>Che cosa è cambiato</th></tr></thead><tbody>'
+            + voci.map(v => '<tr data-voce="' + esc(v.id) + '">'
+                + '<td data-label="Data e ora">' + esc(fmtDataOra(v.quando)) + '</td>'
+                + '<td data-label="Chi"><strong>' + esc(v.nome || v.da) + '</strong>' + (v.da && v.da !== 'servizio' && v.da !== v.nome ? '<span class="pc-nota">' + esc(v.da) + '</span>' : '') + (v.perConto ? '<span class="pc-nota">per conto di ' + esc(v.perConto) + '</span>' : '') + '</td>'
+                + '<td data-label="Operazione"><strong>' + esc(v.titolo) + '</strong>' + area(v) + '</td>'
+                + (conSocieta ? '<td data-label="Società">' + (v.cliente ? esc(v.cliente) : muto) + '</td>' : '')
+                + '<td data-label="Lettera">' + (v.destinatario ? esc(v.destinatario) + '<span class="pc-nota">' + (v.codice ? '<span class="pc-codice">' + esc(v.codice) + '</span>' : '') + (v.pec ? (v.codice ? ' · ' : '') + esc(v.pec) : '') + '</span>' : muto) + '</td>'
+                + '<td data-label="Che cosa è cambiato" class="pc-reg-dett">' + (v.dettaglio ? '<span>' + esc(v.dettaglio) + '</span>' : '')
+                + ((v.campi || []).length ? '<ul class="reg-diff">' + v.campi.map(c => '<li><span class="reg-campo">' + esc(c.campo) + '</span> <span class="reg-da">' + esc(c.prima) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(c.dopo) + '</span></li>').join('') + '</ul>' : '')
+                + (v.lettere && v.lettere.length ? '<button type="button" class="pc-link pc-reg-lettere">Vedi ' + (v.lettere.length === 1 ? 'la lettera tolta' : 'le ' + v.lettere.length + ' lettere tolte') + '</button>' : '')
+                + (!v.dettaglio && !(v.campi || []).length && !(v.lettere || []).length ? muto : '') + '</td></tr>').join('')
+            + '</tbody></table></div>';
+    }
+    function pcRegXlsx(voci, st) {
+        const area = v => ((st.ambiti || []).find(x => x.id === v.ambito) || {}).nome || '';
+        const colonne = [['Data e ora', 18], ['Chi', 26], ['Indirizzo', 30], ['Per conto di', 28], ['Operazione', 36], ['Area', 34], ['Società', 32], ['Destinatario', 34], ['PEC', 30], ['Riferimento', 14], ['Che cosa è cambiato', 90]];
+        return xlsxCrea(colonne.map(c => c[0]), voci.map(v => [fmtDataOra(v.quando), v.nome || '', v.da || '', v.perConto || '', v.titolo || '', area(v), v.cliente || '', v.destinatario || '', v.pec || '', v.codice || '',
+            [v.dettaglio].concat((v.campi || []).map(c => c.campo + ': ' + c.prima + ' → ' + c.dopo)).filter(Boolean).join(' | ')]), colonne.map(c => c[1]));
+    }
+    /* Le lettere tolte dal portale con i dati di un incarico: nel registro ne resta il riepilogo. */
+    function pcModaleLettereTolte(v) {
+        const g = ms => ms ? fmtGiorno(ms) : '';
+        const colonne = [['Riferimento', 14], ['Destinatario', 34], ['PEC', 30], ['Tipologia', 22], ['Preparata da', 28], ['Preparata il', 13], ['Inviata il', 13], ['Consegnata il', 13], ['Primo sollecito', 14], ['Secondo sollecito', 14], ['Risposta il', 13], ['Stato', 14]];
+        const righe = v.lettere.map(l => [l.codice, l.destinatario, l.pec, l.tipologia, l.preparataDa, g(l.preparataIl), g(l.inviataIl), g(l.consegnataIl), g(l.sollecito1Il), g(l.sollecito2Il), l.rispostaIl ? g(l.rispostaIl) + (l.rispostaModo === 'manuale' ? ' (fuori PEC)' : '') : '', l.annullataDa ? 'annullata' : (PC_STATI[l.stato] || l.stato || '')]);
+        const f = apriSottoFinestra({ titolo: 'Lettere tolte dal portale · ' + (v.cliente || ''), classe: 'larga' });
+        f.corpo.innerHTML = '<p class="hint">Com\'erano il ' + esc(fmtDataOra(v.quando)) + ', quando ' + esc(v.nome || v.da) + ' ha cancellato i dati dell\'incarico. Ricevute e risposte restano nella casella PEC.</p>'
+            + '<div class="pc-barra"><button type="button" class="btn btn-sm btn-secondary" id="pc-tolte-xlsx">Scarica in Excel</button></div>'
+            + '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr>' + colonne.map(c => '<th>' + esc(c[0]) + '</th>').join('') + '</tr></thead><tbody>'
+            + righe.map(r => '<tr>' + r.map((x, i) => '<td data-label="' + esc(colonne[i][0]) + '">' + (x ? (i === 0 ? '<span class="pc-codice">' + esc(x) + '</span>' : esc(x)) : '<span class="pc-muto">—</span>') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+        f.corpo.querySelector('#pc-tolte-xlsx').addEventListener('click', () => pcSalva(xlsxCrea(colonne.map(c => c[0]), righe, colonne.map(c => c[1])), pcNomeFile('Lettere tolte - ' + (v.cliente || '')) + '.xlsx'));
+    }
+    /* Collega filtri, esportazione e il dettaglio delle lettere tolte. `ridisegna` rifa' la tabella. */
+    function pcRegCollega(dentro, f, voci, st, ridisegna, nomeFile) {
+        [['pc-reg-q', 'q'], ['pc-reg-chi', 'chi'], ['pc-reg-azione', 'azione'], ['pc-reg-dal', 'dal'], ['pc-reg-al', 'al']].forEach(([id, campo]) => {
+            const el = dentro.querySelector('#' + id);
+            if (!el) return;
+            el.addEventListener(campo === 'q' ? 'input' : 'change', () => {
+                f[campo] = el.value;
+                const pos = campo === 'q' ? el.selectionStart : null;
+                ridisegna();
+                if (campo === 'q') { const n = document.getElementById('pc-reg-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* i campi di ricerca di alcuni browser non lo permettono */ } } }
+            });
+        });
+        const x = dentro.querySelector('#pc-reg-xlsx');
+        if (x) x.addEventListener('click', () => pcSalva(pcRegXlsx(voci, st), pcNomeFile(nomeFile) + '.xlsx'));
+        dentro.querySelectorAll('.pc-reg-lettere').forEach(b => b.addEventListener('click', () => { const v = voci.find(k => k.id === b.closest('tr').dataset.voce); if (v) pcModaleLettereTolte(v); }));
+    }
+    /* Il registro generale: tutte le operazioni, dalla piu' recente, 200 per volta. */
+    function pcSchedaRegistro(dentro, st) {
+        const R = PC.registro || (PC.registro = { filtri: PC_REG_VUOTO() });
+        R.voci = []; R.altre = false; R.prima = 0; R.errore = '';
+        const qui = () => dentro.isConnected && PC.scheda === 'registro';
+        const disegna = () => {
+            if (!qui()) return;
+            const viste = pcRegFiltra(R.voci, R.filtri);
+            dentro.innerHTML = '<div class="card"><h2>Registro delle operazioni</h2>'
+                + '<p class="hint">Chi ha fatto che cosa, e quando: lettere preparate, solleciti cambiati, annullamenti, reinvii, risposte segnate o associate a mano, errori spuntati, impostazioni, cancellazioni. Lo scrive il servizio e non si può modificare né cancellare: resta anche quando i dati di un incarico vengono tolti dal portale.</p>'
+                + (R.errore ? '<p class="msg-errore">' + esc(R.errore) + '</p>' : '')
+                + (R.voci.length ? pcRegFiltriHtml(R.voci, R.filtri, '<button type="button" class="btn btn-sm btn-secondary" id="pc-reg-xlsx">Scarica in Excel</button>')
+                    + (viste.length ? pcRegTabellaHtml(viste, st, true) : '<p class="hint">Nessuna operazione corrisponde ai filtri.</p>')
+                    + '<p class="pc-sotto">' + viste.length + (viste.length === 1 ? ' operazione' : ' operazioni') + (viste.length !== R.voci.length ? ' su ' + R.voci.length + ' caricate' : '')
+                    + (R.altre ? ' · <button type="button" class="pc-link" id="pc-reg-altre">Carica le precedenti</button>' : ' · il registro è tutto qui') + '</p>'
+                    : (R.caricato ? '<p class="descrizione">Il registro è ancora vuoto: si riempie con la prima lettera preparata.</p>' : '<p class="hint">Carico il registro…</p>'))
+                + '</div>';
+            pcRegCollega(dentro, R.filtri, viste, st, disegna, 'Registro circolarizzazioni');
+            const altre = dentro.querySelector('#pc-reg-altre');
+            if (altre) altre.addEventListener('click', () => conAttesa(altre, () => carica(true), { testo: 'Carico…' }));
+        };
+        const carica = async ancora => {
+            const r = await pcChiama('registro', ancora ? { prima: R.prima, limite: 200 } : { limite: 200 });
+            if (!qui()) return;
+            R.caricato = true;
+            if (!r.ok) { R.errore = r.msg || 'Registro non raggiungibile.'; disegna(); return; }
+            R.errore = '';
+            const viste = {}; R.voci.forEach(v => { viste[v.id] = 1; });
+            (r.voci || []).forEach(v => { if (!viste[v.id]) { viste[v.id] = 1; R.voci.push(v); } });
+            R.altre = !!r.altre; R.prima = r.prima || 0;
+            disegna();
+        };
+        R.caricato = false;
+        disegna();
+        carica(false);
+    }
+
     /* ---------- la pagina di un incarico: invii, solleciti, risposte ----------
        Le lettere dell'area scelta (obbligatorie, oppure clienti e fornitori),
        in tre viste - invii, solleciti, risposte - e ogni vista divisa per
@@ -38327,6 +38476,16 @@
         $vista().innerHTML = pcIntestazione('Circolarizzazioni via PEC', '', indietro) + '<div class="card"><p class="hint">Carico le lettere dell\'incarico…</p></div>';
         torna();
         const qui = () => vistaCorrente === 'strumentiPecIncarico' && (parametriVista || {}).incaricoId === incaricoId;
+        // il registro dell'incarico si legge solo quando si apre la sua scheda
+        let registroInc = null, registroErrore = '';
+        const filtriReg = PC_REG_VUOTO();
+        const caricaRegistro = async () => {
+            const r = await pcChiama('registro', { incaricoId: incaricoId });
+            if (!qui()) return;
+            registroInc = r.ok ? (r.voci || []) : [];
+            registroErrore = r.ok ? '' : (r.msg || 'Registro non raggiungibile.');
+            if (PC.tab === 'registro') disegna();
+        };
 
         const disegna = () => {
             if (!qui()) return;
@@ -38396,6 +38555,15 @@
             const nRisposte = schede.reduce((t, s) => t + (s.risposte || []).filter(r => !r.automatica).length + (s.risposta && s.risposta.modo === 'manuale' ? 1 : 0), 0);
             const opz = (v, t) => '<option value="' + v + '"' + (PC.filtri.stato === v ? ' selected' : '') + '>' + t + '</option>';
             const area = pcNomeAmbito(st, amb);
+            // il registro di questa societa': le operazioni dell'area aperta e quelle che riguardano tutto l'incarico
+            const vociReg = (registroInc || []).filter(v => !v.ambito || v.ambito === amb), visteReg = pcRegFiltra(vociReg, filtriReg);
+            const registroHtml = PC.tab !== 'registro' ? '' : '<p class="hint">Chi ha fatto che cosa su questo incarico, e quando. Lo scrive il servizio e non si può modificare: resta anche quando i dati dell\'incarico vengono tolti dal portale.</p>'
+                + (registroErrore ? '<p class="msg-errore">' + esc(registroErrore) + '</p>' : '')
+                + (!registroInc ? '<p class="hint">Carico il registro…</p>'
+                    : !vociReg.length ? '<p class="descrizione">Per questa società, in «' + esc(area) + '», non c\'è ancora nessuna operazione.</p>'
+                        : pcRegFiltriHtml(vociReg, filtriReg, '<button type="button" class="btn btn-sm btn-secondary" id="pc-reg-xlsx">Scarica in Excel</button>')
+                        + (visteReg.length ? pcRegTabellaHtml(visteReg, st, false) : '<p class="hint">Nessuna operazione corrisponde ai filtri.</p>')
+                        + '<p class="pc-sotto">' + visteReg.length + (visteReg.length === 1 ? ' operazione' : ' operazioni') + (visteReg.length !== vociReg.length ? ' su ' + vociReg.length : '') + '</p>');
             $vista().innerHTML = pcIntestazione(inc.cliente || 'Incarico', '', indietro, azioni)
                 + pcAmbitiHtml(st)
                 + '<div class="sr-fatti pc-fatti">'
@@ -38405,12 +38573,13 @@
                 + pcAvvisoHtml() + pcKpi(c)
                 + '<div class="card" id="pc-lettere">'
                 + '<div class="tab-dest pc-schede" role="tablist">'
-                + [['invii', 'Invii (' + c.totale + ')'], ['solleciti', 'Solleciti (' + (c.sollecito1.programmati + c.sollecito2.programmati) + ' in programma)'], ['risposte', 'Risposte (' + nRisposte + ')']]
+                + [['invii', 'Invii (' + c.totale + ')'], ['solleciti', 'Solleciti (' + (c.sollecito1.programmati + c.sollecito2.programmati) + ' in programma)'], ['risposte', 'Risposte (' + nRisposte + ')'], ['registro', 'Registro']]
                     .map(([id, et]) => '<button type="button" class="tab-btn' + (PC.tab === id ? ' attivo' : '') + '" role="tab" data-tab="' + id + '">' + esc(et) + '</button>').join('')
                 + '</div>'
-                + (schede.length ? '<div class="filtri no-stampa"><div class="campo ricerca"><label for="pc-cerca">Ricerca</label><input type="search" id="pc-cerca" placeholder="Destinatario, PEC o riferimento…" value="' + esc(PC.filtri.q) + '"></div>'
+                + (PC.tab === 'registro' ? registroHtml : '')
+                + (schede.length && PC.tab !== 'registro' ? '<div class="filtri no-stampa"><div class="campo ricerca"><label for="pc-cerca">Ricerca</label><input type="search" id="pc-cerca" placeholder="Destinatario, PEC o riferimento…" value="' + esc(PC.filtri.q) + '"></div>'
                     + '<div class="campo"><label for="pc-stato">Mostra</label><select id="pc-stato">' + opz('', 'Tutte le lettere') + opz('coda', 'In coda') + opz('errore', 'Non consegnate') + opz('senza', 'Senza risposta') + opz('risposta', 'Con risposta') + opz('annullata', 'Annullate') + '</select></div></div>' : '')
-                + (!schede.length ? '<p class="descrizione">Per questa società non ci sono ancora lettere in «' + esc(area) + '». Premi <strong>Nuove lettere</strong>: per ogni tipologia compili la tabella dei destinatari, alleghi a ciascuno la sua lettera in PDF e scegli le date della risposta e dei solleciti.</p>'
+                + (PC.tab === 'registro' ? '' : !schede.length ? '<p class="descrizione">Per questa società non ci sono ancora lettere in «' + esc(area) + '». Premi <strong>Nuove lettere</strong>: per ogni tipologia compili la tabella dei destinatari, alleghi a ciascuno la sua lettera in PDF e scegli le date della risposta e dei solleciti.</p>'
                     : (tabelle || (PC.tab === 'risposte' && !q && !PC.filtri.stato
                         ? '<p class="descrizione">Non è ancora arrivata nessuna risposta. Quando arrivano compaiono qui, divise per tipologia, e i solleciti in programma per quelle lettere si fermano da soli.</p>'
                         : '<p class="hint">Nessuna lettera corrisponde ai filtri.</p>')))
@@ -38420,8 +38589,9 @@
             const vista = $vista();
             pcIncolonna(vista);
             pcCollegaAmbiti(vista, disegna);
-            vista.querySelectorAll('.pc-schede [data-tab]').forEach(b => b.addEventListener('click', () => { PC.tab = b.dataset.tab; disegna(); }));
+            vista.querySelectorAll('.pc-schede [data-tab]').forEach(b => b.addEventListener('click', () => { PC.tab = b.dataset.tab; disegna(); if (PC.tab === 'registro' && !registroInc) caricaRegistro(); }));
             vista.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => pcModaleLettera(schede.find(s => s.id === tr.dataset.id), carica)));
+            if (PC.tab === 'registro') pcRegCollega(vista, filtriReg, visteReg, st, disegna, 'Registro ' + area + ' ' + (inc.cliente || ''));
             const cerca = document.getElementById('pc-cerca');
             if (cerca) {
                 cerca.addEventListener('input', () => { PC.filtri.q = cerca.value; const p = cerca.selectionStart; disegna(); const n = document.getElementById('pc-cerca'); n.focus(); n.setSelectionRange(p, p); });
@@ -38453,7 +38623,9 @@
                 return;
             }
             PC.elenco = e;
+            registroInc = null;
             disegna();
+            if (PC.tab === 'registro') caricaRegistro();
         };
         carica();
     }
@@ -38477,7 +38649,7 @@
     let pcIncolonnaTimer = null;
     window.addEventListener('resize', () => {
         clearTimeout(pcIncolonnaTimer);
-        pcIncolonnaTimer = setTimeout(() => { if (document.getElementById('pc-lettere')) pcIncolonna(document.getElementById('pc-lettere')); }, 150);
+        pcIncolonnaTimer = setTimeout(() => { const el = document.getElementById('pc-lettere') || document.getElementById('pc-scheda'); if (el) pcIncolonna(el); }, 150);
     });
 
     /* ---------- il report degli invii di una societa' ----------
@@ -38619,7 +38791,7 @@
     }
     function pcModaleCancella(inc) {
         apriModale('<h2>Cancellare i dati di ' + esc(inc.cliente) + '?</h2>'
-            + '<p class="descrizione">Dal portale vengono tolte tutte le lettere di questo incarico, con i PDF, le date dei solleciti e l\'elenco di ricevute e risposte. <strong>Non si può annullare.</strong> I messaggi restano nella casella PEC; i solleciti ancora in programma non partiranno.</p>'
+            + '<p class="descrizione">Dal portale vengono tolte tutte le lettere di questo incarico, con i PDF, le date dei solleciti e l\'elenco di ricevute e risposte. <strong>Non si può annullare.</strong> I messaggi restano nella casella PEC; i solleciti ancora in programma non partiranno. Nel registro delle operazioni resta scritto chi ha cancellato e quando, con il riepilogo di ogni lettera tolta.</p>'
             + '<p class="descrizione">Prima di procedere, accertati che il team abbia scaricato ricevute e risposte.</p>'
             + '<div class="campo"><label for="pc-canc-conf">Per confermare scrivi CANCELLA</label><input type="text" id="pc-canc-conf" autocomplete="off" style="max-width:220px"></div>'
             + '<div class="modale-azioni"><button type="button" class="btn btn-ghost" id="pc-canc-no">Annulla</button><button type="button" class="btn btn-primary pc-pericolo-pieno" id="pc-canc-si" disabled>Cancella i dati</button></div>');

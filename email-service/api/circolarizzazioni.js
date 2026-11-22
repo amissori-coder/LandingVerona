@@ -38,6 +38,7 @@ const LETTORE = require('../lib/circ-lettore');
 const ERRORI = require('../lib/circ-errori');
 const AVVISI = require('../lib/circ-avvisi');
 const BOZZE = require('../lib/circ-bozze');
+const REGISTRO = require('../lib/circ-registro');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -110,6 +111,54 @@ function bozzaDi(prof, b) {
     const ambito = String(b.ambito || '');
     if (!Object.prototype.hasOwnProperty.call(C.AMBITI, ambito)) esci(400, 'Area non indicata.');
     return { inc: inc, ambito: ambito };
+}
+/* ---------- il registro: chi ha fatto che cosa ----------
+   Ogni azione che cambia qualcosa lascia una voce (lib/circ-registro.js). Se
+   la voce non si scrive l'azione e' comunque avvenuta: lo si segnala fra gli
+   errori, cosi' chi amministra viene a saperlo. */
+async function traccia(db, prof, azione, voce) {
+    const ok = await REGISTRO.scrivi(db, prof, Object.assign({ azione: azione }, voce));
+    if (!ok) {
+        try { await ERRORI.segna(db, { chiave: 'servizio~registro', tipo: 'servizio', titolo: 'Un\'operazione non è stata scritta nel registro', dettaglio: 'Azione «' + azione + '» di ' + ((prof && prof.email) || 'servizio') + (voce && voce.codice ? ', lettera ' + voce.codice : '') + '.' }); } catch (_) { /* gia' nei log */ }
+    }
+    return ok;
+}
+const giornoDetto = g => (g ? C.dataBreve(g) : '');
+/* Un sollecito in parole, per dire nel registro che cosa e' cambiato. */
+function sollecitoDetto(p) {
+    if (!p || !p.stato || p.stato === 'non-previsto') return 'non previsto';
+    if (p.stato === 'programmato') return 'il ' + giornoDetto(p.data) + ', risposta entro il ' + giornoDetto(p.scadenza);
+    if (p.stato === 'inviato') return 'inviato';
+    if (p.stato === 'annullato') return 'annullato' + (p.data ? ' (era per il ' + giornoDetto(p.data) + ')' : '');
+    if (p.stato === 'bloccato') return 'fermo' + (p.data ? ' (era per il ' + giornoDetto(p.data) + ')' : '');
+    return p.stato;
+}
+function diffSolleciti(prima, dopo) {
+    return [['sollecito1', 'Primo sollecito'], ['sollecito2', 'Secondo sollecito']].map(([k, nome]) => {
+        const a = sollecitoDetto((prima.passi || {})[k]), b = sollecitoDetto((dopo.passi || {})[k]);
+        return a === b ? null : { campo: nome, prima: a, dopo: b };
+    }).filter(Boolean);
+}
+/* La lettera appena entrata in coda: chi l'ha preparata, per chi, con quali date e quale PDF. */
+async function tracciaInCoda(db, prof, id, come) {
+    const inv = await DATI.leggi(db, String(id));
+    if (!inv) return;
+    const p = inv.passi || {}, a = inv.allegato || {};
+    const sol = (x, nome) => x && x.stato === 'programmato' ? '; ' + nome + ' il ' + giornoDetto(x.data) + ' (risposta entro il ' + giornoDetto(x.scadenza) + ')' : '';
+    await traccia(db, prof, 'lettera-in-coda', Object.assign(REGISTRO.diLettera(inv), {
+        dettaglio: ((C.CATEGORIE[inv.categoria] || {}).uno || inv.categoria) + ', bilancio al ' + giornoDetto(inv.bilancio) + '; rispondere entro il ' + giornoDetto(inv.scadenza)
+            + sol(p.sollecito1, 'primo sollecito') + sol(p.sollecito2, 'secondo sollecito')
+            + (inv.saldo != null ? '; saldo ' + String(inv.saldo).replace('.', ',') + ' €' : '') + (inv.nota ? '; nota: ' + inv.nota : '')
+            + '. Allegato «' + (a.nome || '') + '» (' + (a.dimensione || 0) + ' byte), ' + come + '.',
+        dati: { allegato: a.nome || '', byte: a.dimensione || 0, sha256: a.sha256 || '', scadenza: inv.scadenza || '', bilancio: inv.bilancio || '' }
+    }));
+}
+async function messaggioDetto(db, chiave) {
+    try {
+        const s = await db.collection(DATI.MSG).doc(String(chiave || '')).get();
+        const m = s.exists ? (s.data() || {}) : null;
+        return m ? 'Messaggio di ' + (m.da || 'mittente sconosciuto') + (m.quando ? ' del ' + giornoDetto(C.giornoRoma(m.quando)) : '') + (m.oggetto ? ', oggetto «' + C.unaRiga(m.oggetto, 160) + '»' : '') + '.' : '';
+    } catch (_) { return ''; }
 }
 function soloAdmin(prof) { if (!prof.admin) esci(403, 'Solo l\'amministratore può farlo.'); }
 function soloChiVedeTutto(prof) { if (!prof.vedeTutto) esci(403, 'Solo l\'amministratore e i supervisori possono farlo.'); }
@@ -195,6 +244,7 @@ const AZIONI = {
     },
     async allegato(db, prof, b) {
         const r = daEsito(await DATI.caricaPezzo(db, prof, b.id, b.n, b.dati));
+        if (r.completo) await tracciaInCoda(db, prof, r.id, 'caricato dal computer');
         return r;
     },
     /* ---------- la bozza delle nuove lettere, salvata sul portale ---------- */
@@ -206,6 +256,7 @@ const AZIONI = {
     async 'bozza-salva'(db, prof, b) {
         const d = bozzaDi(prof, b);
         const r = await BOZZE.salva(db, prof, d.inc, d.ambito, b.bozza, b.base);
+        if (r.ok && r.svuotate) await traccia(db, prof, 'bozza-svuotata', { incaricoId: d.inc.id, cliente: d.inc.cliente, ambito: d.ambito, dettaglio: r.svuotate + (r.svuotate === 1 ? ' riga non inviata tolta' : ' righe non inviate tolte') + ', con i PDF allegati.' });
         return r.conflitto ? r : daEsito(r);
     },
     async 'bozza-pdf'(db, prof, b) {
@@ -218,7 +269,9 @@ const AZIONI = {
     },
     async 'bozza-togli'(db, prof, b) {
         const d = bozzaDi(prof, b);
-        return BOZZE.togli(db, prof, d.inc.id, d.ambito);
+        const r = await BOZZE.togli(db, prof, d.inc.id, d.ambito);
+        if (r.svuotate) await traccia(db, prof, 'bozza-svuotata', { incaricoId: d.inc.id, cliente: d.inc.cliente, ambito: d.ambito, dettaglio: r.svuotate + (r.svuotate === 1 ? ' riga non inviata tolta' : ' righe non inviate tolte') + ', con i PDF allegati.' });
+        return r;
     },
     /* L'allegato di una lettera appena creata, preso dal PDF che la sua riga
        ha gia' nella bozza: non risale dal browser. La riga esce dalla bozza. */
@@ -227,6 +280,7 @@ const AZIONI = {
         const pdf = await BOZZE.pdfDiRiga(db, prof, d.inc.id, d.ambito, b.riga);
         if (!pdf) esci(404, 'Il PDF di questa riga non è più nella bozza: allegalo di nuovo.');
         const r = daEsito(await DATI.caricaIntero(db, prof, b.id, pdf.buf));
+        await tracciaInCoda(db, prof, r.id, 'preso dalla bozza salvata sul portale');
         const dopo = await BOZZE.consuma(db, prof, d.inc.id, d.ambito, b.riga);
         return Object.assign(r, { versione: dopo.versione });
     },
@@ -241,24 +295,34 @@ const AZIONI = {
         return Object.assign({}, r, { ok: true, letto: r.ok });
     },
     async solleciti(db, prof, b) {
-        await letteraDi(db, prof, b.id);
+        const prima = await letteraDi(db, prof, b.id);
         const r = daEsito(await DATI.modificaSolleciti(db, b.id, { sollecito1: b.sollecito1, sollecito2: b.sollecito2 }, prof));
+        const campi = diffSolleciti(prima, r.invio);
+        if (campi.length) await traccia(db, prof, 'solleciti-modificati', Object.assign(REGISTRO.diLettera(r.invio), { campi: campi }));
         return { ok: true, scheda: perArea(r.invio) };
     },
     async annulla(db, prof, b) {
-        await letteraDi(db, prof, b.id);
+        const prima = await letteraDi(db, prof, b.id);
         const r = daEsito(await DATI.annulla(db, b.id, prof));
+        if (r.cosa === 'lettera') await traccia(db, prof, 'lettera-annullata', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'La PEC non era ancora partita: non partirà.' }));
+        else await traccia(db, prof, 'solleciti-annullati', Object.assign(REGISTRO.diLettera(r.invio), { campi: diffSolleciti(prima, r.invio) }));
         return { ok: true, cosa: r.cosa, scheda: perArea(r.invio) };
     },
     async 'risposta-manuale'(db, prof, b) {
-        await letteraDi(db, prof, b.id);
+        const prima = await letteraDi(db, prof, b.id);
         const r = daEsito(b.togli ? await DATI.togliRispostaManuale(db, b.id) : await DATI.rispostaManuale(db, b.id, b.nota, prof));
+        if (b.togli) await traccia(db, prof, 'risposta-manuale-tolta', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Era stata segnata da ' + ((prima.risposta || {}).da || '?') + ((prima.risposta || {}).nota ? ' con la nota «' + prima.risposta.nota + '»' : '') + '. I solleciti fermi tornano in programma.', campi: diffSolleciti(prima, r.invio) }));
+        else await traccia(db, prof, 'risposta-manuale', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Risposta arrivata fuori dalla casella PEC' + ((r.invio.risposta || {}).nota ? ': «' + r.invio.risposta.nota + '»' : '') + '. I solleciti in programma si fermano.', campi: diffSolleciti(prima, r.invio) }));
         return { ok: true, scheda: perArea(r.invio) };
     },
     async reinvia(db, prof, b) {
         if (!C.configurato()) esci(503, 'La casella PEC delle circolarizzazioni non è configurata.');
-        await letteraDi(db, prof, b.id);
+        const prima = await letteraDi(db, prof, b.id);
         const r = daEsito(await DATI.reinvia(db, b.id, b.pec, prof));
+        await traccia(db, prof, 'lettera-reinviata', Object.assign(REGISTRO.diLettera(r.invio), {
+            dettaglio: 'La prima PEC non era arrivata: la lettera torna in coda con lo stesso PDF.',
+            campi: (prima.pec !== r.invio.pec ? [{ campo: 'PEC', prima: prima.pec, dopo: r.invio.pec }] : []).concat(diffSolleciti(prima, r.invio))
+        }));
         return { ok: true, scheda: perArea(r.invio) };
     },
     /* Il testo di una ricevuta o di una risposta, letto dalla casella. */
@@ -304,11 +368,17 @@ const AZIONI = {
         soloChiVedeTutto(prof);
         const inv = await DATI.leggi(db, String(b.id || ''));
         if (!inv || inv.stato === 'bozza') esci(404, 'Lettera non trovata.');
-        return daEsito(await DATI.associa(db, String(b.chiave || ''), inv.id, prof));
+        const messaggio = await messaggioDetto(db, b.chiave);
+        const r = daEsito(await DATI.associa(db, String(b.chiave || ''), inv.id, prof));
+        await traccia(db, prof, 'risposta-associata', Object.assign(REGISTRO.diLettera(inv), { dettaglio: messaggio + ' Associato a mano: i solleciti in programma per questa lettera si fermano.' }));
+        return r;
     },
     async scarta(db, prof, b) {
         soloChiVedeTutto(prof);
-        return daEsito(await DATI.scarta(db, String(b.chiave || ''), prof));
+        const messaggio = await messaggioDetto(db, b.chiave);
+        const r = daEsito(await DATI.scarta(db, String(b.chiave || ''), prof));
+        await traccia(db, prof, 'messaggio-scartato', { dettaglio: messaggio + ' Non riguarda nessuna lettera: resta nella casella PEC.' });
+        return r;
     },
     /* Il registro degli errori: lo vede chi vede tutto, e spunta quelli risolti. */
     async errori(db, prof) {
@@ -325,17 +395,25 @@ const AZIONI = {
         soloChiVedeTutto(prof);
         const ids = (Array.isArray(b.ids) ? b.ids : [b.id]).map(x => String(x || '')).filter(Boolean);
         if (!ids.length) esci(400, 'Errore non indicato.');
-        return ERRORI.risolvi(db, ids, b.nota, prof);
+        const titoli = await titoliErrori(db, ids);
+        const r = await ERRORI.risolvi(db, ids, b.nota, prof);
+        if (r.risolti) await traccia(db, prof, 'errore-risolto', { dettaglio: r.risolti + (r.risolti === 1 ? ' errore spuntato' : ' errori spuntati') + (titoli ? ': ' + titoli : '') + '.' + (C.unaRiga(b.nota, 300) ? ' Nota: «' + C.unaRiga(b.nota, 300) + '».' : '') });
+        return r;
     },
     async 'errore-riapri'(db, prof, b) {
         soloChiVedeTutto(prof);
-        return daEsito(await ERRORI.riapri(db, b.id));
+        const titoli = await titoliErrori(db, [b.id]);
+        const r = daEsito(await ERRORI.riapri(db, b.id));
+        await traccia(db, prof, 'errore-riaperto', { dettaglio: (titoli || 'Errore') + '.' });
+        return r;
     },
     /* A chi arriva l'email degli errori: sempre al titolare; ai supervisori se l'amministratore lo vuole. */
     async 'avvisi-errori'(db, prof, b) {
         soloAdmin(prof);
+        const primaAv = await ERRORI.destinatari(db);
         await DATI.docImpostazioni(db).set({ avvisaSupervisori: b.supervisori === true, aggiornato: Date.now(), da: prof.firma }, { merge: true });
         const av = await ERRORI.destinatari(db);
+        if (!!primaAv.supervisori !== !!av.supervisori) await traccia(db, prof, 'avvisi-errori', { campi: [{ campo: 'Email degli errori anche ai supervisori', prima: primaAv.supervisori ? 'sì' : 'no', dopo: av.supervisori ? 'sì' : 'no' }] });
         return { ok: true, avvisiErrori: { destinatari: av.lista, supervisori: av.supervisori, posta: ERRORI.postaConfigurata() } };
     },
     async supervisori(db, prof, b) {
@@ -348,7 +426,9 @@ const AZIONI = {
             const u = await db.collection('utenti').doc(e).get();
             if (!u.exists || (u.data() || {}).attivo === false) esci(400, e + ' non ha un accesso attivo all\'area riservata.');
         }
+        const primaSup = (await DATI.impostazioni(db)).supervisori;
         await DATI.docImpostazioni(db).set({ supervisori: unici, aggiornato: Date.now(), da: prof.firma }, { merge: true });
+        if (primaSup.slice().sort().join() !== unici.slice().sort().join()) await traccia(db, prof, 'supervisori', { campi: [{ campo: 'Supervisori', prima: primaSup.join(', ') || 'nessuno', dopo: unici.join(', ') || 'nessuno' }] });
         return { ok: true, supervisori: unici };
     },
     /* I dati di un incarico si tolgono dal portale a lavoro finito: ricevute e
@@ -357,9 +437,39 @@ const AZIONI = {
         soloAdmin(prof);
         if (String(b.conferma || '') !== 'CANCELLA') esci(400, 'Conferma mancante.');
         if (!String(b.incaricoId || '')) esci(400, 'Incarico non indicato.');
-        return DATI.cancellaIncarico(db, String(b.incaricoId));
+        // prima di togliere: le lettere come stanno adesso, perche' nel registro resti che cosa c'era
+        const id = String(b.incaricoId);
+        const schede = await DATI.schedeIncarico(db, id);
+        const inc = DATI.incaricoDi(prof, id) || { id: id, cliente: (schede[0] || {}).cliente || '' };
+        const r = await DATI.cancellaIncarico(db, id);
+        await REGISTRO.scriviCancellazione(db, prof, inc, schede, { bozze: r.bozze || 0 });
+        return r;
+    },
+    /* Il registro delle operazioni. Di un incarico lo legge chi lo segue;
+       quello generale (tutti gli incarichi, impostazioni, errori) chi vede tutto. */
+    async registro(db, prof, b) {
+        if (String(b.incaricoId || '')) {
+            if (!DATI.incaricoDi(prof, b.incaricoId) && !prof.vedeTutto) esci(403, 'Non segui questo incarico.');
+            const r = await REGISTRO.elenco(db, { incaricoId: String(b.incaricoId) });
+            return { ok: true, voci: r.voci.map(REGISTRO.perArea), totale: r.totale, altre: false, prima: 0 };
+        }
+        soloChiVedeTutto(prof);
+        const r = await REGISTRO.elenco(db, { prima: b.prima, limite: b.limite });
+        return { ok: true, voci: r.voci.map(REGISTRO.perArea), altre: r.altre, prima: r.prima };
     }
 };
+/* I titoli di qualche errore, per dire nel registro quali sono stati spuntati. */
+async function titoliErrori(db, ids) {
+    const titoli = [];
+    for (const id of ids.slice(0, 8)) {
+        try {
+            const s = await db.collection(ERRORI.ERR).doc(String(id)).get();
+            const e = s.exists ? (s.data() || {}) : null;
+            if (e) titoli.push((e.titolo || 'errore') + (e.codice ? ' (' + e.codice + ')' : (e.cliente ? ' (' + e.cliente + ')' : '')));
+        } catch (_) { /* il titolo e' un di piu' */ }
+    }
+    return titoli.join('; ') + (ids.length > 8 ? ' e altri ' + (ids.length - 8) : '');
+}
 async function nonAssociata(db, prof, chiave, parte) {
     soloChiVedeTutto(prof);
     const s = await db.collection(DATI.MSG).doc(String(chiave || '')).get();
@@ -399,6 +509,10 @@ async function giroProgrammato(db) {
     if (new Date().getUTCMinutes() < 5) {
         try { out.pulizie = await DATI.pulizia(db, Date.now(), 40); } catch (e) { out.pulizie = 0; console.error('Circolarizzazioni, pulizie:', String((e && e.message) || e).slice(0, 200)); }
         try { out.bozzeTolte = await BOZZE.pulizia(db, Date.now(), 20); } catch (e) { out.bozzeTolte = 0; console.error('Circolarizzazioni, bozze:', String((e && e.message) || e).slice(0, 200)); }
+        // le pulizie tolgono dei dati: quando tolgono qualcosa resta scritto nel registro
+        if (out.pulizie || out.bozzeTolte) {
+            await traccia(db, null, 'pulizie', { dettaglio: [out.pulizie ? out.pulizie + ' fra PDF di lettere preparate da più di ' + C.LIMITI.pdfGiorni + ' giorni e lettere rimaste senza allegato' : '', out.bozzeTolte ? out.bozzeTolte + (out.bozzeTolte === 1 ? ' bozza ferma' : ' bozze ferme') + ' da più di ' + C.LIMITI.bozzaGiorni + ' giorni' : ''].filter(Boolean).join('; ') + '.' });
+        }
     }
     // gli errori nuovi, tutti in una sola email
     out.avvisi = await ERRORI.avvisa(db);
