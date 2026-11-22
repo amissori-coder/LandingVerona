@@ -37139,7 +37139,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122c';
+    const SR_DATI_VERSIONE = '20261122d';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
@@ -37214,7 +37214,7 @@
     // le attivita' di un anno in ordine di inizio, una volta sola (le verifiche trimestrali sono quattro righe)
     function srAttivitaAnno(d, anno) {
         const out = [];
-        srPianoOrdinato(d, anno).forEach(r => { if (!out.includes(r.attivita)) out.push(r.attivita); });
+        srPianoOrdinato(d, anno).forEach(r => { if (r.apribile !== false && !out.includes(r.attivita)) out.push(r.attivita); });
         return out;
     }
     /* IL GANTT DEL PIANO. Una riga per attivita' (stesso ordine e stessi filtri
@@ -37262,11 +37262,13 @@
             const pieno = gOggi <= g0 ? 0 : gOggi >= g1 ? 100 : (gOggi - g0) / (g1 - g0) * 100;
             const st = srStato(r.inizio, r.fine), fase = d.fasi[r.fase] || r.fase;
             const etich = r.nome + ': dal ' + fmtData(r.inizio) + ' al ' + fmtData(r.fine) + ', ' + fase + ', ' + st.nome.toLowerCase();
+            const apri = r.apribile !== false;   // le righe chiuse restano nel calendario, ma non portano alla scheda
             return '<div class="sr-g-riga" data-i="' + i + '">'
-                + '<button type="button" class="sr-g-nome" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">' + esc(r.nome) + '</button>'
+                + (apri ? '<button type="button" class="sr-g-nome" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">' + esc(r.nome) + '</button>'
+                    : '<span class="sr-g-nome chiusa" title="' + esc(r.avviso || '') + '">' + esc(r.nome) + '</span>')
                 + '<div class="sr-g-traccia">'
-                + '<button type="button" class="sr-g-barra f-' + esc(r.fase) + (pieno >= 100 ? ' conclusa' : '') + '" style="left:' + l.toFixed(3) + '%;width:' + w.toFixed(3) + '%"'
-                + ' data-attivita="' + esc(r.attivita) + '" data-i="' + i + '" aria-label="' + esc(etich) + '">'
+                + '<button type="button" class="sr-g-barra f-' + esc(r.fase) + (pieno >= 100 ? ' conclusa' : '') + (apri ? '' : ' chiusa') + '" style="left:' + l.toFixed(3) + '%;width:' + w.toFixed(3) + '%"'
+                + (apri ? ' data-attivita="' + esc(r.attivita) + '"' : '') + ' data-i="' + i + '" aria-label="' + esc(etich + (apri ? '' : '. ' + (r.avviso || ''))) + '">'
                 + '<span class="sr-g-velo"><span class="sr-g-pieno" style="width:' + pieno.toFixed(2) + '%"></span></span></button>'
                 + '</div></div>';
         }).join('');
@@ -37295,6 +37297,7 @@
             const nome = document.createElement('span'); nome.textContent = r.nome;
             const info = document.createElement('span'); info.className = 'sr-g-tip-info'; info.textContent = (d.fasi[r.fase] || r.fase) + ' · ' + st.nome;
             tip.append(date, nome, info);
+            if (r.apribile === false && r.avviso) { const av = document.createElement('span'); av.className = 'sr-g-tip-info'; av.textContent = r.avviso; tip.append(av); }
             tip.hidden = false;
             const rg = g.getBoundingClientRect(), rb = b.getBoundingClientRect();
             const larg = tip.offsetWidth, alt = tip.offsetHeight;
@@ -37431,6 +37434,15 @@
             const st = srStato(r.inizio, r.fine);
             const a = d.attivita[r.attivita] || {};
             const c = a.carta && d.carte[a.carta];
+            if (r.apribile === false) {
+                return '<tr data-i="' + i + '">'
+                    + '<td data-label="Fase"><span class="badge sr-fase f-' + esc(r.fase) + '">' + esc(d.fasi[r.fase] || r.fase) + '</span></td>'
+                    + '<td data-label="Attività"><strong>' + esc(r.nome) + '</strong></td>'
+                    + '<td data-label="Inizio">' + esc(fmtData(r.inizio)) + '</td>'
+                    + '<td data-label="Fine">' + esc(fmtData(r.fine)) + '</td>'
+                    + '<td data-label="Stato"><span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></td>'
+                    + '<td data-label="Carta di lavoro"><span class="hint">' + esc(r.avviso || 'Nessuna scheda.') + '</span></td></tr>';
+            }
             return '<tr class="sr-riga" data-i="' + i + '" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">'
                 + '<td data-label="Fase"><span class="badge sr-fase f-' + esc(r.fase) + '">' + esc(d.fasi[r.fase] || r.fase) + '</span></td>'
                 + '<td data-label="Attività"><strong>' + esc(r.nome) + '</strong></td>'
@@ -37493,7 +37505,7 @@
             vista.querySelectorAll('.sr-tab tbody tr').forEach(tr => {
                 const r = piano[Number(tr.dataset.i)];
                 const ok = (!_srFiltri.fase || r.fase === _srFiltri.fase) && (!_srFiltri.stato || srStato(r.inizio, r.fine).id === _srFiltri.stato)
-                    && (!q || r.nome.toLowerCase().includes(q) || (testoDi[r.attivita] || '').includes(q));
+                    && (!q || r.nome.toLowerCase().includes(q) || (r.apribile !== false && (testoDi[r.attivita] || '').includes(q)));
                 tr.hidden = !ok;
                 if (ok) visibili++;
                 const g = vista.querySelector('.sr-g-riga[data-i="' + tr.dataset.i + '"]');
@@ -37533,6 +37545,13 @@
             return;
         }
         const righe = srPianoOrdinato(d, anno).filter(r => r.attivita === par.id);
+        // scheda chiusa per quest'anno (ci si lavora sul piano dell'anno dopo): niente contenuti
+        if (righe.length && righe.every(r => r.apribile === false)) {
+            $vista().innerHTML = '<header><div>' + indietro + '<h1>' + esc(a.titolo) + '</h1></div></header>'
+                + '<div class="card"><p class="descrizione">' + esc(righe[0].avviso || 'La scheda di questa attività non è disponibile.') + '</p></div>';
+            collegaIndietro();
+            return;
+        }
         const r0 = righe[0];
         const c = a.carta ? d.carte[a.carta] : null;
         const periodi = righe.map(r => {

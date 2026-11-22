@@ -4275,6 +4275,10 @@ td.cene-az { white-space: nowrap; }
     font: inherit; font-size: 0.8rem; line-height: 1.25; color: var(--grigio-900); text-align: left; cursor: pointer;
 }
 .sr-g-nome:hover, .sr-g-nome:focus-visible { color: var(--blu-700); text-decoration: underline; }
+/* righe senza scheda (ci si lavora sul piano dell'anno dopo): restano nel calendario ma non si aprono */
+.sr-g-nome.chiusa { cursor: default; color: var(--grigio-600); }
+.sr-g-nome.chiusa:hover { color: var(--grigio-600); text-decoration: none; }
+.sr-g-barra.chiusa { cursor: default; }
 .sr-g-nome-vuoto { border-right: 1px solid var(--grigio-200); }
 .sr-g-traccia { position: relative; height: 30px; }
 .sr-g-asse .sr-g-traccia { height: auto; }
