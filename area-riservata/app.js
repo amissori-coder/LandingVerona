@@ -37139,7 +37139,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122i';
+    const SR_DATI_VERSIONE = '20261122k';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
@@ -37406,10 +37406,10 @@
         });
         const c = a.carta && d.carte[a.carta];
         if (c) {
-            (c.inEvidenza || []).forEach(x => metti(x, ''));
-            c.blocchi.forEach(b => b.passi.forEach(p => (p.doc || []).forEach(x => metti(x, (b.titolo ? b.titolo + ', ' : '') + 'passaggio ' + p.n))));
+            (c.inEvidenza || []).forEach(x => metti(x, 'In evidenza'));
+            c.blocchi.forEach(b => b.passi.forEach(p => (p.doc || []).forEach(x => metti(x, 'Passaggio ' + p.n))));
         }
-        (a.documentiUtili || []).forEach(x => metti(x, 'documenti utili'));
+        (a.documentiUtili || []).forEach(x => metti(x, 'Documenti utili'));
         return out;
     }
     // il testo su cui cerca la tabella: descrizione, passaggi, note e nomi dei documenti dell'attivita'
@@ -37470,11 +37470,12 @@
         const primaData = future.length ? future.reduce((m, r) => r.inizio < m ? r.inizio : m, future[0].inizio) : '';
         const prossime = future.filter(r => r.inizio === primaData);
         const voce = (et, corpo) => '<div class="sr-oggi-voce"><span class="sr-oggi-et">' + esc(et) + '</span>' + corpo + '</div>';
+        const senza = r => r.scheda === 'chiusa' && r.etichetta ? ' · scheda ' + esc(r.etichetta.charAt(0).toLowerCase() + r.etichetta.slice(1)) : '';
         const nomi = (lista, cosa) => lista.map(r => '<span class="sr-oggi-att"><strong>' + esc(r.nome) + '</strong><span class="sr-oggi-sub">' + cosa(r) + '</span></span>').join('');
         return '<div class="sr-oggi">'
             + voce('Oggi', '<span class="sr-oggi-att"><strong>' + esc(fmtData(oggi)) + '</strong></span>')
-            + voce('In corso', inCorso.length ? nomi(inCorso, r => 'fino al ' + esc(fmtData(r.fine))) : '<span class="sr-oggi-sub">Nessuna attività in corso</span>')
-            + voce('Prossima', prossime.length ? nomi(prossime, r => 'dal ' + esc(fmtData(r.inizio))) : '<span class="sr-oggi-sub">Nessuna attività da iniziare</span>')
+            + voce('In corso', inCorso.length ? nomi(inCorso, r => 'fino al ' + esc(fmtData(r.fine)) + senza(r)) : '<span class="sr-oggi-sub">Nessuna attività in corso</span>')
+            + voce('Prossima', prossime.length ? nomi(prossime, r => 'dal ' + esc(fmtData(r.inizio)) + senza(r)) : '<span class="sr-oggi-sub">Nessuna attività da iniziare</span>')
             + '</div>';
     }
     function vistaStrumenti() {
@@ -37508,7 +37509,7 @@
         }).join('');
         // la nota sotto la tabella spiega una volta sola le etichette e il pulsante spento
         const chiuse = Array.from(new Map(piano.filter(r => r.scheda === 'chiusa').map(r => [r.etichetta || 'Senza scheda', r.avviso || ''])).entries());
-        const notaTab = chiuse.map(([et, av]) => '<span><strong>' + esc(et) + '</strong>: ' + esc(av) + '</span>')
+        const notaTab = chiuse.map(([et, av]) => '<span><strong>' + esc(et) + '</strong>: ' + esc(av.charAt(0).toLowerCase() + av.slice(1)) + '</span>')
             .concat(piano.some(r => r.scheda === 'disattiva') ? ['<span><strong>«Apri» in grigio</strong>: scheda in preparazione.</span>'] : []).join(' ');
 
         const corpo = piano.length ? `
@@ -37619,30 +37620,56 @@
         const r0 = righe[0];
         const c = a.carta ? d.carte[a.carta] : null;
         const fase = r0 ? (d.fasi[r0.fase] || r0.fase) : '';
-        const periodo = r => (righe.length > 1 ? r.nome + ': ' : '') + 'dal ' + fmtData(r.inizio) + ' al ' + fmtData(r.fine);
-        const periodi = righe.map(r => {
-            const st = srStato(r.inizio, r.fine);
-            return '<span class="sr-periodo">' + esc(periodo(r)) + ' <span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></span>';
-        }).join('');
         const nPassi = c ? c.blocchi.reduce((t, b) => t + b.passi.length, 0) : 0;
         const documenti = srDocumentiAttivita(d, a);
         const fascicolo = d.fascicoli && d.fascicoli[anno] && d.fascicoli[anno][par.id];
+        const plurale = (n, uno, piu) => n + ' ' + (n === 1 ? uno : piu);
 
-        const descrizione = '<div class="card" id="sr-att-descrizione"><h2>L\'attività</h2>'
-            + '<p class="sr-sintesi">' + esc(a.sintesi) + '</p>'
-            + (a.come && a.come.length ? '<h3 class="sr-sottotit">Come si svolge</h3><ol class="sr-come">' + a.come.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>' : '')
-            + (a.agliAtti ? '<div class="sr-riquadro sr-agli-atti"><span class="sr-riquadro-et">Cosa resta agli atti</span>' + esc(a.agliAtti) + '</div>' : '')
-            + (a.attenzione ? '<div class="sr-riquadro sr-avviso"><span class="sr-riquadro-et">Attenzione</span>' + esc(a.attenzione) + '</div>' : '')
-            + (a.riferimenti && a.riferimenti.length ? '<div class="sr-rif"><span class="sr-rif-tit">Riferimenti</span>' + a.riferimenti.map(x => '<span class="sr-rif-voce">' + esc(x) + '</span>').join('') + '</div>' : '')
+        /* Il riquadro dei dati principali, come il riepilogo del piano: fase,
+           periodo, stato (con quanto manca: si legge senza fare i conti) e carta
+           di lavoro. Lo stato dipende dal giorno: su carta non esce, cosi' la
+           scheda stampata e il fascicolo PDF restano validi in ogni momento. */
+        const oggi = oggiISO();
+        const quando = r => {
+            const st = srStato(r.inizio, r.fine);
+            if (st.id === 'iniziare') { const n = srGiorno(r.inizio) - srGiorno(oggi); return n === 1 ? 'inizia domani' : 'inizia tra ' + n + ' giorni'; }
+            if (st.id === 'corso') { const n = srGiorno(r.fine) - srGiorno(oggi); return n === 0 ? 'termina oggi' : n === 1 ? 'termina domani' : 'termina tra ' + n + ' giorni'; }
+            return 'conclusa il ' + fmtData(r.fine);
+        };
+        const fatto = (et, corpo, classe) => '<div class="sr-fatto' + (classe ? ' ' + classe : '') + '"><span class="sr-oggi-et">' + esc(et) + '</span>' + corpo + '</div>';
+        const fatti = '<div class="sr-fatti">'
+            + (r0 ? fatto('Fase', '<span class="badge sr-fase f-' + esc(r0.fase) + '">' + esc(fase) + '</span>') : '')
+            + (righe.length ? fatto('Periodo', righe.map(r => '<span class="sr-fatto-riga"><strong>' + esc(fmtData(r.inizio)) + ' – ' + esc(fmtData(r.fine)) + '</strong>'
+                + (righe.length > 1 ? '<span class="sr-oggi-sub">' + esc(r.nome) + '</span>' : '') + '</span>').join('')) : '')
+            + (righe.length ? fatto('Stato', righe.map(r => { const st = srStato(r.inizio, r.fine); return '<span class="sr-fatto-riga"><span><span class="badge ' + st.classe + '">' + esc(st.nome) + '</span></span><span class="sr-oggi-sub">' + esc(quando(r)) + '</span></span>'; }).join(''), 'sr-fatto-stato') : '')
+            + (c ? fatto('Carta di lavoro', '<span class="sr-fatto-riga"><strong>' + esc(c.titolo) + '</strong><span class="sr-oggi-sub">' + esc(plurale(nPassi, 'passaggio', 'passaggi') + ' · ' + plurale(documenti.length, 'documento', 'documenti')) + '</span></span>', 'sr-fatto-largo') : '')
             + '</div>';
 
+        // la descrizione: a sinistra cosa e' e come si svolge, a lato cosa resta agli atti, attenzione e riferimenti
+        const lato = (a.agliAtti ? '<div class="sr-riquadro sr-agli-atti"><span class="sr-riquadro-et">Cosa resta agli atti</span>' + esc(a.agliAtti) + '</div>' : '')
+            + (a.attenzione ? '<div class="sr-riquadro sr-avviso"><span class="sr-riquadro-et">Attenzione</span>' + esc(a.attenzione) + '</div>' : '')
+            + (a.riferimenti && a.riferimenti.length ? '<div class="sr-riquadro sr-rif"><span class="sr-riquadro-et">Riferimenti</span><ul>' + a.riferimenti.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '');
+        const descrizione = '<div class="card" id="sr-att-descrizione"><h2>L\'attività</h2>'
+            + '<div class="sr-att-griglia' + (lato ? '' : ' sr-senza-lato') + '"><div class="sr-att-principale">'
+            + '<h3 class="sr-sottotit">In sintesi</h3><p class="sr-sintesi">' + esc(a.sintesi) + '</p>'
+            + (a.come && a.come.length ? '<h3 class="sr-sottotit">Come si svolge</h3><ol class="sr-come">' + a.come.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>' : '')
+            + '</div>' + (lato ? '<aside class="sr-att-lato" aria-label="Da sapere">' + lato + '</aside>' : '') + '</div></div>';
+
+        /* I passaggi per gruppo, ognuno con la sua testata e i numeri che copre.
+           Il primo gruppo della carta non ha titolo: se ce ne sono altri si
+           chiama «Svolgimento». */
+        const gruppo = b => {
+            const n0 = b.passi[0].n, n1 = b.passi[b.passi.length - 1].n;
+            const titolo = b.titolo || (c.blocchi.length > 1 ? 'Svolgimento' : '');
+            return '<section class="sr-gruppo">'
+                + (titolo ? '<div class="sr-gruppo-testa"><h3>' + esc(titolo) + '</h3><span class="sr-gruppo-n">' + esc(n0 === n1 ? 'passaggio ' + n0 : 'passaggi ' + n0 + '–' + n1) + '</span></div>' : '')
+                + (b.intro ? '<p class="sr-intro">' + esc(b.intro) + '</p>' : '') + srPassiHtml(d, b.passi) + '</section>';
+        };
         const passaggi = c ? '<div class="card" id="sr-att-passaggi"><h2>Passaggi</h2>'
-            + '<p class="sr-fonte">Carta di lavoro «' + esc(c.titolo) + '» · ' + nPassi + (nPassi === 1 ? ' passaggio' : ' passaggi') + ' · ' + documenti.length + (documenti.length === 1 ? ' documento' : ' documenti') + '</p>'
-            + (c.note || []).map(n => '<div class="sr-riquadro sr-avviso">' + esc(n) + '</div>').join('')
+            + (c.note || []).map(n => '<div class="sr-riquadro sr-avviso"><span class="sr-riquadro-et">Da sapere</span>' + esc(n) + '</div>').join('')
             + (c.inEvidenza ? '<ul class="sr-docs sr-evidenza">' + c.inEvidenza.map(x => srDocHtml(d, x)).join('') + '</ul>' : '')
-            + c.blocchi.map(b => '<section class="sr-gruppo">' + (b.titolo ? '<h3 class="sr-sottotit">' + esc(b.titolo) + '</h3>' : '')
-                + (b.intro ? '<p class="sr-intro">' + esc(b.intro) + '</p>' : '') + srPassiHtml(d, b.passi) + '</section>').join('')
-            + (c.noteFinali || []).map(n => '<div class="sr-riquadro sr-avviso">' + esc(n) + '</div>').join('')
+            + c.blocchi.map(gruppo).join('')
+            + (c.noteFinali || []).map(n => '<div class="sr-riquadro sr-avviso"><span class="sr-riquadro-et">Ricorda</span>' + esc(n) + '</div>').join('')
             + '</div>' : '';
 
         const dove = c && c.doveAllegare ? '<div class="card" id="sr-att-dove"><h2>Dove allegare i documenti</h2><p class="hint">Carta di lavoro Revisoft in cui inserire ciascun documento.</p>'
@@ -37653,12 +37680,19 @@
             + '<p class="hint">' + (c ? 'Documenti delle altre carte di lavoro che servono anche qui.' : 'Questa attività non ha una carta di lavoro sua: questi sono i documenti delle altre carte che la riguardano.') + '</p>'
             + '<ul class="sr-docs">' + a.documentiUtili.map(x => srDocHtml(d, x)).join('') + '</ul></div>' : '';
 
-        /* L'indice dei documenti esce solo su carta: numerato come le intestazioni
-           delle pagine del fascicolo PDF, dice dove sta ciascun documento. */
-        const indice = documenti.length ? '<section class="sr-solo-stampa sr-indice"><h2>Documenti dell\'attività</h2>'
-            + '<p class="sr-indice-nota">Nel fascicolo completo (PDF) i documenti seguono questa scheda nello stesso ordine.</p><ol>'
-            + documenti.map(x => { const al = d.allegati[x.k]; return '<li><strong>' + esc(al.nome) + '</strong> <span class="sr-indice-meta">' + esc(SR_TIPI[al.tipo] || al.tipo) + (x.dove ? ' · ' + esc(x.dove) : '') + '</span>' + (al.descrizione ? '<br><span class="sr-indice-desc">' + esc(al.descrizione) + '</span>' : '') + '</li>'; }).join('')
-            + '</ol></section>' : '';
+        /* L'indice: tutti i documenti dell'attivita' una volta sola, numerati e
+           nell'ordine in cui servono. E' lo stesso ordine del fascicolo PDF, dove
+           ogni pagina porta «Documento n di N». */
+        const indice = documenti.length ? '<div class="card sr-indice" id="sr-att-indice"><h2>Indice dei documenti</h2>'
+            + '<p class="hint">' + esc(plurale(documenti.length, 'documento', 'documenti')) + ', nell\'ordine in cui servono.'
+            + (fascicolo ? ' «Stampa tutto (PDF)» li riunisce in un unico file, dopo la scheda.' : '') + '</p>'
+            + '<ol class="sr-ind">' + documenti.map((x, i) => {
+                const al = d.allegati[x.k];
+                return '<li class="sr-ind-riga"><span class="sr-ind-n">' + (i + 1) + '</span>'
+                    + '<span class="sr-ind-nome">' + esc(al.nome) + '</span>'
+                    + '<span class="sr-ind-meta"><span class="sr-doc-tipo t-' + esc(al.tipo) + '">' + esc(SR_TIPI[al.tipo] || al.tipo) + '</span><span class="sr-ind-dove">' + esc(x.dove) + '</span></span>'
+                    + '<span class="sr-ind-az"><a class="btn btn-sm btn-ghost" href="' + esc(al.file) + '" download title="Scarica il file (' + esc(srPeso(al.kb)) + ')">Scarica</a></span></li>';
+            }).join('') + '</ol></div>' : '';
 
         // l'attivita' prima e dopo nel piano dell'anno, per scorrerle senza tornare alla tabella
         const ordine = srAttivitaAnno(d, anno), pos = ordine.indexOf(par.id);
@@ -37676,16 +37710,14 @@
                 <div>
                     ${indietro}
                     <h1>${esc(a.titolo)}</h1>
-                    <div class="sr-att-meta">${r0 ? '<span class="badge sr-fase f-' + esc(r0.fase) + '">' + esc(fase) + '</span>' : ''}<span class="sr-periodi">${periodi}</span></div>
                 </div>
                 ${azioni}
             </header>
             <div class="intest-stampa">
                 <div class="is-marchio">Revilaw S.p.A. · Strumenti di revisione · Piano di revisione ${esc(anno)}</div>
                 <div class="is-tit">${esc(a.titolo)}</div>
-                <div class="is-meta">${esc([fase].concat(righe.map(periodo)).filter(Boolean).join(' · '))}</div>
             </div>
-            ${descrizione}${passaggi}${dove}${utili}${indice}${scorri}`;
+            ${fatti}${descrizione}${passaggi}${dove}${utili}${indice}${scorri}`;
 
         const vista = $vista();
         collegaIndietro();

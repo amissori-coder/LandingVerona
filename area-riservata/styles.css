@@ -4171,7 +4171,7 @@ td.cene-az { white-space: nowrap; }
 .sr-tab tbody tr[hidden], .sr-testo[hidden], #sr-vuoto[hidden], .sr-g-riga[hidden], .sr-g-tip[hidden], .sr-raccolta-elenco[hidden] { display: none !important; }
 /* Testo sempre giustificato, come .descrizione e .hint nel resto dell'area. */
 .sr-sintesi, .sr-come li, .sr-riquadro, .sr-intro, .sr-passo-testo, .sr-nota, .sr-doc-desc,
-.sr-testo-corpo, .sr-nota-tab, .sr-indice-desc { text-align: justify; hyphens: manual; }
+.sr-testo-corpo, .sr-nota-tab { text-align: justify; hyphens: manual; }
 
 /* ---- il piano ---- */
 .sr-anni { margin-bottom: 16px; }
@@ -4264,9 +4264,17 @@ td.cene-az { white-space: nowrap; }
 
 /* ---- la pagina dell'attivita' ---- */
 .sr-indietro { margin: 0 0 10px -8px; }
-.sr-att-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 8px; }
-.sr-periodi { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.86rem; color: var(--grigio-700); }
-.sr-periodo .badge { margin-left: 4px; }
+/* i dati principali: celle separate da un filo (lo spazio di 1px lascia vedere
+   lo sfondo), che restano ordinate anche quando vanno a capo su due righe */
+.sr-fatti {
+    display: grid; grid-template-columns: minmax(130px, .7fr) minmax(170px, 1fr) minmax(170px, 1fr) minmax(240px, 1.7fr); gap: 1px;
+    background: var(--grigio-200); border: 1px solid var(--grigio-200); border-radius: var(--raggio); overflow: hidden; margin: 0 0 18px;
+}
+.sr-fatto { background: #fff; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sr-fatto .badge { align-self: flex-start; }
+.sr-fatto-riga { display: flex; flex-direction: column; gap: 3px; }
+.sr-fatto-riga + .sr-fatto-riga { margin-top: 4px; }
+.sr-fatto-riga strong { font-size: 0.92rem; color: var(--blu-900); line-height: 1.3; font-variant-numeric: tabular-nums; }
 /* una sola misura per testo, riquadri ed elenchi dei documenti: i bordi destri
    si allineano (in ch cambierebbe con la dimensione del carattere di ciascuno) */
 #vista { --sr-misura: 60rem; }
@@ -4283,12 +4291,31 @@ td.cene-az { white-space: nowrap; }
 .sr-agli-atti .sr-riquadro-et { color: var(--blu-500); }
 .sr-avviso { background: var(--ambra-bg); border: 1px solid #F0D27A; color: #5C4300; }
 .sr-avviso .sr-riquadro-et { color: var(--ambra); }
-.sr-rif { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 16px; }
-.sr-rif-tit { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--grigio-500); margin-right: 4px; }
-.sr-rif-voce { font-size: 0.78rem; padding: 3px 10px; border-radius: 999px; background: var(--grigio-100); border: 1px solid var(--grigio-200); color: var(--grigio-700); }
-.sr-fonte { margin: 0 0 4px; font-size: 0.84rem; color: var(--grigio-600); }
-.sr-gruppo + .sr-gruppo { border-top: 1px solid var(--grigio-200); margin-top: 8px; }
-.sr-intro { font-size: 0.86rem; line-height: 1.55; color: var(--grigio-600); margin: -4px 0 6px; max-width: var(--sr-misura); }
+.sr-rif { background: #fff; border: 1px solid var(--grigio-200); color: var(--grigio-700); }
+.sr-rif .sr-riquadro-et { color: var(--grigio-500); }
+.sr-rif ul { margin: 0; padding-left: 18px; }
+.sr-rif li { margin: 2px 0; }
+/* la descrizione: testo a sinistra, i riquadri da tenere presenti a lato */
+.sr-att-griglia { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 8px 32px; align-items: start; }
+.sr-att-griglia.sr-senza-lato { grid-template-columns: minmax(0, 1fr); }
+.sr-att-principale > .sr-sottotit:first-child { margin-top: 2px; }
+/* colonna stretta: la sillabazione evita i vuoti larghi del testo giustificato */
+.sr-att-lato { padding-top: 4px; }
+.sr-att-lato .sr-riquadro { hyphens: auto; }
+.sr-att-lato .sr-riquadro:first-child { margin-top: 0; }
+/* i gruppi di passaggi: una testata con il titolo e i numeri che copre */
+.sr-gruppo-testa {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px;
+    max-width: calc(var(--sr-misura) + 44px); margin: 18px 0 4px; padding: 8px 12px;
+    background: var(--grigio-050); border-left: 3px solid var(--blu-700); border-radius: 0 var(--raggio-sm) var(--raggio-sm) 0;
+}
+.sr-gruppo-testa h3 { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--blu-900); }
+.sr-gruppo-n { font-size: 0.76rem; color: var(--grigio-500); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* passaggi, testate e riquadri finiscono allo stesso bordo destro degli elenchi dei documenti */
+#sr-att-passaggi > .sr-riquadro { max-width: calc(var(--sr-misura) + 44px); }
+#sr-att-passaggi > .sr-riquadro:first-of-type { margin-top: 4px; }
+#sr-att-passaggi .sr-passi { max-width: calc(var(--sr-misura) + 44px); }
+.sr-intro { font-size: 0.86rem; line-height: 1.55; color: var(--grigio-600); margin: 6px 0 2px; max-width: var(--sr-misura); }
 .sr-passi { list-style: none; margin: 0; padding: 0; }
 .sr-passo { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--grigio-100); }
 .sr-passo:last-child { border-bottom: none; }
@@ -4333,7 +4360,7 @@ td.cene-az { white-space: nowrap; }
     white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; color: var(--grigio-900);
     padding: 12px 14px; max-height: 440px; overflow: auto;
 }
-#sr-att-dove .hint, #sr-att-utili .hint { margin: -2px 0 12px; }
+#sr-att-dove .hint, #sr-att-utili .hint, #sr-att-indice .hint { margin: -2px 0 12px; }
 table.sr-dove { width: 100%; max-width: 760px; border-collapse: collapse; font-size: 0.86rem; }
 table.sr-dove th { text-align: left; font-size: 0.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--grigio-500); padding: 0 12px 6px 0; border-bottom: 1px solid var(--grigio-200); }
 table.sr-dove td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--grigio-100); vertical-align: top; color: var(--grigio-900); }
@@ -4342,7 +4369,14 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
 .sr-evidenza { margin: 10px 0 4px; }
 .sr-scorri { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin: 4px 0 24px; }
 .sr-scorri .btn { max-width: 100%; white-space: normal; text-align: left; }
-.sr-solo-stampa { display: none; }
+/* l'indice dei documenti: una riga per documento, numerata come nel fascicolo PDF */
+.sr-ind { list-style: none; margin: 0; padding: 0; max-width: var(--sr-misura); border: 1px solid var(--grigio-200); border-radius: var(--raggio); }
+.sr-ind-riga { display: grid; grid-template-columns: 30px minmax(0, 1fr) 230px auto; align-items: center; gap: 4px 12px; padding: 7px 12px; }
+.sr-ind-riga + .sr-ind-riga { border-top: 1px solid var(--grigio-100); }
+.sr-ind-n { text-align: right; font-size: 0.8rem; font-weight: 700; color: var(--grigio-500); font-variant-numeric: tabular-nums; }
+.sr-ind-nome { font-size: 0.87rem; font-weight: 600; color: var(--blu-900); overflow-wrap: anywhere; }
+.sr-ind-meta { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--grigio-600); white-space: nowrap; }
+.sr-ind-az .btn { margin: 0; }
 /* la finestra dell'email al responsabile qualita' */
 .sr-em-anteprima {
     white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; color: var(--grigio-900);
@@ -4350,7 +4384,13 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
     max-height: 320px; overflow: auto; text-align: justify; hyphens: manual;
 }
 
+@media (max-width: 1100px) {
+    .sr-att-griglia { grid-template-columns: minmax(0, 1fr); }
+    .sr-att-lato { padding-top: 0; }
+    .sr-att-lato .sr-riquadro:first-child { margin-top: 14px; }
+}
 @media (max-width: 900px) {
+    .sr-fatti { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .sr-oggi { grid-template-columns: 1fr; }
     .sr-oggi-voce + .sr-oggi-voce { border-left: none; border-top: 1px solid var(--grigio-200); }
 }
@@ -4361,6 +4401,10 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
     .sr-doc-azioni { grid-column: 1 / -1; justify-content: flex-start; }
     .sr-passo { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; }
     .sr-scorri { flex-direction: column; }
+    .sr-fatto { padding: 10px 12px; }
+    .sr-ind-riga { grid-template-columns: 22px minmax(0, 1fr) auto; }
+    .sr-ind-meta { grid-column: 2; grid-row: 2; }
+    .sr-ind-az { grid-column: 3; grid-row: 1 / span 2; }
 }
 
 /* ---- stampa ----
@@ -4371,9 +4415,8 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
     @page { size: A4; margin: 14mm 14mm 16mm; }
     .sr-indietro, .sr-scorri, .sr-anni, .sr-doc-azioni, .sr-testo, #sr-piano .filtri, .sr-g-tip, #sr-vuoto { display: none !important; }
     .sr-raccolta-elenco[hidden] { display: block !important; }
-    .sr-solo-stampa { display: block; }
     .badge.sr-fase::before, .sr-g-velo::before, .sr-g-pieno, .sr-g-campione, .sr-g-campione-due i, .sr-g-oggi, .sr-g-oggi-etich,
-    .sr-n, .sr-doc-tipo, .sr-riquadro, .sr-oggi, .sr-etich-muta, .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sr-n, .sr-doc-tipo, .sr-riquadro, .sr-oggi, .sr-fatti, .sr-fatto, .sr-gruppo-testa, .sr-etich-muta, .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .sr-g-scorri { overflow: visible; }
     .sr-g-corpo { min-width: 0; }
     /* il foglio A4 e' largo come un tablet: qui si annullano le regole strette */
@@ -4393,7 +4436,8 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
     /* un passaggio con molti documenti puo' andare a cavallo di due pagine, ma il
        suo testo resta attaccato al primo documento e nessuna riga si spezza */
     .sr-passo { grid-template-columns: 52px minmax(0, 1fr); padding: 7px 0; }
-    .sr-passo-testo, .sr-nota, .sr-fonte, .sr-intro, #sr-att-passaggi > .sr-riquadro { break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+    .sr-passo-testo, .sr-nota, .sr-intro, #sr-att-passaggi > .sr-riquadro:not(:last-child) { break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+    #sr-att-passaggi > .sr-riquadro:last-child { break-inside: avoid; }
     .sr-n { align-self: start; margin-top: 1px; width: auto; height: auto; background: none; color: var(--grigio-900); border-radius: 0; font-size: 10pt; gap: 6px; justify-content: flex-start; }
     .sr-spunta { display: inline-block; width: 11px; height: 11px; border: 1.2px solid var(--grigio-900); border-radius: 2px; }
     .sr-docs { border: none; border-left: 2px solid var(--grigio-200); border-radius: 0; margin-top: 4px; }
@@ -4407,12 +4451,17 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
     .sr-riquadro { break-inside: avoid; }
     .sr-gruppo + .sr-gruppo { border-top: none; }
     .sr-sottotit { break-after: avoid; page-break-after: avoid; margin-top: 16px; }
+    /* lo stato dipende dal giorno: su carta solo fase, periodo e carta di lavoro */
+    .sr-fatti { grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.8fr); break-inside: avoid; margin-bottom: 12px; }
+    .sr-fatto-stato { display: none; }
+    .sr-fatto { padding: 7px 10px; }
+    .sr-gruppo-testa { break-after: avoid; page-break-after: avoid; break-inside: avoid; margin-top: 12px; }
+    #sr-att-dove { break-inside: avoid; page-break-inside: avoid; }
+    .card > .hint { break-after: avoid; page-break-after: avoid; }
     .sr-indice { break-before: page; page-break-before: always; }
-    .sr-indice h2 { font-size: 13pt; margin: 0 0 4px; color: var(--blu-900); }
-    .sr-indice-nota { font-size: 9pt; color: var(--grigio-600); margin: 0 0 10px; }
-    .sr-indice ol { margin: 0; padding-left: 22px; }
-    .sr-indice li { font-size: 9.5pt; margin-bottom: 6px; break-inside: avoid; }
-    .sr-indice-meta { font-size: 8.5pt; color: var(--grigio-600); }
-    .sr-indice-desc { font-size: 8.5pt; color: var(--grigio-700); }
+    .sr-ind-az { display: none; }
+    .sr-ind-riga { grid-template-columns: 24px minmax(0, 1fr) 190px; padding: 4px 8px; break-inside: avoid; }
+    .sr-ind-nome { font-size: 9.5pt; }
+    .sr-ind-meta { font-size: 8.5pt; }
     table.sr-dove { max-width: none; }
 }
