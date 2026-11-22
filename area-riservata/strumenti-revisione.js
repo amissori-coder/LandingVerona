@@ -1098,8 +1098,7 @@ window.RV_STRUMENTI_REVISIONE = {
           "lettera-ai-depositanti-delle-rimanenze-di-magazzino",
           "lettera-alle-parti-correlate-gruppi-societari"
          ],
-         "et": "Fac-simile delle lettere",
-         "drive": "https://drive.google.com/drive/folders/12pC9-0mwEtDq_acuy70ML_xRKgzHDQHh?usp=sharing"
+         "et": "Fac-simile delle lettere"
         }
        ]
       },
@@ -1153,33 +1152,11 @@ window.RV_STRUMENTI_REVISIONE = {
      "passi": [
       {
        "n": 10,
-       "testo": "Verificare eventuali errori di invio.",
-       "doc": [
-        {
-         "l": "https://docs.google.com/spreadsheets/d/10uaO97iC2pQ_7MaLMsxVPG2mB9hOLwyXNklVIz-p4Jo/edit?usp=sharing",
-         "et": "Foglio degli errori di invio",
-         "tipo": "drive",
-         "descrizione": "Il foglio del controllo qualità con gli eventuali errori di invio delle PEC."
-        }
-       ]
+       "testo": "Verificare eventuali errori di invio."
       },
       {
        "n": 11,
-       "testo": "Controllare le risposte ricevute e i solleciti.",
-       "doc": [
-        {
-         "l": "https://docs.google.com/spreadsheets/d/1EPT2qb0jr3RdtpfMDPYpSaTpACgoaOx169LQEkyyHCo/edit?usp=sharing",
-         "et": "Foglio delle risposte ricevute e dei solleciti",
-         "tipo": "drive",
-         "descrizione": "Il foglio del controllo qualità con le risposte arrivate e i solleciti."
-        },
-        {
-         "l": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRnzUpoHjf2kb2tiTDgW8vUodJsXZ0PWtzHaJ735XxRX0qlmdQPtN8lCqBLqSW1n_9a3az2Ktly_st4/pubhtml?gid=1423201834&single=true",
-         "et": "Dettagli degli invii",
-         "tipo": "drive",
-         "descrizione": "Il dettaglio degli invii PEC, pubblicato dal controllo qualità."
-        }
-       ]
+       "testo": "Controllare le risposte ricevute e i solleciti."
       },
       {
        "n": 12,
@@ -1389,12 +1366,6 @@ window.RV_STRUMENTI_REVISIONE = {
        "testo": "Procedere al campionamento in Revisoft.",
        "doc": [
         {
-         "l": "https://drive.google.com/file/d/1MDEZRnbwPFDJ5D2lUtA2E3jFwfbJfw19/view?usp=sharing",
-         "et": "Video sul campionamento",
-         "tipo": "drive",
-         "descrizione": "Il video che mostra il campionamento in Revisoft."
-        },
-        {
          "a": "note-sui-segni-dei-saldi-dare-avere",
          "et": "Note sui segni +/- dei saldi dare/avere"
         },
@@ -1482,33 +1453,11 @@ window.RV_STRUMENTI_REVISIONE = {
      "passi": [
       {
        "n": 11,
-       "testo": "Verificare eventuali errori di invio.",
-       "doc": [
-        {
-         "l": "https://docs.google.com/spreadsheets/d/10uaO97iC2pQ_7MaLMsxVPG2mB9hOLwyXNklVIz-p4Jo/edit?usp=sharing",
-         "et": "Foglio degli errori di invio",
-         "tipo": "drive",
-         "descrizione": "Il foglio del controllo qualità con gli eventuali errori di invio delle PEC."
-        }
-       ]
+       "testo": "Verificare eventuali errori di invio."
       },
       {
        "n": 12,
-       "testo": "Controllare le risposte ricevute e i solleciti.",
-       "doc": [
-        {
-         "l": "https://docs.google.com/spreadsheets/d/1EPT2qb0jr3RdtpfMDPYpSaTpACgoaOx169LQEkyyHCo/edit?usp=sharing",
-         "et": "Foglio delle risposte ricevute e dei solleciti",
-         "tipo": "drive",
-         "descrizione": "Il foglio del controllo qualità con le risposte arrivate e i solleciti."
-        },
-        {
-         "l": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRXwdaXiUiSnzWb1bAjSC1KcafwJX4Z34NIFM-zvyBvGk5qV0skXBZMt0AEVbyljlQClUdhO2cc69PD/pubhtml?gid=1423201834&single=true",
-         "et": "Dettagli degli invii",
-         "tipo": "drive",
-         "descrizione": "Il dettaglio degli invii PEC, pubblicato dal controllo qualità."
-        }
-       ]
+       "testo": "Controllare le risposte ricevute e i solleciti."
       },
       {
        "n": 13,
@@ -1674,8 +1623,7 @@ window.RV_STRUMENTI_REVISIONE = {
           "lettera-di-attestazione-bilancio-ordinario-con-relazione-sulla-gestione",
           "assirevi-documento-di-ricerca-n-251r-2026-le-attestazioni-della-direzion"
          ],
-         "et": "Format Revilaw da concordare con il responsabile qualità",
-         "drive": "https://drive.google.com/drive/folders/1CeOR7fD26OneZfBeGAE01caE73HBJ3gQ?usp=sharing"
+         "et": "Format Revilaw da concordare con il responsabile qualità"
         }
        ],
        "nota": "Il format Revilaw si concorda con il responsabile qualità."
@@ -1697,8 +1645,7 @@ window.RV_STRUMENTI_REVISIONE = {
           "impossibilita-di-esprimere-un-giudizio-bilancio-abbreviato-senza-collegi",
           "report-of-the-independent-legal-auditor-in-inglese"
          ],
-         "et": "Format Revilaw da concordare con il responsabile qualità",
-         "drive": "https://drive.google.com/drive/folders/1l0xxZOorqn-n4HWnWke6-cd20Kx3X-2M?usp=sharing"
+         "et": "Format Revilaw da concordare con il responsabile qualità"
         }
        ],
        "nota": "Il format Revilaw si concorda con il responsabile qualità."
@@ -1799,8 +1746,7 @@ window.RV_STRUMENTI_REVISIONE = {
           "lettera-di-attestazione-bilancio-ordinario-con-relazione-sulla-gestione",
           "assirevi-documento-di-ricerca-n-251r-2026-le-attestazioni-della-direzion"
          ],
-         "et": "Format Revilaw da concordare con il responsabile qualità",
-         "drive": "https://drive.google.com/drive/folders/1CeOR7fD26OneZfBeGAE01caE73HBJ3gQ?usp=sharing"
+         "et": "Format Revilaw da concordare con il responsabile qualità"
         }
        ],
        "nota": "Il format Revilaw si concorda con il responsabile qualità."
@@ -1822,8 +1768,7 @@ window.RV_STRUMENTI_REVISIONE = {
           "impossibilita-di-esprimere-un-giudizio-bilancio-abbreviato-senza-collegi",
           "report-of-the-independent-legal-auditor-in-inglese"
          ],
-         "et": "Format Revilaw da concordare con il responsabile qualità",
-         "drive": "https://drive.google.com/drive/folders/1l0xxZOorqn-n4HWnWke6-cd20Kx3X-2M?usp=sharing"
+         "et": "Format Revilaw da concordare con il responsabile qualità"
         }
        ],
        "nota": "Il format Revilaw si concorda con il responsabile qualità."
@@ -2236,8 +2181,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/memorandum-verifica-annuale-di-adeguata-verifica-privacy-e-indipendenza.docx",
    "tipo": "docx",
    "kb": 152,
-   "drive": "https://docs.google.com/document/d/1QrLV7IP9iPVMz-5GbTYuLcfV70mmSU6nPtNQw9SG2FM/edit?usp=sharing",
-   "titoloDrive": "Verifica annuale – Adeguata Verifica, Privacy e Indipendenza 2025",
    "testo": true
   },
   "email-aggiornamento-annuale-di-adeguata-verifica-e-privacy": {
@@ -2246,8 +2189,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-aggiornamento-annuale-di-adeguata-verifica-e-privacy.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1bQkB-cmXl3j5pt3RD55frff3U1gxbSf3n9TBATnVf9o/edit?usp=sharing",
-   "titoloDrive": "Adeguata verifica e Privacy",
    "testo": true
   },
   "allegati-di-adeguata-verifica-privacy-e-raccolta-dati": {
@@ -2255,9 +2196,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Scheda di identificazione del cliente (D.Lgs. 231/2007) e documenti privacy da far compilare.",
    "file": "strumenti-revisione/allegati/allegati-di-adeguata-verifica-privacy-e-raccolta-dati.pdf",
    "tipo": "pdf",
-   "kb": 801,
-   "drive": "https://drive.google.com/file/d/1G_fLXcKdKf1lNIJUMdqaPOUjj5yFFMom/view?usp=sharing",
-   "titoloDrive": "Allegati di Adeguata Verifica, Privacy e raccolta dati"
+   "kb": 801
   },
   "dati-email-comunicazione-dell-indirizzo-email-amministrativo": {
    "nome": "Dati email: comunicazione dell'indirizzo email amministrativo",
@@ -2265,8 +2204,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/dati-email-comunicazione-dell-indirizzo-email-amministrativo.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1G_VY2mjmDXdHhbOYk5NoFGsIpqPfAVwwih3VuCk1chQ/edit?usp=sharing",
-   "titoloDrive": "Comunicazione indirizzo email amministrativo per attività di revisione legale",
    "testo": true
   },
   "memorandum-attestazione-di-indipendenza": {
@@ -2275,8 +2212,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/memorandum-attestazione-di-indipendenza.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1MAnfLrgo1ZqyTRs0EsxkdAUn10qq0BQJC7E_A1jdhOI/edit?usp=sharing",
-   "titoloDrive": "MEMORANDUM – Attestazione di Indipendenza",
    "testo": true
   },
   "email-al-cliente-trasmissione-dell-attestazione-di-indipendenza": {
@@ -2285,8 +2220,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-al-cliente-trasmissione-dell-attestazione-di-indipendenza.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1uJPgaGHYCXwhxbpqyLxbfkVvKrRt5URy54pUAg22rZE/edit?usp=sharing",
-   "titoloDrive": "EMAIL CLIENTE",
    "testo": true
   },
   "attestazione-di-indipendenza-revilaw": {
@@ -2295,8 +2228,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/attestazione-di-indipendenza-revilaw.docx",
    "tipo": "docx",
    "kb": 41,
-   "drive": "https://docs.google.com/document/d/1bQ7MHAtngKXCDodNfdAGjmcwXXYzLR34/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Attestazione indipendenza Revilaw",
    "testo": true
   },
   "addendum-alla-lettera-di-incarico-variazione-del-responsabile": {
@@ -2305,8 +2236,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/addendum-alla-lettera-di-incarico-variazione-del-responsabile.docx",
    "tipo": "docx",
    "kb": 19,
-   "drive": "https://docs.google.com/document/d/17_ZzQfvb6zfC3eHAMgW3PqzzzTDTZ7SC/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ADDENDUM ALLA LETTERA DI INCARICO DI REVISIONE LEGALE DEI CONTI",
    "testo": true
   },
   "memorandum-scambio-di-informazioni-con-il-revisore-uscente": {
@@ -2315,8 +2244,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/memorandum-scambio-di-informazioni-con-il-revisore-uscente.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/14R65IVKdhdot_YY-WOWcSJ2ZNixp9p6t75i4ahkIOkA/edit?usp=sharing",
-   "titoloDrive": "Gestione dello scambio di informazioni con il revisore uscente",
    "testo": true
   },
   "allegato-1-assirevi-lettera-della-societa-conferente": {
@@ -2325,8 +2252,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/allegato-1-assirevi-lettera-della-societa-conferente.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/19VpDE_86nr42EA9eJ66Zf0om4U23asYZroYmKRi6v0k/edit?usp=sharing",
-   "titoloDrive": "Allegato 1 Assirevi",
    "testo": true
   },
   "allegato-2-assirevi-lettera-al-revisore-entrante": {
@@ -2335,8 +2260,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/allegato-2-assirevi-lettera-al-revisore-entrante.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1PYWgggGGCaDjrgAoabRQiXY7eZxJAFxS2d0OiDPO8mw/edit?usp=sharing",
-   "titoloDrive": "Allegato 2 Assirevi",
    "testo": true
   },
   "assirevi-documento-di-ricerca-n-212": {
@@ -2344,9 +2267,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il documento Assirevi sullo scambio di informazioni tra revisore entrante e uscente, con i modelli di lettera.",
    "file": "strumenti-revisione/allegati/assirevi-documento-di-ricerca-n-212.pdf",
    "tipo": "pdf",
-   "kb": 130,
-   "drive": "https://drive.google.com/file/d/1WO2hy0O7VIq9XOgHUPk_IfdzAL0m4OS0/view?usp=sharing",
-   "titoloDrive": "Doc 212_unlocked"
+   "kb": 130
   },
   "modello-iva-indicazioni-per-il-team": {
    "nome": "Modello IVA: indicazioni per il team",
@@ -2354,8 +2275,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/modello-iva-indicazioni-per-il-team.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://drive.google.com/file/d/1U6v30CcFMUD4j2REeRRQSGbA_rkb8afZOiqC28frEZA/view?usp=sharing",
-   "titoloDrive": "MODELLO IVA",
    "testo": true
   },
   "memorandum-sottoscrizione-delle-dichiarazioni-fiscali-2026-anno-d-impost": {
@@ -2364,8 +2283,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/memorandum-sottoscrizione-delle-dichiarazioni-fiscali-2026-anno-d-impost.docx",
    "tipo": "docx",
    "kb": 61,
-   "drive": "https://docs.google.com/document/d/1dqi3nvWIuSkXfHP3eXsct-pWvbZTnpzXh3n8Sj6djd4/edit?usp=sharing",
-   "titoloDrive": "Sottoscrizioni dichiarazioni fiscali 2026 (anno di imposta 2025)",
    "testo": true
   },
   "assirevi-documento-di-ricerca-n-208r-2020": {
@@ -2373,18 +2290,14 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il documento Assirevi sulla sottoscrizione delle dichiarazioni fiscali e sui controlli suggeriti.",
    "file": "strumenti-revisione/allegati/assirevi-documento-di-ricerca-n-208r-2020.pdf",
    "tipo": "pdf",
-   "kb": 186,
-   "drive": "https://drive.google.com/file/d/1ccqbo7X0_JjuzJ_IpduxqAcxLK5pQsX6/view?usp=sharing",
-   "titoloDrive": "ASSIREVI 208R_2020"
+   "kb": 186
   },
   "check-controlli-documenti-ricevuti-per-la-sottoscrizione": {
    "nome": "Check controlli: documenti ricevuti per la sottoscrizione",
    "descrizione": "Foglio per tenere traccia, società per società, di email, solleciti e documenti ricevuti per la firma.",
    "file": "strumenti-revisione/allegati/check-controlli-documenti-ricevuti-per-la-sottoscrizione.xlsx",
    "tipo": "xlsx",
-   "kb": 16,
-   "drive": "https://docs.google.com/spreadsheets/d/1eNKw1ftBP5SmYZhPw5pn0F1fRAfpnObIX6jpmkpKMkI/edit?usp=sharing",
-   "titoloDrive": "Sottoscrizioni dichiarazioni fiscali 2025_Revilaw"
+   "kb": 16
   },
   "dubbi-sul-quadro-ro-2026": {
    "nome": "Dubbi sul quadro RO 2026",
@@ -2392,8 +2305,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/dubbi-sul-quadro-ro-2026.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1S0TyjaRXP4ZsgMrp69uOi9PFvYElmdULBZ4-9jXTOIk/edit?usp=sharing",
-   "titoloDrive": "Quadro RO 2026",
    "testo": true
   },
   "email-al-cliente-trasmissione-dei-modelli-770-redditi-sc-irap-e-cnm-2026": {
@@ -2402,8 +2313,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-al-cliente-trasmissione-dei-modelli-770-redditi-sc-irap-e-cnm-2026.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1ARsF8vOti2agnWurMKdo3ewac-rGEuX8bEXEadmzriA/edit?usp=sharing",
-   "titoloDrive": "EMAIL TRASMISSIONE DICHIARAZIONI 2026 (2025)",
    "testo": true
   },
   "attestazione-sulle-dichiarazioni-2026-2025": {
@@ -2412,8 +2321,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/attestazione-sulle-dichiarazioni-2026-2025.docx",
    "tipo": "docx",
    "kb": 317,
-   "drive": "https://docs.google.com/document/d/1DUELBjtcnb7rmQENgMYW05SVqVmqeaDlX75xjnLlULs/edit?usp=sharing",
-   "titoloDrive": "ATTESTAZIONE DICHIARAZIONI 2026 (2025)",
    "testo": true
   },
   "memorandum-concordato-preventivo-biennale-novita-2025-e-fac-simile-di-de": {
@@ -2422,8 +2329,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/memorandum-concordato-preventivo-biennale-novita-2025-e-fac-simile-di-de.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1YolxP8XKK71wptH7oEpKNH1JM7BnELnhAfJKkpNJHC4/edit?usp=sharing",
-   "titoloDrive": "Concordato Preventivo Biennale (CPB) – Novità 2025 e fac-simile di delibera",
    "testo": true
   },
   "verbale-di-assemblea-dei-soci-per-il-cpb-2026": {
@@ -2432,8 +2337,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verbale-di-assemblea-dei-soci-per-il-cpb-2026.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1ZuFSZ7mPRbR017XjquiVtJmI6KxNUhr0/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Verbale di assemblea di S.r.l. 2026 per la valutazione del concordato preventivo biennale",
    "testo": true
   },
   "verbale-di-delibera-dell-organo-amministrativo-per-il-cpb-2026": {
@@ -2442,8 +2345,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verbale-di-delibera-dell-organo-amministrativo-per-il-cpb-2026.docx",
    "tipo": "docx",
    "kb": 11,
-   "drive": "https://docs.google.com/document/d/1DH9YR71l4rgrlX8k4LfkEJHq6gnAA-tl/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Verbale di Delibera dell’Organo Amministrativo 2026",
    "testo": true
   },
   "attestazione-dell-organo-amministrativo-per-il-cpb-2026": {
@@ -2452,8 +2353,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/attestazione-dell-organo-amministrativo-per-il-cpb-2026.docx",
    "tipo": "docx",
    "kb": 321,
-   "drive": "https://docs.google.com/document/d/1Yru55hUhyTvg-INa7ht5bxqiUqh1MQHi/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Attestazione dell'Organo Amministrativo 2026 per la valutazione dei rischi e l'adesione al Concordato Preventivo Biennale",
    "testo": true
   },
   "memorandum-invio-della-documentazione-e-istruzioni-per-il-modulo-2026": {
@@ -2462,8 +2361,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/memorandum-invio-della-documentazione-e-istruzioni-per-il-modulo-2026.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/11lhudAGdbIpEgmLnpnYfzBtq4Cm0FP98kpbUQkHI7f0/edit?usp=sharing",
-   "titoloDrive": "Invio documentazione dichiarazioni fiscali e istruzioni per il modulo 2026",
    "testo": true
   },
   "email-richiesta-del-primo-incontro-nuovo-incarico": {
@@ -2472,8 +2369,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-richiesta-del-primo-incontro-nuovo-incarico.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/10B49LyTefke8QvgjJn32qPz-BeJ60HsSt0JJPJpx9Rk/edit?usp=sharing",
-   "titoloDrive": "EMAIL NUOVO INCARICO",
    "testo": true
   },
   "allegato-attestazione-delle-polizze-assicurative": {
@@ -2482,8 +2377,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/allegato-attestazione-delle-polizze-assicurative.docx",
    "tipo": "docx",
    "kb": 10,
-   "drive": "https://docs.google.com/document/d/1itwOQJxG7Czq0XBNKltMEJjzBKD4Rywy/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ATTESTAZIONE POLIZZE ASSICURATIVE",
    "testo": true
   },
   "email-invio-dell-attestazione-di-indipendenza": {
@@ -2492,8 +2385,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-invio-dell-attestazione-di-indipendenza.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1ccS885IJ0K5xVhqZ3wzZq-Wn8LTrTfAaRrEORfVEFn8/edit?usp=sharing",
-   "titoloDrive": "EMAIL ATTESTAZIONE DI INDIPENDENZA",
    "testo": true
   },
   "attestazione-di-indipendenza": {
@@ -2502,8 +2393,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/attestazione-di-indipendenza.docx",
    "tipo": "docx",
    "kb": 13,
-   "drive": "https://docs.google.com/document/d/1V_wOabEOxXAp15-Lk6_o4_CUEp8a10M0WgQFruXonEI/edit?usp=sharing",
-   "titoloDrive": "ATTESTAZIONE DI INDIPENDENZA",
    "testo": true
   },
   "email-richiesta-di-incontro-e-documenti-per-la-verifica-trimestrale": {
@@ -2512,8 +2401,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-richiesta-di-incontro-e-documenti-per-la-verifica-trimestrale.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1fuSZWBjhZWm1Uwg2ySUTiHSo0ti80XhD8BD1g-9EoTE/edit?usp=sharing",
-   "titoloDrive": "EMAIL VERIFICA TRIMESTRALE",
    "testo": true
   },
   "bilancio-standard-comparato": {
@@ -2521,9 +2408,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Schema di stato patrimoniale e conto economico per confrontare il trimestre con lo stesso periodo dell'anno prima.",
    "file": "strumenti-revisione/allegati/bilancio-standard-comparato.xlsx",
    "tipo": "xlsx",
-   "kb": 82,
-   "drive": "https://docs.google.com/spreadsheets/d/1S1KtzX2XdPX0jVyG5fpnEB2Z5ZDmLXaMWOwHW0Qvk1U/edit?usp=sharing",
-   "titoloDrive": "Bilancio Standard 2025"
+   "kb": 82
   },
   "verbale-di-consegna-del-bilancio-trimestrale": {
    "nome": "Verbale di consegna del bilancio trimestrale",
@@ -2531,8 +2416,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verbale-di-consegna-del-bilancio-trimestrale.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1QY2G_0nigNdsu_4BtIva8B5HKVk4W0RwrCmd_g2WeX8/edit?usp=sharing",
-   "titoloDrive": "Verbale di consegna del bilancio trimestrale",
    "testo": true
   },
   "segnalazioni-durante-le-verifiche-in-corso-di-esercizio-sa-250b": {
@@ -2541,8 +2424,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/segnalazioni-durante-le-verifiche-in-corso-di-esercizio-sa-250b.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1IH9Z4FkTvXzGCSmnVQpK6smwG4Jzx0KEyIMb00MoFi4/edit?usp=sharing",
-   "titoloDrive": "Differenze tra le segnalazioni di un revisore durante le verifiche in corso di esercizio ai sensi del Principio SA 250B e le segnalazioni effettuate durante l'emissione del giudizio di revisione",
    "testo": true
   },
   "sintesi-del-documento-di-ricerca-assirevi-n-259": {
@@ -2551,8 +2432,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/sintesi-del-documento-di-ricerca-assirevi-n-259.docx",
    "tipo": "docx",
    "kb": 11,
-   "drive": "https://docs.google.com/document/d/1BCef1uouc7LV38S6K10HbQujQrNnZUAavwvD-mKIuiE/edit?usp=sharing",
-   "titoloDrive": "SINTESI DOCUMENTO DI RICERCA 259 ASSIREVI",
    "testo": true
   },
   "assirevi-documento-di-ricerca-n-259": {
@@ -2560,18 +2439,14 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il documento Assirevi sull'obbligo di segnalazione delle situazioni di crisi e insolvenza (art. 25-octies CCII).",
    "file": "strumenti-revisione/allegati/assirevi-documento-di-ricerca-n-259.pdf",
    "tipo": "pdf",
-   "kb": 400,
-   "drive": "https://drive.google.com/file/d/1B2wDeOXZuhfoNVqNnYpgUOg9Z7iQrbH9/view?usp=sharing",
-   "titoloDrive": "ASSIREVI_Documento di Ricerca n. 259"
+   "kb": 400
   },
   "test-segnali-di-crisi-ex-art-3-c-4-ccii": {
    "nome": "Test: segnali di crisi ex art. 3, c. 4 CCII",
    "descrizione": "Il test con gli indici, i dati e i documenti per verificare i segnali di crisi del trimestre.",
    "file": "strumenti-revisione/allegati/test-segnali-di-crisi-ex-art-3-c-4-ccii.xlsx",
    "tipo": "xlsx",
-   "kb": 61,
-   "drive": "https://docs.google.com/spreadsheets/d/1_xvp77mHHwGIoYz_q3hNk7FxPaVGoNdoSAG_Kz6Bm-0/edit?usp=sharing",
-   "titoloDrive": "Emersione di segnali di cui all’art. 3, c. 4 del CCII nello svolgimento delle verifiche ai sensi principio SA 250b"
+   "kb": 61
   },
   "email-inventario-di-fine-anno": {
    "nome": "Email: inventario di fine anno",
@@ -2579,8 +2454,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-inventario-di-fine-anno.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1Z2DLNQ0vq33JmdSkJoDKlscPN1Xm0pFYl16YX6yebjM/edit?usp=sharing",
-   "titoloDrive": "EMAIL INVENTARIO 2025",
    "testo": true
   },
   "allegato-1-manuale-di-inventario-fac-simile": {
@@ -2589,8 +2462,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/allegato-1-manuale-di-inventario-fac-simile.docx",
    "tipo": "docx",
    "kb": 201,
-   "drive": "https://docs.google.com/document/d/1OF2C9Zvy_jGhcrH-OBPcFrqQJqMbLa4U/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "All 1_Manuale Inventario_Fac Simile",
    "testo": true
   },
   "allegato-2-attestazione-frontespizio-da-inviare-con-il-bilancio": {
@@ -2599,8 +2470,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/allegato-2-attestazione-frontespizio-da-inviare-con-il-bilancio.docx",
    "tipo": "docx",
    "kb": 249,
-   "drive": "https://docs.google.com/document/d/1ODtx_V6IEgaIa57rhadQkZKVNvIvL1oX/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "All 2_Attestazione",
    "testo": true
   },
   "allegato-3-focus-sulla-revisione-delle-rimanenze-di-magazzino": {
@@ -2608,18 +2477,14 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il documento Revilaw per i clienti su inventario e valutazione delle rimanenze.",
    "file": "strumenti-revisione/allegati/allegato-3-focus-sulla-revisione-delle-rimanenze-di-magazzino.pdf",
    "tipo": "pdf",
-   "kb": 661,
-   "drive": "https://drive.google.com/file/d/183X6zwVK5ellvbq1Y93_oq4dLTmXvib2/view?usp=sharing",
-   "titoloDrive": "Revisione delle rimanenze di magazzino 2025"
+   "kb": 661
   },
   "allegato-4-valorizzazione-dell-inventario-di-magazzino-cliente": {
    "nome": "Allegato 4: valorizzazione dell'inventario di magazzino (cliente)",
    "descrizione": "Il foglio Excel in cui la società valorizza le giacenze (codice, quantità, carichi, scarichi, costo).",
    "file": "strumenti-revisione/allegati/allegato-4-valorizzazione-dell-inventario-di-magazzino-cliente.xlsx",
    "tipo": "xlsx",
-   "kb": 57,
-   "drive": "https://docs.google.com/spreadsheets/d/1OFn7O3I9QNP8DiUfv3gpGI6NyuRubOr2/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Valorizzazione dell'inventario di magazzino_cliente"
+   "kb": 57
   },
   "lettera-di-circolarizzazione-ai-depositari-delle-rimanenze": {
    "nome": "Lettera di circolarizzazione ai depositari delle rimanenze",
@@ -2627,8 +2492,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-di-circolarizzazione-ai-depositari-delle-rimanenze.docx",
    "tipo": "docx",
    "kb": 319,
-   "drive": "https://docs.google.com/document/d/1JfcQLGQLRmK968Sh68HtGPtf8SdhvGoQ/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Lettera ai depositanti Rimanenze di Magazzino 2025",
    "testo": true
   },
   "esempio-della-carta-di-lavoro-3-4-4-pianificazione": {
@@ -2636,45 +2499,35 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Esempio di carta di lavoro 3.4.4 di pianificazione delle rimanenze compilata (società di prova).",
    "file": "strumenti-revisione/allegati/esempio-della-carta-di-lavoro-3-4-4-pianificazione.pdf",
    "tipo": "pdf",
-   "kb": 48,
-   "drive": "https://drive.google.com/file/d/1D6KJiMn4u0YU8k5a5YiHMvWJ_j8Ep2Kw/view?usp=sharing",
-   "titoloDrive": "carta_lavoro-20241207033422"
+   "kb": 48
   },
   "carta-di-lavoro-conta-fisica-del-revisore": {
    "nome": "Carta di lavoro: conta fisica del revisore",
    "descrizione": "Carta di lavoro per il riepilogo della conta fisica campionaria del revisore.",
    "file": "strumenti-revisione/allegati/carta-di-lavoro-conta-fisica-del-revisore.xlsx",
    "tipo": "xlsx",
-   "kb": 57,
-   "drive": "https://docs.google.com/spreadsheets/d/1zhhov_TXx7QcsZKXRqjvVnnRN3tnI5AG/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Carta_di_Lavoro_Conta fisica"
+   "kb": 57
   },
   "carta-di-lavoro-slow-moving": {
    "nome": "Carta di lavoro: slow moving",
    "descrizione": "Carta di lavoro per l'analisi dei prodotti a lento rigiro e degli stanziamenti.",
    "file": "strumenti-revisione/allegati/carta-di-lavoro-slow-moving.xlsx",
    "tipo": "xlsx",
-   "kb": 63,
-   "drive": "https://docs.google.com/spreadsheets/d/1seeG-RDVvPvKGjsX1cA0eQ-zwcUc2DWB/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Carta_di_Lavoro_Slow Moving"
+   "kb": 63
   },
   "carta-di-lavoro-price-test": {
    "nome": "Carta di lavoro: price test",
    "descrizione": "Carta di lavoro per il controllo della valorizzazione delle giacenze sui documenti di acquisto.",
    "file": "strumenti-revisione/allegati/carta-di-lavoro-price-test.xlsx",
    "tipo": "xlsx",
-   "kb": 53,
-   "drive": "https://docs.google.com/spreadsheets/d/1yCUeUmOkSt9Fw5m51yzuG4XgkuAedhLL/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Carta_di_Lavoro_Price Test"
+   "kb": 53
   },
   "carta-di-lavoro-cut-off": {
    "nome": "Carta di lavoro: cut-off",
    "descrizione": "Carta di lavoro per verificare che i movimenti a cavallo della conta siano nel periodo giusto.",
    "file": "strumenti-revisione/allegati/carta-di-lavoro-cut-off.xlsx",
    "tipo": "xlsx",
-   "kb": 56,
-   "drive": "https://docs.google.com/spreadsheets/d/1yybgJj6xDwtRzA0qm5USVjGk3rrWKX8g/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Carta_di_Lavoro_Cut-off Test."
+   "kb": 56
   },
   "verbale-di-verifica-del-magazzino": {
    "nome": "Verbale di verifica del magazzino",
@@ -2682,8 +2535,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verbale-di-verifica-del-magazzino.docx",
    "tipo": "docx",
    "kb": 227,
-   "drive": "https://docs.google.com/document/d/164g8bVGItU_to5r-cFKkS-PZtPh0yD_r/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "All.1 - VERBALE VERIFICA MAGAZZINO 2025",
    "testo": true
   },
   "email-al-cliente-richiesta-dell-attestazione-per-le-circolarizzazioni": {
@@ -2692,8 +2543,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-al-cliente-richiesta-dell-attestazione-per-le-circolarizzazioni.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1NCU_0TBgX2Vzo8seTDqprocAOkHRVbQLtABDkaX7m1s/edit?usp=sharing",
-   "titoloDrive": "EMAIL CIRC. OBBLIGATORIE 2025",
    "testo": true
   },
   "attestazione-dei-soggetti-obbligatori-pdf-compilabile": {
@@ -2701,9 +2550,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "L'attestazione (PDF compilabile) in cui la società elenca banche, finanziatori, consulenti e gli altri soggetti obbligatori.",
    "file": "strumenti-revisione/allegati/attestazione-dei-soggetti-obbligatori-pdf-compilabile.pdf",
    "tipo": "pdf",
-   "kb": 243,
-   "drive": "https://drive.google.com/file/d/1YhggICDkwT_nF-g7T5Ucmx360x5wOu7u/view?usp=sharing",
-   "titoloDrive": "ATTESTAZIONE SOGGETTI OBBLIGATORI_EDITABILE"
+   "kb": 243
   },
   "autocertificazione-rischi-legali": {
    "nome": "Autocertificazione rischi legali",
@@ -2711,8 +2558,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/autocertificazione-rischi-legali.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1PtIMYPvy9Y0wU-D1GlQ4Cfz-ZZqKYTF07VXdNv3pgfY/edit?usp=sharing",
-   "titoloDrive": "AUTOCERTIFICAZIONE RISCHI LEGALI",
    "testo": true
   },
   "guida-pratica-circolarizzazioni-e-conferme-legali": {
@@ -2721,8 +2566,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/guida-pratica-circolarizzazioni-e-conferme-legali.docx",
    "tipo": "docx",
    "kb": 15,
-   "drive": "https://docs.google.com/document/d/1wy9vjmlXMmzsT4BGnxvQac5yzDUFR2yb/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Guida_pratica_circolarizzazioni_e_conferme_legali",
    "testo": true
   },
   "lettera-alla-societa-incaricata-della-conta-fisica-delle-rimanenze": {
@@ -2731,8 +2574,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-alla-societa-incaricata-della-conta-fisica-delle-rimanenze.docx",
    "tipo": "docx",
    "kb": 14,
-   "drive": "https://drive.google.com/file/d/1bI7xJcoYK62BseGZcbURoiPj61vdQw9j/view?usp=sharing",
-   "titoloDrive": "Lettera_societa_incaricata_conta_fisica_Rimanenze_di_Magazzino",
    "testo": true
   },
   "lettera-agli-enti-finanziatori": {
@@ -2741,8 +2582,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-agli-enti-finanziatori.docx",
    "tipo": "docx",
    "kb": 320,
-   "drive": "https://drive.google.com/file/d/1fTtDcJczbNWprvdr2f_GjIOdkyVGSEg5/view?usp=sharing",
-   "titoloDrive": "Lettera agli Enti Finanziatori",
    "testo": true
   },
   "lettera-agli-istituti-di-credito": {
@@ -2751,8 +2590,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-agli-istituti-di-credito.docx",
    "tipo": "docx",
    "kb": 18,
-   "drive": "https://drive.google.com/file/d/1-YZnibhx3WCLBhqY7AhXooO3BwA2ICx1/view?usp=sharing",
-   "titoloDrive": "Lettera agli Istituti di Credito",
    "testo": true
   },
   "lettera-all-amministrazione-postale": {
@@ -2761,8 +2598,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-all-amministrazione-postale.docx",
    "tipo": "docx",
    "kb": 16,
-   "drive": "https://drive.google.com/file/d/1YgmJg0w9G70U6Ad1w4gTlnTpLRoDGBKb/view?usp=sharing",
-   "titoloDrive": "Lettera alla Amministrazione Postale",
    "testo": true
   },
   "lettera-ai-consulenti-del-lavoro": {
@@ -2771,8 +2606,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-ai-consulenti-del-lavoro.docx",
    "tipo": "docx",
    "kb": 320,
-   "drive": "https://drive.google.com/file/d/1dP-ZTDQ1gy9aP8ZTfVzP7RGHXRBU7yhr/view?usp=sharing",
-   "titoloDrive": "Lettera ai Consulenti del lavoro",
    "testo": true
   },
   "lettera-ai-consulenti-fiscali": {
@@ -2781,8 +2614,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-ai-consulenti-fiscali.docx",
    "tipo": "docx",
    "kb": 17,
-   "drive": "https://drive.google.com/file/d/1r7fzw8Yz9o03djBdg3tRj008u31pSDga/view?usp=sharing",
-   "titoloDrive": "Lettera ai Consulenti Fiscali",
    "testo": true
   },
   "lettera-ai-consulenti-legali": {
@@ -2791,8 +2622,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-ai-consulenti-legali.docx",
    "tipo": "docx",
    "kb": 17,
-   "drive": "https://drive.google.com/file/d/1FfzVhk-owKQmccDaYkwNdXHoiSHlH0Nh/view?usp=sharing",
-   "titoloDrive": "Lettera ai Consulenti Legali",
    "testo": true
   },
   "lettera-alle-compagnie-assicurative": {
@@ -2801,8 +2630,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-alle-compagnie-assicurative.docx",
    "tipo": "docx",
    "kb": 16,
-   "drive": "https://drive.google.com/file/d/1h9UAkGeXsARdzXKqnlamTsVCGEKlPofB/view?usp=sharing",
-   "titoloDrive": "Lettera alle Compagnie Assicurative",
    "testo": true
   },
   "lettera-alle-societa-di-leasing": {
@@ -2811,8 +2638,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-alle-societa-di-leasing.docx",
    "tipo": "docx",
    "kb": 16,
-   "drive": "https://drive.google.com/file/d/1U0zY0Ekg-xNKUu6rVCEndiDy_Sz7Y-z0/view?usp=sharing",
-   "titoloDrive": "Lettera alle società di Leasing",
    "testo": true
   },
   "lettera-alle-societa-di-factor": {
@@ -2821,8 +2646,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-alle-societa-di-factor.docx",
    "tipo": "docx",
    "kb": 17,
-   "drive": "https://drive.google.com/file/d/1nafR7iiTkyIjkJhGXBTudLJ33onNNVzg/view?usp=sharing",
-   "titoloDrive": "Lettera alle società di Factor",
    "testo": true
   },
   "lettera-ai-depositanti-delle-rimanenze-di-magazzino": {
@@ -2831,8 +2654,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-ai-depositanti-delle-rimanenze-di-magazzino.docx",
    "tipo": "docx",
    "kb": 15,
-   "drive": "https://drive.google.com/file/d/1QP1MIW2xWrp2jg5y5Sddh0jQhNxS_iRU/view?usp=sharing",
-   "titoloDrive": "Lettera ai depositanti Rimanenze di Magazzino",
    "testo": true
   },
   "lettera-alle-parti-correlate-gruppi-societari": {
@@ -2841,8 +2662,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-alle-parti-correlate-gruppi-societari.docx",
    "tipo": "docx",
    "kb": 17,
-   "drive": "https://docs.google.com/document/d/1te9HXHrPd2M5D2k6bMOXlLHEGy-ZJzZa/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Lettera alle parti correlate (gruppi societari)",
    "testo": true
   },
   "email-invio-delle-lettere-di-circolarizzazione": {
@@ -2851,8 +2670,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-invio-delle-lettere-di-circolarizzazione.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1wevAdLlPkrXtUWH3g8cYiJ-dJiBtFcYdw-x8XYJ1wTk/edit?usp=sharing",
-   "titoloDrive": "EMAIL INVIO CIRC. OBBLIGATORIE",
    "testo": true
   },
   "report-del-team-soggetti-obbligatori-e-risposte": {
@@ -2860,9 +2677,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Foglio per il report delle risposte: soggetto, PEC, risposta ricevuta e date dei solleciti.",
    "file": "strumenti-revisione/allegati/report-del-team-soggetti-obbligatori-e-risposte.xlsx",
    "tipo": "xlsx",
-   "kb": 51,
-   "drive": "https://docs.google.com/spreadsheets/d/1QhC-SLWPGRrBa4lTQrBoAnGmjmjbvZ3v/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ELENCO OBBLIGATORI"
+   "kb": 51
   },
   "email-richiesta-della-centrale-rischi": {
    "nome": "Email: richiesta della Centrale Rischi",
@@ -2870,8 +2685,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-richiesta-della-centrale-rischi.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1r8ThZ2StukmYgHdppzP63jeFDWK7ASKtXrmHveRVzeA/edit?usp=sharing",
-   "titoloDrive": "EMAIL CENTRALE RISCHI 2025",
    "testo": true
   },
   "email-richiesta-del-libro-cespiti": {
@@ -2880,8 +2693,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-richiesta-del-libro-cespiti.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1ylUOzHFZT_1zO5g0mw90owJ1C-n7NAurvtB0tOmSRMY/edit?usp=sharing",
-   "titoloDrive": "EMAIL RICHIESTA LIBRO CESPITI 2025",
    "testo": true
   },
   "grandezza-del-campione": {
@@ -2890,8 +2701,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/grandezza-del-campione.docx",
    "tipo": "docx",
    "kb": 24,
-   "drive": "https://docs.google.com/document/d/1m8698Pb1nuCXt6XtG2ZISgyU4TorQklYMPsvZF0vljU/edit?usp=sharing",
-   "titoloDrive": "GRANDEZZA CAMPIONE",
    "testo": true
   },
   "campionamento-ragionato-dei-cespiti": {
@@ -2900,8 +2709,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/campionamento-ragionato-dei-cespiti.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1OHqcu6Qu-qxO2aE8TXrmDfbVsqB974saqTer26U6-R4/edit?usp=sharing",
-   "titoloDrive": "CAMPIONAMENTO RAGIONATO CESPITI",
    "testo": true
   },
   "test-overall-del-fondo-ammortamento": {
@@ -2909,27 +2716,21 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Foglio per il test di ragionevolezza complessiva del fondo ammortamento.",
    "file": "strumenti-revisione/allegati/test-overall-del-fondo-ammortamento.xlsx",
    "tipo": "xlsx",
-   "kb": 55,
-   "drive": "https://docs.google.com/spreadsheets/d/1kIxvHzzSfycHmhatAhDsYe_OLcZfvz11SXOdC1n_Dbc/edit?usp=sharing",
-   "titoloDrive": "Excel test overall fondo amm.to"
+   "kb": 55
   },
   "test-di-ricalcolo-delle-quote-di-ammortamento": {
    "nome": "Test di ricalcolo delle quote di ammortamento",
    "descrizione": "Foglio per ricalcolare le quote di ammortamento dei cespiti campionati.",
    "file": "strumenti-revisione/allegati/test-di-ricalcolo-delle-quote-di-ammortamento.xlsx",
    "tipo": "xlsx",
-   "kb": 56,
-   "drive": "https://docs.google.com/spreadsheets/d/108k8VJthMDb0x44YA_tShyquBKmzkxpAc3-vkMqnHBs/edit?usp=sharing",
-   "titoloDrive": "Test ricalcolo quote amm.to"
+   "kb": 56
   },
   "test-incrementi-e-decrementi": {
    "nome": "Test incrementi e decrementi",
    "descrizione": "Foglio per verificare gli incrementi e i decrementi dell'anno sui documenti.",
    "file": "strumenti-revisione/allegati/test-incrementi-e-decrementi.xlsx",
    "tipo": "xlsx",
-   "kb": 119,
-   "drive": "https://docs.google.com/spreadsheets/d/1UP-AJ2gD1Hf123_dCbIZlPJq1XIQtyA1nBxfVND75bY/edit?usp=sharing",
-   "titoloDrive": "Excel Test incrementi-decrementi"
+   "kb": 119
   },
   "verbale-di-verifica-dei-beni-strumentali": {
    "nome": "Verbale di verifica dei beni strumentali",
@@ -2937,8 +2738,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verbale-di-verifica-dei-beni-strumentali.docx",
    "tipo": "docx",
    "kb": 485,
-   "drive": "https://docs.google.com/document/d/1BnoJNt9ZHOJz6uun-5nI7H8EZbLZS6mo/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "VERBALE BENI STRUMENTALI",
    "testo": true
   },
   "email-richiesta-della-documentazione-per-la-circolarizzazione-clienti-e": {
@@ -2947,8 +2746,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-richiesta-della-documentazione-per-la-circolarizzazione-clienti-e.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1H25CJl83bCrGGhlVwWY6rjvU9KVY7Bwz1j-lkKuWO28/edit?usp=sharing",
-   "titoloDrive": "Richiesta documentazione per circolarizzazione clienti e fornitori – Esercizio 2024",
    "testo": true
   },
   "allegato-elenco-clienti": {
@@ -2956,18 +2753,14 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il foglio da far compilare con codice, descrizione, progressivo dare e saldo di ogni cliente.",
    "file": "strumenti-revisione/allegati/allegato-elenco-clienti.xlsx",
    "tipo": "xlsx",
-   "kb": 11,
-   "drive": "https://docs.google.com/spreadsheets/d/1QcYruMdBgF1r1EsFoLTy3OCLYiNyOm5o/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ELENCO CLIENTI"
+   "kb": 11
   },
   "allegato-elenco-fornitori": {
    "nome": "Allegato: elenco fornitori",
    "descrizione": "Il foglio da far compilare con codice, descrizione, progressivo avere e saldo di ogni fornitore.",
    "file": "strumenti-revisione/allegati/allegato-elenco-fornitori.xlsx",
    "tipo": "xlsx",
-   "kb": 11,
-   "drive": "https://docs.google.com/spreadsheets/d/1QeOYm4hzXH0P32d4iw1MKh94_uWtuLZz/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ELENCO FORNITORI"
+   "kb": 11
   },
   "note-sui-segni-dei-saldi-dare-avere": {
    "nome": "Note sui segni +/- dei saldi dare/avere",
@@ -2975,8 +2768,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/note-sui-segni-dei-saldi-dare-avere.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/10Lla3tb5DvDKdiwVW_-0Ep8n46zlLOAAXHPkWI1miUc/edit?usp=sharing",
-   "titoloDrive": "Chiarimenti segni +/- per i saldi dare/avere",
    "testo": true
   },
   "istruzioni-revisoft-campionamento": {
@@ -2984,27 +2775,21 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Le istruzioni Revisoft per il campionamento di clienti (3.4.7), fornitori (3.4.17) e magazzino (3.4.4).",
    "file": "strumenti-revisione/allegati/istruzioni-revisoft-campionamento.pdf",
    "tipo": "pdf",
-   "kb": 771,
-   "drive": "https://drive.google.com/file/d/1Xux8CbhV7Op3Rm6s1rgqtBQ638ocqCA6/view?usp=sharing",
-   "titoloDrive": "17Campionamento"
+   "kb": 771
   },
   "chiarimenti-per-il-campionamento": {
    "nome": "Chiarimenti per il campionamento",
    "descrizione": "Suggerimenti sul metodo di campionamento, anche alla luce del documento CNDCEC del 2018.",
    "file": "strumenti-revisione/allegati/chiarimenti-per-il-campionamento.pdf",
    "tipo": "pdf",
-   "kb": 164,
-   "drive": "https://drive.google.com/file/d/1mHgZjl_wm_gwmL8CgwHFeExYJLZAgS_t/view?usp=sharing",
-   "titoloDrive": "CHIARIMENTI PER IL CAMPIONAMENTO"
+   "kb": 164
   },
   "xls-per-il-campionamento-pec-di-clienti-e-fornitori": {
    "nome": "Xls per il campionamento: PEC di clienti e fornitori",
    "descrizione": "Il foglio con cui chiedere alla società le PEC dei clienti e fornitori campionati.",
    "file": "strumenti-revisione/allegati/xls-per-il-campionamento-pec-di-clienti-e-fornitori.xlsx",
    "tipo": "xlsx",
-   "kb": 40,
-   "drive": "https://docs.google.com/spreadsheets/d/1nkrtGNdI3gItwe_6sl4AbBS1_j98lmmk/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ELENCO_PEC_CLIENTI/FORNITORI"
+   "kb": 40
   },
   "lettera-ai-clienti": {
    "nome": "Lettera ai clienti",
@@ -3012,8 +2797,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-ai-clienti.docx",
    "tipo": "docx",
    "kb": 322,
-   "drive": "https://docs.google.com/document/d/12HHx3C8DAxsRMGLKud_Bz1eu9LwOO_jv/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Lettera ai Clienti_v2025",
    "testo": true
   },
   "lettera-ai-fornitori": {
@@ -3022,8 +2805,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-ai-fornitori.docx",
    "tipo": "docx",
    "kb": 16,
-   "drive": "https://docs.google.com/document/d/1D99yw3sxUE-zr4izexLqB2zuhO8csut7/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Lettera ai Fornitori_v2025",
    "testo": true
   },
   "email-invio-delle-lettere-di-circolarizzazione-a-clienti-e-fornitori": {
@@ -3032,8 +2813,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-invio-delle-lettere-di-circolarizzazione-a-clienti-e-fornitori.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1EJJhFlFJv1_6m2SOERMZSsAZxnegPX2kG_a9kuV4PG0/edit?usp=sharing",
-   "titoloDrive": "EMAIL INVIO CIRC. CLIENTI/FORNITORI",
    "testo": true
   },
   "report-del-team-clienti-fornitori-e-risposte": {
@@ -3041,18 +2820,14 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Foglio per il report delle risposte di clienti e fornitori, con le date dei solleciti.",
    "file": "strumenti-revisione/allegati/report-del-team-clienti-fornitori-e-risposte.xlsx",
    "tipo": "xlsx",
-   "kb": 51,
-   "drive": "https://docs.google.com/spreadsheets/d/1X6IMb1OMLwOZapUDHMUk5eYfI1gIZC_t/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "ELENCOCLIENTI/FORNITORI"
+   "kb": 51
   },
   "esempio-di-aging-dei-crediti-e-dei-debiti": {
    "nome": "Esempio di aging dei crediti e dei debiti",
    "descrizione": "Esempio di prospetto dell'anzianità di crediti e debiti per fasce di scaduto.",
    "file": "strumenti-revisione/allegati/esempio-di-aging-dei-crediti-e-dei-debiti.xlsx",
    "tipo": "xlsx",
-   "kb": 107,
-   "drive": "https://docs.google.com/spreadsheets/d/1sWxqN7UIBXSq6SsPk0bJJachFUgT-lGyh0MjZ3X_qSU/edit?usp=sharing",
-   "titoloDrive": "AGING CREDITI/DEBITI"
+   "kb": 107
   },
   "email-aggiornamenti-sulle-dichiarazioni-fiscali-2026-e-ruolo-della-socie": {
    "nome": "Email: aggiornamenti sulle dichiarazioni fiscali 2026 e ruolo della società di revisione",
@@ -3060,8 +2835,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-aggiornamenti-sulle-dichiarazioni-fiscali-2026-e-ruolo-della-socie.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1gH4zG3YJJPyWN9293e5gNBN7qISjd1q4G6oqgNfiv3E/edit?usp=sharing",
-   "titoloDrive": "Aggiornamenti importanti sulle dichiarazioni fiscali 2026 e il ruolo della Società di Revisione Legale",
    "testo": true
   },
   "email-comunicazione-del-progetto-di-bilancio-al-revisore-legale": {
@@ -3070,8 +2843,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/email-comunicazione-del-progetto-di-bilancio-al-revisore-legale.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1wQL52oaG3U_w9vTQGAVpUH0btwiRD0XmWqN8ehyQikQ/edit?usp=sharing",
-   "titoloDrive": "Comunicazione del Progetto di Bilancio 2024 al Revisore Legale",
    "testo": true
   },
   "note-tecniche-mancata-comunicazione-del-progetto-di-bilancio-nei-tempi": {
@@ -3080,8 +2851,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/note-tecniche-mancata-comunicazione-del-progetto-di-bilancio-nei-tempi.docx",
    "tipo": "docx",
    "kb": 8,
-   "drive": "https://docs.google.com/document/d/1WRZ2d3hzXFUuTcKSgty-Qcyqz7aeU2zLlsQ1zVgeLps/edit?usp=sharing",
-   "titoloDrive": "Mancata comunicazione del progetto di bilancio nei tempi previsti dal codice civile e tempistiche relazione di revisione",
    "testo": true
   },
   "lettera-di-primo-sollecito": {
@@ -3090,8 +2859,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-di-primo-sollecito.docx",
    "tipo": "docx",
    "kb": 328,
-   "drive": "https://docs.google.com/document/d/1916Ssif5EIwdNcwHoFLixmNkrv-76g6Z/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Lettera primo sollecito ottenimento documentazione",
    "testo": true
   },
   "lettera-di-secondo-sollecito": {
@@ -3100,8 +2867,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/lettera-di-secondo-sollecito.docx",
    "tipo": "docx",
    "kb": 325,
-   "drive": "https://docs.google.com/document/d/1M7BigpyhRI_K9IwE5Sg9fIromDdwk6bG/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Lettera secondo sollecito ottenimento documentazione",
    "testo": true
   },
   "rinuncia-ai-termini-art-2429-c-c": {
@@ -3110,8 +2875,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/rinuncia-ai-termini-art-2429-c-c.docx",
    "tipo": "docx",
    "kb": 319,
-   "drive": "https://docs.google.com/document/d/1H4ctLFkh-CetUfYQAZxKleBOXH6VUpT2/edit?usp=sharing&ouid=116491662150692381667&rtpof=true&sd=true",
-   "titoloDrive": "Rinuncia ai termini di cui all’art. 2429 c.c.",
    "testo": true
   },
   "attestazione-dei-controlli-sulle-parti-correlate-modello": {
@@ -3119,36 +2882,28 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il modello dell'attestazione sui controlli delle parti correlate (ISA Italia 550).",
    "file": "strumenti-revisione/allegati/attestazione-dei-controlli-sulle-parti-correlate-modello.pdf",
    "tipo": "pdf",
-   "kb": 279,
-   "drive": "https://drive.google.com/file/d/1qtJm0qXGz9ZDolMNlwm7JSAu8pAFyGGM/view?usp=sharing",
-   "titoloDrive": "All.3 - Attestazione Controlli Parti Correlate"
+   "kb": 279
   },
   "lettera-di-attestazione-bilancio-abbreviato": {
    "nome": "Lettera di attestazione: bilancio abbreviato",
    "descrizione": "Format Revilaw della lettera di attestazione per il bilancio abbreviato, da concordare con il responsabile qualità.",
    "file": "strumenti-revisione/allegati/lettera-di-attestazione-bilancio-abbreviato.docx",
    "tipo": "docx",
-   "kb": 169,
-   "drive": "https://drive.google.com/file/d/1zTkwNmDXicwWwBJMb5eVYHXGnhlN-CiFpUh2PJ8qSL4/view?usp=sharing",
-   "titoloDrive": "Revilaw_Lettera di Attestazione 2025 - Abbreviato"
+   "kb": 169
   },
   "lettera-di-attestazione-bilancio-ordinario-con-relazione-sulla-gestione": {
    "nome": "Lettera di attestazione: bilancio ordinario con relazione sulla gestione e collegio sindacale",
    "descrizione": "Format Revilaw della lettera di attestazione per il bilancio ordinario con relazione sulla gestione e collegio sindacale.",
    "file": "strumenti-revisione/allegati/lettera-di-attestazione-bilancio-ordinario-con-relazione-sulla-gestione.docx",
    "tipo": "docx",
-   "kb": 170,
-   "drive": "https://drive.google.com/file/d/122PkeaU_CU7EepE_HY8kVQHfw28QPoCqROO4KBetEuA/view?usp=sharing",
-   "titoloDrive": "Revilaw_Lettera di Attestazione 2025 - Ordinario con  relazione di gestione (ex art.2428 cc) e collegio sindacale"
+   "kb": 170
   },
   "assirevi-documento-di-ricerca-n-251r-2026-le-attestazioni-della-direzion": {
    "nome": "Assirevi, Documento di ricerca n. 251R/2026: le attestazioni della Direzione",
    "descrizione": "Il documento Assirevi sulle attestazioni scritte della direzione.",
    "file": "strumenti-revisione/allegati/assirevi-documento-di-ricerca-n-251r-2026-le-attestazioni-della-direzion.docx",
    "tipo": "docx",
-   "kb": 136,
-   "drive": "https://drive.google.com/file/d/114UXHHvkp7WbQJLpmPU5cZTo1MWn2UMl/view?usp=sharing",
-   "titoloDrive": "Assirevi_Doc. n. 251R 2026- Le attestazioni della Direzione"
+   "kb": 136
   },
   "giudizio-bilancio-ordinario-senza-collegio": {
    "nome": "Giudizio: bilancio ordinario (senza collegio)",
@@ -3156,8 +2911,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/giudizio-bilancio-ordinario-senza-collegio.docx",
    "tipo": "docx",
    "kb": 465,
-   "drive": "https://drive.google.com/file/d/1CpkLm3iYeuiFUZVTiubZjz4H179kNsUdpTtMB1vzsC4/view?usp=sharing",
-   "titoloDrive": "GIUDIZIO ORDINARIO (NO COLLEGIO)",
    "testo": true
   },
   "giudizio-bilancio-ordinario-con-collegio": {
@@ -3166,8 +2919,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/giudizio-bilancio-ordinario-con-collegio.docx",
    "tipo": "docx",
    "kb": 465,
-   "drive": "https://drive.google.com/file/d/1jZDhEBvGz2ilzC5tUg4YycB1VhC5XstWh9lQu9NiHhY/view?usp=sharing",
-   "titoloDrive": "GIUDIZIO ORDINARIO_COLLEGIO",
    "testo": true
   },
   "giudizio-bilancio-abbreviato-senza-collegio": {
@@ -3176,8 +2927,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/giudizio-bilancio-abbreviato-senza-collegio.docx",
    "tipo": "docx",
    "kb": 465,
-   "drive": "https://drive.google.com/file/d/1ZGp4o1kz9oXnrvQGQxXt1o5nwjGN5XEiwXeDMXTzGd0/view?usp=sharing",
-   "titoloDrive": "GIUDIZIO ABBREVIATO (NO COLLEGIO)",
    "testo": true
   },
   "giudizio-con-rilievi-bilancio-abbreviato-senza-collegio": {
@@ -3186,8 +2935,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/giudizio-con-rilievi-bilancio-abbreviato-senza-collegio.docx",
    "tipo": "docx",
    "kb": 465,
-   "drive": "https://drive.google.com/file/d/1_rKBLvH5EBvx3ELpEM7fQfLmREilcp-edlTCp-Ld0oo/view?usp=sharing",
-   "titoloDrive": "GIUDIZIO CON RILIEVI ABBREVIATO (NO COLLEGIO)",
    "testo": true
   },
   "impossibilita-di-esprimere-un-giudizio-bilancio-abbreviato-senza-collegi": {
@@ -3196,8 +2943,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/impossibilita-di-esprimere-un-giudizio-bilancio-abbreviato-senza-collegi.docx",
    "tipo": "docx",
    "kb": 466,
-   "drive": "https://drive.google.com/file/d/1z72sC7QS1So3WW0kr5jOoemS6ZIKafw7DFVBpkm0e4w/view?usp=sharing",
-   "titoloDrive": "NO OPINION ABBREVIATO (NO COLLEGIO)",
    "testo": true
   },
   "report-of-the-independent-legal-auditor-in-inglese": {
@@ -3206,8 +2951,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/report-of-the-independent-legal-auditor-in-inglese.docx",
    "tipo": "docx",
    "kb": 2347,
-   "drive": "https://drive.google.com/file/d/1pNkf2y4sFb2EgOPfoSWQT1ZCyF4Kj-aj/view?usp=sharing",
-   "titoloDrive": "REPORT OF THE INDEPENDENT LEGAL AUDITOR’S",
    "testo": true
   },
   "ciclo-delle-verifiche-periodiche-area-4": {
@@ -3215,9 +2958,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Quali libri e registri verificare e con che frequenza nelle carte dell'area 4, e dove inserire gli allegati.",
    "file": "strumenti-revisione/allegati/ciclo-delle-verifiche-periodiche-area-4.xlsx",
    "tipo": "xlsx",
-   "kb": 22,
-   "drive": "https://docs.google.com/spreadsheets/d/11vdEPbaoeZ5lVFm7JDsrKqEEcf9TBpifVnlP0suti2c/edit?usp=sharing",
-   "titoloDrive": "CICLO VERIFICHE PERIODICHE"
+   "kb": 22
   },
   "import-del-bilancio": {
    "nome": "Import del bilancio",
@@ -3225,8 +2966,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/import-del-bilancio.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1IGnkh8PSvnn4OPPYFgobrymhfEmREjcyJwSEJqN8Ruo/edit?usp=sharing",
-   "titoloDrive": "Import Bilancio",
    "testo": true
   },
   "materialita-di-bilancio": {
@@ -3235,8 +2974,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/materialita-di-bilancio.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1RMvk2I5MUYC6JxXcyWyybtoi3FmsOXvcEBDYJyKXHi4/edit?usp=sharing",
-   "titoloDrive": "Materialità di bilancio",
    "testo": true
   },
   "carte-di-lavoro-pianificazione-e-controllo": {
@@ -3245,8 +2982,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/carte-di-lavoro-pianificazione-e-controllo.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/141NImL1ob-Q718M_oV0ADRnRPx7SPEnn7KTEBBvpDTg/edit?usp=sharing",
-   "titoloDrive": "Carte di lavoro \\\\\"Pianificazione\\\\\" e \\\\\"Controllo\\\\\"",
    "testo": true
   },
   "errori-nel-bilancio": {
@@ -3255,8 +2990,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/errori-nel-bilancio.docx",
    "tipo": "docx",
    "kb": 7,
-   "drive": "https://docs.google.com/document/d/1Lxw-xKwM9tPJnf2a5FE5BCD667qidIIRl9SruJ_PW5E/edit?usp=sharing",
-   "titoloDrive": "Errori nel bilancio",
    "testo": true
   },
   "pacchetto-kickoff": {
@@ -3264,9 +2997,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Il set di documenti e le milestone iniziali per avviare subito le verifiche sul bilancio.",
    "file": "strumenti-revisione/allegati/pacchetto-kickoff.xlsx",
    "tipo": "xlsx",
-   "kb": 9,
-   "drive": "https://docs.google.com/spreadsheets/d/10xMlqviBvIuEEl3pUJooCNLOKz6PjvXdIGKVls4cpi8/edit?usp=sharing",
-   "titoloDrive": "Pacchetto Kickoff"
+   "kb": 9
   },
   "controlli-immobilizzazioni-immateriali": {
    "nome": "Controlli: immobilizzazioni immateriali",
@@ -3274,8 +3005,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-immobilizzazioni-immateriali.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1zwDgzoK8kF1a_Xkpd7PlUCkfwLtijdr4BqPoIhWgz40/edit?usp=sharing",
-   "titoloDrive": "Immobilizzazioni immateriali",
    "testo": true
   },
   "controlli-immobilizzazioni-materiali": {
@@ -3284,8 +3013,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-immobilizzazioni-materiali.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1lnm4I4ghQmdkY2gRJeDKF-lKRDyv_dRq6bPrmYu6TzI/edit?usp=sharing",
-   "titoloDrive": "Immobilizzazioni materiali",
    "testo": true
   },
   "controlli-immobilizzazioni-finanziarie": {
@@ -3294,8 +3021,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-immobilizzazioni-finanziarie.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1GXjL-iKazt5xHxk05i4q1X1kVWE5gpPmVIARE4zCPT0/edit?usp=sharing",
-   "titoloDrive": "Immobilizzazioni finanziarie",
    "testo": true
   },
   "controlli-rimanenze-di-magazzino": {
@@ -3304,8 +3029,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-rimanenze-di-magazzino.docx",
    "tipo": "docx",
    "kb": 99,
-   "drive": "https://docs.google.com/document/d/106OJVgO0sOo5ve3BHcRulVFjO96W7vMsi7TUSgwbXmA/edit?usp=sharing",
-   "titoloDrive": "Rimanenze di magazzino",
    "testo": true
   },
   "controlli-rimanenze-commesse-e-opere-a-lungo-termine": {
@@ -3314,8 +3037,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-rimanenze-commesse-e-opere-a-lungo-termine.docx",
    "tipo": "docx",
    "kb": 11,
-   "drive": "https://docs.google.com/document/d/1hf2Dp1LgBmeD6Ku17rZuupbSGrs0kEx_YLvY8yVK3bw/edit?usp=sharing",
-   "titoloDrive": "Rimanenze - commesse/opere a lungo termine",
    "testo": true
   },
   "controlli-attivita-finanziarie-non-immobilizzate": {
@@ -3324,8 +3045,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-attivita-finanziarie-non-immobilizzate.docx",
    "tipo": "docx",
    "kb": 11,
-   "drive": "https://docs.google.com/document/d/1ZYtyhafFLC-4TrXYkBPjp5TbVNLKHrwXLn0j2rxQ8p4/edit?usp=sharing",
-   "titoloDrive": "Attività finanziarie non immobilizzate",
    "testo": true
   },
   "controlli-crediti-commerciali-clienti": {
@@ -3334,8 +3053,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-crediti-commerciali-clienti.docx",
    "tipo": "docx",
    "kb": 71,
-   "drive": "https://docs.google.com/document/d/1STvhqmoXb3kIC_-PiekP6SvvAQRHBA28eYy_BpgdR8E/edit?usp=sharing",
-   "titoloDrive": "Crediti commerciali (Clienti)",
    "testo": true
   },
   "controlli-crediti-e-debiti-infragruppo": {
@@ -3344,8 +3061,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-crediti-e-debiti-infragruppo.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/18sbpQmGuvUAxMEn-Z_gOP917axM9d8GllKzTI2LruP0/edit?usp=sharing",
-   "titoloDrive": "Crediti e Debiti Infra Gruppo",
    "testo": true
   },
   "controlli-crediti-tributari-e-per-imposte-anticipate": {
@@ -3354,8 +3069,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-crediti-tributari-e-per-imposte-anticipate.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/17tX7--zv7vAjaxg_MHtut8rD39wR7T7hzwPBOk2C16M/edit?usp=sharing",
-   "titoloDrive": "Crediti tributari e per imposte anticipate",
    "testo": true
   },
   "controlli-crediti-verso-altri": {
@@ -3364,8 +3077,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-crediti-verso-altri.docx",
    "tipo": "docx",
    "kb": 11,
-   "drive": "https://docs.google.com/document/d/1eq4IaHewaVlJVHJZGFr1IKDF4iqLiwxW7FWqyc7X7Vc/edit?usp=sharing",
-   "titoloDrive": "Crediti verso altri",
    "testo": true
   },
   "controlli-cassa-e-banche": {
@@ -3374,8 +3085,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-cassa-e-banche.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1RYqYk84HvPtXFCzT34yFmY6YtBUJ30Hx0UUtx87IP6c/edit?usp=sharing",
-   "titoloDrive": "Cassa e Banche",
    "testo": true
   },
   "controlli-ratei-e-risconti-attivi-e-passivi": {
@@ -3384,8 +3093,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-ratei-e-risconti-attivi-e-passivi.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1qOUG8rveZuPLZKq3xYO57s5MJeM-XQ6Y6SPnjNFsgk4/edit?usp=sharing",
-   "titoloDrive": "Ratei e risconti (attivi e passivi)",
    "testo": true
   },
   "controlli-patrimonio-netto": {
@@ -3394,8 +3101,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-patrimonio-netto.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1s93-K1nxI-6eHOlld6D0bf7rwCp_9Yr33BksQdqZfzQ/edit?usp=sharing",
-   "titoloDrive": "Patrimonio netto",
    "testo": true
   },
   "controlli-fondi-per-rischi-e-oneri": {
@@ -3404,8 +3109,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-fondi-per-rischi-e-oneri.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1Bp_qNqaLLVPVvzg-Fk1SYs4t5Kj0CJoylRyQcawk5Eg/edit?usp=sharing",
-   "titoloDrive": "Fondi per rischi e oneri",
    "testo": true
   },
   "controlli-t-f-r": {
@@ -3414,8 +3117,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-t-f-r.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/16Vnjh5Bn_KBNUT0KnffKv4ToIGY7FaWBnb6w8oSmTUM/edit?usp=sharing",
-   "titoloDrive": "T.F.R. (Trattamento Fine Rapporto)",
    "testo": true
   },
   "controlli-mutui-e-finanziamenti-non-bancari": {
@@ -3424,8 +3125,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-mutui-e-finanziamenti-non-bancari.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1_3CavrNtszB7hm7ZDFyg8VNzHAPE1ws_UnjJozzyjfs/edit?usp=sharing",
-   "titoloDrive": "Mutui e finanziamenti non bancari",
    "testo": true
   },
   "controlli-debiti-commerciali-fornitori": {
@@ -3434,8 +3133,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-debiti-commerciali-fornitori.docx",
    "tipo": "docx",
    "kb": 71,
-   "drive": "https://docs.google.com/document/d/15bS8wu7TzQ22KK3Nz7Nbn7u8hs1ktGBeZS3E1e4CllA/edit?usp=sharing",
-   "titoloDrive": "Debiti commerciali (Fornitori)",
    "testo": true
   },
   "controlli-debiti-tributari": {
@@ -3444,8 +3141,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-debiti-tributari.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1sc4PiJGHuGLmGiZBN_7Vw4wFX5B4k-TTlMZQw48Q1m4/edit?usp=sharing",
-   "titoloDrive": "Debiti tributari",
    "testo": true
   },
   "controlli-debiti-verso-altri": {
@@ -3454,8 +3149,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-debiti-verso-altri.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/18mGpqme3BoJCwU9b2XE-n1aInA4UDS9m5k2XLL2K7TQ/edit?usp=sharing",
-   "titoloDrive": "Debiti verso altri",
    "testo": true
   },
   "controlli-ce-valore-della-produzione": {
@@ -3464,8 +3157,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-ce-valore-della-produzione.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/13bJVVERHajOsB9TCW9dAr33QnykSCDQyfDiYdnNAABE/edit?usp=sharing",
-   "titoloDrive": "CE - Valore della Produzion",
    "testo": true
   },
   "verifica-della-corretta-applicazione-del-nuovo-oic-34": {
@@ -3474,8 +3165,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verifica-della-corretta-applicazione-del-nuovo-oic-34.docx",
    "tipo": "docx",
    "kb": 9,
-   "drive": "https://docs.google.com/document/d/1RoUfc8LLx3Z3eDt53WuJZf4dxokmjfUiJAR4dTZck80/edit?usp=sharing",
-   "titoloDrive": "Verifica della corretta applicazione dell'OIC 34 da parte del revisore",
    "testo": true
   },
   "controlli-ce-costi-della-produzione": {
@@ -3484,8 +3173,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-ce-costi-della-produzione.docx",
    "tipo": "docx",
    "kb": 12,
-   "drive": "https://docs.google.com/document/d/1WfZOW2tZz8ehWxMKJHLqvjG57Bdm8GjuhVAqiUfrbN8/edit?usp=sharing",
-   "titoloDrive": "CE - Costi della Produzione",
    "testo": true
   },
   "controlli-ce-gestione-finanziaria": {
@@ -3494,8 +3181,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/controlli-ce-gestione-finanziaria.docx",
    "tipo": "docx",
    "kb": 11,
-   "drive": "https://docs.google.com/document/d/1MEqOBJJ1Gv54Z2hQpHtVbEW0s1ZjsYJa5BFa0sVOCa4/edit?usp=sharing",
-   "titoloDrive": "CE - Gestione finanziaria",
    "testo": true
   },
   "verifica-della-continuita-aziendale-linee-guida-per-il-revisore": {
@@ -3504,8 +3189,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/verifica-della-continuita-aziendale-linee-guida-per-il-revisore.docx",
    "tipo": "docx",
    "kb": 153,
-   "drive": "https://docs.google.com/document/d/1xUuzZ-OqPMGm5LPxDdl8cmEilodH93FynI5zM3N-ZTE/edit?usp=sharing",
-   "titoloDrive": "VERIFICA DELLA CONTINUITÀ AZIENDALE IN OTTICA DI SEGNALAZIONE DI SITUAZIONE DI CRISI: LINEE GUIDA PER IL REVISORE",
    "testo": true
   },
   "sommario-errori": {
@@ -3514,8 +3197,6 @@ window.RV_STRUMENTI_REVISIONE = {
    "file": "strumenti-revisione/allegati/sommario-errori.docx",
    "tipo": "docx",
    "kb": 127,
-   "drive": "https://docs.google.com/document/d/1N_hp1BJXn9l_-bGvItA0HX8esNozceRuPeoim_DXJsY/edit?usp=sharing",
-   "titoloDrive": "Sommario errori",
    "testo": true
   }
  }

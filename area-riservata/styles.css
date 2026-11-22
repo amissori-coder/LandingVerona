@@ -4163,7 +4163,7 @@ td.cene-az { white-space: nowrap; }
    Il piano di revisione per anno (schede in cima, tabella delle attivita') e
    la pagina di ogni attivita': descrizione, passaggi numerati e sotto ognuno
    i documenti (tipo, nome, a cosa serve, peso e i pulsanti Leggi / Apri /
-   Scarica / Drive).
+   Scarica).
    Le regole [hidden] servono perche' sotto i 1200px le righe di table.dati
    diventano griglie: il display della griglia vincerebbe sull'attributo e i
    filtri non nasconderebbero niente. */
@@ -4224,7 +4224,7 @@ td.cene-az { white-space: nowrap; }
 .sr-doc-tipo.t-docx { background: #E5EEFB; color: #1D4F91; }
 .sr-doc-tipo.t-xlsx { background: #E3F3EA; color: #1E6B42; }
 .sr-doc-tipo.t-modulo { background: #EFE8FA; color: #5A3EA8; }
-.sr-doc-tipo.t-drive, .sr-doc-tipo.t-web { background: var(--blu-100); color: var(--blu-700); }
+.sr-doc-tipo.t-web { background: var(--blu-100); color: var(--blu-700); }
 .sr-doc-nome { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .sr-doc-nome a { font-weight: 600; font-size: 0.86rem; color: var(--blu-700); overflow-wrap: anywhere; }
 .sr-doc-desc { font-size: 0.8rem; line-height: 1.45; color: var(--grigio-700); }
