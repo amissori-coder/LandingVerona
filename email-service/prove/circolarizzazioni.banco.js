@@ -21,7 +21,8 @@
                        (mancata consegna se l'indirizzo contiene "errore")
      /banco/risposta   { pec, oggetto?, inRisposta?: true, ordinaria? }
                        una risposta da quell'indirizzo, con un PDF
-     /banco/giro       il giro programmato (casella, invii, pulizie, avvisi)
+     /banco/giro       il giro programmato (casella, invii, pulizie, avvisi);
+                       con { alle: <istante ISO> } prima sposta l'orologio
      /banco/avvisi     le email degli errori partite finora
      /banco/notizie    le email a chi ha preparato le lettere partite finora
      /banco/posta      le PEC partite finora
@@ -98,7 +99,11 @@ http.createServer((req, res) => {
         try {
             if (req.url === '/banco/ricevute') out = { stato: 200, corpo: { ok: true, ricevute: ricevute() } };
             else if (req.url === '/banco/risposta') out = { stato: 200, corpo: { ok: true, risposte: rispondi(b) } };
-            else if (req.url === '/banco/giro') out = await chiama('GET', {}, { authorization: 'Bearer ' + process.env.CRON_SECRET });
+            else if (req.url === '/banco/giro') {
+                // { alle: '2027-01-21T10:40:00+01:00' } porta l'orologio del banco a quel momento (e li' resta): per vedere partire un sollecito
+                if (b.alle) F.orologioFinto(b.alle);
+                out = await chiama('GET', {}, { authorization: 'Bearer ' + process.env.CRON_SECRET });
+            }
             else if (req.url === '/banco/notizie') out = { stato: 200, corpo: { ok: true, notizie: F.notizie.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html })) } };
             else if (req.url === '/banco/avvisi') out = { stato: 200, corpo: { ok: true, avvisi: F.avvisi.map(m => ({ a: m.to, da: m.from, oggetto: m.subject, testo: m.text, html: m.html })) } };
             else if (req.url === '/banco/posta') out = { stato: 200, corpo: { ok: true, posta: F.posta.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegato: m.attachments[0].filename })) } };
