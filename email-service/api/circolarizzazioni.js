@@ -37,6 +37,7 @@ const GIRO = require('../lib/circ-giro');
 const LETTORE = require('../lib/circ-lettore');
 const ERRORI = require('../lib/circ-errori');
 const AVVISI = require('../lib/circ-avvisi');
+const BOZZE = require('../lib/circ-bozze');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -101,6 +102,15 @@ async function letteraDi(db, prof, id) {
     if (!DATI.incaricoDi(prof, inv.incaricoId)) esci(403, 'Questa lettera è di un incarico che non segui.');
     return inv;
 }
+/* La bozza delle nuove lettere e' di chi chiama, per un incarico che segue e
+   per una delle due aree. */
+function bozzaDi(prof, b) {
+    const inc = DATI.incaricoDi(prof, b.incaricoId);
+    if (!inc) esci(403, 'Non segui questo incarico.');
+    const ambito = String(b.ambito || '');
+    if (!Object.prototype.hasOwnProperty.call(C.AMBITI, ambito)) esci(400, 'Area non indicata.');
+    return { inc: inc, ambito: ambito };
+}
 function soloAdmin(prof) { if (!prof.admin) esci(403, 'Solo l\'amministratore può farlo.'); }
 function soloChiVedeTutto(prof) { if (!prof.vedeTutto) esci(403, 'Solo l\'amministratore e i supervisori possono farlo.'); }
 
@@ -131,7 +141,7 @@ const AZIONI = {
             ok: true,
             configurato: C.configurato(), casella: C.configurato() ? cfg.mittente : '',
             profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto },
-            limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni },
+            limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni, bozzaGiorni: C.LIMITI.bozzaGiorni, bozzaRighe: BOZZE.MAX_RIGHE },
             ambiti: Object.keys(C.AMBITI).map(k => ({ id: k, nome: C.AMBITI[k] })),
             categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome, uno: C.CATEGORIE[k].uno, ambito: C.ambitoDi(k), saldo: !!C.CATEGORIE[k].saldo })),
             oggi: C.giornoRoma(), incarichi: incarichi,
@@ -186,6 +196,39 @@ const AZIONI = {
     async allegato(db, prof, b) {
         const r = daEsito(await DATI.caricaPezzo(db, prof, b.id, b.n, b.dati));
         return r;
+    },
+    /* ---------- la bozza delle nuove lettere, salvata sul portale ---------- */
+    async 'bozza-leggi'(db, prof, b) {
+        const d = bozzaDi(prof, b);
+        return { ok: true, bozza: await BOZZE.leggi(db, prof, d.inc.id, d.ambito) };
+    },
+    /* Torna anche il conflitto (un altro computer ha salvato nel frattempo): non e' un errore, e' una domanda per chi scrive. */
+    async 'bozza-salva'(db, prof, b) {
+        const d = bozzaDi(prof, b);
+        const r = await BOZZE.salva(db, prof, d.inc, d.ambito, b.bozza, b.base);
+        return r.conflitto ? r : daEsito(r);
+    },
+    async 'bozza-pdf'(db, prof, b) {
+        const d = bozzaDi(prof, b);
+        return daEsito(await BOZZE.caricaPdf(db, prof, d.inc, d.ambito, b));
+    },
+    async 'bozza-pdf-leggi'(db, prof, b) {
+        const d = bozzaDi(prof, b);
+        return daEsito(await BOZZE.leggiPdf(db, prof, d.inc.id, d.ambito, b.riga, b.n));
+    },
+    async 'bozza-togli'(db, prof, b) {
+        const d = bozzaDi(prof, b);
+        return BOZZE.togli(db, prof, d.inc.id, d.ambito);
+    },
+    /* L'allegato di una lettera appena creata, preso dal PDF che la sua riga
+       ha gia' nella bozza: non risale dal browser. La riga esce dalla bozza. */
+    async 'allegato-da-bozza'(db, prof, b) {
+        const d = bozzaDi(prof, b);
+        const pdf = await BOZZE.pdfDiRiga(db, prof, d.inc.id, d.ambito, b.riga);
+        if (!pdf) esci(404, 'Il PDF di questa riga non è più nella bozza: allegalo di nuovo.');
+        const r = daEsito(await DATI.caricaIntero(db, prof, b.id, pdf.buf));
+        const dopo = await BOZZE.consuma(db, prof, d.inc.id, d.ambito, b.riga);
+        return Object.assign(r, { versione: dopo.versione });
     },
     /* Fa partire subito quello che e' in coda, per poco: il resto lo prende il giro programmato. */
     async avvia(db, prof) {
@@ -355,6 +398,7 @@ async function giroProgrammato(db) {
     out.invii = dovute > 0 ? await GIRO.giro(db, { da: 'giro programmato', budgetMs: 190000 }) : { ok: true, esito: 'niente da spedire', inviate: 0 };
     if (new Date().getUTCMinutes() < 5) {
         try { out.pulizie = await DATI.pulizia(db, Date.now(), 40); } catch (e) { out.pulizie = 0; console.error('Circolarizzazioni, pulizie:', String((e && e.message) || e).slice(0, 200)); }
+        try { out.bozzeTolte = await BOZZE.pulizia(db, Date.now(), 20); } catch (e) { out.bozzeTolte = 0; console.error('Circolarizzazioni, bozze:', String((e && e.message) || e).slice(0, 200)); }
     }
     // gli errori nuovi, tutti in una sola email
     out.avvisi = await ERRORI.avvisa(db);
