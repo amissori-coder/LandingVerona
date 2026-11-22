@@ -39,6 +39,9 @@
        la cancellazione dei dati di un incarico (con il riepilogo
        delle lettere tolte), e ognuno legge solo quello che gli
        spetta;
+     - l'orario dei solleciti lo sceglie chi invia: il sollecito parte
+       a quell'ora e non prima, senza orario vale le 9:00, e la bozza
+       conserva le date di ogni riga;
      - la pagina degli incarichi si apre con poche letture, sempre le
        stesse, anche per chi segue centinaia di incarichi (prima erano
        una per incarico, in fila);
@@ -614,6 +617,34 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('anche per chi vede tutto: poche letture, qualunque sia il numero degli incarichi', stAdmin.ok && stAdmin.incarichi.length === 302 && F.letture.documenti <= 10 && F.letture.raccolte <= 3, { documenti: F.letture.documenti, raccolte: F.letture.raccolte });
     for (let i = 0; i < 4; i++) await chiama('a.missori@emvas.tax', { azione: 'cancella-incarico', incaricoId: 'inc-x' + i, conferma: 'CANCELLA' });
     dati.set('archivio/incarichi', { json: JSON.stringify(incarichi) });
+
+    // ---------- 12e. l'orario dei solleciti lo sceglie chi invia ----------
+    const gS = C.giornoRoma(), piuS = n => C.aggiungiGiorni(gS, n);
+    verifica('un orario che non esiste viene rifiutato', (await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Orario Sbagliato', pec: 'orario@pec.it', categoria: 'altro', scadenza: piuS(3), sollecito1: { data: piuS(4), ora: '25:10', scadenza: piuS(9) }, sollecito2: null })).http === 400);
+    const o1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Fornitore a Orario', pec: 'orario@pec.it', categoria: 'altro', scadenza: piuS(3), sollecito1: { data: piuS(4), ora: '10:30', scadenza: piuS(9) }, sollecito2: { data: piuS(10), scadenza: piuS(15) } });
+    s = await scheda(o1.id);
+    verifica('l\'orario scelto resta sulla scheda; senza orario valgono le 9:00', o1.ok && s.passi.sollecito1.ora === '10:30' && s.passi.sollecito1.previsto === C.istanteRoma(piuS(4), 10, 30) && s.passi.sollecito2.ora === '09:00' && s.passi.sollecito2.previsto === C.istanteRoma(piuS(10), 9), s.passi);
+    verifica('lo stesso istante scritto come orario', C.istanteRoma('2027-07-01', '10:30') === C.istanteRoma('2027-07-01', 10, 30) && new DateVera(C.istanteRoma('2027-07-01', '10:30')).toISOString() === '2027-07-01T08:30:00.000Z');
+    await GIRO.giro(db, {});
+    const primaOrario = posta.length;
+    alle(piuS(4) + 'T10:00:00+01:00');
+    await GIRO.giro(db, {});
+    verifica('alle 10:00 il sollecito delle 10:30 non parte', posta.length === primaOrario && (await scheda(o1.id)).passi.sollecito1.stato === 'programmato');
+    alle(piuS(4) + 'T10:31:00+01:00');
+    await GIRO.giro(db, {});
+    verifica('alle 10:31 parte', posta.length === primaOrario + 1 && /^SOLLECITO - /.test(posta[posta.length - 1].subject) && posta[posta.length - 1].to === 'orario@pec.it' && (await scheda(o1.id)).passi.sollecito1.stato === 'inviato', posta.slice(primaOrario).map(m => m.subject));
+    const modO = await chiama('anna@studio.it', { azione: 'solleciti', id: o1.id, sollecito2: { data: piuS(11), ora: '15:45', scadenza: piuS(16) } });
+    verifica('cambiando la data si puo\' cambiare anche l\'orario', modO.ok && modO.scheda.passi.sollecito2.ora === '15:45' && (await scheda(o1.id)).prossimo === C.istanteRoma(piuS(11), 15, 45), modO.scheda && modO.scheda.passi.sollecito2);
+    const modO2 = await chiama('anna@studio.it', { azione: 'solleciti', id: o1.id, sollecito2: { data: piuS(12), scadenza: piuS(17) } });
+    verifica('senza indicarlo resta l\'orario che aveva', modO2.ok && modO2.scheda.passi.sollecito2.ora === '15:45' && modO2.scheda.passi.sollecito2.data === piuS(12));
+    verifica('nel registro il sollecito e\' scritto con il suo orario', registro('solleciti-modificati', v => v.invio === o1.id).some(v => /alle 15:45/.test(v.campi[0].dopo)) && registro('lettera-in-coda', v => v.invio === o1.id)[0].dettaglio.indexOf('alle 10:30') > 0);
+    verifica('un orario sbagliato nella modifica viene rifiutato', (await chiama('anna@studio.it', { azione: 'solleciti', id: o1.id, sollecito2: { data: piuS(12), ora: 'pomeriggio', scadenza: piuS(17) } })).http === 400);
+    await chiama('anna@studio.it', { azione: 'annulla', id: o1.id });           // niente resta in programma per le prove che seguono
+    // la bozza conserva le date di ogni riga
+    await chiama('anna@studio.it', { azione: 'bozza-salva', incaricoId: 'inc-beta', ambito: 'obbligatorie', base: 0, bozza: { righe: [{ id: 'd1', categoria: 'banca', nome: 'Banca con le sue date', pec: 'date@pec.it', scad: '2027-05-10', s1d: '2027-05-11', s1o: '8:15', s1s: '2027-05-18', s2d: 'domani', s2o: '99:00', s2s: '' }] } });
+    const rigaD = (await chiama('anna@studio.it', { azione: 'bozza-leggi', incaricoId: 'inc-beta', ambito: 'obbligatorie' })).bozza.righe[0];
+    verifica('la bozza conserva termine, data e orario dei solleciti di ogni riga, e scarta quello che non e\' una data o un orario', rigaD.scad === '2027-05-10' && rigaD.s1d === '2027-05-11' && rigaD.s1o === '08:15' && rigaD.s1s === '2027-05-18' && rigaD.s2d === '' && rigaD.s2o === '' && rigaD.s2s === '', rigaD);
+    await chiama('anna@studio.it', { azione: 'bozza-togli', incaricoId: 'inc-beta', ambito: 'obbligatorie' });
 
     // ---------- 13. pulizie ----------
     const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });
