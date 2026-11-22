@@ -1170,7 +1170,7 @@ window.RV_STRUMENTI_REVISIONE = {
          "descrizione": "Scegli la società, compila la tabella dei destinatari per ogni tipologia di lettera, allega i PDF e indica le date della risposta e dei solleciti."
         }
        ],
-       "nota": "Mentre si compila, la bozza si salva da sola sul computer: se cade la connessione si riprende da dove si era arrivati."
+       "nota": "Mentre si compila, la bozza, con le lettere in PDF, si salva da sola sul portale: se cade la connessione si riprende da dove si era arrivati, anche da un altro computer."
       }
      ]
     },
@@ -1201,7 +1201,7 @@ window.RV_STRUMENTI_REVISIONE = {
         {
          "p": "obbligatorie",
          "et": "Report degli invii e delle risposte",
-         "descrizione": "Nella pagina della società: «Scarica ricevute e risposte» e «Stampa il report», diviso per tipologia di lettera."
+         "descrizione": "Nella pagina della società: «Scarica ricevute e risposte» e «Stampa il report», che apre l'anteprima del foglio, diviso per tipologia di lettera, da stampare o salvare in PDF."
         }
        ],
        "nota": "Ricevute e risposte si salvano nelle carte di lavoro: a lavoro concluso vengono cancellate dal portale."
@@ -1479,7 +1479,7 @@ window.RV_STRUMENTI_REVISIONE = {
          "descrizione": "Scegli la società, compila la tabella dei destinatari per ogni tipologia di lettera, allega i PDF e indica le date della risposta e dei solleciti."
         }
        ],
-       "nota": "Per clienti e fornitori si può indicare anche il saldo da confermare, che finisce nel report. Mentre si compila, la bozza si salva da sola sul computer."
+       "nota": "Per clienti e fornitori si può indicare anche il saldo da confermare, che finisce nel report. Mentre si compila, la bozza, con le lettere in PDF, si salva da sola sul portale e si riprende anche da un altro computer."
       }
      ]
     },
@@ -1502,7 +1502,7 @@ window.RV_STRUMENTI_REVISIONE = {
         {
          "p": "clientiFornitori",
          "et": "Report degli invii e delle risposte",
-         "descrizione": "Nella pagina della società: «Scarica ricevute e risposte» e «Stampa il report», diviso per tipologia di lettera."
+         "descrizione": "Nella pagina della società: «Scarica ricevute e risposte» e «Stampa il report», che apre l'anteprima del foglio, diviso per tipologia di lettera, da stampare o salvare in PDF."
         }
        ],
        "nota": "Ricevute e risposte si salvano nelle carte di lavoro: a lavoro concluso vengono cancellate dal portale."
@@ -3222,4 +3222,4 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  }
 };
-window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=e038a841ca", "pagine": 39, "kb": 821, "documenti": 18}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=5807d2318a", "pagine": 29, "kb": 1243, "documenti": 11}}};
+window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=f38455a87d", "pagine": 39, "kb": 822, "documenti": 18}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=e273253d68", "pagine": 29, "kb": 1243, "documenti": 11}}};

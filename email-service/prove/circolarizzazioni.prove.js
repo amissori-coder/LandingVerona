@@ -29,6 +29,10 @@
      - il registro degli errori: una riga per problema, UNA email
        per gli errori nuovi, la spunta di chi amministra, e la riga
        che si riapre se il problema si ripresenta;
+     - la bozza delle nuove lettere sta sul portale: righe e PDF si
+       ritrovano da un altro computer, chi salva da una versione
+       superata viene fermato, all'invio la lettera prende il PDF
+       dalla bozza, e le bozze ferme da un mese si tolgono;
      - la posta gia' nella casella prima dell'attivazione non entra
        fra le "non associate", e la casella non si legge piu' del
        necessario.
@@ -44,6 +48,8 @@ const C = require('../lib/circ-comune');
 const DATI = require('../lib/circ-dati');
 const GIRO = require('../lib/circ-giro');
 const LETTORE = require('../lib/circ-lettore');
+const BOZZE = require('../lib/circ-bozze');
+const crypto = require('crypto');
 const api = require('../api/circolarizzazioni');
 
 // ---------- anagrafica ----------
@@ -462,14 +468,82 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('l\'altro incarico resta', (await scheda(b1.id)) !== null);
     verifica('con l\'incarico se ne vanno anche i suoi errori', ![...dati.keys()].some(k => /^circErrori\//.test(k) && dati.get(k).incaricoId === 'inc-alfa') && [...dati.keys()].some(k => /^circErrori\//.test(k) && dati.get(k).incaricoId === 'inc-beta'));
 
+    // ---------- 12b. la bozza delle nuove lettere, salvata sul portale ----------
+    const PDFB = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(650 * 1024, 66)]);        // due pezzi
+    const PDFP = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(3000, 67)]);
+    const bz = (chi, corpo) => chiama(chi, Object.assign({ incaricoId: 'inc-alfa', ambito: 'obbligatorie' }, corpo));
+    const bozzaDiMarta = async () => (await bz('marta@studio.it', { azione: 'bozza-leggi' })).bozza;
+    const chiaviBozze = re => [...dati.keys()].filter(k => /^circBozze\//.test(k) && (!re || re.test(k)));
+    const righeB = [
+        { id: 'r1', categoria: 'banca', nome: 'Banca Bozza S.p.A.', pec: 'bozza@pec.it', saldo: '', nota: 'c/c 77', file: { nome: 'bozza.pdf', peso: PDFB.length } },
+        { id: 'r2', categoria: 'legale', nome: 'Studio a metà', pec: '', saldo: '', nota: '' },
+        { id: 'r3', categoria: 'cliente', nome: 'Fuori area', pec: 'x@pec.it' },
+        { id: 'non valido!', categoria: 'banca', nome: 'Riga senza un id buono' }
+    ];
+    verifica('lo stato dice per quanto resta una bozza', (await chiama('marta@studio.it', { azione: 'stato' })).limiti.bozzaGiorni === 30);
+    verifica('nessuna bozza all\'inizio', (await bozzaDiMarta()) === null);
+    verifica('la bozza e\' solo per gli incarichi che si seguono', (await chiama('marta@studio.it', { azione: 'bozza-leggi', incaricoId: 'inc-beta', ambito: 'obbligatorie' })).http === 403);
+    verifica('la bozza vuole la sua area', (await chiama('marta@studio.it', { azione: 'bozza-leggi', incaricoId: 'inc-alfa', ambito: 'boh' })).http === 400);
+    let sv = await bz('marta@studio.it', { azione: 'bozza-salva', base: 0, bozza: { righe: righeB, date: { 'pc-n-scad': '2027-06-01', 'x y': '2027-06-01', 'pc-n-bil': 'oggi' }, s1: true, s2: false, aperte: ['banca', 'legale', 'cliente'] } });
+    let lb = await bozzaDiMarta();
+    verifica('bozza salvata, anche con una riga a meta\'', sv.ok && sv.versione === 1 && lb.righe.length === 2 && lb.righe[1].nome === 'Studio a metà' && lb.righe[1].pec === '', lb && lb.righe);
+    verifica('quello che non e\' dell\'area o non e\' una data viene scartato', lb.aperte.join() === 'banca,legale' && lb.s2 === false && lb.date['pc-n-scad'] === '2027-06-01' && lb.date['pc-n-bil'] === '' && !('x y' in lb.date), lb);
+    verifica('la bozza di Marta non e\' quella di Luca', (await bz('luca@studio.it', { azione: 'bozza-leggi' })).bozza === null);
+    verifica('ne\' quella dell\'altra area', (await chiama('marta@studio.it', { azione: 'bozza-leggi', incaricoId: 'inc-alfa', ambito: 'clientiFornitori' })).bozza === null);
+    const pezzoB = n => PDFB.slice(n * C.LIMITI.pezzoByte, (n + 1) * C.LIMITI.pezzoByte).toString('base64');
+    verifica('un file che non e\' un PDF non entra in bozza', (await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'x.pdf', dimensione: 2000, n: 0, dati: Buffer.alloc(2000, 65).toString('base64') })).http === 400 && !(await bozzaDiMarta()).pdf.r1);
+    verifica('un PDF troppo grande non entra in bozza', (await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'x.pdf', dimensione: C.LIMITI.pdfMaxByte + 1, n: 0, dati: '' })).http === 413);
+    let up = await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'bozza.pdf', dimensione: PDFB.length, n: 0, dati: pezzoB(0) });
+    verifica('primo pezzo: il PDF e\' in arrivo, non ancora pronto', up.ok && up.completo === false && (await bozzaDiMarta()).pdf.r1.pronto === false);
+    verifica('finche\' non e\' completo non si riapre', (await bz('marta@studio.it', { azione: 'bozza-pdf-leggi', riga: 'r1', n: 0 })).http === 404);
+    up = await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'bozza.pdf', dimensione: PDFB.length, n: 1, dati: pezzoB(1) });
+    lb = await bozzaDiMarta();
+    verifica('PDF completo sul portale, e la versione delle righe non cambia', up.ok && up.completo === true && lb.pdf.r1.pronto === true && lb.pdf.r1.byte === PDFB.length && lb.versione === 1, lb.pdf);
+    const p0 = await bz('marta@studio.it', { azione: 'bozza-pdf-leggi', riga: 'r1', n: 0 }), p1 = await bz('marta@studio.it', { azione: 'bozza-pdf-leggi', riga: 'r1', n: 1 });
+    verifica('da un altro computer il PDF si riapre identico', p0.ok && p0.pezzi === 2 && p0.nome === 'bozza.pdf' && Buffer.concat([Buffer.from(p0.dati, 'base64'), Buffer.from(p1.dati, 'base64')]).equals(PDFB));
+    verifica('il PDF della bozza di Marta non lo apre Luca', (await bz('luca@studio.it', { azione: 'bozza-pdf-leggi', riga: 'r1', n: 0 })).http === 404);
+    sv = await bz('marta@studio.it', { azione: 'bozza-salva', base: 1, bozza: { righe: [righeB[0], Object.assign({}, righeB[1], { pec: 'studio@pec.it' })] } });
+    verifica('secondo salvataggio: versione 2, il PDF resta', sv.ok && sv.versione === 2 && (await bozzaDiMarta()).pdf.r1.pronto === true);
+    const conflitto = await bz('marta@studio.it', { azione: 'bozza-salva', base: 1, bozza: { righe: [righeB[0]] } });
+    verifica('chi salva da una versione superata viene fermato, e niente si perde', conflitto.ok === false && conflitto.conflitto === true && conflitto.versione === 2 && conflitto.http === 200 && (await bozzaDiMarta()).righe.length === 2, conflitto);
+    await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r2', nome: 'studio.pdf', dimensione: PDFP.length, n: 0, dati: PDFP.toString('base64') });
+    verifica('un PDF piccolo sale in un pezzo solo', (await bozzaDiMarta()).pdf.r2.pronto === true && chiaviBozze(/\/pdf\/r2~/).length === 1);
+    // al posto del PDF lungo se ne carica uno corto: il pezzo in piu' non resta
+    await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'corto.pdf', dimensione: PDFP.length, n: 0, dati: PDFP.toString('base64') });
+    verifica('cambiando il PDF di una riga i pezzi di prima non restano', chiaviBozze(/\/pdf\/r1~/).length === 1 && (await bozzaDiMarta()).pdf.r1.nome === 'corto.pdf');
+    for (let n = 0; n < 2; n++) await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'bozza.pdf', dimensione: PDFB.length, n: n, dati: pezzoB(n) });
+    sv = await bz('marta@studio.it', { azione: 'bozza-salva', base: 2, bozza: { righe: [righeB[0]] } });
+    lb = await bozzaDiMarta();
+    verifica('tolta una riga, se ne va anche il suo PDF', sv.ok && sv.versione === 3 && !lb.pdf.r2 && chiaviBozze(/\/pdf\/r2~/).length === 0 && chiaviBozze(/\/pdf\/r1~/).length === 2);
+    // l'invio: la lettera prende il PDF dalla bozza, senza che risalga dal browser
+    const cr = await chiama('marta@studio.it', { azione: 'crea', incaricoId: 'inc-alfa', destinatario: 'Banca Bozza S.p.A.', pec: 'bozza@pec.it', categoria: 'banca', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 10), allegatoNome: 'bozza.pdf', allegatoDimensione: PDFB.length });
+    verifica('la bozza di un altro non serve a niente', (await bz('luca@studio.it', { azione: 'allegato-da-bozza', id: cr.id, riga: 'r1' })).http === 404);
+    verifica('una riga senza PDF non fa partire la lettera', (await bz('marta@studio.it', { azione: 'allegato-da-bozza', id: cr.id, riga: 'r9' })).http === 404 && (await scheda(cr.id)).stato === 'bozza');
+    const ab = await bz('marta@studio.it', { azione: 'allegato-da-bozza', id: cr.id, riga: 'r1' });
+    s = await scheda(cr.id);
+    verifica('la lettera prende il PDF dalla bozza ed entra in coda', ab.ok && ab.completo === true && s.stato === 'coda' && s.allegato.sha256 === crypto.createHash('sha256').update(PDFB).digest('hex') && (await DATI.leggiAllegato(db, cr.id, s.allegato.pezzi)).equals(PDFB), ab);
+    verifica('la riga inviata esce dalla bozza; vuota, la bozza non resta', ab.versione === 0 && (await bozzaDiMarta()) === null && chiaviBozze().length === 0, chiaviBozze());
+    // con i dati dell'incarico se ne vanno anche le bozze di chi ci lavorava
+    await bz('marta@studio.it', { azione: 'bozza-salva', base: 0, bozza: { righe: [righeB[0]] } });
+    await bz('marta@studio.it', { azione: 'bozza-pdf', riga: 'r1', nome: 'studio.pdf', dimensione: PDFP.length, n: 0, dati: PDFP.toString('base64') });
+    await chiama('luca@studio.it', { azione: 'bozza-salva', incaricoId: 'inc-alfa', ambito: 'clientiFornitori', base: 0, bozza: { righe: [{ id: 'k1', categoria: 'cliente', nome: 'Cliente in bozza', pec: 'c@pec.it', saldo: '1.200,00' }] } });
+    await chiama('luca@studio.it', { azione: 'bozza-salva', incaricoId: 'inc-beta', ambito: 'obbligatorie', base: 0, bozza: { righe: [{ id: 'b1', categoria: 'banca', nome: 'Banca di Beta', pec: 'beta@pec.it' }] } });
+    verifica('tre bozze: due persone, due aree, due incarichi', chiaviBozze(/^circBozze\/[^/]+$/).length === 3);
+    verifica('svuotare la bozza la toglie', (await chiama('luca@studio.it', { azione: 'bozza-togli', incaricoId: 'inc-alfa', ambito: 'clientiFornitori' })).ok && chiaviBozze(/^circBozze\/[^/]+$/).length === 2);
+    await chiama('luca@studio.it', { azione: 'bozza-salva', incaricoId: 'inc-alfa', ambito: 'clientiFornitori', base: 0, bozza: { righe: [{ id: 'k1', categoria: 'cliente', nome: 'Cliente in bozza', pec: 'c@pec.it' }] } });
+    const canc2 = await chiama('a.missori@emvas.tax', { azione: 'cancella-incarico', incaricoId: 'inc-alfa', conferma: 'CANCELLA' });
+    verifica('cancellato l\'incarico, le sue bozze (righe e PDF) non restano; quelle degli altri si\'', canc2.ok && canc2.tolte === 1 && chiaviBozze().length === 1 && dati.get(chiaviBozze()[0]).incaricoId === 'inc-beta', chiaviBozze());
+
     // ---------- 13. pulizie ----------
     const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });
     verifica('una bozza non compare in elenco', bozza.ok && !(await chiama('anna@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' })).schede.some(x => x.id === bozza.id));
     avanti(2 * GIORNO);
     await DATI.pulizia(db, Date.now(), 20);
     verifica('la bozza rimasta a meta\' viene tolta', (await scheda(bozza.id)) === null);
+    verifica('una bozza di nuove lettere ferma da due giorni resta', (await BOZZE.pulizia(db, Date.now(), 20)) === 0 && chiaviBozze().length === 1);
     avanti(40 * GIORNO);
     await DATI.pulizia(db, Date.now(), 50);
+    verifica('ferma da piu\' di trenta giorni, si toglie', (await BOZZE.pulizia(db, Date.now(), 20)) === 1 && chiaviBozze().length === 0);
     s = await scheda(b1.id);
     verifica('dopo un mese il PDF e\' ancora sul portale', s && !s.allegato.tolto && [...dati.keys()].some(k => k.indexOf('circInvii/' + b1.id + '/') === 0));
     alle('2028-01-12T10:00:00+01:00');       // la lettera di BETA era stata preparata l'11 gennaio 2027

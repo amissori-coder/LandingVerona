@@ -4492,9 +4492,19 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
 .pc-bozza { margin: 0 0 14px; padding: 9px 12px; font-size: 0.84rem; line-height: 1.5; color: var(--grigio-700); background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: var(--raggio); text-align: justify; }
 .pc-bozza strong { color: var(--blu-900); }
 .pc-bozza .pc-link { margin-left: 4px; }
+.pc-bozza.pc-bozza-no { background: var(--ambra-bg); border-color: #F0D27A; color: #5C4300; }
+.pc-bozza.pc-bozza-no strong { color: #5C4300; }
+/* dove si trova il PDF di una riga della bozza: sul portale, in salita, o ancora solo su questo computer */
+.pc-r-pdf { display: block; }
+.pc-file .pc-link { font-weight: 500; color: inherit; text-decoration-color: #CBD5E1; }
+.pc-file .pc-link:hover { color: var(--blu-900); text-decoration-color: currentColor; }
+.pc-file .pc-link[data-attesa="1"] { opacity: 0.5; cursor: progress; }
+.pc-pdf-posto { display: inline-block; margin: 0 8px 3px 0; padding: 1px 7px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; line-height: 1.5; }
+.pc-pdf-posto.ok { background: var(--verde-bg, #E8F5EC); color: var(--verde, #1E7A3C); }
+.pc-pdf-posto.su { background: var(--blu-050); color: var(--blu-700); }
+.pc-pdf-posto.no { background: var(--ambra-bg); color: #7A5600; white-space: normal; border-radius: 6px; }
 table.pc-righe input.pc-r-saldo { min-width: 110px; text-align: right; font-variant-numeric: tabular-nums; }
 /* il report degli invii esiste solo in stampa */
-#pc-report { display: none; }
 .pc-nota { display: block; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); margin-top: 3px; font-weight: 400; }
 .badge + .pc-nota { margin-top: 4px; }
 .pc-muto { color: var(--grigio-500); font-weight: 400; }
@@ -4577,6 +4587,118 @@ table.pc-righe tr.pc-fatta td { background: #F3FAF6; }
 .pc-risposta-testa strong { color: var(--blu-900); }
 .pc-risposta-ogg { font-size: 0.86rem; color: var(--grigio-900); margin: 3px 0 8px; }
 .pc-lettera .pc-avviso { margin: 4px 0 0; }
+/* ---------- il report degli invii ----------
+   Un foglio A4 orizzontale, uguale a video (l'anteprima) e in stampa: le
+   misure sono in punti tipografici apposta. I colori di fondo si stampano
+   anche se nel browser «Grafica di sfondo» e' spenta (print-color-adjust). */
+#pc-report { position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; background: #56667A; }
+body.pc-stampa-report { overflow: hidden; }
+.pc-rep-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding: 10px 18px; background: var(--blu-900); color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .25); }
+.pc-rep-barra-tit strong { display: block; font-size: 0.98rem; }
+.pc-rep-barra-tit span { font-size: 0.8rem; color: #C5D3E0; }
+.pc-rep-barra-az { display: flex; gap: 8px; }
+.pc-rep-barra .btn-primary { background: #fff; color: var(--blu-900); border-color: #fff; }
+.pc-rep-barra .btn-primary:hover { background: var(--blu-100); border-color: var(--blu-100); }
+.pc-rep-barra .btn-secondary { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .55); }
+.pc-rep-barra .btn-secondary:hover { background: rgba(255, 255, 255, .12); }
+.pc-rep-scorri { flex: 1; overflow: auto; padding: 22px 16px 44px; }
+.pc-rep-foglio { box-sizing: border-box; width: 297mm; min-height: 210mm; margin: 0 auto; padding: 11mm 12mm 13mm; background: #fff; box-shadow: 0 10px 36px rgba(0, 0, 0, .35); }
+.pc-rep, .pc-rep * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+.pc-rep { color: #0A2844; font-size: 8pt; line-height: 1.35; text-align: left; }
+.pc-rep-muto { color: #94A3B8; }
+/* testata */
+.pc-rep-testa { position: relative; display: flex; justify-content: space-between; align-items: flex-end; gap: 24pt; padding-bottom: 9pt; border-bottom: 2.2pt solid #0A2844; }
+.pc-rep-testa::after { content: ''; position: absolute; left: 0; right: 0; bottom: -4.4pt; height: 0.9pt; background: #C9A227; }
+.pc-rep-marchio { display: flex; align-items: center; gap: 9pt; }
+.pc-rep-marchio img { width: 36pt; height: 36pt; display: block; }
+.pc-rep-marchio strong { display: block; font-size: 13.5pt; line-height: 1.1; letter-spacing: .01em; }
+.pc-rep-marchio span { display: block; margin-top: 2pt; font-size: 6.6pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #5B6B7E; }
+.pc-rep-titolo { text-align: right; }
+.pc-rep-occhiello { font-size: 6.6pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #9A7B14; }
+.pc-rep-titolo h1 { margin: 2pt 0 1pt; font-size: 15pt; line-height: 1.15; color: #0A2844; }
+.pc-rep-titolo p { margin: 0; font-size: 9.5pt; font-weight: 600; color: #164068; }
+/* la societa' e chi segue l'incarico */
+.pc-rep-chi { display: grid; grid-template-columns: 1.1fr 2fr; margin-top: 13pt; border: 0.8pt solid #CBD5E1; border-radius: 4pt; overflow: hidden; }
+.pc-rep-societa { padding: 9pt 12pt 10pt; background: #0A2844; color: #fff; }
+.pc-rep-societa span { display: block; font-size: 6.2pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #B8C7D6; }
+.pc-rep-societa strong { display: block; margin: 3pt 0 4pt; font-size: 14pt; line-height: 1.15; overflow-wrap: anywhere; }
+.pc-rep-societa em { font-style: normal; font-size: 8.5pt; font-weight: 600; color: #E7CB6C; }
+.pc-rep-dati { display: grid; grid-template-columns: 1fr 1fr; margin: 0; }
+.pc-rep-dati > div { padding: 6pt 11pt 7pt; border-left: 0.8pt solid #E2E8F0; border-bottom: 0.8pt solid #E2E8F0; }
+.pc-rep-dati > div:nth-last-child(-n+2) { border-bottom: none; }
+.pc-rep dt { font-size: 6.2pt; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #64748B; }
+.pc-rep dd { margin: 1.5pt 0 0; font-size: 9pt; font-weight: 600; overflow-wrap: anywhere; }
+/* i numeri */
+.pc-rep-numeri { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7pt; margin-top: 9pt; }
+.pc-rep-numero { padding: 6pt 9pt 6pt; border: 0.8pt solid #D5DEE8; border-top: 2.4pt solid #164068; border-radius: 3pt; background: #F7FAFC; }
+.pc-rep-numero.verde { border-top-color: #1E7F4F; }
+.pc-rep-numero.rosso { border-top-color: #B3261E; }
+.pc-rep-numero.ambra { border-top-color: #C28A00; }
+.pc-rep-numero span { display: block; font-size: 6.2pt; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #64748B; }
+.pc-rep-numero strong { display: block; margin-top: 2pt; font-size: 16pt; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pc-rep-numero em { display: block; min-height: 9.5pt; font-style: normal; font-size: 7pt; color: #475569; }
+/* il riepilogo per tipologia */
+.pc-rep-blocco { margin-top: 12pt; break-inside: avoid; page-break-inside: avoid; }
+.pc-rep-h { margin: 0 0 3pt; font-size: 7pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #164068; }
+.pc-rep table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.pc-rep th { text-align: left; vertical-align: bottom; padding: 4pt 5pt 3pt; font-size: 6.2pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; border-bottom: 1.1pt solid #0A2844; }
+.pc-rep td { padding: 4pt 5pt; vertical-align: top; border-bottom: 0.6pt solid #E2E8F0; overflow-wrap: anywhere; }
+.pc-rep .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pc-rep-riep { font-size: 8pt; }
+.pc-rep-riep td { vertical-align: middle; }
+.pc-rep-riep th:first-child { width: 24%; }
+.pc-rep-riep th.num { width: 9%; }
+.pc-rep-riep.con-saldo th:first-child { width: 17%; }
+.pc-rep-riep.con-saldo th.num { width: 7.5%; }
+.pc-rep-riep.con-saldo th.num:nth-child(n+6) { width: 13%; }
+.pc-rep-riep tr.tot td { font-weight: 700; background: #F1F5F9; border-top: 1.1pt solid #0A2844; border-bottom: none; }
+.pc-rep-perc { display: flex; align-items: center; gap: 6pt; }
+.pc-rep-striscia { flex: 1; height: 5pt; border-radius: 99pt; background: #E2E8F0; overflow: hidden; }
+.pc-rep-striscia i { display: block; height: 100%; border-radius: 99pt; background: #1E7F4F; }
+.pc-rep-perc b { width: 24pt; text-align: right; font-size: 7.6pt; font-variant-numeric: tabular-nums; }
+/* una tabella per tipologia */
+.pc-rep-sez { margin-top: 12pt; }
+.pc-rep-sez h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12pt; margin: 0; padding: 4.5pt 9pt; font-size: 10pt; color: #0A2844; background: #E9F0F7; border-left: 3pt solid #164068; break-after: avoid; page-break-after: avoid; }
+.pc-rep-sez h2 span { font-size: 7.5pt; font-weight: 500; color: #475569; white-space: nowrap; }
+.pc-rep-tab { font-size: 7.6pt; }
+.pc-rep-tab thead { display: table-header-group; }
+.pc-rep-tab tfoot { display: table-row-group; }         /* i totali una volta sola, non in fondo a ogni pagina */
+.pc-rep-tab tr { break-inside: avoid; page-break-inside: avoid; }
+/* la riga dei totali non resta da sola in cima a una pagina: si porta dietro l'ultimo destinatario */
+.pc-rep-tab tbody tr:last-child { break-after: avoid; page-break-after: avoid; }
+.pc-rep-tab tfoot tr { break-before: avoid; page-break-before: avoid; }
+.pc-rep-tab tbody tr:nth-child(even) td { background: #FAFCFD; }
+.pc-rep-tab .n { width: 2.6%; text-align: right; color: #94A3B8; }
+.pc-rep-tab .c-den { width: 23%; } .pc-rep-tab .c-rif { width: 8.5%; } .pc-rep-tab .c-data { width: 7.5%; }
+.pc-rep-tab .c-rec { width: 12.5%; } .pc-rep-tab .c-sol { width: 11.5%; } .pc-rep-tab .c-risp { width: 12.5%; }
+.pc-rep-tab.con-saldo .c-den { width: 20%; } .pc-rep-tab.con-saldo .c-rif { width: 8%; } .pc-rep-tab.con-saldo .c-saldo { width: 8.5%; }
+.pc-rep-tab.con-saldo .c-data { width: 7%; } .pc-rep-tab.con-saldo .c-rec { width: 12%; } .pc-rep-tab.con-saldo .c-sol { width: 11%; } .pc-rep-tab.con-saldo .c-risp { width: 12%; }
+.pc-rep-dest strong { display: block; font-size: 8pt; }
+.pc-rep-dest span { display: block; font-size: 7pt; color: #64748B; }
+.pc-rep-rif { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 7.2pt; white-space: nowrap; }
+.pc-rep-nota-cella { color: #334155; }
+.pc-rep-chip { display: inline-block; padding: 0.4pt 5.5pt; border-radius: 99pt; font-size: 6.6pt; font-weight: 700; line-height: 1.55; white-space: nowrap; }
+.pc-rep-chip.verde { background: #E2F3E9; color: #17643E; }
+.pc-rep-chip.rosso { background: #FBE6E4; color: #9B1C15; }
+.pc-rep-chip.ambra { background: #FFF1CC; color: #7A5600; }
+.pc-rep-chip.blu { background: #E3ECF5; color: #164068; }
+.pc-rep-chip.grigio { background: #EDF0F4; color: #475569; }
+.pc-rep-sotto { display: block; margin-top: 1.2pt; font-size: 6.9pt; line-height: 1.3; color: #475569; }
+.pc-rep-tab tfoot td { font-weight: 700; background: #F1F5F9; border-top: 1.1pt solid #0A2844; border-bottom: none; }
+.pc-rep-niente { margin: 16pt 0; font-size: 9pt; color: #475569; }
+/* la chiusura: nota, firme, riga del documento */
+.pc-rep-chiusa { margin-top: 13pt; break-inside: avoid; page-break-inside: avoid; }
+.pc-rep-nota { margin: 0 0 11pt; font-size: 7.2pt; line-height: 1.45; color: #475569; text-align: justify; }
+.pc-rep-firme { display: grid; grid-template-columns: 1fr 1fr; gap: 16pt; }
+.pc-rep-firma { padding: 6pt 10pt 7pt; border: 0.8pt solid #CBD5E1; border-radius: 3pt; }
+.pc-rep-firma strong { font-size: 6.4pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #164068; }
+.pc-rep-firma div { display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 12pt; margin-top: 19pt; }
+.pc-rep-firma div span { padding-top: 2.5pt; border-top: 0.8pt solid #0A2844; font-size: 6.4pt; color: #64748B; }
+.pc-rep-doc { display: flex; justify-content: space-between; gap: 16pt; margin: 9pt 0 0; font-size: 6.6pt; color: #94A3B8; }
+@media (max-width: 640px) {
+    .pc-rep-barra-tit span { display: none; }
+    .pc-rep-scorri { padding: 12px 8px 30px; }
+}
 @media (max-width: 900px) {
     .pc-fatti, .pc-dati { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -4585,35 +4707,13 @@ table.pc-righe tr.pc-fatta td { background: #F3FAF6; }
     table.pc-righe input[type="text"], table.pc-righe input[type="email"], table.pc-righe select { min-width: 0; }
 }
 @media print {
-    /* il report degli invii: in stampa c'e' solo lui, in orizzontale (la pagina la imposta chi lo lancia) */
-    body.pc-stampa-report #vista > *:not(#pc-report) { display: none !important; }
-    body.pc-stampa-report #pc-report { display: block; font-family: Arial, Helvetica, sans-serif; color: #0A2844; }
-    #pc-report .pc-rep-testa { border-bottom: 2px solid #0A2844; padding-bottom: 6px; margin-bottom: 8px; }
-    #pc-report .pc-rep-marchio { font-size: 7.5pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
-    #pc-report h1 { font-size: 14pt; margin: 3px 0 2px; color: #0A2844; }
-    #pc-report .pc-rep-quando { font-size: 8pt; color: #475569; }
-    #pc-report dl { display: grid; gap: 0; margin: 0 0 8px; border: 1px solid #CBD5E1; }
-    #pc-report .pc-rep-dati { grid-template-columns: repeat(3, 1fr); }
-    #pc-report .pc-rep-numeri { grid-template-columns: repeat(6, 1fr); }
-    #pc-report dl > div { padding: 4px 8px; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
-    #pc-report dt { font-size: 6.5pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748B; }
-    #pc-report dd { margin: 1px 0 0; font-size: 9pt; font-weight: 700; }
-    #pc-report .pc-rep-numeri dd { font-size: 12pt; }
-    #pc-report h2 { font-size: 10.5pt; margin: 12px 0 4px; padding: 3px 8px; background: #EEF4FA; border-left: 3px solid #164068; break-after: avoid; page-break-after: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    /* colonne di larghezza fissa: le tabelle delle diverse tipologie restano incolonnate fra loro */
-    #pc-report .pc-rep-tab { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.6pt; line-height: 1.3; }
-    #pc-report .pc-rep-tab .c-den { width: 14%; } #pc-report .pc-rep-tab .c-pec { width: 13.5%; } #pc-report .pc-rep-tab .c-rif { width: 7.5%; }
-    #pc-report .pc-rep-tab .c-saldo { width: 8%; } #pc-report .pc-rep-tab .c-data { width: 6.5%; } #pc-report .pc-rep-tab .c-rec { width: 10.5%; }
-    #pc-report .pc-rep-tab .c-sol { width: 9%; } #pc-report .pc-rep-tab .c-risp { width: 10%; }   /* il resto alle note */
-    #pc-report .pc-rep-tab th { text-align: left; font-size: 6.6pt; letter-spacing: .04em; text-transform: uppercase; color: #475569; border-bottom: 1.2px solid #0A2844; padding: 3px 5px; vertical-align: bottom; }
-    #pc-report .pc-rep-tab td { border-bottom: 1px solid #E2E8F0; padding: 3px 5px; vertical-align: top; overflow-wrap: anywhere; }
-    #pc-report .pc-rep-tab tr { break-inside: avoid; page-break-inside: avoid; }
-    #pc-report .pc-rep-tab .n { width: 3%; text-align: right; color: #64748B; }
-    #pc-report .pc-rep-tab .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    #pc-report .pc-rep-tab tfoot td { border-bottom: none; border-top: 1.2px solid #0A2844; font-weight: 700; padding-top: 4px; }
-    #pc-report .pc-rep-piede { font-size: 7.5pt; color: #475569; margin: 12px 0 0; text-align: justify; }
-    #pc-report .pc-rep-firme { display: flex; gap: 60px; margin-top: 26px; break-inside: avoid; }
-    #pc-report .pc-rep-firme span { flex: 1; border-top: 1px solid #0A2844; padding-top: 3px; font-size: 7.5pt; color: #475569; }
+    /* il report degli invii: in stampa resta solo il foglio dell'anteprima */
+    body.pc-stampa-report > *:not(#pc-report) { display: none !important; }
+    body.pc-stampa-report { background: #fff !important; overflow: visible !important; height: auto !important; }
+    #pc-report { position: static !important; display: block !important; background: none !important; }
+    #pc-report .pc-rep-barra { display: none !important; }
+    #pc-report .pc-rep-scorri { overflow: visible !important; padding: 0 !important; }
+    #pc-report .pc-rep-foglio { zoom: 1 !important; width: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
     .pc-tipo-tit { -webkit-print-color-adjust: exact; print-color-adjust: exact; break-after: avoid; page-break-after: avoid; }
     .pc-schede, .pc-casella, table.pc-tab:not(.pc-errori) td:last-child, table.pc-tab:not(.pc-errori) th:last-child { display: none !important; }
     .pc-avviso, .pc-kpi .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

@@ -836,7 +836,8 @@ Il codice: `api/circolarizzazioni.js` (la porta: permessi e forma delle
 risposte), `lib/circ-comune.js` (casella, limiti, controlli, **i testi dei tre
 messaggi**), `lib/circ-dati.js` (le schede su Firestore e chi le vede),
 `lib/circ-giro.js` (la coda che spedisce), `lib/circ-lettore.js` (la casella:
-ricevute, risposte, scaricamenti). La parte a video e' in
+ricevute, risposte, scaricamenti), `lib/circ-bozze.js` (la bozza delle nuove
+lettere, salvata sul portale). La parte a video e' in
 `area-riservata/app.js`, blocco "CIRCOLARIZZAZIONI VIA PEC".
 
 ### Le variabili da impostare su Vercel
@@ -857,6 +858,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_PEC_IMAP_USER`, `CIRC_PEC_IMAP_PASS` | *(facoltative)* solo se la lettura ha credenziali diverse dall'invio |
 | `CIRC_PDF_MAX_MB` | *(facoltativa)* quanto puo' pesare la lettera in PDF. Senza: `5` |
 | `CIRC_PDF_GIORNI` | *(facoltativa)* per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale. Senza: `365` |
+| `CIRC_BOZZA_GIORNI` | *(facoltativa)* per quanti giorni dall'ultima modifica una bozza di nuove lettere non inviata (righe e PDF) resta sul portale. Senza: `30` |
 | `CIRC_RISPOSTA_MAX_MB` | *(facoltativa)* fino a che peso un allegato di risposta si scarica dall'area riservata; oltre, si apre dalla casella. Senza: `20` |
 | `CIRC_MAX_ORA` | *(facoltativa)* tetto di PEC all'ora, per tutti insieme. Senza: `400` |
 | `CIRC_MAX_GIRO` | *(facoltativa)* quante PEC per giro. Senza: `80` |
@@ -865,7 +867,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
-`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi` e i documenti
+`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze` e i documenti
 `meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` non hanno un
 `match`, quindi dal browser non si leggono e non si scrivono (stessa scelta di
 `sbloccoIncarichi`). Le interrogazioni usano solo uguaglianze, o un intervallo
@@ -916,22 +918,50 @@ tipologia per volta, e i PDF scegliere tutti insieme (si abbinano dal nome).
 Le tabelle a video e quelle del report hanno le stesse colonne: quello che si
 inserisce qui e' quello che si ritrova stampato.
 
-**La bozza resta sul computer.** Mentre si compila, righe e PDF si salvano da
-soli **nel browser di chi sta lavorando** (le righe in `localStorage`, i PDF in
-IndexedDB, base `rvCircBozze`), una bozza per persona, incarico e area. Se cade
-la connessione, si chiude la scheda o scade l'accesso, riaprendo "Nuove
-lettere" si ritrova tutto; la bozza sparisce quando le lettere sono in coda o
-quando la si svuota. Non passa dal servizio e non occupa spazio su Firestore:
-per questo **non segue la persona su un altro computer** e si perde se si
-cancellano i dati del browser.
+**La bozza sta sul portale.** Mentre si compila, righe, date e PDF si
+salvano da soli nella raccolta `circBozze` (`lib/circ-bozze.js`, azioni
+`bozza-leggi`, `bozza-salva`, `bozza-pdf`, `bozza-pdf-leggi`, `bozza-togli`):
+chi ha cominciato su un computer riapre "Nuove lettere" da un altro e ritrova
+tutto, lettere comprese, e puo' riaprire ogni PDF per controllarlo.
 
-**Il report degli invii.** Dalla pagina dell'incarico, "Stampa il report"
-produce per l'area aperta un foglio orizzontale con i dati dell'incarico, i
-totali e **una tabella per tipologia**: denominazione, PEC, riferimento, saldo,
-primo invio, recapito, primo e secondo sollecito, risposta, note, con i totali
-di tipologia. E' la carta di lavoro che sostituisce il vecchio "Report del
-team" in Excel, tolto dagli allegati delle due attivita': si stampa o si salva
-in PDF dal browser. Il riepilogo in Excel resta, con le stesse colonne.
+- **Una bozza per persona, incarico e area.** E' di chi la scrive: un collega
+  dello stesso team ha la sua. Due persone sulla stessa bozza si
+  sovrascriverebbero a vicenda senza accorgersene.
+- **La stessa persona su due computer.** Ogni salvataggio dice da quale
+  versione parte (`base`): se sul portale ce n'e' un'altra, la bozza e' stata
+  cambiata altrove e il servizio risponde `conflitto` senza toccare niente.
+  L'area riservata smette di salvare sul portale, lo dice, e alla riapertura
+  chiede quale delle due tenere.
+- **I PDF salgono una volta sola.** Salgono a pezzi da 600 kB appena scelti,
+  uno per volta, in sottofondo; ogni riga dice dove sta il suo ("sul portale",
+  in salita, "per ora solo su questo computer"). All'invio non risalgono: la
+  lettera prende il PDF dalla bozza (`allegato-da-bozza`) e la riga ne esce.
+  Quelli non ancora saliti partono direttamente con la lettera, come prima.
+- **Se la connessione cade mentre si scrive.** Resta anche una copia nel
+  browser (righe in `localStorage`, PDF in IndexedDB, base `rvCircBozze`): e'
+  la rete di sicurezza, non l'archivio. L'area riservata avvisa che il portale
+  non risponde, continua a salvare li' e riprova da sola ogni quindici secondi.
+  Alla riapertura vale la bozza del portale, a meno che sul computer ci siano
+  modifiche che non hanno fatto in tempo a salire.
+- **Non resta per sempre.** Una bozza ferma da `CIRC_BOZZA_GIORNI` (30) si
+  toglie con le pulizie del giro, PDF compresi; se ne va anche quando le sue
+  lettere sono in coda, quando la si svuota e quando l'amministratore cancella
+  i dati dell'incarico. Al massimo 500 destinatari per bozza.
+
+**Il report degli invii.** Dalla pagina dell'incarico, "Stampa il report" apre
+per l'area aperta l'**anteprima** di un foglio A4 orizzontale: testata con il
+marchio, societa' e responsabili, i numeri, il **riepilogo per tipologia**
+(lettere, consegnate, risposte e, per clienti e fornitori, saldo circolarizzato
+e saldo con risposta, con le percentuali) e poi **una tabella per tipologia**:
+destinatario e PEC, riferimento, saldo, invio, recapito, primo e secondo
+sollecito, risposta, note, con i totali. In fondo le firme di chi prepara e di
+chi verifica. Dall'anteprima si stampa, o si salva in PDF scegliendo "Salva
+come PDF" fra le stampanti: il nome proposto e' gia' quello del report. I
+colori di fondo escono anche con "Grafica di sfondo" spenta, l'intestazione
+delle tabelle si ripete a ogni foglio e in fondo c'e' "Pagina N di M" (nei
+browser che lo sanno fare: Chrome ed Edge). E' la carta di lavoro che
+sostituisce il vecchio "Report del team" in Excel, tolto dagli allegati delle
+due attivita'. Il riepilogo in Excel resta, con le stesse colonne.
 
 ### Dalla lettera alla PEC
 
@@ -1086,8 +1116,10 @@ salvate nelle carte di lavoro, perche' a lavoro concluso i dati si cancellano.
   `cancella-incarico`): schede, PDF, indice dei riferimenti. I solleciti ancora
   in programma non partono piu'.
 - **I messaggi** restano nella casella PEC, che e' l'archivio con valore legale.
-- Le bozze rimaste a meta' (caricamento del PDF interrotto) si tolgono dopo un
-  giorno.
+- Le lettere rimaste a meta' (caricamento del PDF interrotto) si tolgono dopo
+  un giorno.
+- **Le bozze** delle nuove lettere non inviate si tolgono, righe e PDF, dopo
+  `CIRC_BOZZA_GIORNI` (30) dall'ultima modifica.
 
 ### Quanto spazio occupa, e che cosa costa
 
@@ -1095,7 +1127,11 @@ Su **Firestore** pesano quasi solo i PDF delle lettere, tenuti a pezzi sotto
 ogni scheda per `CIRC_PDF_GIORNI`: 5.000 lettere da mezzo megabyte sono circa
 2,5 GB per un anno. Tutto il resto (schede, indice, segnaposto dei messaggi)
 sta in poche decine di megabyte: il testo e gli allegati delle risposte non
-vengono mai copiati, restano nella casella PEC.
+vengono mai copiati, restano nella casella PEC. Le **bozze** occupano spazio
+solo finche' non si inviano: il PDF di una riga passa dalla bozza alla lettera,
+non resta in due posti. Costano invece qualche scrittura in piu': una per ogni
+salvataggio automatico (pochi secondi dopo l'ultima modifica) e, per ogni PDF,
+i suoi pezzi piu' due di servizio, alla salita e di nuovo all'invio.
 
 > **Il piano gratuito di Firebase (Spark) non basta per questi volumi.** Ha un
 > tetto di 1 GiB di dati e di 20.000 scritture al giorno, e sono tetti di
@@ -1122,7 +1158,9 @@ il codice provato e' quello vero: permessi, PDF, invii concorrenti, ricevute,
 solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
 tetto orario, registro degli errori (una riga per problema, una sola email,
 spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
-conteggi, saldo e note, cancellazione.
+conteggi, saldo e note, la bozza sul portale (ripresa da un altro computer,
+conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza),
+cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:

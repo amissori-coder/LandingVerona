@@ -35,6 +35,7 @@ const C = require('./circ-comune');
 const D = require('./daticert');
 const ERRORI = require('./circ-errori');
 const AVVISI = require('./circ-avvisi');
+const BOZZE = require('./circ-bozze');
 
 const INVII = 'circInvii', RIF = 'circRiferimenti', MSG = 'circMessaggi', INC = 'circIncarichi';
 const PEZZI = 'allegato';
@@ -396,6 +397,11 @@ async function caricaPezzo(db, prof, id, n, base64) {
 
     const tutto = await leggiAllegato(db, String(id), a.pezzi);
     if (!tutto || tutto.length !== a.dimensione) return { ok: false, stato: 400, msg: 'L\'allegato è arrivato incompleto: riprova.' };
+    return chiudiAllegato(db, rif, String(id), a, tutto);
+}
+/* Il PDF c'e' tutto: si controlla che sia un PDF, se ne prende l'impronta e
+   la scheda entra in coda. */
+async function chiudiAllegato(db, rif, id, a, tutto) {
     if (tutto.slice(0, 1024).indexOf('%PDF-') < 0) {
         await togliAllegato(db, String(id), a.pezzi);
         await rif.delete();
@@ -416,6 +422,22 @@ async function caricaPezzo(db, prof, id, n, base64) {
         return v;
     });
     return esito ? { ok: true, completo: true, id: String(id), codice: esito.codice } : { ok: false, stato: 404, msg: 'Lettera non trovata.' };
+}
+/* Lo stesso, ma con il PDF gia' sul portale: quello salvato nella bozza delle
+   nuove lettere. Non risale dal browser: si copia da li' alla lettera. */
+async function caricaIntero(db, prof, id, tutto) {
+    const rif = db.collection(INVII).doc(String(id));
+    const snap = await rif.get();
+    if (!snap.exists) return { ok: false, stato: 404, msg: 'Lettera non trovata.' };
+    const inv = snap.data() || {};
+    if (inv.stato !== 'bozza') return { ok: false, stato: 409, msg: 'L\'allegato di questa lettera è già stato caricato.' };
+    if (String((inv.creato || {}).da) !== prof.email) return { ok: false, stato: 403, msg: 'L\'allegato va caricato da chi ha preparato la lettera.' };
+    const a = inv.allegato || {};
+    if (!Buffer.isBuffer(tutto) || tutto.length !== a.dimensione) return { ok: false, stato: 400, msg: 'Il PDF salvato nella bozza non corrisponde a quello indicato: allegalo di nuovo.' };
+    for (let n = 0; n < a.pezzi; n++) {
+        await rif.collection(PEZZI).doc(nomePezzo(n)).set({ dati: tutto.slice(n * C.LIMITI.pezzoByte, (n + 1) * C.LIMITI.pezzoByte) });
+    }
+    return chiudiAllegato(db, rif, String(id), a, tutto);
 }
 
 /* ============================================================
@@ -806,6 +828,7 @@ async function cancellaIncarico(db, incaricoId) {
     }
     try { await db.collection(INC).doc(String(incaricoId)).delete(); } catch (_) { /* si rifa' da solo */ }
     await ERRORI.dimenticaIncarico(db, incaricoId);
+    await BOZZE.dimenticaIncarico(db, incaricoId);          // e le bozze non inviate di chi ci stava lavorando
     return { ok: true, tolte: tolte };
 }
 /* Pulizie del giro: bozze rimaste a meta' (il caricamento del PDF si e'
@@ -839,7 +862,7 @@ module.exports = {
     INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, RIPROVA_MS, MAX_TENTATIVI,
     profilo, incaricoDi, impostazioni, docImpostazioni,
     statoDi, prossimoDi, passoDovuto, conteggi, conteggiPerAmbito, passo, inviato, esitoPasso,
-    schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, leggiAllegato,
+    schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, caricaIntero, leggiAllegato,
     chiaviMsgId, trovaRiferimento, prendi, esitoInvio,
     applicaRicevuta, registraRisposta, candidatiPerIndirizzo,
     modificaSolleciti, annulla, rispostaManuale, togliRispostaManuale, reinvia,

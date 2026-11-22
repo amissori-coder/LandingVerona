@@ -37173,7 +37173,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122o';
+    const SR_DATI_VERSIONE = '20261122p';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
@@ -38477,65 +38477,141 @@
     });
 
     /* ---------- il report degli invii di una societa' ----------
-       Quello che il team allega alle carte: per ogni tipologia di lettera la
-       tabella dei destinatari con il primo invio, il recapito, i solleciti e la
-       risposta. Esce solo in stampa (orizzontale): a video c'e' gia' la pagina. */
+       La carta di lavoro che il team allega: per l'area aperta, i dati
+       dell'incarico, i numeri, il riepilogo per tipologia di lettera e, per
+       ogni tipologia, la tabella dei destinatari con invio, recapito,
+       solleciti e risposta.
+       Si apre in ANTEPRIMA, come un foglio A4 orizzontale: quello che si vede
+       e' quello che esce. Da li' si stampa, o si salva in PDF scegliendo
+       «Salva come PDF» fra le stampanti. Finche' l'anteprima e' aperta la
+       pagina di stampa e' sua (formato, margini, numeri di pagina). */
     function pcStampaReport(inc, st, amb, categorie, schede, c, oggi) {
         const valide = schede.filter(s => s.stato !== 'annullata');
         const giorno = ms => ms ? fmtGiorno(ms) : '';
+        const vuoto = '<span class="pc-rep-muto">—</span>';
+        const chip = (classe, testo) => '<span class="pc-rep-chip ' + classe + '">' + esc(testo) + '</span>';
+        const sotto = t => t ? '<span class="pc-rep-sotto">' + esc(t) + '</span>' : '';
+        const tinta = r => r.classe === 'neutro' ? 'grigio' : r.classe;
+        const consegnata = s => pcRecapito(s.passi.primo).testo === 'Consegnata';
         const recapito = s => {
             const p = s.passi.primo, r = pcRecapito(p);
-            if (r.testo === 'Consegnata') return 'Consegnata' + (p.consegnata ? ' il ' + giorno(p.consegnata) : '');
-            return r.testo + (r.classe === 'rosso' && r.nota ? ': ' + r.nota : '');
+            if (!r.testo) return vuoto;
+            if (r.testo === 'Consegnata') return chip('verde', 'Consegnata') + sotto(p.consegnata ? 'il ' + giorno(p.consegnata) : '');
+            return chip(tinta(r), r.testo) + sotto(r.classe === 'rosso' || r.classe === 'ambra' ? r.nota : '');
         };
-        const sollecito = p => !p || p.stato === 'non-previsto' ? '—'
-            : p.stato === 'inviato' ? 'Inviato il ' + giorno(p.inviatoIl)
-                : p.stato === 'programmato' ? 'In programma per il ' + fmtData(p.data)
-                    : p.stato === 'bloccato' ? (p.per === 'risposta' || p.per === 'manuale' ? 'Non serve: risposta ricevuta' : 'Fermo: PEC non consegnata')
-                        : p.stato === 'annullato' ? 'Annullato' : pcRecapito(p).testo;
-        const risposta = s => s.risposta
-            ? 'Ricevuta il ' + giorno(s.risposta.il) + (s.risposta.modo === 'manuale' ? ' (fuori PEC)' : (s.risposta.modo === 'email' ? ' (posta ordinaria)' : ' (PEC)'))
-            : (s.passi.primo.stato !== 'inviato' || s.stato === 'errore' ? '—' : (s.scadenza < oggi ? 'Non pervenuta' : 'In attesa, entro il ' + fmtData(s.scadenza)));
-        const bilanci = Array.from(new Set(valide.map(s => s.bilancio).filter(Boolean)));
+        const sollecito = p => {
+            if (!p || !p.stato || p.stato === 'non-previsto') return vuoto;
+            if (p.stato === 'programmato') return chip('ambra', 'In programma') + sotto('per il ' + fmtData(p.data));
+            if (p.stato === 'bloccato') return p.per === 'risposta' || p.per === 'manuale' ? chip('grigio', 'Non serve') + sotto('risposta ricevuta') : chip('grigio', 'Fermo') + sotto('PEC non consegnata');
+            if (p.stato === 'annullato') return chip('grigio', 'Annullato');
+            const r = pcRecapito(p);
+            if (p.stato === 'inviato') return r.classe === 'rosso' ? chip('rosso', r.testo) + sotto('inviato il ' + giorno(p.inviatoIl)) : chip('blu', 'Inviato') + sotto('il ' + giorno(p.inviatoIl));
+            return r.testo ? chip(tinta(r), r.testo) : vuoto;
+        };
+        const risposta = s => {
+            if (s.risposta) return chip('verde', 'Ricevuta') + sotto('il ' + giorno(s.risposta.il) + ' · ' + (s.risposta.modo === 'manuale' ? 'fuori PEC' : (s.risposta.modo === 'email' ? 'posta ordinaria' : 'PEC')));
+            if (s.passi.primo.stato !== 'inviato' || s.stato === 'errore') return vuoto;
+            return s.scadenza < oggi ? chip('rosso', 'Non pervenuta') + sotto('termine ' + fmtData(s.scadenza)) : chip('grigio', 'In attesa') + sotto('entro il ' + fmtData(s.scadenza));
+        };
+        const somma = l => l.reduce((t, s) => t + (Number(s.saldo) || 0), 0);
+        const perc = (a, b) => b > 0 ? Math.round(a / b * 100) : 0;
+        const barra = p => '<span class="pc-rep-perc"><span class="pc-rep-striscia"><i style="width:' + Math.max(0, Math.min(100, p)) + '%"></i></span><b>' + p + '%</b></span>';
+        const lettere = n => n + (n === 1 ? ' lettera' : ' lettere');
         // la colonna del saldo c'e' o non c'e' per tutta l'area: le tabelle delle tipologie restano incolonnate
         const conSaldo = categorie.some(cat => cat.saldo) && valide.some(s => s.saldo != null);
-        const sezioni = categorie.map(cat => {
-            const l = valide.filter(s => s.categoria === cat.id);
-            if (!l.length) return '';
-            const tot = l.reduce((t, s) => t + (Number(s.saldo) || 0), 0), risp = l.filter(s => s.risposta).length;
-            return '<section class="pc-rep-sez"><h2>' + esc(cat.nome) + '</h2><table class="pc-rep-tab"><thead><tr><th class="n">N.</th><th class="c-den">Denominazione</th><th class="c-pec">PEC</th><th class="c-rif">Riferimento</th>'
-                + (conSaldo ? '<th class="num c-saldo">Saldo</th>' : '') + '<th class="c-data">Primo invio</th><th class="c-rec">Recapito</th><th class="c-sol">Primo sollecito</th><th class="c-sol">Secondo sollecito</th><th class="c-risp">Risposta</th><th>Note</th></tr></thead><tbody>'
-                + l.map((s, i) => '<tr><td class="n">' + (i + 1) + '</td><td><strong>' + esc(s.destinatario) + '</strong></td><td>' + esc(s.pec) + '</td><td>' + esc(s.codice) + '</td>'
-                    + (conSaldo ? '<td class="num">' + (s.saldo == null ? '' : esc(pcEuro(s.saldo))) + '</td>' : '')
-                    + '<td>' + esc(giorno(s.passi.primo.inviatoIl) || '—') + '</td><td>' + esc(recapito(s)) + '</td><td>' + esc(sollecito(s.passi.sollecito1)) + '</td><td>' + esc(sollecito(s.passi.sollecito2)) + '</td>'
-                    + '<td>' + esc(risposta(s)) + '</td><td>' + esc(s.nota || '') + '</td></tr>').join('')
-                + '</tbody><tfoot><tr><td colspan="' + (conSaldo ? 4 : 10) + '">' + l.length + (l.length === 1 ? ' lettera' : ' lettere') + ' · ' + risp + (risp === 1 ? ' risposta ricevuta' : ' risposte ricevute') + ' · ' + (l.length - risp) + ' senza risposta</td>'
-                + (conSaldo ? '<td class="num">' + esc(pcEuro(tot)) + '</td><td colspan="6"></td>' : '') + '</tr></tfoot></table></section>';
+        const gruppi = categorie.map(cat => ({ cat: cat, l: valide.filter(s => s.categoria === cat.id) })).filter(g => g.l.length);
+        const conto = l => {
+            const risp = l.filter(s => s.risposta);
+            return { n: l.length, consegnate: l.filter(consegnata).length, risposte: risp.length, saldo: somma(l), saldoRisp: somma(risp) };
+        };
+
+        const rigaRiep = (nome, k, totale) => '<tr' + (totale ? ' class="tot"' : '') + '><td>' + esc(nome) + '</td><td class="num">' + k.n + '</td><td class="num">' + k.consegnate + '</td><td class="num">' + k.risposte + '</td><td>' + barra(perc(k.risposte, k.n)) + '</td>'
+            + (conSaldo ? '<td class="num">' + esc(pcEuro(k.saldo)) + '</td><td class="num">' + esc(pcEuro(k.saldoRisp)) + '</td><td>' + (k.saldo > 0 ? barra(perc(k.saldoRisp, k.saldo)) : vuoto) + '</td>' : '') + '</tr>';
+        const riepilogo = gruppi.length ? '<section class="pc-rep-blocco"><h2 class="pc-rep-h">Riepilogo per tipologia di lettera</h2>'
+            + '<table class="pc-rep-riep' + (conSaldo ? ' con-saldo' : '') + '"><thead><tr><th>Tipologia</th><th class="num">Lettere</th><th class="num">Consegnate</th><th class="num">Risposte</th><th>Risposte sulle lettere</th>'
+            + (conSaldo ? '<th class="num">Saldo circolarizzato</th><th class="num">Saldo con risposta</th><th>Risposte sul saldo</th>' : '') + '</tr></thead><tbody>'
+            + gruppi.map(g => rigaRiep(g.cat.nome, conto(g.l))).join('')
+            + (gruppi.length > 1 ? rigaRiep('Totale', conto(valide), true) : '') + '</tbody></table></section>' : '';
+
+        const sezioni = gruppi.map(g => {
+            const cat = g.cat, l = g.l, k = conto(l);
+            return '<section class="pc-rep-sez"><h2><b>' + esc(cat.nome) + '</b><span>' + lettere(k.n) + ' · ' + k.risposte + (k.risposte === 1 ? ' risposta' : ' risposte') + '</span></h2>'
+                + '<table class="pc-rep-tab' + (conSaldo ? ' con-saldo' : '') + '"><thead><tr><th class="n">N.</th><th class="c-den">Destinatario</th><th class="c-rif">Riferimento</th>'
+                + (conSaldo ? '<th class="num c-saldo">Saldo</th>' : '') + '<th class="c-data">Inviata il</th><th class="c-rec">Recapito</th><th class="c-sol">1° sollecito</th><th class="c-sol">2° sollecito</th><th class="c-risp">Risposta</th><th class="c-note">Note</th></tr></thead><tbody>'
+                + l.map((s, i) => '<tr><td class="n">' + (i + 1) + '</td><td class="pc-rep-dest"><strong>' + esc(s.destinatario) + '</strong><span>' + esc(s.pec) + '</span></td><td class="pc-rep-rif">' + esc(s.codice) + '</td>'
+                    + (conSaldo ? '<td class="num">' + (s.saldo == null ? vuoto : esc(pcEuro(s.saldo))) + '</td>' : '')
+                    + '<td>' + (s.passi.primo.inviatoIl ? esc(giorno(s.passi.primo.inviatoIl)) : vuoto) + '</td><td>' + recapito(s) + '</td><td>' + sollecito(s.passi.sollecito1) + '</td><td>' + sollecito(s.passi.sollecito2) + '</td>'
+                    + '<td>' + risposta(s) + '</td><td class="pc-rep-nota-cella">' + esc(s.nota || '') + '</td></tr>').join('')
+                + '</tbody><tfoot><tr><td colspan="3">Totale ' + esc(cat.nome.toLowerCase()) + ': ' + lettere(k.n) + '</td>'
+                + (conSaldo ? '<td class="num">' + esc(pcEuro(k.saldo)) + '</td>' : '')
+                + '<td colspan="6">Risposte ricevute: ' + k.risposte + ' su ' + k.n + ' (' + perc(k.risposte, k.n) + '%)'
+                + (conSaldo && k.saldo > 0 ? ' · saldo con risposta ' + esc(pcEuro(k.saldoRisp)) + ' (' + perc(k.saldoRisp, k.saldo) + '%)' : '') + '</td></tr></tfoot></table></section>';
         }).join('');
-        const dati = [['Società revisionata', inc.cliente], ['Bilancio al', bilanci.map(fmtData).join(', ')], ['Responsabile dell\'incarico', inc.responsabile], ['Responsabile della qualità', inc.qualita], ['Team', inc.team], ['Casella PEC di invio e di risposta', st.casella]];
-        const riepilogo = [['Lettere', c.totale], ['Consegnate', c.consegnate], ['Non consegnate', c.errori], ['Risposte ricevute', c.risposte], ['Senza risposta', c.senzaRisposta], ['Solleciti inviati', c.sollecito1.inviati + c.sollecito2.inviati]];
-        const html = '<div class="pc-rep-testa"><div class="pc-rep-marchio">Revilaw S.p.A. · Società di revisione legale</div>'
-            + '<h1>' + esc(pcNomeAmbito(st, amb)) + ': report degli invii e delle risposte</h1>'
-            + '<div class="pc-rep-quando">Situazione al ' + esc(fmtDataOra(Date.now())) + ' · stampato da ' + esc(st.profilo.nome) + '</div></div>'
-            + '<dl class="pc-rep-dati">' + dati.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b || '—') + '</dd></div>').join('') + '</dl>'
-            + '<dl class="pc-rep-numeri">' + riepilogo.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b) + '</dd></div>').join('') + '</dl>'
-            + (sezioni || '<p>Nessuna lettera inviata.</p>')
-            + '<p class="pc-rep-piede">Le lettere sono partite a mezzo PEC dalla casella indicata. Le ricevute di accettazione e di consegna e le risposte dei terzi sono conservate nella casella PEC e allegate alle carte di lavoro dell\'incarico.</p>'
-            + '<div class="pc-rep-firme"><span>Preparato da</span><span>Verificato da</span></div>';
+
+        const bilanci = Array.from(new Set(valide.map(s => s.bilancio).filter(Boolean))).sort();
+        const area = pcNomeAmbito(st, amb), adesso = Date.now();
+        const dati = [['Responsabile dell\'incarico', inc.responsabile], ['Responsabile della qualità', inc.qualita], ['Team di revisione', inc.team], ['Casella PEC di invio e di risposta', st.casella]];
+        const sollInviati = c.sollecito1.inviati + c.sollecito2.inviati, sollProgr = c.sollecito1.programmati + c.sollecito2.programmati;
+        const numeri = [
+            ['', 'Lettere', c.totale, c.inCoda ? c.inCoda + ' in coda' : (c.totale ? 'tutte partite' : '')],
+            ['verde', 'Consegnate', c.consegnate, c.inviate ? 'su ' + c.inviate + ' partite' : ''],
+            [c.errori ? 'rosso' : '', 'Non consegnate', c.errori, c.errori ? 'da correggere e reinviare' : ''],
+            ['verde', 'Risposte ricevute', c.risposte, c.totale ? perc(c.risposte, c.totale) + '% delle lettere' : ''],
+            [c.scadute ? 'ambra' : '', 'Senza risposta', c.senzaRisposta, c.scadute ? c.scadute + ' oltre il termine' : ''],
+            ['', 'Solleciti inviati', sollInviati, sollProgr ? sollProgr + ' in programma' : '']
+        ];
+        const firma = t => '<div class="pc-rep-firma"><strong>' + t + '</strong><div><span>Nome e cognome</span><span>Data</span><span>Firma</span></div></div>';
+        const foglio = '<article class="pc-rep">'
+            + '<header class="pc-rep-testa"><div class="pc-rep-marchio"><img src="../zls_zes/img/logo-revilaw.png" alt=""><div><strong>Revilaw S.p.A.</strong><span>Società di revisione legale</span></div></div>'
+            + '<div class="pc-rep-titolo"><span class="pc-rep-occhiello">Conferme esterne · ISA Italia 505</span><h1>Report degli invii e delle risposte</h1><p>' + esc(area) + '</p></div></header>'
+            + '<section class="pc-rep-chi"><div class="pc-rep-societa"><span>Società revisionata</span><strong>' + esc(inc.cliente || '—') + '</strong><em>' + (bilanci.length ? 'Bilancio al ' + esc(bilanci.map(fmtData).join(', ')) : 'Bilancio non indicato') + '</em></div>'
+            + '<dl class="pc-rep-dati">' + dati.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b || '—') + '</dd></div>').join('') + '</dl></section>'
+            + '<section class="pc-rep-numeri">' + numeri.map(([cl, et, n, nota]) => '<div class="pc-rep-numero' + (cl ? ' ' + cl : '') + '"><span>' + esc(et) + '</span><strong>' + esc(n) + '</strong><em>' + esc(nota) + '</em></div>').join('') + '</section>'
+            + riepilogo
+            + (sezioni || '<p class="pc-rep-niente">In quest\'area non ci sono ancora lettere inviate.</p>')
+            + '<footer class="pc-rep-chiusa"><p class="pc-rep-nota">Le lettere sono state trasmesse a mezzo PEC dalla casella indicata. Il recapito riporta l\'esito delle ricevute di accettazione e di consegna del gestore; i solleciti partono solo se alla loro data la risposta non è arrivata. Ricevute e risposte dei terzi sono conservate nella casella PEC e, a cura del team, nelle carte di lavoro dell\'incarico.</p>'
+            + '<div class="pc-rep-firme">' + firma('Preparato da') + firma('Verificato da') + '</div>'
+            + '<p class="pc-rep-doc"><span>Revilaw S.p.A. · ' + esc(area) + ' · ' + esc(inc.cliente || '') + '</span><span>Situazione al ' + esc(fmtDataOra(adesso)) + ' · estratto dall\'area riservata da ' + esc(st.profilo.nome || '') + '</span></p></footer>'
+            + '</article>';
+
         const vecchio = document.getElementById('pc-report');
         if (vecchio) vecchio.remove();
-        const div = document.createElement('div');
-        div.id = 'pc-report';
-        div.innerHTML = html;
-        $vista().appendChild(div);
+        const velo = document.createElement('div');
+        velo.id = 'pc-report';
+        velo.setAttribute('role', 'dialog');
+        velo.setAttribute('aria-label', 'Anteprima del report');
+        velo.innerHTML = '<div class="pc-rep-barra"><div class="pc-rep-barra-tit"><strong>Report degli invii · ' + esc(inc.cliente || '') + '</strong><span>Anteprima del foglio A4 orizzontale. Per averlo in PDF, nella finestra di stampa scegli «Salva come PDF».</span></div>'
+            + '<div class="pc-rep-barra-az"><button type="button" class="btn btn-primary" id="pc-rep-stampa">' + SR_ICO_STAMPA + 'Stampa o salva in PDF</button><button type="button" class="btn btn-secondary" id="pc-rep-chiudi">Chiudi</button></div></div>'
+            + '<div class="pc-rep-scorri"><div class="pc-rep-foglio">' + foglio + '</div></div>';
+        document.body.appendChild(velo);
+        // il formato della pagina e i numeri in fondo: valgono finche' l'anteprima e' aperta
+        const perCss = t => String(t || '').replace(/[\\"]/g, ' ').replace(/[\r\n]+/g, ' ').slice(0, 120);
         const pagina = document.createElement('style');
         pagina.id = 'pc-report-pagina';
-        pagina.textContent = '@page { size: A4 landscape; margin: 11mm 12mm 13mm; }';
+        pagina.textContent = '@page { size: A4 landscape; margin: 11mm 12mm 14mm; '
+            + '@bottom-left { content: "' + perCss('Revilaw S.p.A. · ' + area + ' · ' + (inc.cliente || '')) + '"; font: 7pt Arial, Helvetica, sans-serif; color: #64748B; } '
+            + '@bottom-right { content: "Pagina " counter(page) " di " counter(pages); font: 7pt Arial, Helvetica, sans-serif; color: #64748B; } }';
         document.head.appendChild(pagina);
+        const titoloPrima = document.title;
+        document.title = pcNomeFile('Report circolarizzazioni - ' + (inc.cliente || '') + ' - ' + area);      // e' il nome che il browser propone per il PDF
         document.body.classList.add('pc-stampa-report');
-        const fine = () => { document.body.classList.remove('pc-stampa-report'); div.remove(); pagina.remove(); window.removeEventListener('afterprint', fine); };
-        window.addEventListener('afterprint', fine);
-        window.print();
+        // su uno schermo piu' stretto del foglio l'anteprima si rimpicciolisce (la stampa no)
+        const carta = velo.querySelector('.pc-rep-foglio'), scorri = velo.querySelector('.pc-rep-scorri');
+        const adatta = () => { carta.style.zoom = ''; const z = (scorri.clientWidth - 32) / carta.offsetWidth; carta.style.zoom = z < 1 ? String(Math.max(0.35, z)) : ''; };
+        adatta();
+        const tasto = ev => { if (ev.key === 'Escape') chiudi(); };
+        const chiudi = () => {
+            document.body.classList.remove('pc-stampa-report');
+            document.title = titoloPrima;
+            velo.remove(); pagina.remove();
+            window.removeEventListener('resize', adatta);
+            document.removeEventListener('keydown', tasto);
+        };
+        window.addEventListener('resize', adatta);
+        document.addEventListener('keydown', tasto);
+        velo.querySelector('#pc-rep-chiudi').addEventListener('click', chiudi);
+        velo.querySelector('#pc-rep-stampa').addEventListener('click', () => window.print());
+        velo.querySelector('#pc-rep-stampa').focus();
     }
     function pcModaleCancella(inc) {
         apriModale('<h2>Cancellare i dati di ' + esc(inc.cliente) + '?</h2>'
@@ -38580,11 +38656,16 @@
     }
 
     /* ---------- la bozza delle nuove lettere ----------
-       Mentre si compilano le tabelle, righe e date si salvano da sole in questo
-       browser (localStorage) e i PDF allegati in IndexedDB: se cade la
-       connessione, scade la sessione o si chiude la pagina, riaprendo «Nuove
-       lettere» si ritrova tutto. La bozza e' di chi l'ha scritta, su quel
-       computer, per quella societa' e quell'area; le lettere partite ne escono. */
+       Mentre si compilano le tabelle, righe, date e PDF si salvano da soli SUL
+       PORTALE (azioni bozza-* del servizio): chi ha cominciato su un computer
+       riapre «Nuove lettere» da un altro e ritrova tutto, lettere comprese.
+       In piu' resta una copia in questo browser (localStorage per le righe,
+       IndexedDB per i PDF): e' la rete di sicurezza per quando la connessione
+       cade proprio mentre si scrive. Alla riapertura vale la bozza del
+       portale, a meno che qui ci siano modifiche che non hanno fatto in tempo
+       a salire; se sono cambiate tutte e due, si chiede quale tenere.
+       La bozza e' di chi l'ha scritta, per quella societa' e quell'area; le
+       lettere partite ne escono. */
     function pcIdb() {
         return new Promise(risolvi => {
             try {
@@ -38610,14 +38691,18 @@
     const pcIdbMetti = (k, file) => pcIdbFai('readwrite', s => s.put(file, k));
     const pcIdbPrendi = k => pcIdbFai('readonly', s => s.get(k));
     const pcIdbTogli = k => pcIdbFai('readwrite', s => s.delete(k));
+    /* Per ogni bozza, l'ultimo lavoro verso il portale ancora in viaggio: una
+       finestra riaperta subito dopo la chiusura lo aspetta prima di leggere. */
+    const PC_LAVORI_BOZZE = {};
 
     /* ---------- nuove lettere ----------
        Una tabella per tipologia di lettera, la stessa divisione del report:
        per ogni destinatario la denominazione, la PEC, la lettera firmata in
        PDF e, dove serve al report, il saldo da confermare e una nota. Le date
        valgono per tutte le lettere preparate insieme. All'invio ogni lettera
-       sale da sola (scheda, poi il PDF a pezzi): se una non va, le altre
-       partono lo stesso e quella resta in tabella con il suo motivo. */
+       parte da sola (la scheda, poi il suo PDF: quello gia' salvato sul
+       portale con la bozza, oppure caricato in quel momento): se una non va,
+       le altre partono lo stesso e quella resta in tabella con il suo motivo. */
     function pcModaleNuove(inc, amb, fatto) {
         const st = PC.stato, oggi = st.oggi, lim = st.limiti;
         const categorie = st.categorie.filter(x => x.ambito === amb);
@@ -38627,15 +38712,25 @@
         const reEmail = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
         const reSaldo = /^-?\s*€?\s*\d[\d.\s]*(,\d{1,2})?$|^-?\d+(\.\d{1,2})?$/;
         const chiaveBozza = 'rvArea.circBozza.' + st.profilo.email + '.' + inc.id + '.' + amb;
+        const dove = { incaricoId: inc.id, ambito: amb };
+        const giorniBozza = lim.bozzaGiorni || 30;
         const righe = [];
         const aperte = {};
         let nId = 0;
-        const nuovaRiga = (cat, v) => Object.assign({ id: 'r' + Date.now().toString(36) + (nId++), categoria: cat, nome: '', pec: '', saldo: '', nota: '', file: null, stato: '', msg: '' }, v || {});
-        const vuota = r => !r.nome.trim() && !r.pec && !r.file && !String(r.saldo).trim() && !r.nota.trim();
+        const nuovaRiga = (cat, v) => Object.assign({
+            id: 'r' + Date.now().toString(36) + (nId++) + Math.random().toString(36).slice(2, 5), categoria: cat, nome: '', pec: '', saldo: '', nota: '',
+            file: null,         // il PDF su questo computer
+            remoto: null,       // il PDF gia' salvato sul portale con la bozza: { nome, byte }
+            carico: '',         // come va la salita sul portale: '' | 'coda' | 'su' | 'errore'
+            stato: '', msg: ''
+        }, v || {});
+        const pdfDi = r => r.file ? { nome: r.file.name, peso: r.file.size } : (r.remoto ? { nome: r.remoto.nome, peso: r.remoto.byte } : null);
+        const vuota = r => !r.nome.trim() && !r.pec && !r.file && !r.remoto && !String(r.saldo).trim() && !r.nota.trim();
+        const pdfBuono = f => !!f && f.size > 0 && f.size <= lim.pdfMaxByte && (/\.pdf$/i.test(f.name) || f.type === 'application/pdf');
 
         apriModale('<h2>Nuove lettere · ' + esc(inc.cliente) + '</h2>'
             + '<div class="pc-nuove">'
-            + '<p class="pc-bozza" id="pc-n-bozza"></p>'
+            + '<p class="pc-bozza" id="pc-n-bozza">Cerco la bozza salvata…</p>'
             + '<h3 class="sr-sottotit">Date</h3>'
             + '<div class="pc-date">'
             + '<div class="campo"><label for="pc-n-bil">Bilancio al</label><input type="date" id="pc-n-bil" value="' + ((Number(oggi.slice(5, 7)) <= 9 ? anno - 1 : anno) + '-12-31') + '"></div>'
@@ -38652,72 +38747,203 @@
             + '<p class="hint">Una tabella per ogni tipologia di lettera, come nel report. Per ogni destinatario servono la denominazione, la PEC e la lettera firmata in PDF (al massimo ' + esc(pcPeso(lim.pdfMaxByte)) + ')'
             + (categorie.some(x => x.saldo) ? '; il saldo da confermare e la nota sono facoltativi e finiscono nel report.' : '; la nota è facoltativa e finisce nel report.') + '</p>'
             + (tutteAperte ? '' : '<div class="pc-tipi" id="pc-n-tipi"></div>')
-            + '<div id="pc-n-sezioni"></div>'
+            + '<div id="pc-n-sezioni"><p class="hint">Un momento…</p></div>'
             + '<div class="pc-barra"><label class="btn btn-sm btn-secondary pc-file-btn">Carica più PDF insieme<input type="file" id="pc-n-pdf" accept="application/pdf,.pdf" multiple hidden></label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="pc-n-anteprima">Vedi il testo della PEC</button></div>'
             + '<p class="msg-errore" id="pc-n-err" hidden></p>'
             + '</div>'
-            + '<div class="modale-azioni"><button type="button" class="btn btn-ghost" id="pc-n-no">Chiudi</button><button type="button" class="btn btn-secondary" id="pc-n-salva">Salva la bozza</button><button type="button" class="btn btn-primary" id="pc-n-si">Invia le lettere</button></div>',
+            + '<div class="modale-azioni"><button type="button" class="btn btn-ghost" id="pc-n-no">Chiudi</button><button type="button" class="btn btn-secondary" id="pc-n-salva" disabled>Salva la bozza</button><button type="button" class="btn btn-primary" id="pc-n-si" disabled>Invia le lettere</button></div>',
             { classe: 'larga', finestra: true, massimizzata: true });
         const $ = id => document.getElementById(id);
-        const sezioni = $('pc-n-sezioni');
+        const sezioni = $('pc-n-sezioni'), elBozza = $('pc-n-bozza');
+        const aperta = () => sezioni.isConnected;          // questa finestra, non una riaperta dopo con gli stessi id
         const CAMPI_DATA = ['pc-n-bil', 'pc-n-scad', 'pc-n-s1d', 'pc-n-s1s', 'pc-n-s2d', 'pc-n-s2s'];
 
-        /* --- la bozza --- */
-        let timerBozza = null, ultimaBozza = 0;
-        const dettoBozza = t => { const el = $('pc-n-bozza'); if (el) el.innerHTML = t; };
-        const statoBozza = () => {
-            const n = righe.filter(r => r.stato !== 'fatto' && !vuota(r)).length;
-            dettoBozza(ultimaBozza && n
-                ? '<strong>Bozza salvata su questo computer</strong> alle ' + esc(fmtDataOra(ultimaBozza).slice(11)) + ' (' + n + (n === 1 ? ' destinatario' : ' destinatari') + '). Se cade la connessione o chiudi la pagina, la ritrovi riaprendo «Nuove lettere». <button type="button" class="pc-link" id="pc-n-svuota">Svuota</button>'
-                : 'Quello che scrivi si salva da solo su questo computer: se cade la connessione o chiudi la pagina, lo ritrovi riaprendo «Nuove lettere».');
-            const sv = $('pc-n-svuota');
-            if (sv) sv.addEventListener('click', () => {
-                if (!window.confirm('Svuotare la bozza? Le righe non ancora inviate vengono tolte.')) return;
-                righe.filter(r => r.stato !== 'fatto').forEach(r => pcIdbTogli(chiaveBozza + '|' + r.id));
-                for (let i = righe.length - 1; i >= 0; i--) if (righe[i].stato !== 'fatto') righe.splice(i, 1);
-                Object.keys(aperte).forEach(k => delete aperte[k]);
-                salvaBozza();
-                disegna();
-            });
+        /* --- la bozza: copia su questo computer e copia sul portale --- */
+        let pronta = false;             // la bozza e' stata cercata: da qui in poi si salva
+        let versione = 0;               // la versione del portale da cui parte questa finestra
+        let sporca = false;             // ci sono modifiche che il portale non ha ancora
+        let fermo = false;              // il portale ha una versione diversa (un altro computer): qui non lo si sovrascrive
+        let giu = false;                // il portale non risponde
+        let guasto = '';                // il portale ha rifiutato il salvataggio, e perche'
+        let chiusa = false, inInvio = false;
+        let ultimaLocale = 0, ultimaPortale = 0, ultimaIstantanea = null;
+        let timerLocale = null, timerPortale = null;
+        const oraDi = ms => fmtDataOra(ms).slice(11);
+        const istantanea = () => {
+            if (!aperta()) return ultimaIstantanea;                    // finestra gia' chiusa: vale l'ultima presa
+            const date = {}; CAMPI_DATA.forEach(id => { date[id] = $(id).value; });
+            ultimaIstantanea = {
+                date: date, s1: $('pc-n-s1').checked, s2: $('pc-n-s2').checked, aperte: Object.keys(aperte),
+                righe: righe.filter(r => r.stato !== 'fatto' && !vuota(r)).map(r => ({ id: r.id, categoria: r.categoria, nome: r.nome, pec: r.pec, saldo: r.saldo, nota: r.nota, forza: !!r.forza, file: pdfDi(r) || (r.fileAtteso ? { nome: r.fileAtteso, peso: r.pesoAtteso || 0 } : null) }))
+            };
+            return ultimaIstantanea;
         };
-        const salvaBozza = () => {
-            clearTimeout(timerBozza);
-            if (!$('pc-n-sezioni')) return;
-            const vive = righe.filter(r => r.stato !== 'fatto' && !vuota(r));
+        const salvaLocale = () => {
+            clearTimeout(timerLocale);
+            const b = istantanea();
+            if (!pronta || !b) return;
             try {
-                if (!vive.length) localStorage.removeItem(chiaveBozza);
-                else {
-                    const date = {}; CAMPI_DATA.forEach(id => { date[id] = $(id).value; });
-                    localStorage.setItem(chiaveBozza, JSON.stringify({
-                        quando: Date.now(), date: date, s1: $('pc-n-s1').checked, s2: $('pc-n-s2').checked, aperte: Object.keys(aperte),
-                        righe: vive.map(r => ({ id: r.id, categoria: r.categoria, nome: r.nome, pec: r.pec, saldo: r.saldo, nota: r.nota, forza: !!r.forza, file: r.file ? { nome: r.file.name, peso: r.file.size } : null }))
-                    }));
-                    ultimaBozza = Date.now();
-                }
-            } catch (e) { /* spazio esaurito o navigazione privata: si continua senza bozza */ }
-            if (!vive.length) ultimaBozza = 0;
+                if (!b.righe.length && !sporca) localStorage.removeItem(chiaveBozza);
+                else localStorage.setItem(chiaveBozza, JSON.stringify(Object.assign({ quando: ultimaLocale || Date.now(), base: versione, sporca: sporca }, b)));
+            } catch (e) { /* spazio esaurito o navigazione privata: resta la copia sul portale */ }
+        };
+        const statoBozza = () => {
+            const el = elBozza;
+            if (!aperta()) return;
+            if (!pronta) { el.className = 'pc-bozza'; el.textContent = 'Cerco la bozza salvata…'; return; }
+            const vive = righe.filter(r => r.stato !== 'fatto' && !vuota(r));
+            const n = vive.length, inSalita = vive.filter(r => r.carico === 'coda' || r.carico === 'su').length;
+            const quanti = n + (n === 1 ? ' destinatario' : ' destinatari');
+            const svuota = n ? ' <button type="button" class="pc-link" id="pc-n-svuota">Svuota</button>' : '';
+            let t, problema = false;
+            if (fermo) { problema = true; t = '<strong>Questa bozza è stata modificata da un altro computer.</strong> Qui continua a salvarsi solo su questo computer: chiudi e riapri «Nuove lettere» per scegliere quale delle due tenere.'; }
+            else if (guasto) { problema = true; t = '<strong>Bozza non salvata sul portale:</strong> ' + esc(guasto) + ' Resta salvata su questo computer.' + svuota; }
+            else if (giu && (sporca || inSalita)) { problema = true; t = '<strong>Portale non raggiungibile.</strong> La bozza è al sicuro su questo computer' + (ultimaLocale ? ' (' + esc(oraDi(ultimaLocale)) + ')' : '') + ' e sale sul portale appena torna la connessione.' + svuota; }
+            else if (!n) t = 'Quello che scrivi si salva da solo sul portale, lettere in PDF comprese: lo ritrovi riaprendo «Nuove lettere», anche da un altro computer.';
+            else if (sporca) t = 'Salvo la bozza sul portale…';
+            else if (inSalita) t = '<strong>Bozza salvata sul portale</strong> (' + quanti + '). Sto caricando i PDF: ' + (inSalita === 1 ? 'ne manca uno' : 'ne mancano ' + inSalita) + '.' + svuota;
+            else t = '<strong>Bozza salvata sul portale</strong>' + (ultimaPortale ? ' alle ' + esc(oraDi(ultimaPortale)) : '') + ' (' + quanti + '). La ritrovi riaprendo «Nuove lettere», anche da un altro computer; se non la invii resta per ' + giorniBozza + ' giorni.' + svuota;
+            el.className = 'pc-bozza' + (problema ? ' pc-bozza-no' : '');
+            el.innerHTML = t;
+        };
+        /* Verso il portale va una cosa per volta: prima le righe, poi un PDF,
+           poi di nuovo le righe se nel frattempo sono cambiate. Cosi' un
+           salvataggio non puo' mai togliere il PDF di una riga appena nata. */
+        const attesaPdf = [];           // le righe il cui PDF deve ancora salire
+        const attesaSalva = [];         // chi aspetta la fine del prossimo salvataggio
+        let lavora = false, vuoleSalvare = false;
+        const salvaSulPortale = async () => {
+            if (!pronta || fermo || !sporca || inInvio) return;      // durante l'invio le righe escono dalla bozza una per una: si salva alla fine
+            const b = istantanea();
+            if (!b) return;
+            const segno = ultimaLocale;
+            const r = await pcChiama('bozza-salva', Object.assign({ base: versione, bozza: b }, dove));
+            if (r.ok) {
+                versione = r.versione || 0; ultimaPortale = r.quando || 0; giu = false; guasto = '';
+                if (ultimaLocale === segno) sporca = false;       // nel frattempo non e' cambiato altro
+                salvaLocale();
+            } else if (r.conflitto) fermo = true;
+            else if (!r.stato || r.stato >= 500) giu = true;        // rete o servizio giu': resta la copia su questo computer, si riprova
+            else guasto = r.msg || 'il servizio l\'ha rifiutata.';
             statoBozza();
         };
-        const tocca = () => { clearTimeout(timerBozza); timerBozza = setTimeout(salvaBozza, 700); };
-        const fileDi = (r, f) => { r.file = f; if (f) pcIdbMetti(chiaveBozza + '|' + r.id, f); else pcIdbTogli(chiaveBozza + '|' + r.id); };
+        const pdfSulPortale = async r => {
+            const f = r.file;
+            if (!f || r.remoto || righe.indexOf(r) < 0 || r.stato === 'fatto' || r.stato === 'invio') return;
+            r.carico = 'su'; r.avanti = 0; r.caricoMsg = ''; pdfCella(r); statoBozza();
+            let bytes;
+            try { bytes = new Uint8Array(await f.arrayBuffer()); } catch (e) { r.carico = 'errore'; r.caricoFisso = true; r.caricoMsg = 'File non leggibile: scegli di nuovo il PDF.'; pdfCella(r); return; }
+            const pezzi = Math.max(1, Math.ceil(bytes.length / lim.pezzoByte));
+            for (let n = 0; n < pezzi; n++) {
+                const e = await pcChiama('bozza-pdf', Object.assign({ riga: r.id, nome: f.name, dimensione: f.size, n: n, dati: Modelli._b64DaBytes(bytes.subarray(n * lim.pezzoByte, (n + 1) * lim.pezzoByte)) }, dove));
+                if (r.file !== f) return;                           // nel frattempo la riga ha un altro PDF: sale quello
+                if (!e.ok) {
+                    r.carico = 'errore';
+                    r.caricoFisso = !!e.stato && e.stato < 500 && e.stato !== 409;      // "non e' un PDF", "troppo grande": riprovare non serve
+                    r.caricoMsg = r.caricoFisso ? (e.msg || '') : '';
+                    if (!r.caricoFisso) giu = true;
+                    pdfCella(r); statoBozza();
+                    return;
+                }
+                r.avanti = Math.round((n + 1) / pezzi * 100); pdfCella(r);
+                if ((chiusa || !aperta()) && n < pezzi - 1) { r.carico = ''; return; }      // finestra chiusa: il PDF resta su questo computer, salira' alla riapertura
+            }
+            r.carico = ''; r.remoto = { nome: f.name, byte: f.size }; giu = false;
+            pdfCella(r); statoBozza();
+        };
+        const motore = () => {
+            if (lavora) return PC_LAVORI_BOZZE[chiaveBozza];
+            lavora = true;
+            PC_LAVORI_BOZZE[chiaveBozza] = (async () => {
+                for (;;) {
+                    if (vuoleSalvare) {
+                        vuoleSalvare = false;
+                        try { await salvaSulPortale(); } catch (e) { giu = true; }
+                        attesaSalva.splice(0).forEach(f => f());
+                    } else if (attesaPdf.length && !chiusa && aperta() && !inInvio && !fermo) {
+                        try { await pdfSulPortale(attesaPdf.shift()); } catch (e) { giu = true; }
+                    } else break;
+                }
+                lavora = false;
+            })();
+            return PC_LAVORI_BOZZE[chiaveBozza];
+        };
+        const spingi = () => new Promise(finito => { attesaSalva.push(finito); vuoleSalvare = true; motore(); });
+        const caricaSulPortale = r => {
+            r.carico = ''; r.caricoFisso = false; r.caricoMsg = '';
+            if (!r.file || r.remoto || !pdfBuono(r.file)) return;       // un file sbagliato non sale: lo dice il controllo all'invio
+            r.carico = 'coda';
+            if (attesaPdf.indexOf(r) < 0) attesaPdf.push(r);
+            motore();
+        };
+        // ogni modifica: subito su questo computer, un attimo dopo sul portale
+        const tocca = () => {
+            if (!pronta) return;
+            sporca = true; ultimaLocale = Date.now();
+            clearTimeout(timerLocale); timerLocale = setTimeout(salvaLocale, 400);
+            clearTimeout(timerPortale); timerPortale = setTimeout(spingi, 1800);
+            statoBozza();
+        };
+        const fileDi = (r, f) => {
+            r.file = f; r.remoto = null; r.fileAtteso = '';
+            if (f) { pcIdbMetti(chiaveBozza + '|' + r.id, f); caricaSulPortale(r); } else pcIdbTogli(chiaveBozza + '|' + r.id);
+        };
+        // se il portale non rispondeva, ogni tanto si riprova (finche' la finestra e' aperta)
+        const battito = setInterval(() => {
+            if (!aperta()) { clearInterval(battito); return; }
+            if (!pronta || inInvio || fermo) return;
+            righe.forEach(r => { if (r.carico === 'errore' && !r.caricoFisso && r.file && !r.remoto) caricaSulPortale(r); });
+            if (sporca && !guasto) spingi();
+        }, 15000);
+        elBozza.addEventListener('click', ev => {
+            if (ev.target.id !== 'pc-n-svuota') return;
+            if (!window.confirm('Svuotare la bozza? Le righe non ancora inviate vengono tolte, qui e sul portale.')) return;
+            righe.filter(r => r.stato !== 'fatto').forEach(r => pcIdbTogli(chiaveBozza + '|' + r.id));
+            for (let i = righe.length - 1; i >= 0; i--) if (righe[i].stato !== 'fatto') righe.splice(i, 1);
+            attesaPdf.length = 0;
+            Object.keys(aperte).forEach(k => delete aperte[k]);
+            if (tutteAperte) categorie.forEach(cat => righe.push(nuovaRiga(cat.id)));
+            guasto = '';
+            sporca = true; ultimaLocale = Date.now();
+            disegna(); salvaLocale(); clearTimeout(timerPortale); spingi();
+        });
 
         /* --- le tabelle --- */
         const statoRiga = r => r.stato === 'fatto' ? pcBadge('verde', 'In coda') + '<span class="pc-nota">' + esc(r.codice || '') + '</span>'
             : r.stato === 'invio' ? '<span class="pc-nota">' + esc(r.msg || 'Carico…') + '</span>'
                 : r.stato === 'doppione' ? '<span class="pc-errore-riga">' + esc(r.msg) + '</span><label class="pc-spunta"><input type="checkbox" class="pc-r-forza"' + (r.forza ? ' checked' : '') + '> <span>Inviala comunque</span></label>'
                     : r.msg ? '<span class="pc-errore-riga">' + esc(r.msg) + '</span>' : '';
+        /* Il PDF della riga e dove si trova: sul portale (si ritrova da un altro
+           computer), in salita, oppure ancora solo su questo computer. */
+        const pdfHtml = r => {
+            const f = pdfDi(r);
+            if (!f) return r.fileAtteso ? '<span class="pc-errore-riga">Da riallegare: ' + esc(r.fileAtteso) + '</span>' : '';
+            const fatta = r.stato === 'fatto' || r.stato === 'invio';
+            const posto = fatta ? ''
+                : r.remoto ? '<span class="pc-pdf-posto ok">sul portale</span>'
+                    : r.carico === 'su' ? '<span class="pc-pdf-posto su">salgo sul portale… ' + (r.avanti || 0) + '%</span>'
+                        : r.carico === 'coda' ? '<span class="pc-pdf-posto su">in attesa di salire sul portale</span>'
+                            : r.carico === 'errore' && r.caricoMsg ? '<span class="pc-pdf-posto no">' + esc(r.caricoMsg) + '</span>'
+                                : pdfBuono(r.file) ? '<span class="pc-pdf-posto no">per ora solo su questo computer</span>' : '';
+            return '<span class="pc-file"><button type="button" class="pc-link pc-r-vedi" title="Apri il PDF">' + esc(f.nome) + '</button> <span class="pc-muto">' + esc(pcPeso(f.peso)) + '</span></span>' + posto;
+        };
+        const pdfCella = r => {
+            const tr = Array.from(sezioni.querySelectorAll('tr[data-id]')).find(x => x.dataset.id === r.id);
+            const c = tr && tr.querySelector('.pc-r-pdf');
+            if (c) c.innerHTML = pdfHtml(r);
+        };
         const rigaHtml = (r, cat) => {
-            const fermo = r.stato === 'fatto' || r.stato === 'invio';
+            const fermoR = r.stato === 'fatto' || r.stato === 'invio';
             return '<tr data-id="' + esc(r.id) + '"' + (r.stato === 'fatto' ? ' class="pc-fatta"' : '') + '>'
-                + '<td data-label="Denominazione"><input type="text" class="pc-r-nome" value="' + esc(r.nome) + '" placeholder="Ragione sociale" maxlength="160"' + (fermo ? ' disabled' : '') + '></td>'
-                + '<td data-label="PEC"><input type="email" class="pc-r-pec" value="' + esc(r.pec) + '" placeholder="indirizzo@pec.it" maxlength="200" spellcheck="false"' + (fermo ? ' disabled' : '') + '></td>'
-                + (cat.saldo ? '<td data-label="Saldo"><input type="text" class="pc-r-saldo" value="' + esc(r.saldo) + '" placeholder="0,00" inputmode="decimal" maxlength="20"' + (fermo ? ' disabled' : '') + '></td>' : '')
-                + '<td data-label="Note"><input type="text" class="pc-r-nota" value="' + esc(r.nota) + '" placeholder="Facoltativa" maxlength="200"' + (fermo ? ' disabled' : '') + '></td>'
-                + '<td data-label="Lettera in PDF">' + (r.file ? '<span class="pc-file">' + esc(r.file.name) + ' <span class="pc-muto">' + esc(pcPeso(r.file.size)) + '</span></span>' : (r.fileAtteso ? '<span class="pc-errore-riga">Da riallegare: ' + esc(r.fileAtteso) + '</span>' : ''))
-                + (fermo ? '' : '<label class="pc-link pc-file-btn">' + (r.file ? 'Cambia' : 'Scegli il PDF') + '<input type="file" class="pc-r-file" accept="application/pdf,.pdf" hidden></label>')
+                + '<td data-label="Denominazione"><input type="text" class="pc-r-nome" value="' + esc(r.nome) + '" placeholder="Ragione sociale" maxlength="160"' + (fermoR ? ' disabled' : '') + '></td>'
+                + '<td data-label="PEC"><input type="email" class="pc-r-pec" value="' + esc(r.pec) + '" placeholder="indirizzo@pec.it" maxlength="200" spellcheck="false"' + (fermoR ? ' disabled' : '') + '></td>'
+                + (cat.saldo ? '<td data-label="Saldo"><input type="text" class="pc-r-saldo" value="' + esc(r.saldo) + '" placeholder="0,00" inputmode="decimal" maxlength="20"' + (fermoR ? ' disabled' : '') + '></td>' : '')
+                + '<td data-label="Note"><input type="text" class="pc-r-nota" value="' + esc(r.nota) + '" placeholder="Facoltativa" maxlength="200"' + (fermoR ? ' disabled' : '') + '></td>'
+                + '<td data-label="Lettera in PDF"><span class="pc-r-pdf">' + pdfHtml(r) + '</span>'
+                + (fermoR ? '' : '<label class="pc-link pc-file-btn">' + (pdfDi(r) ? 'Cambia' : 'Scegli il PDF') + '<input type="file" class="pc-r-file" accept="application/pdf,.pdf" hidden></label>')
                 + '<div class="pc-r-stato">' + statoRiga(r) + '</div></td>'
-                + '<td data-label="">' + (fermo ? '' : '<button type="button" class="pc-link pc-r-via" title="Togli la riga">Togli</button>') + '</td></tr>';
+                + '<td data-label="">' + (fermoR ? '' : '<button type="button" class="pc-link pc-r-via" title="Togli la riga">Togli</button>') + '</td></tr>';
         };
         const disegna = () => {
             const mostrate = categorie.filter(cat => tutteAperte || aperte[cat.id] || righe.some(r => r.categoria === cat.id));
@@ -38745,6 +38971,26 @@
             statoBozza();
         };
         const rigaDi = el => righe.find(r => r.id === el.closest('tr').dataset.id);
+        /* Apre il PDF di una riga: quello di questo computer, oppure, se la
+           bozza e' stata ripresa altrove, quello salvato sul portale. */
+        const vediPdf = async (r, pulsante) => {
+            if (r.file) {
+                const u = URL.createObjectURL(r.file);
+                window.open(u, '_blank', 'noopener');
+                setTimeout(() => URL.revokeObjectURL(u), 60000);
+                return;
+            }
+            if (!r.remoto || pulsante.dataset.attesa === '1') return;
+            pulsante.dataset.attesa = '1';
+            const parti = [];
+            for (let n = 0, pezzi = 1; n < pezzi; n++) {
+                const e = await pcChiama('bozza-pdf-leggi', Object.assign({ riga: r.id, n: n }, dove));
+                if (!e.ok) { toast(e.msg || 'PDF non scaricato.', 'rosso'); pulsante.dataset.attesa = ''; return; }
+                pezzi = e.pezzi; parti.push(Modelli._bytesDaB64(e.dati || ''));
+            }
+            pulsante.dataset.attesa = '';
+            pcSalva(new Blob(parti, { type: 'application/pdf' }), r.remoto.nome);
+        };
         const tipi = $('pc-n-tipi');
         if (tipi) tipi.addEventListener('click', ev => {
             const b = ev.target.closest('[data-cat]'); if (!b) return;
@@ -38767,12 +39013,14 @@
             if (!ev.target.closest('tr[data-id]')) return;
             const r = rigaDi(ev.target);
             if (ev.target.classList.contains('pc-r-forza')) { r.forza = ev.target.checked; tocca(); }
-            if (ev.target.classList.contains('pc-r-file') && ev.target.files[0]) { fileDi(r, ev.target.files[0]); r.fileAtteso = ''; r.msg = ''; if (r.stato !== 'doppione') r.stato = ''; disegna(); tocca(); }
+            if (ev.target.classList.contains('pc-r-file') && ev.target.files[0]) { fileDi(r, ev.target.files[0]); r.msg = ''; if (r.stato !== 'doppione') r.stato = ''; disegna(); tocca(); }
         });
         sezioni.addEventListener('click', ev => {
             const sez = ev.target.closest('.pc-n-sez'); if (!sez) return;
             const cat = categorie.find(x => x.id === sez.dataset.cat);
-            if (ev.target.classList.contains('pc-r-via')) {
+            if (ev.target.classList.contains('pc-r-vedi')) {
+                vediPdf(rigaDi(ev.target), ev.target);
+            } else if (ev.target.classList.contains('pc-r-via')) {
                 const r = rigaDi(ev.target);
                 pcIdbTogli(chiaveBozza + '|' + r.id);
                 righe.splice(righe.indexOf(r), 1);
@@ -38813,8 +39061,9 @@
         $('pc-n-pdf').addEventListener('change', ev => {
             const file = Array.from(ev.target.files || []);
             ev.target.value = '';
+            if (!pronta) return;
             const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-            const libere = () => righe.filter(r => !r.file && r.stato !== 'fatto' && !vuota(r));
+            const libere = () => righe.filter(r => !pdfDi(r) && r.stato !== 'fatto' && !vuota(r));
             const resto = [];
             file.forEach(f => {
                 const n = ' ' + norm(f.name.replace(/\.pdf$/i, '')) + ' ';
@@ -38823,10 +39072,10 @@
                     const p = norm(r.nome).split(' ').filter(w => w.length >= 3 && !/^(srl|spa|sas|snc|societa|studio|banca|dott)$/.test(w) && n.includes(' ' + w + ' ')).length;
                     if (p > punti) { punti = p; migliore = r; }
                 });
-                if (migliore) { fileDi(migliore, f); migliore.fileAtteso = ''; } else resto.push(f);
+                if (migliore) fileDi(migliore, f); else resto.push(f);
             });
             let fuori = 0;
-            resto.forEach(f => { const r = libere()[0]; if (r) { fileDi(r, f); r.fileAtteso = ''; } else fuori++; });
+            resto.forEach(f => { const r = libere()[0]; if (r) fileDi(r, f); else fuori++; });
             disegna(); tocca();
             if (file.length) toast(fuori ? (file.length - fuori) + ' PDF assegnati, ' + fuori + ' senza una riga: aggiungi prima i destinatari.' : file.length + ' PDF assegnati: controlla che ogni riga abbia la sua lettera.', fuori ? 'ambra' : 'verde');
         });
@@ -38846,7 +39095,7 @@
         // cambiando il termine, le date dei solleciti lo seguono (finche' non le si tocca a mano)
         let toccate = false;
         ['pc-n-s1d', 'pc-n-s1s', 'pc-n-s2d', 'pc-n-s2s'].forEach(id => $(id).addEventListener('change', () => { toccate = true; tocca(); }));
-        $('pc-n-bil').addEventListener('change', () => { disegna(); tocca(); });
+        $('pc-n-bil').addEventListener('change', () => { if (pronta) disegna(); tocca(); });
         $('pc-n-scad').addEventListener('change', () => {
             const s = $('pc-n-scad').value;
             if (!toccate && s) { $('pc-n-s1d').value = pcPiuGiorni(s, 1); $('pc-n-s1s').value = pcPiuGiorni(s, 8); $('pc-n-s2d').value = pcPiuGiorni(s, 9); $('pc-n-s2s').value = pcPiuGiorni(s, 14); }
@@ -38873,55 +39122,101 @@
             const viste = {};
             righe.forEach(r => {
                 if (r.stato === 'fatto' || vuota(r)) return;
+                const f = pdfDi(r);
                 let m = '';
                 if (r.nome.trim().length < 2) m = 'Manca la denominazione.';
                 else if (!reEmail.test(r.pec)) m = 'L\'indirizzo PEC non è valido.';
                 else if (String(r.saldo).trim() && !reSaldo.test(String(r.saldo).trim())) m = 'Il saldo non è un numero (per esempio 1.250,00).';
-                else if (!r.file) m = 'Allega la lettera in PDF.';
-                else if (!/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf') m = 'La lettera deve essere un PDF.';
-                else if (r.file.size > lim.pdfMaxByte) m = 'Il PDF supera ' + pcPeso(lim.pdfMaxByte) + ': riducilo (scansione in bianco e nero a 150 dpi).';
+                else if (!f) m = 'Allega la lettera in PDF.';
+                else if (r.file && !/\.pdf$/i.test(r.file.name) && r.file.type !== 'application/pdf') m = 'La lettera deve essere un PDF.';
+                else if (f.peso > lim.pdfMaxByte) m = 'Il PDF supera ' + pcPeso(lim.pdfMaxByte) + ': riducilo (scansione in bianco e nero a 150 dpi).';
                 else if (viste[r.pec] && !r.forza) m = 'Stesso indirizzo di un\'altra riga.';
                 viste[r.pec] = 1;
                 if (m) { sbagliate++; r.msg = m; if (r.stato !== 'doppione') r.stato = ''; } else if (r.stato !== 'doppione') r.msg = '';
             });
             return sbagliate ? (sbagliate === 1 ? 'Una riga è da completare.' : sbagliate + ' righe sono da completare.') : '';
         };
-        $('pc-n-no').addEventListener('click', () => { salvaBozza(); chiudiModale(); fatto(); });
-        $('pc-n-salva').addEventListener('click', () => {
-            salvaBozza();
-            toast(ultimaBozza ? 'Bozza salvata su questo computer: la ritrovi riaprendo «Nuove lettere».' : 'Non c\'è ancora niente da salvare.', ultimaBozza ? 'verde' : 'ambra');
+        $('pc-n-no').addEventListener('click', () => {
+            if (pronta) {
+                const inSalita = righe.filter(r => r.stato !== 'fatto' && (r.carico === 'coda' || r.carico === 'su')).length;
+                if (inSalita && !window.confirm((inSalita === 1 ? 'Un PDF non è ancora salito' : inSalita + ' PDF non sono ancora saliti') + ' sul portale: se chiudi adesso ' + (inSalita === 1 ? 'resta' : 'restano') + ' solo su questo computer (da un altro andrà riallegato).\n\nChiudere lo stesso?')) return;
+                clearTimeout(timerPortale);
+                salvaLocale();
+                if (sporca) spingi();           // l'ultima versione sale anche a finestra chiusa
+            }
+            chiusa = true;
+            clearInterval(battito);
+            chiudiModale(); fatto();
         });
+        $('pc-n-salva').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
+            if (!pronta) return;
+            if (!righe.some(r => r.stato !== 'fatto' && !vuota(r)) && !sporca) { toast('Non c\'è ancora niente da salvare.', 'ambra'); return; }
+            sporca = true; ultimaLocale = Date.now(); guasto = '';
+            clearTimeout(timerPortale);
+            salvaLocale();
+            await spingi();
+            if (fermo) toast('Bozza modificata da un altro computer: qui è salvata solo su questo computer.', 'ambra');
+            else if (sporca) toast((guasto ? 'Bozza non salvata sul portale: ' + guasto : 'Portale non raggiungibile:') + ' la bozza resta salvata su questo computer.', 'ambra');
+            else {
+                const inSalita = righe.filter(r => r.carico === 'coda' || r.carico === 'su').length;
+                toast('Bozza salvata sul portale' + (inSalita ? ': i PDF finiscono di salire fra poco, lascia aperta la finestra.' : ': la ritrovi riaprendo «Nuove lettere», anche da un altro computer.'), 'verde');
+            }
+        }, { testo: 'Salvo…' }));
         $('pc-n-si').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
             const problema = controlla();
             errore(problema);
             disegna();
             if (problema) return;
             const d = date();
+            /* I PDF gia' sul portale non risalgono: la lettera li prende dalla bozza.
+               Quelli ancora in attesa salgono adesso, direttamente con la lettera. */
+            inInvio = true;
+            clearTimeout(timerPortale);
+            attesaPdf.length = 0;
+            righe.forEach(r => { if (r.carico === 'coda') r.carico = ''; });
+            await (PC_LAVORI_BOZZE[chiaveBozza] || Promise.resolve());
             let partite = 0;
             for (const r of righe) {
                 if (r.stato === 'fatto' || vuota(r)) continue;
+                const f = pdfDi(r);
                 r.stato = 'invio'; r.msg = 'Preparo la lettera…'; disegna();
-                const c = await pcChiama('crea', Object.assign({ incaricoId: inc.id, destinatario: r.nome.trim(), pec: r.pec, categoria: r.categoria, saldo: String(r.saldo).trim(), nota: r.nota.trim(), allegatoNome: r.file.name, allegatoDimensione: r.file.size, forza: !!r.forza }, d));
+                const c = await pcChiama('crea', Object.assign({ incaricoId: inc.id, destinatario: r.nome.trim(), pec: r.pec, categoria: r.categoria, saldo: String(r.saldo).trim(), nota: r.nota.trim(), allegatoNome: f.nome, allegatoDimensione: f.peso, forza: !!r.forza }, d));
                 if (!c.ok) { r.stato = c.doppione ? 'doppione' : ''; r.msg = c.msg || 'Lettera non preparata.'; disegna(); continue; }
-                const bytes = new Uint8Array(await r.file.arrayBuffer());
-                let esito = c;
-                for (let n = 0; n < c.pezzi && esito.ok; n++) {
-                    r.msg = 'Carico il PDF… ' + Math.round((n + 1) / c.pezzi * 100) + '%'; disegna();
-                    esito = await pcChiama('allegato', { id: c.id, n: n, dati: Modelli._b64DaBytes(bytes.subarray(n * c.pezzoByte, (n + 1) * c.pezzoByte)) });
+                let esito = null;
+                if (r.remoto) {
+                    r.msg = 'Allego il PDF salvato sul portale…'; disegna();
+                    esito = await pcChiama('allegato-da-bozza', Object.assign({ id: c.id, riga: r.id }, dove));
+                    if (esito.ok) versione = esito.versione || 0;
+                    else if (esito.stato === 404 || esito.stato === 400) r.remoto = null;      // sul portale non c'e' piu': vale la copia di questo computer, se c'e'
                 }
-                if (!esito.ok) { r.stato = ''; r.msg = esito.msg || 'PDF non caricato: riprova.'; disegna(); continue; }
-                r.stato = 'fatto'; r.codice = c.codice; r.msg = ''; partite++;
+                if ((!esito || !esito.ok) && r.file) {
+                    const bytes = new Uint8Array(await r.file.arrayBuffer());
+                    esito = c;
+                    for (let n = 0; n < c.pezzi && esito.ok; n++) {
+                        r.msg = 'Carico il PDF… ' + Math.round((n + 1) / c.pezzi * 100) + '%'; disegna();
+                        esito = await pcChiama('allegato', { id: c.id, n: n, dati: Modelli._b64DaBytes(bytes.subarray(n * c.pezzoByte, (n + 1) * c.pezzoByte)) });
+                    }
+                }
+                if (!esito || !esito.ok) { r.stato = ''; r.msg = (esito && esito.msg) || 'PDF non caricato: riprova.'; if (!pdfDi(r)) r.fileAtteso = f.nome; disegna(); continue; }
+                r.stato = 'fatto'; r.codice = c.codice; r.msg = ''; r.carico = ''; partite++;
                 pcIdbTogli(chiaveBozza + '|' + r.id);
-                salvaBozza();                           // la lettera partita esce dalla bozza subito
+                salvaLocale();                          // la lettera partita esce dalla bozza subito
                 disegna();
             }
+            inInvio = false;
+            // quello che resta (o niente) va detto anche al portale; i PDF rimasti a terra riprovano a salire
+            sporca = true; ultimaLocale = Date.now();
+            righe.forEach(r => { if (r.stato !== 'fatto' && r.file && !r.remoto) caricaSulPortale(r); });
+            salvaLocale();
+            await spingi();
             if (partite) {
                 // parte subito quello che e' in coda; il resto lo prende il giro ogni cinque minuti
                 pcChiama('avvia').then(a => { if (a.ok && a.inviato === false && a.msg) toast(a.msg, 'ambra'); fatto(); });
             }
             const rimaste = righe.filter(r => r.stato !== 'fatto' && !vuota(r)).length;
             if (!rimaste) {
-                salvaBozza();
+                chiusa = true;
+                clearInterval(battito);
                 chiudiModale();
                 toast(partite === 1 ? 'Lettera in coda: parte fra pochi istanti.' : partite + ' lettere in coda: partono fra pochi istanti.', 'verde');
                 PC.quando = 0;
@@ -38929,32 +39224,84 @@
             } else {
                 errore(rimaste === 1 ? 'Una lettera non è partita: correggi la riga e premi di nuovo Invia.' : rimaste + ' lettere non sono partite: correggi le righe e premi di nuovo Invia.');
             }
-        }, { testo: 'Invio…' }).then(() => { if ($('pc-n-si')) disegna(); }));
+        }, { testo: 'Invio…' }).then(() => { if (aperta()) disegna(); }));
 
-        /* --- si riparte dalla bozza, se c'e' --- */
-        let bozza = null;
-        try { bozza = JSON.parse(localStorage.getItem(chiaveBozza) || 'null'); } catch (e) { bozza = null; }
-        if (bozza && Array.isArray(bozza.righe) && bozza.righe.length) {
-            CAMPI_DATA.forEach(id => { if (bozza.date && bozza.date[id]) $(id).value = bozza.date[id]; });
-            $('pc-n-s1').checked = bozza.s1 !== false; $('pc-n-s2').checked = bozza.s2 !== false;
-            toccate = true;
-            (bozza.aperte || []).forEach(k => { if (categorie.some(x => x.id === k)) aperte[k] = 1; });
-            bozza.righe.forEach(b => {
-                if (!categorie.some(x => x.id === b.categoria)) return;
-                righe.push(nuovaRiga(b.categoria, { id: String(b.id), nome: String(b.nome || ''), pec: String(b.pec || ''), saldo: String(b.saldo || ''), nota: String(b.nota || ''), forza: !!b.forza, fileAtteso: b.file ? String(b.file.nome || '') : '' }));
-            });
-            ultimaBozza = Number(bozza.quando) || 0;
-            // i PDF arrivano da IndexedDB un attimo dopo: la riga dice "da riallegare" solo se non c'e' piu'
-            Promise.all(righe.filter(r => r.fileAtteso).map(r => pcIdbPrendi(chiaveBozza + '|' + r.id).then(f => {
-                if (f && typeof f.size === 'number') { r.file = f instanceof File ? f : new File([f], r.fileAtteso, { type: 'application/pdf' }); r.fileAtteso = ''; }
-            }))).then(() => { if ($('pc-n-sezioni')) disegna(); });
-            toast('Ripresa la bozza salvata il ' + fmtDataOra(ultimaBozza) + '.', 'verde');
-        }
-        if (tutteAperte) categorie.forEach(cat => { if (!righe.some(r => r.categoria === cat.id)) righe.push(nuovaRiga(cat.id)); });
-        accendi();
-        disegna();
-        const primoCampo = sezioni.querySelector('.pc-r-nome') || (tipi && tipi.querySelector('button'));
-        if (primoCampo) primoCampo.focus();
+        /* --- si riparte dalla bozza, se c'e': quella del portale, o le modifiche rimaste su questo computer --- */
+        (async () => {
+            await (PC_LAVORI_BOZZE[chiaveBozza] || Promise.resolve());
+            let L = null;
+            try { L = JSON.parse(localStorage.getItem(chiaveBozza) || 'null'); } catch (e) { L = null; }
+            if (!L || !Array.isArray(L.righe)) L = null;
+            const risposta = await pcChiama('bozza-leggi', dove);
+            if (!aperta()) return;                          // finestra chiusa nel frattempo
+            const S = risposta.ok ? (risposta.bozza || { versione: 0, quando: 0, righe: [], pdf: {} }) : null;     // null: portale non raggiungibile
+            // le bozze nate prima che esistesse il salvataggio sul portale non hanno il campo: sono tutte da far salire
+            const lSporca = !!L && L.sporca !== false, lBase = L ? (Number(L.base) || 0) : 0;
+            let da = '';
+            if (!S) {
+                giu = true;
+                versione = lBase;
+                da = L && L.righe.length ? 'locale' : '';
+            } else {
+                versione = S.versione || 0; ultimaPortale = S.quando || 0;
+                if (!L || !lSporca) da = S.righe.length ? 'portale' : '';
+                else if (lBase === versione) da = 'locale';
+                else if (!L.righe.length) da = S.righe.length ? 'portale' : '';
+                else {
+                    const qui = L.righe.length + (L.righe.length === 1 ? ' destinatario' : ' destinatari') + ', modifiche del ' + fmtDataOra(Number(L.quando) || Date.now()) + ' non ancora salvate sul portale';
+                    const tieniPortale = window.confirm(S.righe.length
+                        ? 'Questa bozza è stata modificata anche da un altro computer.\n\nSul portale: ' + S.righe.length + (S.righe.length === 1 ? ' destinatario' : ' destinatari') + ', salvata il ' + fmtDataOra(S.quando) + '.\nSu questo computer: ' + qui + '.\n\nOK: riprendo quella del portale.\nAnnulla: tengo quella di questo computer.'
+                        : 'Sul portale questa bozza non c\'è più: è stata inviata o svuotata da un altro computer.\n\nSu questo computer restano ' + qui + '.\n\nOK: riparto da zero.\nAnnulla: riprendo le righe di questo computer.');
+                    da = tieniPortale ? (S.righe.length ? 'portale' : '') : 'locale';
+                }
+            }
+            const fonte = da === 'portale' ? S : (da === 'locale' ? L : null);
+            const pdfPortale = (S && S.pdf) || {};
+            if (fonte) {
+                CAMPI_DATA.forEach(id => { if (fonte.date && fonte.date[id]) $(id).value = fonte.date[id]; });
+                $('pc-n-s1').checked = fonte.s1 !== false; $('pc-n-s2').checked = fonte.s2 !== false;
+                toccate = true;
+                (fonte.aperte || []).forEach(k => { if (categorie.some(x => x.id === k)) aperte[k] = 1; });
+                fonte.righe.forEach(b => {
+                    if (!b || !categorie.some(x => x.id === b.categoria) || righe.some(x => x.id === String(b.id))) return;
+                    const r = nuovaRiga(b.categoria, { id: String(b.id), nome: String(b.nome || ''), pec: String(b.pec || ''), saldo: String(b.saldo || ''), nota: String(b.nota || ''), forza: !!b.forza, fileAtteso: b.file ? String(b.file.nome || '') : '' });
+                    const peso = b.file ? (Number(b.file.peso) || 0) : 0, m = pdfPortale[r.id];
+                    // il PDF del portale vale se e' proprio quello della riga (stesso peso): altrimenti qui ce n'e' uno piu' nuovo
+                    if (m && m.pronto && (da === 'portale' || !peso || m.byte === peso)) { r.remoto = { nome: m.nome, byte: m.byte }; r.fileAtteso = ''; }
+                    r.pesoAtteso = peso;
+                    righe.push(r);
+                });
+            }
+            // via la copia di questo computer che non serve piu' (bozza inviata o svuotata altrove, o sostituita da quella del portale)
+            if (L && da !== 'locale') {
+                L.righe.forEach(b => { if (b && !righe.some(x => x.id === String(b.id))) pcIdbTogli(chiaveBozza + '|' + b.id); });
+                if (!fonte) { try { localStorage.removeItem(chiaveBozza); } catch (e) { /* pazienza */ } }
+            }
+            ultimaLocale = L && da === 'locale' ? (Number(L.quando) || 0) : 0;
+            pronta = true;
+            sporca = da === 'locale';
+            if (tutteAperte) categorie.forEach(cat => { if (!righe.some(r => r.categoria === cat.id)) righe.push(nuovaRiga(cat.id)); });
+            $('pc-n-salva').disabled = false;
+            accendi();
+            disegna();
+            const primoCampo = sezioni.querySelector('.pc-r-nome') || (tipi && tipi.querySelector('button'));
+            if (primoCampo && !fonte) primoCampo.focus();
+            if (fonte) toast(da === 'portale' ? 'Ripresa la bozza salvata sul portale il ' + fmtDataOra(S.quando) + '.' : 'Ripresa la bozza di questo computer' + (ultimaLocale ? ' (' + fmtDataOra(ultimaLocale) + ')' : '') + (S ? ': la salvo sul portale.' : '.'), 'verde');
+            /* I PDF di questo computer (IndexedDB) arrivano un attimo dopo: servono
+               per aprirli al volo e, se sul portale non ci sono ancora, per farli
+               salire. Una riga resta "da riallegare" solo se il PDF non c'e' ne'
+               qui ne' la'. */
+            await Promise.all(righe.filter(r => r.fileAtteso || r.remoto).map(r => pcIdbPrendi(chiaveBozza + '|' + r.id).then(f => {
+                if (!f || typeof f.size !== 'number' || r.file) return;
+                if (r.remoto && f.size !== r.remoto.byte) return;       // sul portale ce n'e' uno diverso: vale quello
+                r.file = f instanceof File ? f : new File([f], r.fileAtteso || (r.remoto && r.remoto.nome) || 'lettera.pdf', { type: 'application/pdf' });
+                r.fileAtteso = '';
+            })));
+            if (!aperta()) return;
+            righe.forEach(r => { if (r.file && !r.remoto) caricaSulPortale(r); });
+            disegna();
+            if (sporca) spingi(); else salvaLocale();
+        })();
     }
 
     /* ---------- una lettera: recapito, solleciti, risposte, file da salvare ---------- */

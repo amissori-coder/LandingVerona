@@ -69,7 +69,9 @@ const LIMITI = {
     get pausaMs() { return Math.round(numero(process.env.CIRC_PAUSA_MS, 1200, 0, 10000)); },
     oraSollecito: 9,                        // i solleciti partono alle 9 del giorno indicato (ora italiana)
     // per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale
-    get pdfGiorni() { return Math.round(numero(process.env.CIRC_PDF_GIORNI, 365, 1, 3650)); }
+    get pdfGiorni() { return Math.round(numero(process.env.CIRC_PDF_GIORNI, 365, 1, 3650)); },
+    // per quanti giorni dall'ultima modifica una bozza non inviata (righe e PDF) resta sul portale
+    get bozzaGiorni() { return Math.round(numero(process.env.CIRC_BOZZA_GIORNI, 30, 1, 365)); }
 };
 
 /* ---------- le categorie dei destinatari ----------

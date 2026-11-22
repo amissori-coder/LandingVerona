@@ -83,8 +83,8 @@ const db = {
     runTransaction: fn => {
         const esegui = async () => {
             const scritture = [];
-            const esito = await fn({ get: r => r.get(), set: (r, p, o) => { scritture.push([r, p, o]); } });
-            for (const [r, p, o] of scritture) await r.set(p, o);
+            const esito = await fn({ get: r => r.get(), set: (r, p, o) => { scritture.push([r, p, o]); }, delete: r => { scritture.push([r, null, 'via']); } });
+            for (const [r, p, o] of scritture) { if (o === 'via') await r.delete(); else await r.set(p, o); }
             return esito;
         };
         const p = codaTx.then(esegui, esegui);
