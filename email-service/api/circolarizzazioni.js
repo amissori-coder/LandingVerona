@@ -36,6 +36,7 @@ const DATI = require('../lib/circ-dati');
 const GIRO = require('../lib/circ-giro');
 const LETTORE = require('../lib/circ-lettore');
 const ERRORI = require('../lib/circ-errori');
+const AVVISI = require('../lib/circ-avvisi');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -355,6 +356,8 @@ async function giroProgrammato(db) {
     }
     // gli errori nuovi, tutti in una sola email
     out.avvisi = await ERRORI.avvisa(db);
+    // e a chi ha preparato le lettere: risposte arrivate e PEC non consegnate, una email a testa
+    out.avvisiUtenti = await AVVISI.spedisci(db);
     return out;
 }
 

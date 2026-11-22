@@ -37173,7 +37173,7 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122m';
+    const SR_DATI_VERSIONE = '20261122n';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
     const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
     const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
@@ -37369,6 +37369,12 @@
     /* I documenti di una carta, contati come li vede chi la usa: una cartella vale
        i suoi file, e un documento citato in due passaggi (i solleciti a 120 e a 180
        giorni) conta una volta sola. */
+    /* L'attivita' ha il passaggio di invio delle lettere a mezzo PEC (le due
+       circolarizzazioni): nel piano, accanto ad "Apri", c'e' "Invia le PEC". */
+    function srHaPec(d, id) {
+        const a = d.attivita[id], c = a && a.carta ? d.carte[a.carta] : null;
+        return !!c && c.blocchi.some(b => b.passi.some(p => (p.doc || []).some(x => x.p)));
+    }
     function srDocumentiCarta(c) {
         const visti = new Set();
         const metti = x => { if (x.p) return; if (x.c) x.c.forEach(a => visti.add('a:' + a)); else visti.add(x.a ? 'a:' + x.a : 'l:' + x.l); };
@@ -37536,7 +37542,8 @@
                sotto la tabella (ripetere la frase su ogni riga era solo rumore) */
             const carta = stato === 'chiusa' ? '<span class="sr-etich-muta" title="' + esc(r.avviso || '') + '">' + esc(r.etichetta || 'Senza scheda') + '</span>'
                 : stato === 'disattiva' ? '<span class="sr-apri-off" title="Scheda in preparazione"><button type="button" class="btn btn-sm btn-secondary" disabled>Apri</button></span>'
-                : '<button type="button" class="btn btn-sm btn-secondary sr-apri" data-attivita="' + esc(r.attivita) + '">Apri</button>';
+                : '<span class="sr-azioni-riga"><button type="button" class="btn btn-sm btn-secondary sr-apri" data-attivita="' + esc(r.attivita) + '">Apri</button>'
+                    + (srHaPec(d, r.attivita) ? '<button type="button" class="btn btn-sm btn-primary sr-pec" title="Invia le lettere a mezzo PEC, programma i solleciti e segui ricevute e risposte">Invia le PEC</button>' : '') + '</span>';
             return stato === 'aperta'
                 ? '<tr class="sr-riga" data-i="' + i + '" data-attivita="' + esc(r.attivita) + '" title="Apri l\'attività">' + celle + '<td data-label="Scheda">' + carta + '</td></tr>'
                 : '<tr data-i="' + i + '">' + celle + '<td data-label="Scheda">' + carta + '</td></tr>';
@@ -37583,14 +37590,11 @@
                 <div class="is-tit">Piano di revisione ${esc(anno)}</div>
                 <div class="is-meta">Situazione al ${esc(fmtData(oggiISO()))} · stampato da ${esc(Auth.nomeSessione())}</div>
             </div>
-            <div class="pc-ingresso no-stampa">
-                <div><strong>Circolarizzazioni via PEC</strong><span>Prepara le lettere, programma i solleciti e segui ricevute e risposte, incarico per incarico.</span></div>
-                <button type="button" class="btn btn-primary" id="sr-apri-pec">Apri</button>
-            </div>
             ${schedeAnni}
             ${corpo}`;
 
-        document.getElementById('sr-apri-pec').addEventListener('click', () => naviga('strumentiPec'));
+        // "Invia le PEC" sta nella riga, che e' tutta cliccabile: il suo clic non deve aprire anche la scheda
+        $vista().querySelectorAll('.sr-pec').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); naviga('strumentiPec'); }));
         const stampaPiano = document.getElementById('sr-stampa-piano');
         if (stampaPiano) stampaPiano.addEventListener('click', () => window.print());
         const vista = $vista();

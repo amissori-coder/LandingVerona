@@ -2765,7 +2765,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Testo dell'email per chiedere schede contabili ed elenchi di clienti e fornitori.",
    "file": "strumenti-revisione/allegati/email-richiesta-della-documentazione-per-la-circolarizzazione-clienti-e.docx",
    "tipo": "docx",
-   "kb": 8,
+   "kb": 7,
    "testo": true
   },
   "allegato-elenco-clienti": {
@@ -2824,7 +2824,7 @@ window.RV_STRUMENTI_REVISIONE = {
    "descrizione": "Lettera di conferma del saldo ai fornitori.",
    "file": "strumenti-revisione/allegati/lettera-ai-fornitori.docx",
    "tipo": "docx",
-   "kb": 16,
+   "kb": 14,
    "testo": true
   },
   "email-invio-delle-lettere-di-circolarizzazione-a-clienti-e-fornitori": {
@@ -3221,4 +3221,4 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  }
 };
-window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=0444975aca", "pagine": 40, "kb": 830, "documenti": 19}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=7e27baae9d", "pagine": 29, "kb": 1251, "documenti": 12}}};
+window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=0444975aca", "pagine": 40, "kb": 830, "documenti": 19}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=e3d930411f", "pagine": 29, "kb": 1250, "documenti": 12}}};

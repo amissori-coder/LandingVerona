@@ -34,6 +34,7 @@ const crypto = require('crypto');
 const C = require('./circ-comune');
 const D = require('./daticert');
 const ERRORI = require('./circ-errori');
+const AVVISI = require('./circ-avvisi');
 
 const INVII = 'circInvii', RIF = 'circRiferimenti', MSG = 'circMessaggi', INC = 'circIncarichi';
 const PEZZI = 'allegato';
@@ -489,6 +490,7 @@ async function prendi(db, id, ora, lettoreOk) {
     if (esito.errore) {
         const e = esito.errore;
         await ERRORI.diLettera(db, e.inv, String(id), e.passo, { chiave: 'invio~' + id + '~' + e.passo, tipo: 'invio', titolo: 'La PEC non è partita', dettaglio: e.testo });
+        await AVVISI.accoda(db, e.inv, String(id), { tipo: 'invio', chiave: 'invio~' + id + '~' + e.passo, passo: e.passo, titolo: titoloGuasto(e.passo, 'partita'), dettaglio: e.testo });
         delete esito.errore;
     }
     return esito;
@@ -517,13 +519,29 @@ async function esitoInvio(db, id, n, riferimento, esito) {
         segnaSporco(tx, db, inv);
         return inv;
     });
-    if (dopo && fallita) await ERRORI.diLettera(db, dopo, String(id), n, { chiave: 'invio~' + id + '~' + n, tipo: 'invio', titolo: 'La PEC non è partita', dettaglio: fallita });
+    if (dopo && fallita) {
+        await ERRORI.diLettera(db, dopo, String(id), n, { chiave: 'invio~' + id + '~' + n, tipo: 'invio', titolo: 'La PEC non è partita', dettaglio: fallita });
+        await AVVISI.accoda(db, dopo, String(id), { tipo: 'invio', chiave: 'invio~' + id + '~' + n, passo: n, titolo: titoloGuasto(n, 'partita'), dettaglio: fallita });
+    }
     return dopo;
 }
 
 /* ============================================================
    RICEVUTE E RISPOSTE (le scrive il lettore della casella)
    ============================================================ */
+/* "La PEC non è stata consegnata", "Il primo sollecito non è partito": la frase
+   per chi ha preparato la lettera. */
+const GUASTI = {
+    partita: ['non è partita', 'non è partito'],
+    accettata: ['non è stata accettata dal gestore', 'non è stato accettato dal gestore'],
+    consegnata: ['non è stata consegnata', 'non è stato consegnato']
+};
+function titoloGuasto(passo, quale) {
+    const f = GUASTI[quale] || GUASTI.consegnata;
+    if (passo === 'sollecito1') return 'Il primo sollecito ' + f[1];
+    if (passo === 'sollecito2') return 'Il secondo sollecito ' + f[1];
+    return 'La PEC ' + f[0];
+}
 /* Un fatto letto da una ricevuta, sul passo a cui si riferisce. I fatti sono
    monotoni: rileggere la stessa ricevuta non cambia niente, e un preavviso in
    ritardo non cancella una consegna gia' registrata. */
@@ -575,6 +593,13 @@ async function applicaRicevuta(db, dove, fatto, coordinate) {
             titolo: pr.definitivo ? (pr.tipo === 'non-accettazione' ? 'PEC non accettata dal gestore' : 'PEC non consegnata') : 'Consegna della PEC in dubbio',
             dettaglio: pr.motivo
         });
+        // e, se e' definitivo, lo viene a sapere chi ha preparato la lettera
+        if (pr.definitivo) {
+            await AVVISI.accoda(db, esito.scheda, String(dove.invio), {
+                tipo: 'recapito', chiave: 'recapito~' + dove.invio + '~' + dove.passo, passo: dove.passo, quando: pr.quando,
+                titolo: titoloGuasto(dove.passo, pr.tipo === 'non-accettazione' ? 'accettata' : 'consegnata'), dettaglio: pr.motivo
+            });
+        }
     }
     delete esito.scheda; delete esito.problema;
     return esito;
@@ -585,7 +610,7 @@ async function applicaRicevuta(db, dove, fatto, coordinate) {
    automatica, allegati, dimensione, via, associataDa }. */
 async function registraRisposta(db, idInvio, r) {
     const rif = db.collection(INVII).doc(String(idInvio));
-    return db.runTransaction(async tx => {
+    const esito = await db.runTransaction(async tx => {
         const s = await tx.get(rif);
         if (!s.exists) return { ok: false, msg: 'Lettera non trovata.' };
         const inv = s.data() || {};
@@ -614,8 +639,17 @@ async function registraRisposta(db, idInvio, r) {
         chiudi(inv, ora);
         tx.set(rif, inv);
         segnaSporco(tx, db, inv);
-        return { ok: true, cambiato: true, incaricoId: inv.incaricoId, cliente: inv.cliente };
+        return { ok: true, cambiato: true, incaricoId: inv.incaricoId, cliente: inv.cliente, scheda: inv };
     });
+    // chi ha preparato la lettera viene a sapere che la risposta e' arrivata (non per un "sono assente")
+    if (esito.cambiato && !r.automatica) {
+        await AVVISI.accoda(db, esito.scheda, String(idInvio), {
+            tipo: 'risposta', chiave: 'risposta~' + idInvio + '~' + r.chiave, quando: r.quando, da: r.da, oggetto: r.oggetto,
+            certificata: !!r.certificata, allegati: (r.allegati || []).map(a => a.nome)
+        });
+    }
+    delete esito.scheda;
+    return esito;
 }
 /* Le schede a cui potrebbe riferirsi una risposta arrivata da `indirizzo`,
    quando ne' il messaggio a cui risponde ne' il riferimento nell'oggetto

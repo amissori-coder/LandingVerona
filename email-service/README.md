@@ -865,7 +865,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
-`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori` e i documenti
+`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi` e i documenti
 `meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` non hanno un
 `match`, quindi dal browser non si leggono e non si scrivono (stessa scelta di
 `sbloccoIncarichi`). Le interrogazioni usano solo uguaglianze, o un intervallo
@@ -1010,6 +1010,26 @@ partire affatto (per esempio `CRON_SECRET` mancante) non c'e' nessuno che
 scriva l'errore. Si vede dai Request Logs di Vercel, dove `/api/circolarizzazioni`
 deve comparire ogni cinque minuti.
 
+### Gli avvisi a chi ha inviato la lettera
+
+Chi prepara una lettera riceve un'email (`lib/circ-avvisi.js`, raccolta
+`circAvvisi`) quando:
+
+- la PEC **non e' stata accettata**, **non e' stata consegnata** o **non e'
+  partita** (vale anche per un sollecito): con l'indicazione di controllare
+  l'indirizzo su INI-PEC e di reinviare;
+- **e' arrivata la risposta**, anche quando l'ha associata a mano chi
+  amministra: con mittente, data e nomi degli allegati, e il promemoria di
+  salvarla nelle carte di lavoro. Una risposta automatica ("sono assente") non
+  avvisa nessuno.
+
+Le notizie si mettono in coda e le spedisce il giro programmato: **una email
+per persona a ogni giro**, con tutte le sue novita' (trenta risposte lette
+insieme non diventano trenta messaggi). Dalla coda si toglie solo quello che e'
+partito: il resto ci riprova al giro dopo. Stessa posta ordinaria degli errori
+(`SMTP_*`). Chi riceve gia' l'email degli errori non riceve una seconda volta
+la stessa PEC non consegnata: a lui qui arrivano solo le risposte.
+
 ### I dati non restano sul portale
 
 Ai team l'area riservata lo dice in ogni pagina: ricevute e risposte vanno
@@ -1059,7 +1079,7 @@ Firestore, il server di posta e la casella sono finti (`prove/circ-finti.js`),
 il codice provato e' quello vero: permessi, PDF, invii concorrenti, ricevute,
 solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
 tetto orario, registro degli errori (una riga per problema, una sola email,
-spunta e riapertura), cancellazione.
+spunta e riapertura), avvisi a chi ha inviato la lettera, cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:
