@@ -37,7 +37,7 @@
 
 const F = require('./circ-finti');
 F.orologioFinto('2027-01-11T10:00:00+01:00');
-const { dati, db, posta, avvisi, ricevuta, risposta, avanti, alle, DateVera } = F;
+const { dati, db, posta, avvisi, notizie, ricevuta, risposta, avanti, alle, DateVera } = F;
 const MIN = 60000, ORA = 60 * MIN, GIORNO = 24 * ORA;
 
 const C = require('../lib/circ-comune');
@@ -378,7 +378,52 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     const tutti = await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: reg.aperti.map(x => x.id) });
     verifica('si spuntano anche tutti insieme', tutti.risolti === reg.aperti.length && (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.length === 0);
     await cronGiro();
-    const nAvvisi = avvisi.length;
+    let nAvvisi = avvisi.length;
+
+    // ---------- 11 ter. chi ha preparato la lettera viene avvisato ----------
+    // finora: i giri programmati del 22 e del 30 gennaio hanno gia' spedito le notizie accumulate
+    const perChi = a => notizie.filter(m => m.to === a);
+    const nLuca = perChi('luca@studio.it'), nMarta = perChi('marta@studio.it');
+    verifica('a Luca, che aveva preparato le lettere: PEC non consegnata e risposte, in una email a giro',
+        nLuca.length === 2 && /2 novità|3 novità/.test(nLuca[0].subject) && nLuca[0].text.indexOf('PEC NON ARRIVATE') > 0 && nLuca[0].text.indexOf('Studio Legale Bruni') > 0 && nLuca[0].text.indexOf('non è stata consegnata') > 0
+        && nLuca[0].text.indexOf('RISPOSTE ARRIVATE') > 0 && nLuca[0].text.indexOf('Banca di Prova S.p.A. (BETA TESSILE SPA') > 0, nLuca.map(m => m.subject + ' | ' + m.text.slice(0, 400)));
+    verifica('la risposta automatica ("sono assente") non genera un avviso', nLuca[0].text.indexOf('assente') < 0 && nLuca[0].text.split('\n').filter(r => /^- Studio Legale Bruni/.test(r)).length === 1, nLuca[0].text);
+    verifica('la risposta arrivata dopo arriva con il giro successivo, da sola', /risposta di Studio Legale Bruni \(ALFA MECCANICA SRL\)/.test(nLuca[1].subject) && nLuca[1].html.indexOf('(posta ordinaria)') > 0 && nLuca[1].text.indexOf('PEC NON ARRIVATE') < 0, nLuca[1].subject);
+    verifica('a Marta le sue: la risposta del fornitore e quella associata a mano dall\'amministratore',
+        nMarta.length === 1 && /2 novità/.test(nMarta[0].subject) && nMarta[0].text.indexOf('Fornitore Zeta') > 0 && nMarta[0].text.indexOf('Banca di Prova S.p.A. (ALFA MECCANICA SRL') > 0 && nMarta[0].html.indexOf('Risposta firmata.pdf') > 0, nMarta.map(m => m.subject));
+    verifica('ognuno riceve solo le notizie delle lettere che ha preparato', nMarta[0].text.indexOf('BETA TESSILE') < 0 && nLuca[0].text.indexOf('Fornitore Zeta') < 0 && notizie.every(m => m.to.indexOf(',') < 0));
+    verifica('le email partono dalla posta ordinaria dello studio, con il collegamento all\'area', nLuca[0].from.indexOf('noreply@nextgenerationbusiness.it') > 0 && nLuca[0].html.indexOf('https://nextgenerationbusiness.it/area-riservata/') > 0);
+    const nAnna = perChi('anna@studio.it');
+    verifica('la lettera non partita (indirizzo rifiutato) avvisa chi l\'aveva preparata', nAnna.length === 1 && /la PEC non è partita: Cliente Cinque \(BETA TESSILE SPA\)/.test(nAnna[0].subject) && nAnna[0].text.indexOf('Correggi la PEC e reinvia') > 0, nAnna.map(m => m.subject));
+    verifica('la coda degli avvisi e\' vuota: niente arriva due volte', ![...dati.keys()].some(k => /^circAvvisi\//.test(k)) && (await cronGiro()).avvisiUtenti.inviate === 0);
+    // chi amministra prepara una lettera che non arriva: ha gia' l'email degli errori, non ne riceve una seconda
+    dati.set('archivio/persone', { json: JSON.stringify(persone.concat([{ id: 'p0', nome: 'Missori', nomeProprio: 'Andrea', email: 'a.missori@emvas.tax', attivo: true }])) });
+    const h1 = await nuova('a.missori@emvas.tax', 'inc-beta', { destinatario: 'Cliente Otto', pec: 'otto@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    await GIRO.giro(db, {});
+    const mOtto = posta[posta.length - 1];
+    ricevuta('accettazione', rifDi(mOtto));
+    ricevuta('errore-consegna', rifDi(mOtto), { errore: 'no-dest', erroreEsteso: '5.1.1 - casella piena' });
+    risposta({ da: 'otto@pec.it', oggetto: 'Riscontro', inRisposta: 'opec-' + rifDi(mOtto) });
+    await LETTORE.giro(db, { forza: true });
+    await cronGiro();
+    const nAdmin = perChi('a.missori@emvas.tax');
+    verifica('all\'amministratore che ha inviato: solo la risposta (l\'errore gli arriva con l\'email degli errori)', h1.ok && nAdmin.length === 1 && /risposta di Cliente Otto/.test(nAdmin[0].subject) && nAdmin[0].text.indexOf('PEC NON ARRIVATE') < 0, nAdmin.map(m => m.subject));
+    F.stato.rifiutaAvvisi = true;
+    const i1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Nove', pec: 'nove@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
+    await GIRO.giro(db, {});
+    risposta({ da: 'nove@pec.it', oggetto: 'Riscontro Vostra' });
+    await LETTORE.giro(db, { forza: true });
+    const ko = await cronGiro();
+    F.stato.rifiutaAvvisi = false;
+    verifica('se la posta non parte l\'avviso resta in coda', i1.ok && ko.avvisiUtenti.ok === false && perChi('anna@studio.it').length === 1);
+    await cronGiro();
+    verifica('e parte al giro dopo', perChi('anna@studio.it').length === 2 && /risposta di Cliente Nove/.test(perChi('anna@studio.it')[1].subject));
+    // gli errori nati qui (la lettera dell'amministratore non consegnata) si chiudono: la sezione dopo riparte pulita
+    const apertiOra = (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti;
+    verifica('la PEC non consegnata dell\'amministratore e\' nel registro', apertiOra.some(x => x.tipo === 'recapito' && x.destinatario === 'Cliente Otto'));
+    await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: apertiOra.map(x => x.id) });
+    await cronGiro();
+    nAvvisi = avvisi.length;
 
     // ---------- 12. supervisori, riepilogo, cancellazione ----------
     verifica('solo l\'amministratore nomina i supervisori', (await chiama('anna@studio.it', { azione: 'supervisori', supervisori: ['sara@studio.it'] })).http === 403);

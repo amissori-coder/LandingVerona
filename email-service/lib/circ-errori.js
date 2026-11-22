@@ -170,8 +170,31 @@ function messaggio(nuovi, totaleAperti) {
         + '\n\nLi trovi nell\'area riservata: Strumenti di revisione, Circolarizzazioni via PEC, scheda "Errori". Quando un errore è risolto, spuntalo.\n' + base + '/area-riservata/';
     return {
         oggetto: 'Circolarizzazioni PEC: ' + (n === 1 ? nuovi[0].titolo : n + ' errori da controllare'),
-        html: avvolgi(senzaTrattiniLunghi(html)), testo: senzaTrattiniLunghi(testo)
+        html: html, testo: testo
     };
+}
+/* Una email di posta ordinaria (SMTP_*), impaginata come le altre dello studio.
+   `interno` e' l'HTML del messaggio; torna true se e' partita. La usano anche
+   gli avvisi a chi ha inviato le lettere (lib/circ-avvisi.js). */
+async function manda(a, oggetto, interno, testo, etichetta) {
+    try {
+        const porta = Number(process.env.SMTP_PORT) || 465;
+        const posta = nodemailer.createTransport({
+            host: process.env.SMTP_HOST, port: porta, secure: porta === 465,
+            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+            connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 20000
+        });
+        await posta.sendMail({
+            from: '"' + String(process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n"]/g, ' ') + '" <' + (process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER) + '>',
+            to: a, subject: senzaTrattiniLunghi(oggetto).replace(/[\r\n]/g, ' ').slice(0, 200),
+            text: senzaTrattiniLunghi(testo), html: avvolgi(senzaTrattiniLunghi(interno)),
+            headers: { 'X-Circolarizzazioni': etichetta || 'avviso' }
+        });
+        return true;
+    } catch (x) {
+        console.error('Circolarizzazioni, email non partita (' + (etichetta || 'avviso') + '):', String((x && x.message) || x).slice(0, 200));
+        return false;
+    }
 }
 /* Manda UNA email con gli errori aperti non ancora avvisati, e li segna come
    avvisati solo se e' partita: altrimenti ci riprova il giro dopo. */
@@ -183,24 +206,10 @@ async function avvisa(db) {
     if (!postaConfigurata()) return { ok: false, avvisati: 0, msg: 'posta non configurata' };
     const d = await destinatari(db);
     const m = messaggio(nuovi, tutti.length);
-    try {
-        const porta = Number(process.env.SMTP_PORT) || 465;
-        const posta = nodemailer.createTransport({
-            host: process.env.SMTP_HOST, port: porta, secure: porta === 465,
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-            connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 20000
-        });
-        await posta.sendMail({
-            from: '"' + String(process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n"]/g, ' ') + '" <' + (process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER) + '>',
-            to: d.lista.join(', '), subject: m.oggetto.replace(/[\r\n]/g, ' ').slice(0, 200), text: m.testo, html: m.html
-        });
-    } catch (x) {
-        console.error('Circolarizzazioni, avviso degli errori non partito:', String((x && x.message) || x).slice(0, 200));
-        return { ok: false, avvisati: 0, msg: 'email non partita' };
-    }
+    if (!(await manda(d.lista.join(', '), m.oggetto, m.html, m.testo, 'errori'))) return { ok: false, avvisati: 0, msg: 'email non partita' };
     const ora = Date.now();
     for (const e of nuovi) { try { await db.collection(ERR).doc(e.id).set({ avvisato: ora }, { merge: true }); } catch (_) { /* al massimo arriva due volte */ } }
     return { ok: true, avvisati: nuovi.length, a: d.lista };
 }
 
-module.exports = { ERR, TIPI, segna, diLettera, aperti, elenco, conta, risolvi, riapri, dimenticaIncarico, avvisa, destinatari, postaConfigurata, _interni: { messaggio, idDa } };
+module.exports = { ERR, TIPI, segna, diLettera, aperti, elenco, conta, risolvi, riapri, dimenticaIncarico, avvisa, manda, destinatari, postaConfigurata, _interni: { messaggio, idDa } };
