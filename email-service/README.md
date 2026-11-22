@@ -949,24 +949,39 @@ nel testo della PEC**. I conteggi di ogni incarico sono tenuti anche per area
 (`perAmbito` in `circIncarichi`): l'elenco di un'area mostra solo i suoi numeri.
 
 **Preparare l'invio.** Nella finestra "Nuove lettere" le tabelle delle
-tipologie sono **tutte gia' pronte**, ognuna con la sua prima riga e con
-"Aggiungi una riga" e "Incolla da Excel" nella testata. In ogni riga si
-scrive tutto quello che serve alla lettera: denominazione, PEC, saldo dove
-previsto, nota, lettera in PDF e poi **quando**: il giorno entro cui
-rispondere e, per ciascuno dei due solleciti, il giorno, l'orario e il nuovo
-termine. Il giorno si sceglie dal calendario (si apre appena si tocca il
-campo), l'orario da un elenco, ogni mezz'ora dalle 6 alle 21. Sopra le tabelle
-resta solo "Bilancio al", che vale per tutto l'incarico.
+tipologie sono **tutte gia' pronte**, fatte come fogli di calcolo: una cella
+per dato, griglia sottile, numeri di riga, larghe quanto le loro colonne e
+non quanto la pagina (su uno schermo stretto scorrono di lato, con la
+denominazione ferma). Ogni tabella ha sempre in fondo una riga libera, e
+"Aggiungi una riga" e "Incolla da Excel" nella testata. In ogni riga si scrive
+tutto quello che serve alla lettera: denominazione, PEC, saldo dove previsto,
+nota, **la sua lettera in PDF (una per riga: non si caricano piu' PDF
+insieme)** e poi **quando**: il giorno entro cui rispondere e, per ciascuno
+dei due solleciti, giorno, ora e nuovo termine. Il giorno si sceglie dal
+calendario (si apre appena si tocca la cella), l'ora da un elenco, ogni
+mezz'ora dalle 6 alle 21. Sopra le tabelle resta solo "Bilancio al", che vale
+per tutto l'incarico.
 
-Per non riscrivere le date a ogni riga: una riga nuova (aggiunta o incollata)
-parte dalle date dell'ultima riga toccata; cambiando il termine i solleciti lo
-seguono, finche' non li si sceglie a mano; "Stesse date in tutte le righe"
-copia le date della prima riga compilata sulle altre. Un sollecito senza
-giorno non parte.
+**Le stesse date per piu' lettere.** Una riga nuova (aggiunta o incollata)
+parte dalle date dell'ultima riga toccata, e cambiando il termine i solleciti
+lo seguono finche' non li si sceglie a mano. Per chi ha gia' compilato piu'
+righe c'e' **"Copia date"**, in ogni riga: copia il termine e i solleciti di
+QUELLA riga su tutte le altre ancora da inviare, in tutte le tabelle. Prima
+di farlo dice quali date sono, quante righe cambiano e che le lettere gia'
+inviate non cambiano. Un sollecito senza giorno non parte.
 
-**Dopo l'invio la finestra resta aperta**: le lettere partite restano in
-tabella con il loro riferimento, e si possono aggiungere altre righe e inviare
-ancora. I PDF si possono anche scegliere tutti insieme (si abbinano dal nome).
+**Le lettere gia' inviate restano in tabella**, in grigio, sopra le righe
+nuove: subito dopo l'invio e anche tornando in un secondo momento. Quello che
+e' gia' stato fatto non si tocca: destinatario, PEC, lettera e termine della
+prima PEC sono fermi, e cosi' un sollecito gia' partito. Si possono cambiare
+**solo i solleciti che non sono ancora partiti** (giorno, ora, nuovo termine;
+anche aggiungerne o toglierne uno), e non quando la lettera e' annullata, non
+consegnata o ha gia' avuto risposta. La modifica non vale finche' non si
+preme "Salva" nella riga: fino ad allora le celle cambiate restano colorate,
+"Annulla" rimette le date di prima, e chiudendo la finestra si viene avvisati.
+"Salva" chiama l'azione `solleciti`, quindi la modifica finisce nel registro
+delle operazioni con il prima e il dopo.
+
 Le tabelle a video e quelle del report hanno la stessa divisione: quello che
 si inserisce qui e' quello che si ritrova stampato.
 

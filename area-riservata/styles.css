@@ -4485,10 +4485,6 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
     font-size: 0.92rem; font-weight: 700; color: var(--blu-900); background: var(--grigio-050); border-left: 3px solid var(--blu-700); border-radius: 0 var(--raggio-sm) var(--raggio-sm) 0;
 }
 .pc-tipo-tit span { font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); white-space: nowrap; }
-.pc-tipi { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 16px; }
-.pc-tipi-et { flex-basis: 100%; font-size: 0.8rem; font-weight: 600; color: var(--grigio-700); }
-.pc-tipi .btn { margin: 0; }
-.pc-n-vuoto { margin: 0 0 12px; }
 .pc-bozza { margin: 0 0 14px; padding: 9px 12px; font-size: 0.84rem; line-height: 1.5; color: var(--grigio-700); background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: var(--raggio); text-align: justify; }
 .pc-bozza strong { color: var(--blu-900); }
 .pc-bozza .pc-link { margin-left: 4px; }
@@ -4503,7 +4499,6 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
 .pc-pdf-posto.ok { background: var(--verde-bg, #E8F5EC); color: var(--verde, #1E7A3C); }
 .pc-pdf-posto.su { background: var(--blu-050); color: var(--blu-700); }
 .pc-pdf-posto.no { background: var(--ambra-bg); color: #7A5600; white-space: normal; border-radius: 6px; }
-table.pc-righe input.pc-r-saldo { min-width: 110px; text-align: right; font-variant-numeric: tabular-nums; }
 /* il report degli invii esiste solo in stampa */
 .pc-nota { display: block; font-size: 0.78rem; line-height: 1.35; color: var(--grigio-600); margin-top: 3px; font-weight: 400; }
 .badge + .pc-nota { margin-top: 4px; }
@@ -4593,17 +4588,22 @@ table.pc-errori .pc-link { display: block; margin-top: 4px; }
 .pc-sollecito { border-left: 3px solid var(--grigio-200); padding: 4px 0 0 14px; margin: 0 0 10px; }
 .pc-sollecito > .pc-spunta { margin-bottom: 8px; }
 /* ---- nuove lettere: la testata, e una tabella per tipologia con le date dentro ogni riga ---- */
-.pc-n-testa { display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; gap: 8px 22px; align-items: end; margin: 0 0 16px; padding: 12px 14px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio); }
+.pc-n-testa { display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; gap: 8px 22px; align-items: start; margin: 0 0 16px; padding: 12px 14px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio); }
 .pc-n-testa .campo { margin: 0; }
 .pc-n-testa .campo input { width: 100%; }
-.pc-n-testa .hint { margin: 0; max-width: none; text-align: justify; }
-.pc-n-attrezzi { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 420px; }
+.pc-n-guida { margin: 0; padding: 0 0 0 18px; font-size: 0.82rem; line-height: 1.5; color: var(--grigio-600); text-align: justify; }
+.pc-n-guida li + li { margin-top: 3px; }
+.pc-n-guida strong { color: var(--blu-900); }
+.pc-n-attrezzi { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 .pc-n-attrezzi .btn { margin: 0; }
-.pc-nuove .pc-n-sez + .pc-n-sez { margin-top: 14px; }
-.pc-tipo-tit.pc-n-tit { justify-content: flex-start; align-items: center; gap: 4px 12px; margin-bottom: 6px; padding: 6px 8px 6px 12px; }
+@media (max-width: 900px) {
+    .pc-n-testa { grid-template-columns: minmax(0, 1fr); }
+    .pc-n-attrezzi { justify-content: flex-start; }
+}
+.pc-nuove .pc-n-sez + .pc-n-sez { margin-top: 16px; }
+.pc-tipo-tit.pc-n-tit { justify-content: flex-start; align-items: center; gap: 4px 12px; margin-bottom: 0; padding: 5px 6px 5px 12px; border-radius: 0; background: #E9EEF3; }
 .pc-tipo-tit.pc-n-tit .pc-n-azioni { margin-left: auto; display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .pc-tipo-tit.pc-n-tit .pc-n-azioni .btn { margin: 0; }
-.pc-n-nessuna { margin: 0 0 2px 15px; font-size: 0.82rem; color: var(--grigio-500); }
 /* l'esito dell'invio e gli errori restano in vista in fondo alla finestra, ovunque si sia scorso */
 .pc-n-messaggi { position: sticky; bottom: 0; z-index: 2; margin-top: 12px; background: #fff; }
 .pc-n-messaggi:empty, .pc-n-messaggi:not(:has(p:not([hidden]))) { display: none; }
@@ -4611,41 +4611,58 @@ table.pc-errori .pc-link { display: block; margin-top: 4px; }
 .pc-n-messaggi p + p { margin-top: 6px; }
 .pc-n-messaggi .msg-errore { padding: 9px 12px; border-radius: var(--raggio); background: var(--rosso-bg); border: 1px solid #F3B8B4; font-weight: 600; }
 .pc-n-esito { padding: 9px 12px; border-radius: var(--raggio); background: var(--verde-bg); border: 1px solid #BFE1CD; color: #17643E; font-size: 0.88rem; font-weight: 600; }
-table.pc-righe { table-layout: fixed; width: 100%; min-width: 1130px; }
-table.pc-righe.con-saldo { min-width: 1240px; }
-table.pc-righe th, table.pc-righe td { padding: 6px 6px; }
-/* le colonne delle date e del PDF hanno la loro misura; il resto va a denominazione e PEC, che ne hanno piu' bisogno */
-table.pc-righe th.c-pdf { width: 142px; } table.pc-righe th.c-entro { width: 132px; } table.pc-righe th.c-sol { width: 204px; }
-table.pc-righe th.c-via { width: 46px; } table.pc-righe th.c-saldo { width: 104px; } table.pc-righe th.c-nota { width: 11%; }
-table.pc-righe td { vertical-align: top; }
-table.pc-righe input, table.pc-righe select { min-width: 0 !important; }
-table.pc-righe input[type="date"] {
-    width: 100%; padding: 6px 5px; font: inherit; font-size: 0.84rem; color: var(--grigio-900); cursor: pointer;
-    background: #fff; border: 1px solid var(--grigio-300, #CBD5E1); border-radius: var(--raggio-sm);
+/* ---- nuove lettere: le tabelle, come fogli di calcolo ----
+   Una cella, un dato; griglia sottile, intestazioni grigie, la cella in cui
+   si scrive bordata di verde. La tabella e' larga quanto le sue colonne, non
+   quanto la pagina: su uno schermo stretto scorre di lato, con il numero di
+   riga e la denominazione che restano fermi. */
+.pc-nuove .pc-n-sez { width: fit-content; max-width: 100%; }
+.pc-xls-wrap { max-width: 100%; overflow-x: auto; border: 1px solid #C8CCD0; background: #fff; }
+table.pc-xls { table-layout: fixed; border-collapse: collapse; font-size: 0.8rem; line-height: 1.3; color: #1F2933; }
+table.pc-xls th, table.pc-xls td { border: 1px solid #D4D7DB; padding: 0; height: 28px; vertical-align: middle; overflow: hidden; }
+table.pc-xls thead th { background: #F1F3F4; color: #3C4043; font-weight: 600; font-size: 0.74rem; text-align: center; padding: 3px 5px; height: 24px; line-height: 1.15; white-space: normal; }
+table.pc-xls th.x-n { background: #F1F3F4; color: #5F6368; font-weight: 500; font-size: 0.72rem; text-align: center; }
+table.pc-xls tbody th.x-n, table.pc-xls tbody td:nth-child(2) { position: sticky; z-index: 1; }
+table.pc-xls tbody th.x-n { left: 0; }
+table.pc-xls tbody td:nth-child(2) { left: 28px; background: #fff; box-shadow: 1px 0 0 #D4D7DB; }
+table.pc-xls input[type="text"], table.pc-xls input[type="email"], table.pc-xls input[type="date"], table.pc-xls select {
+    display: block; width: 100%; height: 27px; margin: 0; padding: 0 6px; border: 0; border-radius: 0; background: transparent;
+    font: inherit; color: inherit; outline: none; box-shadow: none; min-width: 0;
 }
-.pc-r-quando-su { display: flex; gap: 4px; }
-.pc-r-quando-su input[type="date"] { flex: 1 1 auto; }
-table.pc-righe select.pc-r-ora { flex: 0 0 70px; width: 70px; padding: 6px 1px 6px 4px; cursor: pointer; }
-.pc-r-entro { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.72rem; color: var(--grigio-600); white-space: nowrap; }
-.pc-r-entro input[type="date"] { flex: 1 1 auto; padding-top: 4px !important; padding-bottom: 4px !important; }
-/* una riga ancora da compilare: le sue date ci sono gia', ma non devono fare rumore */
-table.pc-righe tr.pc-r-vuota .pc-r-quando { opacity: 0.45; }
-table.pc-righe tr.pc-r-vuota .pc-r-quando:focus-within, table.pc-righe tr.pc-r-vuota .pc-r-quando:hover { opacity: 1; }
-/* e occupa una riga sola: il nuovo termine dei solleciti compare quando la riga comincia a riempirsi */
-table.pc-righe tr.pc-r-vuota .pc-r-entro { display: none; }
-.pc-r-via-cella { text-align: right; }
-@media screen and (max-width: 1200px) {
-    table.pc-righe, table.pc-righe.con-saldo { min-width: 0; table-layout: auto; }
-    .pc-n-testa { grid-template-columns: minmax(0, 1fr); }
-    .pc-n-attrezzi { justify-content: flex-start; max-width: none; }
-}
-table.pc-righe input[type="text"], table.pc-righe input[type="email"], table.pc-righe select {
-    width: 100%; min-width: 150px; padding: 7px 9px; font: inherit; font-size: 0.86rem; color: var(--grigio-900);
-    background: #fff; border: 1px solid var(--grigio-300, #CBD5E1); border-radius: var(--raggio-sm);
-}
-table.pc-righe input:focus, table.pc-righe select:focus { outline: 2px solid var(--blu-500); outline-offset: 0; border-color: var(--blu-500); }
-table.pc-righe input:disabled, table.pc-righe select:disabled { background: var(--grigio-050); color: var(--grigio-600); }
-table.pc-righe tr.pc-fatta td { background: #F3FAF6; }
+table.pc-xls input::placeholder { color: #A8AEB5; }
+table.pc-xls input[type="date"], table.pc-xls select { cursor: pointer; padding: 0 2px 0 4px; }
+table.pc-xls select { padding-right: 0; }
+table.pc-xls input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; padding: 0 0 0 1px; width: 13px; height: 13px; opacity: 0.6; cursor: pointer; }
+table.pc-xls td:focus-within { outline: 2px solid #217346; outline-offset: -2px; }
+table.pc-xls td.x-num, table.pc-xls td.x-num input { text-align: right; font-variant-numeric: tabular-nums; }
+table.pc-xls td.x-quando { text-align: center; font-variant-numeric: tabular-nums; }
+table.pc-xls td.x-fermo { padding: 0 6px; background: #F6F7F8; color: #5F6368; white-space: nowrap; text-overflow: ellipsis; }
+table.pc-xls td.x-fermo.x-num { text-align: right; }
+table.pc-xls tr.pc-fatta td:nth-child(2) { background: #F6F7F8; font-weight: 600; color: #3C4043; }
+table.pc-xls td.x-cambiata { background: #FFF4C2; }
+table.pc-xls tr.pc-r-vuota td.x-quando input, table.pc-xls tr.pc-r-vuota td.x-quando select { color: #A8AEB5; }
+table.pc-xls tr.pc-r-vuota td.x-quando:focus-within input, table.pc-xls tr.pc-r-vuota td.x-quando:focus-within select { color: inherit; }
+table.pc-xls tbody tr:hover th.x-n { background: #E3E7EA; color: #1F2933; }
+/* la lettera in PDF, lo stato e le azioni: celle che possono andare su due righe */
+table.pc-xls td.x-pdf, table.pc-xls td.x-stato, table.pc-xls td.x-azioni { padding: 3px 6px; height: auto; white-space: normal; }
+table.pc-xls td.x-pdf .pc-file { display: block; margin: 0; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.pc-xls td.x-pdf .pc-file .pc-link { display: inline; max-width: 100%; font-size: inherit; }
+table.pc-xls td.x-pdf .pc-pdf-posto { margin: 1px 6px 0 0; padding: 0 6px; font-size: 0.68rem; }
+table.pc-xls td.x-pdf .pc-file-btn { font-size: 0.76rem; }
+table.pc-xls td.x-fermo.x-pdf { padding: 0 6px; }
+table.pc-xls td.x-stato .badge { font-size: 0.68rem; padding: 1px 7px; }
+table.pc-xls td.x-stato .pc-codice { display: block; margin-top: 1px; font-size: 0.7rem; color: #5F6368; }
+table.pc-xls td.x-stato .pc-errore-riga, table.pc-xls td.x-stato .pc-nota { font-size: 0.72rem; line-height: 1.3; }
+table.pc-xls td.x-stato .pc-spunta { font-size: 0.72rem; gap: 4px; margin-top: 2px; }
+.pc-x-da-inviare { font-size: 0.72rem; color: #5F6368; }
+table.pc-xls td.x-azioni { white-space: nowrap; text-align: center; }
+.pc-x-az { margin: 0 2px; padding: 1px 6px; border: 1px solid transparent; border-radius: 3px; background: none; font: inherit; font-size: 0.72rem; font-weight: 600; color: var(--blu-700); cursor: pointer; }
+.pc-x-az:hover { border-color: #C8CCD0; background: #F1F3F4; }
+.pc-x-az.pc-x-via { color: #8A9099; font-weight: 400; padding: 1px 5px; }
+.pc-x-az.pc-x-via:hover { color: var(--rosso); }
+.pc-x-az.pc-x-salva { border-color: #217346; background: #217346; color: #fff; }
+.pc-x-az.pc-x-salva:hover { background: #1A5C38; }
+table.pc-xls tr.pc-r-modificata th.x-n { background: #FFE58F; color: #5C4300; }
 .pc-file { display: block; font-size: 0.84rem; color: var(--grigio-900); overflow-wrap: anywhere; margin-bottom: 2px; }
 .pc-file-btn { cursor: pointer; }
 .pc-r-stato:empty { display: none; }
@@ -4786,7 +4803,6 @@ body.pc-stampa-report { overflow: hidden; }
 }
 @media (max-width: 640px) {
     .pc-date { grid-template-columns: minmax(0, 1fr); }
-    table.pc-righe input[type="text"], table.pc-righe input[type="email"], table.pc-righe select { min-width: 0; }
 }
 @media print {
     /* il report degli invii: in stampa resta solo il foglio dell'anteprima */
