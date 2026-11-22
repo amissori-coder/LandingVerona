@@ -7,6 +7,8 @@
    lavoro trascritta passo per passo (carte{}) e documenti (allegati{}).
    cartaAnnoPrecedente: la riga dell'anno non ha ancora una carta e vale
    quella dell'anno prima della stessa attivita'.
+   apribile: false = la riga resta nel piano e nel calendario ma la sua
+   scheda non si apre (avviso: il perche', mostrato al posto di "Apri").
 
    I documenti collegati nelle carte sono in
    strumenti-revisione/allegati/ (copiati da Drive il 21/11/2026);
@@ -37,28 +39,36 @@ window.RV_STRUMENTI_REVISIONE = {
      "attivita": "accettazione",
      "nome": "Accettazione/mantenimento incarico",
      "inizio": "2026-04-01",
-     "fine": "2026-09-30"
+     "fine": "2026-09-30",
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
      "attivita": "revisoreUscente",
      "nome": "Scambio informazioni revisore uscente",
      "inizio": "2026-04-01",
-     "fine": "2026-09-30"
+     "fine": "2026-09-30",
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
      "attivita": "pianificazione",
      "nome": "Pianificazione e identificazione del rischio",
      "inizio": "2026-07-01",
-     "fine": "2026-09-30"
+     "fine": "2026-09-30",
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
      "attivita": "strategia",
      "nome": "Strategia di audit e piano di revisione",
      "inizio": "2026-09-01",
-     "fine": "2026-11-30"
+     "fine": "2026-11-30",
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
@@ -66,14 +76,18 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Modello IVA",
      "inizio": "2026-03-16",
      "fine": "2026-05-16",
-     "cartaAnnoPrecedente": true
+     "cartaAnnoPrecedente": true,
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
      "attivita": "redditi",
      "nome": "Modello Redditi/IRAP/CNM/770",
      "inizio": "2026-09-01",
-     "fine": "2026-10-31"
+     "fine": "2026-10-31",
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
@@ -81,7 +95,9 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 1° trimestre",
      "inizio": "2026-03-20",
      "fine": "2026-05-16",
-     "cartaAnnoPrecedente": true
+     "cartaAnnoPrecedente": true,
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
@@ -89,7 +105,9 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 2° trimestre",
      "inizio": "2026-06-20",
      "fine": "2026-08-10",
-     "cartaAnnoPrecedente": true
+     "cartaAnnoPrecedente": true,
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
@@ -97,7 +115,9 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 3° trimestre",
      "inizio": "2026-09-16",
      "fine": "2026-11-16",
-     "cartaAnnoPrecedente": true
+     "cartaAnnoPrecedente": true,
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "interim",
@@ -105,7 +125,9 @@ window.RV_STRUMENTI_REVISIONE = {
      "nome": "Verifica 4° trimestre",
      "inizio": "2026-12-20",
      "fine": "2027-02-16",
-     "cartaAnnoPrecedente": true
+     "cartaAnnoPrecedente": true,
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "final",
@@ -144,7 +166,9 @@ window.RV_STRUMENTI_REVISIONE = {
      "attivita": "dichiarazioni",
      "nome": "Sottoscrizione dichiarazioni fiscali 2026 (2025)",
      "inizio": "2026-02-13",
-     "fine": "2026-02-28"
+     "fine": "2026-02-28",
+     "apribile": false,
+     "avviso": "Ci lavoreremo direttamente sul piano 2027."
     },
     {
      "fase": "final",
