@@ -77,21 +77,27 @@ const LIMITI = {
    si chiede di confermare, e proporre la carta di lavoro giusta. `oggetto`
    completa la frase "la richiesta di conferma ...". */
 const CATEGORIE = {
-    banca: { nome: 'Istituto di credito', oggetto: 'dei rapporti bancari intrattenuti con la Società (saldi, affidamenti, garanzie e firme autorizzate)' },
-    finanziatore: { nome: 'Ente finanziatore', oggetto: 'dei finanziamenti e degli altri rapporti in essere con la Società' },
-    posta: { nome: 'Amministrazione postale', oggetto: 'dei rapporti di conto intrattenuti con la Società' },
-    leasing: { nome: 'Società di leasing', oggetto: 'dei contratti di locazione finanziaria in essere con la Società' },
-    factor: { nome: 'Società di factoring', oggetto: 'dei rapporti di factoring in essere con la Società' },
-    assicurazione: { nome: 'Compagnia assicurativa', oggetto: 'delle coperture assicurative e dei rapporti in essere con la Società' },
-    legale: { nome: 'Consulente legale', oggetto: 'delle controversie, delle passività potenziali e dei compensi maturati' },
-    fiscale: { nome: 'Consulente fiscale', oggetto: 'delle posizioni fiscali, dei contenziosi e dei compensi maturati' },
-    lavoro: { nome: 'Consulente del lavoro', oggetto: 'delle posizioni in materia di lavoro, dei contenziosi e dei compensi maturati' },
-    depositario: { nome: 'Depositario di merci', oggetto: 'delle merci e dei beni della Società in giacenza presso di Voi' },
-    correlata: { nome: 'Parte correlata o società del gruppo', oggetto: 'dei saldi e delle operazioni intercorse con la Società' },
-    cliente: { nome: 'Cliente', oggetto: 'del saldo a Vostro debito nei confronti della Società' },
-    fornitore: { nome: 'Fornitore', oggetto: 'del saldo a Vostro credito nei confronti della Società' },
-    altro: { nome: 'Altro soggetto', oggetto: 'delle informazioni indicate nella lettera allegata' }
+    banca: { nome: 'Istituti di credito', uno: 'Istituto di credito', oggetto: 'dei rapporti bancari intrattenuti con la Società (saldi, affidamenti, garanzie e firme autorizzate)' },
+    finanziatore: { nome: 'Enti finanziatori', uno: 'Ente finanziatore', oggetto: 'dei finanziamenti e degli altri rapporti in essere con la Società' },
+    posta: { nome: 'Amministrazione postale', uno: 'Amministrazione postale', oggetto: 'dei rapporti di conto intrattenuti con la Società' },
+    leasing: { nome: 'Società di leasing', uno: 'Società di leasing', oggetto: 'dei contratti di locazione finanziaria in essere con la Società' },
+    factor: { nome: 'Società di factoring', uno: 'Società di factoring', oggetto: 'dei rapporti di factoring in essere con la Società' },
+    assicurazione: { nome: 'Compagnie assicurative', uno: 'Compagnia assicurativa', oggetto: 'delle coperture assicurative e dei rapporti in essere con la Società' },
+    legale: { nome: 'Consulenti legali', uno: 'Consulente legale', oggetto: 'delle controversie, delle passività potenziali e dei compensi maturati' },
+    fiscale: { nome: 'Consulenti fiscali', uno: 'Consulente fiscale', oggetto: 'delle posizioni fiscali, dei contenziosi e dei compensi maturati' },
+    lavoro: { nome: 'Consulenti del lavoro', uno: 'Consulente del lavoro', oggetto: 'delle posizioni in materia di lavoro, dei contenziosi e dei compensi maturati' },
+    depositario: { nome: 'Depositari di merci', uno: 'Depositario di merci', oggetto: 'delle merci e dei beni della Società in giacenza presso di Voi' },
+    correlata: { nome: 'Parti correlate e società del gruppo', uno: 'Parte correlata o società del gruppo', oggetto: 'dei saldi e delle operazioni intercorse con la Società' },
+    altro: { nome: 'Altri soggetti', uno: 'Altro soggetto', oggetto: 'delle informazioni indicate nella lettera allegata' },
+    cliente: { nome: 'Clienti', uno: 'Cliente', ambito: 'clientiFornitori', saldo: true, oggetto: 'del saldo a Vostro debito nei confronti della Società' },
+    fornitore: { nome: 'Fornitori', uno: 'Fornitore', ambito: 'clientiFornitori', saldo: true, oggetto: 'del saldo a Vostro credito nei confronti della Società' }
 };
+/* Le due aree del piano di revisione: le circolarizzazioni obbligatorie (tutti
+   i soggetti dell'attestazione) e quella di clienti e fornitori (a campione).
+   Ogni tipologia di lettera sta in una sola area: e' cosi' che le tabelle
+   degli invii e il report escono divisi come le carte di lavoro. */
+const AMBITI = { obbligatorie: 'Circolarizzazioni obbligatorie', clientiFornitori: 'Circolarizzazione clienti e fornitori' };
+function ambitoDi(categoria) { return (CATEGORIE[categoria] || {}).ambito || 'obbligatorie'; }
 const PASSI = ['primo', 'sollecito1', 'sollecito2'];
 const NOME_PASSO = { primo: 'Invio', sollecito1: 'Primo sollecito', sollecito2: 'Secondo sollecito' };
 
@@ -191,6 +197,17 @@ function controllaRichiesta(b, oggi) {
     if (!giornoValido(scadenza) || scadenza <= oggi) return { ok: false, msg: 'La data entro cui rispondere deve essere successiva a oggi.' };
     const bilancio = String(b.bilancio || '');
     if (!giornoValido(bilancio)) return { ok: false, msg: 'Indica la data di chiusura del bilancio.' };
+    /* Il saldo da confermare (clienti e fornitori) e una nota: non servono
+       all'invio, servono al report, che li riporta accanto alla lettera. Il
+       saldo si scrive all'italiana ("12.345,67") o con il punto decimale. */
+    let saldo = null;
+    const grezzo = String(b.saldo == null ? '' : b.saldo).replace(/\s|€/g, '');
+    if (grezzo) {
+        const n = Number(/,/.test(grezzo) ? grezzo.replace(/\./g, '').replace(',', '.') : grezzo);
+        if (!Number.isFinite(n) || Math.abs(n) > 1e12) return { ok: false, msg: 'Il saldo di ' + nome + ' non è un numero.' };
+        saldo = Math.round(n * 100) / 100;
+    }
+    const nota = unaRiga(b.nota, 200);
 
     const sollecito = (x, etichetta, dopo) => {
         if (!x || !x.data) return { ok: true, dati: null };
@@ -213,7 +230,7 @@ function controllaRichiesta(b, oggi) {
     return {
         ok: true,
         dati: {
-            destinatario: nome, pec: pec, categoria: categoria, scadenza: scadenza, bilancio: bilancio,
+            destinatario: nome, pec: pec, categoria: categoria, scadenza: scadenza, bilancio: bilancio, saldo: saldo, nota: nota,
             sollecito1: s1.dati, sollecito2: s2.dati,
             allegato: { nome: nomeFile(b.allegatoNome), dimensione: dimensione, pezzi: Math.ceil(dimensione / LIMITI.pezzoByte) }
         }
@@ -371,7 +388,7 @@ function messaggio(invio, passo) {
 }
 
 module.exports = {
-    configurazione, configurato, LIMITI, CATEGORIE, PASSI, NOME_PASSO, EMAIL_RE,
+    configurazione, configurato, LIMITI, CATEGORIE, AMBITI, ambitoDi, PASSI, NOME_PASSO, EMAIL_RE,
     giornoValido, giornoRoma, istanteRoma, aggiungiGiorni, dataEstesa, dataBreve,
     codiceNuovo, codiceDa, riferimentoNuovo, unaRiga, nomeFile, megabyte,
     controllaRichiesta, oggetto, testoSemplice, html, datiMessaggio, messaggio

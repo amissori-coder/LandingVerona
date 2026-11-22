@@ -258,6 +258,13 @@ function conteggi(schede, oggi) {
     return c;
 }
 
+/* Gli stessi conteggi, divisi per area (obbligatorie, clienti e fornitori). */
+function conteggiPerAmbito(schede, oggi) {
+    const out = {};
+    Object.keys(C.AMBITI).forEach(a => { out[a] = conteggi((schede || []).filter(x => C.ambitoDi(x.categoria) === a), oggi); });
+    return out;
+}
+
 /* ============================================================
    LETTURE
    ============================================================ */
@@ -287,13 +294,14 @@ async function riepiloghi(db, ids) {
     for (const s of docs) {
         const d = s.data() || {};
         // i conteggi "scadute" cambiano col calendario: si rifanno anche al cambio di giorno
-        if (d.sporco || !d.conteggi || d.giorno !== oggi) {
+        if (d.sporco || !d.conteggi || !d.perAmbito || d.giorno !== oggi) {
             const schede = await schedeIncarico(db, s.id);
             d.conteggi = conteggi(schede, oggi);
+            d.perAmbito = conteggiPerAmbito(schede, oggi);
             d.giorno = oggi;
-            try { await db.collection(INC).doc(s.id).set({ conteggi: d.conteggi, giorno: oggi, sporco: false, aggiornato: Date.now() }, { merge: true }); } catch (_) { /* si rifaranno */ }
+            try { await db.collection(INC).doc(s.id).set({ conteggi: d.conteggi, perAmbito: d.perAmbito, giorno: oggi, sporco: false, aggiornato: Date.now() }, { merge: true }); } catch (_) { /* si rifaranno */ }
         }
-        out[s.id] = { cliente: String(d.cliente || ''), conteggi: d.conteggi };
+        out[s.id] = { cliente: String(d.cliente || ''), conteggi: d.conteggi, perAmbito: d.perAmbito };
     }
     return out;
 }
@@ -340,6 +348,7 @@ async function crea(db, prof, inc, dati, opz) {
     const inv = {
         incaricoId: String(inc.id), cliente: String(inc.cliente || ''),
         destinatario: dati.destinatario, pec: dati.pec, categoria: dati.categoria,
+        saldo: dati.saldo == null ? null : dati.saldo, nota: dati.nota || '',
         bilancio: dati.bilancio, scadenza: dati.scadenza, codice: codice,
         allegato: Object.assign({}, dati.allegato, { sha256: '' }), allegatoFino: null,
         creato: { il: ora, da: prof.email, nome: prof.nome },
@@ -829,7 +838,7 @@ async function pulizia(db, ora, max) {
 module.exports = {
     INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, RIPROVA_MS, MAX_TENTATIVI,
     profilo, incaricoDi, impostazioni, docImpostazioni,
-    statoDi, prossimoDi, passoDovuto, conteggi, passo, inviato, esitoPasso,
+    statoDi, prossimoDi, passoDovuto, conteggi, conteggiPerAmbito, passo, inviato, esitoPasso,
     schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, leggiAllegato,
     chiaviMsgId, trovaRiferimento, prendi, esitoInvio,
     applicaRicevuta, registraRisposta, candidatiPerIndirizzo,

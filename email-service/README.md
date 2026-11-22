@@ -891,6 +891,48 @@ chi chiama, e un messaggio della casella si apre solo se e' elencato su quella
 lettera: senza, basterebbe un numero a caso per leggere la posta di un altro
 incarico. Gli incarichi in stato "proposta" o "non accettato" non compaiono.
 
+### Due aree, e dentro ogni area le tipologie di lettera
+
+Le lettere stanno in **due aree** (`AMBITI` in `lib/circ-comune.js`), le
+stesse due attivita' del piano in Strumenti di revisione, ognuna con il suo
+pulsante "Invia le PEC" accanto ad "Apri":
+
+- **Circolarizzazioni obbligatorie**: istituti di credito, consulenti legali,
+  consulenti fiscali e le altre tipologie senza saldo;
+- **Circolarizzazione clienti e fornitori**: clienti e fornitori, con il
+  **saldo** alla data di bilancio.
+
+L'area di una lettera la decide la sua tipologia (`CATEGORIE`, campo `ambito`):
+non si sceglie a mano e non puo' essere sbagliata. Ogni scheda porta anche il
+`saldo` (solo dove la tipologia lo prevede) e una `nota` libera di 200
+caratteri (il conto, la pratica, la fattura): servono al report, **non entrano
+nel testo della PEC**. I conteggi di ogni incarico sono tenuti anche per area
+(`perAmbito` in `circIncarichi`): l'elenco di un'area mostra solo i suoi numeri.
+
+**Preparare l'invio.** Nell'area riservata chi invia apre una tabella per
+ogni tipologia che gli serve e la riempie: denominazione, PEC, saldo dove
+previsto, nota, lettera in PDF. Le righe si possono incollare da Excel, una
+tipologia per volta, e i PDF scegliere tutti insieme (si abbinano dal nome).
+Le tabelle a video e quelle del report hanno le stesse colonne: quello che si
+inserisce qui e' quello che si ritrova stampato.
+
+**La bozza resta sul computer.** Mentre si compila, righe e PDF si salvano da
+soli **nel browser di chi sta lavorando** (le righe in `localStorage`, i PDF in
+IndexedDB, base `rvCircBozze`), una bozza per persona, incarico e area. Se cade
+la connessione, si chiude la scheda o scade l'accesso, riaprendo "Nuove
+lettere" si ritrova tutto; la bozza sparisce quando le lettere sono in coda o
+quando la si svuota. Non passa dal servizio e non occupa spazio su Firestore:
+per questo **non segue la persona su un altro computer** e si perde se si
+cancellano i dati del browser.
+
+**Il report degli invii.** Dalla pagina dell'incarico, "Stampa il report"
+produce per l'area aperta un foglio orizzontale con i dati dell'incarico, i
+totali e **una tabella per tipologia**: denominazione, PEC, riferimento, saldo,
+primo invio, recapito, primo e secondo sollecito, risposta, note, con i totali
+di tipologia. E' la carta di lavoro che sostituisce il vecchio "Report del
+team" in Excel, tolto dagli allegati delle due attivita': si stampa o si salva
+in PDF dal browser. Il riepilogo in Excel resta, con le stesse colonne.
+
 ### Dalla lettera alla PEC
 
 1. `crea`: i dati passano i controlli (`controllaRichiesta`) e nasce una
@@ -1079,7 +1121,8 @@ Firestore, il server di posta e la casella sono finti (`prove/circ-finti.js`),
 il codice provato e' quello vero: permessi, PDF, invii concorrenti, ricevute,
 solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
 tetto orario, registro degli errori (una riga per problema, una sola email,
-spunta e riapertura), avvisi a chi ha inviato la lettera, cancellazione.
+spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
+conteggi, saldo e note, cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:
