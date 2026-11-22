@@ -1162,7 +1162,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 9,
-       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: per ogni tipologia si compila la tabella dei destinatari (denominazione, PEC, lettera firmata in PDF), si indica la data entro cui rispondere e si programmano il primo e il secondo sollecito. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it.",
+       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: le tabelle delle tipologie sono già pronte: in ogni riga si scrivono denominazione e PEC, si allega la lettera firmata in PDF e si scelgono, dal calendario, il giorno entro cui rispondere e il giorno e l'orario del primo e del secondo sollecito. Dopo l'invio si possono aggiungere altre righe. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it.",
        "doc": [
         {
          "p": "obbligatorie",
@@ -1471,7 +1471,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 10,
-       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: per ogni tipologia si compila la tabella dei destinatari (denominazione, PEC, lettera firmata in PDF), si indica la data entro cui rispondere e si programmano il primo e il secondo sollecito. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it.",
+       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: le tabelle delle tipologie sono già pronte: in ogni riga si scrivono denominazione e PEC, si allega la lettera firmata in PDF e si scelgono, dal calendario, il giorno entro cui rispondere e il giorno e l'orario del primo e del secondo sollecito. Dopo l'invio si possono aggiungere altre righe. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it.",
        "doc": [
         {
          "p": "clientiFornitori",
@@ -3222,4 +3222,4 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  }
 };
-window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=f38455a87d", "pagine": 39, "kb": 822, "documenti": 18}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=e273253d68", "pagine": 29, "kb": 1243, "documenti": 11}}};
+window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=30b72cfdd3", "pagine": 39, "kb": 822, "documenti": 18}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=f8232ea992", "pagine": 29, "kb": 1244, "documenti": 11}}};

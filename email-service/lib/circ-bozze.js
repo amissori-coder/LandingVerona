@@ -51,6 +51,8 @@ function no(stato, msg) { return { ok: false, stato: stato, msg: msg }; }
 /* Quello che l'area riservata manda viene ripulito campo per campo: in bozza
    si scrive anche una riga a meta' (manca la PEC, il saldo e' sbagliato),
    quindi qui non si giudica, si limita. I controlli veri li fa `crea`. */
+const giorno = v => (C.giornoValido(String(v || '')) ? String(v) : '');
+const orario = v => (String(v || '').trim() ? (C.orarioValido(v) || '') : '');
 function pulisciRiga(r, ambito) {
     r = r || {};
     const id = String(r.id || ''), categoria = String(r.categoria || '');
@@ -60,7 +62,11 @@ function pulisciRiga(r, ambito) {
         id: id, categoria: categoria,
         nome: C.unaRiga(r.nome, 160), pec: C.unaRiga(r.pec, 200), saldo: C.unaRiga(r.saldo, 30), nota: C.unaRiga(r.nota, 200),
         forza: r.forza === true,
-        file: f && C.unaRiga(f.nome, 140) ? { nome: C.unaRiga(f.nome, 140), peso: Math.max(0, Math.round(Number(f.peso) || 0)) } : null
+        file: f && C.unaRiga(f.nome, 140) ? { nome: C.unaRiga(f.nome, 140), peso: Math.max(0, Math.round(Number(f.peso) || 0)) } : null,
+        /* Quando rispondere e quando sollecitare, riga per riga: `scad` il
+           termine; per ogni sollecito il giorno (`d`), l'orario (`o`) e il
+           nuovo termine (`s`). In bozza valgono anche vuoti o a meta'. */
+        scad: giorno(r.scad), s1d: giorno(r.s1d), s1o: orario(r.s1o), s1s: giorno(r.s1s), s2d: giorno(r.s2d), s2o: orario(r.s2o), s2s: giorno(r.s2s)
     };
 }
 function pulisci(b, ambito) {

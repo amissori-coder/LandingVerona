@@ -948,14 +948,29 @@ caratteri (il conto, la pratica, la fattura): servono al report, **non entrano
 nel testo della PEC**. I conteggi di ogni incarico sono tenuti anche per area
 (`perAmbito` in `circIncarichi`): l'elenco di un'area mostra solo i suoi numeri.
 
-**Preparare l'invio.** Nell'area riservata chi invia apre una tabella per
-ogni tipologia che gli serve e la riempie: denominazione, PEC, saldo dove
-previsto, nota, lettera in PDF. Le righe si possono incollare da Excel, una
-tipologia per volta, e i PDF scegliere tutti insieme (si abbinano dal nome).
-Le tabelle a video e quelle del report hanno le stesse colonne: quello che si
-inserisce qui e' quello che si ritrova stampato.
+**Preparare l'invio.** Nella finestra "Nuove lettere" le tabelle delle
+tipologie sono **tutte gia' pronte**, ognuna con la sua prima riga e con
+"Aggiungi una riga" e "Incolla da Excel" nella testata. In ogni riga si
+scrive tutto quello che serve alla lettera: denominazione, PEC, saldo dove
+previsto, nota, lettera in PDF e poi **quando**: il giorno entro cui
+rispondere e, per ciascuno dei due solleciti, il giorno, l'orario e il nuovo
+termine. Il giorno si sceglie dal calendario (si apre appena si tocca il
+campo), l'orario da un elenco, ogni mezz'ora dalle 6 alle 21. Sopra le tabelle
+resta solo "Bilancio al", che vale per tutto l'incarico.
 
-**La bozza sta sul portale.** Mentre si compila, righe, date e PDF si
+Per non riscrivere le date a ogni riga: una riga nuova (aggiunta o incollata)
+parte dalle date dell'ultima riga toccata; cambiando il termine i solleciti lo
+seguono, finche' non li si sceglie a mano; "Stesse date in tutte le righe"
+copia le date della prima riga compilata sulle altre. Un sollecito senza
+giorno non parte.
+
+**Dopo l'invio la finestra resta aperta**: le lettere partite restano in
+tabella con il loro riferimento, e si possono aggiungere altre righe e inviare
+ancora. I PDF si possono anche scegliere tutti insieme (si abbinano dal nome).
+Le tabelle a video e quelle del report hanno la stessa divisione: quello che
+si inserisce qui e' quello che si ritrova stampato.
+
+**La bozza sta sul portale.** Mentre si compila, righe (ognuna con le sue date) e PDF si
 salvano da soli nella raccolta `circBozze` (`lib/circ-bozze.js`, azioni
 `bozza-leggi`, `bozza-salva`, `bozza-pdf`, `bozza-pdf-leggi`, `bozza-togli`):
 chi ha cominciato su un computer riapre "Nuove lettere" da un altro e ritrova
@@ -1033,10 +1048,13 @@ scheda e si va avanti. Dopo tre tentativi falliti la scheda va in errore.
 
 ### I solleciti
 
-Si programmano con la lettera: data di partenza e nuovo termine per rispondere,
-per il primo e per il secondo. Partono alle 9:00 (ora italiana) del giorno
-indicato, con un testo diverso dalla richiesta e fra loro (`paragrafi` in
-`lib/circ-comune.js`), e riallegano la lettera.
+Si programmano con la lettera: giorno e **orario** di partenza e nuovo termine
+per rispondere, per il primo e per il secondo. Partono il giorno e all'ora
+indicati (ora italiana; senza orario valgono le 9:00), con un testo diverso
+dalla richiesta e fra loro (`paragrafi` in `lib/circ-comune.js`), e riallegano
+la lettera. Il giro passa ogni cinque minuti: un sollecito delle 10:30 parte
+fra le 10:30 e le 10:35. Giorno e orario si cambiano anche dopo, lettera per
+lettera ("Date dei solleciti"), finche' il sollecito non e' partito.
 
 **Un sollecito non parte se la risposta e' arrivata.** Quando il lettore
 abbina una risposta a una lettera, i solleciti non ancora partiti diventano
@@ -1246,6 +1264,8 @@ tetto orario, registro degli errori (una riga per problema, una sola email,
 spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
 conteggi, saldo e note, la bozza sul portale (ripresa da un altro computer,
 conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza), il
+l'orario dei solleciti (parte all'ora scelta e non prima, senza orario alle
+9:00, le date di ogni riga nella bozza), il
 registro delle operazioni (una voce per ogni azione riuscita, nessuna per
 quelle rifiutate, chi lo legge, che resta dopo la cancellazione), le letture
 della pagina degli incarichi (poche, e non crescono con gli incarichi),

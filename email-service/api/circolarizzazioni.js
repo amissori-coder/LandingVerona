@@ -68,7 +68,7 @@ function perArea(inv) {
     const passo = p => {
         if (!p) return { stato: 'non-previsto' };
         const o = {
-            stato: p.stato, data: p.data || '', scadenza: p.scadenza || '', previsto: p.previsto || 0,
+            stato: p.stato, data: p.data || '', ora: p.ora || '', scadenza: p.scadenza || '', previsto: p.previsto || 0,
             inviatoIl: p.inviatoIl || 0, esito: p.esito || '', errore: p.errore || '', motivo: p.motivo || '', per: p.per || '',
             tentativi: p.tentativi || 0
         };
@@ -127,7 +127,7 @@ const giornoDetto = g => (g ? C.dataBreve(g) : '');
 /* Un sollecito in parole, per dire nel registro che cosa e' cambiato. */
 function sollecitoDetto(p) {
     if (!p || !p.stato || p.stato === 'non-previsto') return 'non previsto';
-    if (p.stato === 'programmato') return 'il ' + giornoDetto(p.data) + ', risposta entro il ' + giornoDetto(p.scadenza);
+    if (p.stato === 'programmato') return 'il ' + giornoDetto(p.data) + ' alle ' + (p.ora || C.LIMITI.oraSollecito) + ', risposta entro il ' + giornoDetto(p.scadenza);
     if (p.stato === 'inviato') return 'inviato';
     if (p.stato === 'annullato') return 'annullato' + (p.data ? ' (era per il ' + giornoDetto(p.data) + ')' : '');
     if (p.stato === 'bloccato') return 'fermo' + (p.data ? ' (era per il ' + giornoDetto(p.data) + ')' : '');
@@ -144,7 +144,7 @@ async function tracciaInCoda(db, prof, id, come) {
     const inv = await DATI.leggi(db, String(id));
     if (!inv) return;
     const p = inv.passi || {}, a = inv.allegato || {};
-    const sol = (x, nome) => x && x.stato === 'programmato' ? '; ' + nome + ' il ' + giornoDetto(x.data) + ' (risposta entro il ' + giornoDetto(x.scadenza) + ')' : '';
+    const sol = (x, nome) => x && x.stato === 'programmato' ? '; ' + nome + ' il ' + giornoDetto(x.data) + ' alle ' + (x.ora || C.LIMITI.oraSollecito) + ' (risposta entro il ' + giornoDetto(x.scadenza) + ')' : '';
     await traccia(db, prof, 'lettera-in-coda', Object.assign(REGISTRO.diLettera(inv), {
         dettaglio: ((C.CATEGORIE[inv.categoria] || {}).uno || inv.categoria) + ', bilancio al ' + giornoDetto(inv.bilancio) + '; rispondere entro il ' + giornoDetto(inv.scadenza)
             + sol(p.sollecito1, 'primo sollecito') + sol(p.sollecito2, 'secondo sollecito')

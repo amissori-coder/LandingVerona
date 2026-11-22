@@ -360,7 +360,7 @@ async function crea(db, prof, inc, dati, opz) {
     const ora = Date.now();
     const rif = db.collection(INVII).doc();
     const codice = await riservaCodice(db, rif.id);
-    const sollecito = x => x ? { stato: 'programmato', data: x.data, scadenza: x.scadenza, previsto: C.istanteRoma(x.data, C.LIMITI.oraSollecito) } : { stato: 'non-previsto' };
+    const sollecito = x => x ? { stato: 'programmato', data: x.data, ora: x.ora || C.LIMITI.oraSollecito, scadenza: x.scadenza, previsto: C.istanteRoma(x.data, x.ora || C.LIMITI.oraSollecito) } : { stato: 'non-previsto' };
     const inv = {
         incaricoId: String(inc.id), cliente: String(inc.cliente || ''),
         destinatario: dati.destinatario, pec: dati.pec, categoria: dati.categoria,
@@ -739,7 +739,10 @@ function modificaSolleciti(db, id, nuovi, prof) {
             if (n === 'sollecito2' && passo(inv, 'sollecito1').stato === 'non-previsto') return { ok: false, stato: 400, msg: 'Il secondo sollecito si può programmare solo insieme al primo.' };
             if (!C.giornoValido(x.data) || x.data <= dopo.giorno) return { ok: false, stato: 400, msg: 'La data del ' + etichetta + ' deve essere successiva ' + dopo.a + '.' };
             if (!C.giornoValido(x.scadenza) || x.scadenza <= x.data) return { ok: false, stato: 400, msg: 'Nel ' + etichetta + ' la data entro cui rispondere deve essere successiva alla data del sollecito.' };
-            inv.passi[n] = { stato: 'programmato', data: x.data, scadenza: x.scadenza, previsto: C.istanteRoma(x.data, C.LIMITI.oraSollecito), modificato: { il: ora, da: prof.firma } };
+            // l'orario: quello indicato; se non lo si indica resta quello che il sollecito aveva gia'
+            const orario = C.orarioValido(x.ora == null || x.ora === '' ? attuale.ora : x.ora);
+            if (orario === null) return { ok: false, stato: 400, msg: 'L\'orario del ' + etichetta + ' non è valido (per esempio 09:00).' };
+            inv.passi[n] = { stato: 'programmato', data: x.data, ora: orario, scadenza: x.scadenza, previsto: C.istanteRoma(x.data, orario), modificato: { il: ora, da: prof.firma } };
             dopo = { giorno: x.data, a: 'al primo sollecito' };
         }
         return null;

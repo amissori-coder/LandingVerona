@@ -4588,10 +4588,57 @@ table.pc-errori .pc-link { display: block; margin-top: 4px; }
 .pc-testo { border: 1px solid var(--grigio-200); border-radius: var(--raggio); background: var(--grigio-050); max-height: 60vh; }
 /* nuove lettere */
 .pc-date { display: grid; grid-template-columns: repeat(2, minmax(0, 240px)); gap: 4px 16px; }
+.pc-date.pc-date-ora { grid-template-columns: minmax(0, 200px) minmax(0, 120px) minmax(0, 240px); }
 .pc-date .campo { margin-bottom: 8px; }
 .pc-sollecito { border-left: 3px solid var(--grigio-200); padding: 4px 0 0 14px; margin: 0 0 10px; }
 .pc-sollecito > .pc-spunta { margin-bottom: 8px; }
+/* ---- nuove lettere: la testata, e una tabella per tipologia con le date dentro ogni riga ---- */
+.pc-n-testa { display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; gap: 8px 22px; align-items: end; margin: 0 0 16px; padding: 12px 14px; background: var(--grigio-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio); }
+.pc-n-testa .campo { margin: 0; }
+.pc-n-testa .campo input { width: 100%; }
+.pc-n-testa .hint { margin: 0; max-width: none; text-align: justify; }
+.pc-n-attrezzi { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 420px; }
+.pc-n-attrezzi .btn { margin: 0; }
+.pc-nuove .pc-n-sez + .pc-n-sez { margin-top: 14px; }
+.pc-tipo-tit.pc-n-tit { justify-content: flex-start; align-items: center; gap: 4px 12px; margin-bottom: 6px; padding: 6px 8px 6px 12px; }
+.pc-tipo-tit.pc-n-tit .pc-n-azioni { margin-left: auto; display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.pc-tipo-tit.pc-n-tit .pc-n-azioni .btn { margin: 0; }
+.pc-n-nessuna { margin: 0 0 2px 15px; font-size: 0.82rem; color: var(--grigio-500); }
+/* l'esito dell'invio e gli errori restano in vista in fondo alla finestra, ovunque si sia scorso */
+.pc-n-messaggi { position: sticky; bottom: 0; z-index: 2; margin-top: 12px; background: #fff; }
+.pc-n-messaggi:empty, .pc-n-messaggi:not(:has(p:not([hidden]))) { display: none; }
+.pc-n-messaggi p { margin: 0; }
+.pc-n-messaggi p + p { margin-top: 6px; }
+.pc-n-messaggi .msg-errore { padding: 9px 12px; border-radius: var(--raggio); background: var(--rosso-bg); border: 1px solid #F3B8B4; font-weight: 600; }
+.pc-n-esito { padding: 9px 12px; border-radius: var(--raggio); background: var(--verde-bg); border: 1px solid #BFE1CD; color: #17643E; font-size: 0.88rem; font-weight: 600; }
+table.pc-righe { table-layout: fixed; width: 100%; min-width: 1130px; }
+table.pc-righe.con-saldo { min-width: 1240px; }
+table.pc-righe th, table.pc-righe td { padding: 6px 6px; }
+/* le colonne delle date e del PDF hanno la loro misura; il resto va a denominazione e PEC, che ne hanno piu' bisogno */
+table.pc-righe th.c-pdf { width: 142px; } table.pc-righe th.c-entro { width: 132px; } table.pc-righe th.c-sol { width: 204px; }
+table.pc-righe th.c-via { width: 46px; } table.pc-righe th.c-saldo { width: 104px; } table.pc-righe th.c-nota { width: 11%; }
 table.pc-righe td { vertical-align: top; }
+table.pc-righe input, table.pc-righe select { min-width: 0 !important; }
+table.pc-righe input[type="date"] {
+    width: 100%; padding: 6px 5px; font: inherit; font-size: 0.84rem; color: var(--grigio-900); cursor: pointer;
+    background: #fff; border: 1px solid var(--grigio-300, #CBD5E1); border-radius: var(--raggio-sm);
+}
+.pc-r-quando-su { display: flex; gap: 4px; }
+.pc-r-quando-su input[type="date"] { flex: 1 1 auto; }
+table.pc-righe select.pc-r-ora { flex: 0 0 70px; width: 70px; padding: 6px 1px 6px 4px; cursor: pointer; }
+.pc-r-entro { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.72rem; color: var(--grigio-600); white-space: nowrap; }
+.pc-r-entro input[type="date"] { flex: 1 1 auto; padding-top: 4px !important; padding-bottom: 4px !important; }
+/* una riga ancora da compilare: le sue date ci sono gia', ma non devono fare rumore */
+table.pc-righe tr.pc-r-vuota .pc-r-quando { opacity: 0.45; }
+table.pc-righe tr.pc-r-vuota .pc-r-quando:focus-within, table.pc-righe tr.pc-r-vuota .pc-r-quando:hover { opacity: 1; }
+/* e occupa una riga sola: il nuovo termine dei solleciti compare quando la riga comincia a riempirsi */
+table.pc-righe tr.pc-r-vuota .pc-r-entro { display: none; }
+.pc-r-via-cella { text-align: right; }
+@media screen and (max-width: 1200px) {
+    table.pc-righe, table.pc-righe.con-saldo { min-width: 0; table-layout: auto; }
+    .pc-n-testa { grid-template-columns: minmax(0, 1fr); }
+    .pc-n-attrezzi { justify-content: flex-start; max-width: none; }
+}
 table.pc-righe input[type="text"], table.pc-righe input[type="email"], table.pc-righe select {
     width: 100%; min-width: 150px; padding: 7px 9px; font: inherit; font-size: 0.86rem; color: var(--grigio-900);
     background: #fff; border: 1px solid var(--grigio-300, #CBD5E1); border-radius: var(--raggio-sm);

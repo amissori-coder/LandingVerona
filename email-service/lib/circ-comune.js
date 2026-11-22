@@ -67,7 +67,7 @@ const LIMITI = {
     get perGiro() { return Math.round(numero(process.env.CIRC_MAX_GIRO, 80, 1, 400)); },
     get perOra() { return Math.round(numero(process.env.CIRC_MAX_ORA, 400, 1, 5000)); },
     get pausaMs() { return Math.round(numero(process.env.CIRC_PAUSA_MS, 1200, 0, 10000)); },
-    oraSollecito: 9,                        // i solleciti partono alle 9 del giorno indicato (ora italiana)
+    oraSollecito: '09:00',                  // l'ora (italiana) a cui parte un sollecito, se chi lo programma non ne indica un'altra
     // per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale
     get pdfGiorni() { return Math.round(numero(process.env.CIRC_PDF_GIORNI, 365, 1, 3650)); },
     // per quanti giorni dall'ultima modifica una bozza non inviata (righe e PDF) resta sul portale
@@ -108,6 +108,7 @@ const NOME_PASSO = { primo: 'Invio', sollecito1: 'Primo sollecito', sollecito2: 
    (AAAA-MM-GG): la funzione gira in UTC, quindi "oggi" e "le 9 del giorno X"
    si calcolano sul fuso di Roma, ora legale compresa. */
 const RE_GIORNO = /^(\d{4})-(\d{2})-(\d{2})$/;
+const RE_ORARIO = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 function giornoValido(g) {
     const m = RE_GIORNO.exec(String(g || ''));
     if (!m) return false;
@@ -128,10 +129,14 @@ function giornoRoma(ms) {
     return p.year + '-' + p.month + '-' + p.day;
 }
 /* Il momento (ms) in cui a Roma sono le `ore` del giorno `g`. */
-function istanteRoma(g, ore) {
+/* L'istante (ms) di un giorno e di un'ora di Roma. `ore` e' un numero, oppure
+   un orario "HH:MM". */
+function istanteRoma(g, ore, minuti) {
     const m = RE_GIORNO.exec(String(g || ''));
     if (!m) return 0;
-    const ipotesi = Date.UTC(+m[1], +m[2] - 1, +m[3], ore || 0, 0, 0);
+    const o = RE_ORARIO.exec(String(ore || ''));
+    if (o) { ore = +o[1]; minuti = +o[2]; }
+    const ipotesi = Date.UTC(+m[1], +m[2] - 1, +m[3], Number(ore) || 0, Number(minuti) || 0, 0);
     const p = partiRoma(ipotesi);
     const visto = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
     return ipotesi - (visto - ipotesi);
@@ -216,7 +221,9 @@ function controllaRichiesta(b, oggi) {
         const data = String(x.data), entro = String(x.scadenza || '');
         if (!giornoValido(data) || data <= dopo.giorno) return { ok: false, msg: 'La data del ' + etichetta + ' deve essere successiva ' + dopo.a + '.' };
         if (!giornoValido(entro) || entro <= data) return { ok: false, msg: 'Nel ' + etichetta + ' la data entro cui rispondere deve essere successiva alla data del sollecito.' };
-        return { ok: true, dati: { data: data, scadenza: entro } };
+        const quando = orarioValido(x.ora);
+        if (quando === null) return { ok: false, msg: 'L\'orario del ' + etichetta + ' non è valido (per esempio 09:00).' };
+        return { ok: true, dati: { data: data, ora: quando, scadenza: entro } };
     };
     const s1 = sollecito(b.sollecito1, 'primo sollecito', { giorno: oggi, a: 'a oggi' });
     if (!s1.ok) return s1;
@@ -237,6 +244,14 @@ function controllaRichiesta(b, oggi) {
             allegato: { nome: nomeFile(b.allegatoNome), dimensione: dimensione, pezzi: Math.ceil(dimensione / LIMITI.pezzoByte) }
         }
     };
+}
+/* L'orario di un sollecito: "HH:MM" di Roma. Vuoto vale l'orario di sempre
+   (le 9:00); null se non e' un orario. */
+function orarioValido(v) {
+    const t = String(v == null ? '' : v).trim();
+    if (!t) return LIMITI.oraSollecito;
+    const m = RE_ORARIO.exec(t);
+    return m ? ('0' + (+m[1])).slice(-2) + ':' + m[2] : null;
 }
 function megabyte(n) {
     const mb = n / (1024 * 1024);
@@ -391,7 +406,7 @@ function messaggio(invio, passo) {
 
 module.exports = {
     configurazione, configurato, LIMITI, CATEGORIE, AMBITI, ambitoDi, PASSI, NOME_PASSO, EMAIL_RE,
-    giornoValido, giornoRoma, istanteRoma, aggiungiGiorni, dataEstesa, dataBreve,
+    giornoValido, orarioValido, giornoRoma, istanteRoma, aggiungiGiorni, dataEstesa, dataBreve,
     codiceNuovo, codiceDa, riferimentoNuovo, unaRiga, nomeFile, megabyte,
     controllaRichiesta, oggetto, testoSemplice, html, datiMessaggio, messaggio
 };
