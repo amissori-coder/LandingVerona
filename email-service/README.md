@@ -837,7 +837,8 @@ risposte), `lib/circ-comune.js` (casella, limiti, controlli, **i testi dei tre
 messaggi**), `lib/circ-dati.js` (le schede su Firestore e chi le vede),
 `lib/circ-giro.js` (la coda che spedisce), `lib/circ-lettore.js` (la casella:
 ricevute, risposte, scaricamenti), `lib/circ-bozze.js` (la bozza delle nuove
-lettere, salvata sul portale). La parte a video e' in
+lettere, salvata sul portale), `lib/circ-registro.js` (il registro delle
+operazioni: chi ha fatto che cosa). La parte a video e' in
 `area-riservata/app.js`, blocco "CIRCOLARIZZAZIONI VIA PEC".
 
 ### Le variabili da impostare su Vercel
@@ -867,7 +868,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
-`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze` e i documenti
+`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze`, `circRegistro` e i documenti
 `meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` non hanno un
 `match`, quindi dal browser non si leggono e non si scrivono (stessa scelta di
 `sbloccoIncarichi`). Le interrogazioni usano solo uguaglianze, o un intervallo
@@ -887,6 +888,13 @@ dell'area riservata per riconoscere le persone dalle etichette:
   indica l'amministratore dalla scheda "Impostazioni" della sezione (stanno
   in `meta/circolarizzazioni`);
 - solo l'amministratore nomina i supervisori e cancella i dati di un incarico.
+
+Nell'elenco ognuno trova i propri incarichi **divisi per ruolo**: prima quelli
+di cui e' responsabile dell'incarico, poi quelli di cui e' responsabile della
+qualita', poi quelli in cui e' nel team, con un filtro in alto e il conteggio
+di ciascun gruppo. Chi ha piu' ruoli sullo stesso incarico lo trova una volta
+sola, sotto il piu' alto, con tutti i ruoli scritti nella riga. Chi vede tutto
+ha in fondo anche gli "altri incarichi", quelli su cui non ha un ruolo.
 
 Ogni azione su una lettera ricontrolla che il suo incarico sia fra quelli di
 chi chiama, e un messaggio della casella si apre solo se e' elencato su quella
@@ -1082,6 +1090,53 @@ partire affatto (per esempio `CRON_SECRET` mancante) non c'e' nessuno che
 scriva l'errore. Si vede dai Request Logs di Vercel, dove `/api/circolarizzazioni`
 deve comparire ogni cinque minuti.
 
+### Il registro delle operazioni: chi ha fatto che cosa
+
+Ogni azione che cambia qualcosa lascia una voce nella raccolta `circRegistro`
+(`lib/circ-registro.js`), con **chi** l'ha fatta (la persona entrata davvero
+e, se lavora come collaboratore, l'utente per conto del quale ha agito),
+**quando**, su quale incarico, area e lettera, e **che cosa e' cambiato**:
+
+| Operazione | Che cosa resta scritto |
+|---|---|
+| Lettera preparata e messa in coda | destinatario, PEC, tipologia, date, saldo e nota; il nome, il peso e l'**impronta SHA-256** del PDF; se il PDF e' salito dal computer o dalla bozza |
+| Solleciti modificati / annullati | le date di prima e quelle di dopo |
+| Lettera annullata | che la PEC non era ancora partita |
+| Risposta segnata a mano / tolta | la nota scritta da chi l'ha segnata, e i solleciti che si fermano o ripartono |
+| Lettera reinviata | l'indirizzo di prima e quello di dopo |
+| Risposta associata / messaggio scartato | mittente, data e oggetto del messaggio, e a quale lettera e' stato associato |
+| Errore segnato come risolto / riaperto | quali errori, e la nota |
+| Supervisori e destinatari degli avvisi | l'elenco di prima e quello di dopo |
+| Bozza svuotata | quante righe non inviate sono state tolte |
+| Dati dell'incarico cancellati | il **riepilogo di ogni lettera tolta**: a chi, da chi e quando e' stata preparata, quando e' partita, se e' stata consegnata, i solleciti, la risposta |
+| Pulizie automatiche | quanti PDF scaduti e quante bozze ferme sono stati tolti (a nome del servizio) |
+
+Tre regole:
+
+- **Le voci non si cancellano e non si modificano.** La raccolta non ha regole
+  Firestore: dal browser non si scrive, e il servizio sa solo aggiungere. Il
+  registro resta anche quando l'amministratore toglie dal portale i dati di un
+  incarico: e' li' apposta, con il riepilogo delle lettere tolte.
+- **Un'azione rifiutata non lascia voci**; i salvataggi automatici della bozza
+  nemmeno. Quello che il servizio fa da solo lettera per lettera (la PEC che
+  parte, le ricevute, la risposta abbinata) sta sulla scheda della lettera, e
+  finisce nel riepilogo quando l'incarico viene cancellato.
+- **Se la voce non si riesce a scrivere** l'azione vale lo stesso (a quel
+  punto e' gia' avvenuta), ma nasce un errore nel registro degli errori, cosi'
+  chi amministra lo viene a sapere per email.
+
+Si legge con l'azione `registro`: quello **di un incarico** chi lo segue
+(scheda "Registro" nella pagina dell'incarico, con le operazioni dell'area
+aperta e quelle che riguardano tutto l'incarico); quello **generale**, con
+anche impostazioni ed errori, l'amministratore e i supervisori (scheda
+"Registro" della sezione, duecento voci per volta dalla piu' recente). Tutti e
+due si filtrano per persona, operazione e periodo e si scaricano in Excel.
+
+Non ha una scadenza: ogni voce pesa meno di un kilobyte (di piu' solo quelle
+delle cancellazioni, che portano il riepilogo), quindi 5.000 lettere fanno
+pochi megabyte. Contiene denominazioni e indirizzi PEC dei destinatari: se un
+giorno servisse un termine di conservazione, va aggiunto alle pulizie.
+
 ### Gli avvisi a chi ha inviato la lettera
 
 Chi prepara una lettera riceve un'email (`lib/circ-avvisi.js`, raccolta
@@ -1116,6 +1171,8 @@ salvate nelle carte di lavoro, perche' a lavoro concluso i dati si cancellano.
   `cancella-incarico`): schede, PDF, indice dei riferimenti. I solleciti ancora
   in programma non partono piu'.
 - **I messaggi** restano nella casella PEC, che e' l'archivio con valore legale.
+- **Il registro delle operazioni** resta: chi ha fatto che cosa non si
+  cancella con i dati dell'incarico (vedi sopra).
 - Le lettere rimaste a meta' (caricamento del PDF interrotto) si tolgono dopo
   un giorno.
 - **Le bozze** delle nuove lettere non inviate si tolgono, righe e PDF, dopo
@@ -1159,7 +1216,9 @@ solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
 tetto orario, registro degli errori (una riga per problema, una sola email,
 spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
 conteggi, saldo e note, la bozza sul portale (ripresa da un altro computer,
-conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza),
+conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza), il
+registro delle operazioni (una voce per ogni azione riuscita, nessuna per
+quelle rifiutate, chi lo legge, che resta dopo la cancellazione),
 cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un

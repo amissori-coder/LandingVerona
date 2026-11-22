@@ -33,6 +33,12 @@
        ritrovano da un altro computer, chi salva da una versione
        superata viene fermato, all'invio la lettera prende il PDF
        dalla bozza, e le bozze ferme da un mese si tolgono;
+     - il registro delle operazioni: ogni azione che cambia qualcosa
+       lascia una voce con chi l'ha fatta e che cosa e' cambiato,
+       un'azione rifiutata non ne lascia, le voci restano anche dopo
+       la cancellazione dei dati di un incarico (con il riepilogo
+       delle lettere tolte), e ognuno legge solo quello che gli
+       spetta;
      - la posta gia' nella casella prima dell'attivazione non entra
        fra le "non associate", e la casella non si legge piu' del
        necessario.
@@ -534,6 +540,53 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     const canc2 = await chiama('a.missori@emvas.tax', { azione: 'cancella-incarico', incaricoId: 'inc-alfa', conferma: 'CANCELLA' });
     verifica('cancellato l\'incarico, le sue bozze (righe e PDF) non restano; quelle degli altri si\'', canc2.ok && canc2.tolte === 1 && chiaviBozze().length === 1 && dati.get(chiaviBozze()[0]).incaricoId === 'inc-beta', chiaviBozze());
 
+    // ---------- 12c. il registro delle operazioni ----------
+    const registro = (azione, filtro) => [...dati.keys()].filter(k => /^circRegistro\//.test(k)).map(k => dati.get(k)).filter(v => (!azione || v.azione === azione) && (!filtro || filtro(v)));
+    const inCodaA1 = registro('lettera-in-coda', v => v.invio === a1.id)[0];
+    verifica('una lettera messa in coda: chi, per chi, quale PDF', !!inCodaA1 && inCodaA1.da === 'marta@studio.it' && inCodaA1.incaricoId === 'inc-alfa' && inCodaA1.cliente === 'ALFA MECCANICA SRL' && inCodaA1.pec === 'banca@pec.it' && inCodaA1.ambito === 'obbligatorie' && /caricato dal computer/.test(inCodaA1.dettaglio) && inCodaA1.dati.sha256.length === 64 && inCodaA1.titolo === 'Lettera preparata e messa in coda', inCodaA1);
+    const inCodaCr = registro('lettera-in-coda', v => v.invio === cr.id)[0];
+    verifica('quella partita dalla bozza dice che il PDF viene da li\', con la sua impronta', !!inCodaCr && /preso dalla bozza/.test(inCodaCr.dettaglio) && inCodaCr.dati.sha256 === crypto.createHash('sha256').update(PDFB).digest('hex') && inCodaCr.dati.byte === PDFB.length);
+    verifica('una lettera in bozza (mai arrivata in coda) non lascia la voce, una per ogni lettera in coda', registro('lettera-in-coda', v => v.invio === c1.id).length === 1 && registro('lettera-in-coda', v => v.invio === c2.id).length === 1 && registro('lettera-in-coda').every(v => v.invio && v.codice && v.da));
+    const modReg = registro('solleciti-modificati', v => v.invio === c1.id)[0];
+    verifica('date dei solleciti: resta scritto prima e dopo, e chi le ha cambiate', !!modReg && modReg.da === 'luca@studio.it' && modReg.ambito === 'clientiFornitori' && modReg.campi.length === 2 && modReg.campi[0].campo === 'Primo sollecito' && /20\/02\/2027/.test(modReg.campi[0].dopo) && modReg.campi[1].dopo === 'non previsto', modReg);
+    verifica('una modifica rifiutata non lascia voci', registro('solleciti-modificati', v => v.invio === c1.id).length === 1);
+    verifica('annullata una lettera in coda, e annullati i solleciti di una partita', registro('lettera-annullata', v => v.invio === c2.id && v.da === 'anna@studio.it').length === 1 && registro('solleciti-annullati', v => v.invio === c1.id && v.campi.length === 1 && /annullato/.test(v.campi[0].dopo)).length === 1);
+    verifica('risposta a mano segnata (con la nota) e poi tolta', registro('risposta-manuale', v => v.invio === c1.id && /consegnata a mano al team/.test(v.dettaglio) && v.campi.some(x => /fermo/.test(x.dopo))).length === 1 && registro('risposta-manuale-tolta', v => v.invio === c1.id && /luca@studio.it/.test(v.dettaglio)).length === 1);
+    const reinv = registro('lettera-reinviata')[0];
+    verifica('reinvio: l\'indirizzo di prima e quello di dopo', !!reinv && reinv.campi[0].campo === 'PEC' && reinv.campi[0].prima !== reinv.campi[0].dopo && reinv.pec === reinv.campi[0].dopo, reinv);
+    verifica('risposta associata a mano: quale messaggio, a quale lettera, da chi', registro('risposta-associata').length >= 1 && registro('risposta-associata').every(v => v.invio && /Messaggio di /.test(v.dettaglio) && v.da === 'a.missori@emvas.tax'), registro('risposta-associata'));
+    verifica('errori spuntati e riaperti: con il titolo dell\'errore', registro('errore-risolto').length >= 2 && registro('errore-risolto', v => v.da === 'sara@studio.it' && /Errore di prova/.test(v.dettaglio)).length === 1 && registro('errore-riaperto').length === 1);
+    verifica('supervisori e destinatari degli avvisi: solo i cambi riusciti', registro('supervisori').length === 1 && registro('supervisori')[0].campi[0].prima === 'nessuno' && registro('supervisori')[0].campi[0].dopo === 'sara@studio.it' && registro('avvisi-errori').length === 1 && registro('avvisi-errori')[0].campi[0].dopo === 'sì');
+    const cancReg = registro('incarico-cancellato', v => v.incaricoId === 'inc-alfa').sort((x, y) => x.quando - y.quando);
+    verifica('cancellati i dati di un incarico: nel registro resta il riepilogo di ogni lettera tolta', cancReg.length === 2 && cancReg[0].da === 'a.missori@emvas.tax' && cancReg[0].lettere.length === 3 && cancReg[0].lettere.every(l => l.codice && l.destinatario && l.pec && l.preparataDa && l.inviataIl > 0 && l.rispostaIl > 0) && cancReg[0].lettere.some(l => l.sollecito1Il > 0) && /3 lettere tolte/.test(cancReg[0].dettaglio), cancReg[0]);
+    verifica('e delle bozze non inviate tolte con lui', cancReg[1].lettere.length === 1 && cancReg[1].lettere[0].codice === cr.codice && /2 bozze non inviate tolte/.test(cancReg[1].dettaglio), cancReg[1] && cancReg[1].dettaglio);
+    verifica('le voci dell\'incarico cancellato restano, le lettere no', (await scheda(cr.id)) === null && registro(null, v => v.incaricoId === 'inc-alfa').length >= 7);
+    verifica('una bozza svuotata lascia la voce, i salvataggi automatici no', registro('bozza-svuotata').length === 1 && registro('bozza-svuotata')[0].da === 'luca@studio.it' && registro('bozza-svuotata')[0].ambito === 'clientiFornitori' && /1 riga non inviata/.test(registro('bozza-svuotata')[0].dettaglio), registro('bozza-svuotata'));
+    // chi lo legge
+    const regAlfa = await chiama('marta@studio.it', { azione: 'registro', incaricoId: 'inc-alfa' });
+    verifica('chi segue un incarico ne legge il registro, dal piu\' recente', regAlfa.ok && regAlfa.voci.length === registro(null, v => v.incaricoId === 'inc-alfa').length && regAlfa.voci.every((v, i) => v.incaricoId === 'inc-alfa' && (i === 0 || regAlfa.voci[i - 1].quando >= v.quando)) && regAlfa.voci[0].azione === 'incarico-cancellato' && regAlfa.voci[0].lettere.length === 1, regAlfa.voci && regAlfa.voci.length);
+    verifica('non quello di un incarico che non segue, ne\' quello generale', (await chiama('marta@studio.it', { azione: 'registro', incaricoId: 'inc-beta' })).http === 403 && (await chiama('marta@studio.it', { azione: 'registro' })).http === 403);
+    let paginaReg = await chiama('sara@studio.it', { azione: 'registro', limite: 5 });
+    const voceLetta = {};
+    let sfogliate = 0;
+    verifica('chi vede tutto legge il registro generale, una pagina per volta', paginaReg.ok && paginaReg.voci.length === 5 && paginaReg.altre === true && paginaReg.prima > 0 && paginaReg.voci.every((v, i) => i === 0 || paginaReg.voci[i - 1].quando >= v.quando));
+    while (paginaReg.ok && sfogliate++ < 60) {
+        paginaReg.voci.forEach(v => { voceLetta[v.id] = 1; });
+        if (!paginaReg.altre) break;
+        paginaReg = await chiama('sara@studio.it', { azione: 'registro', limite: 5, prima: paginaReg.prima });
+    }
+    verifica('sfogliandolo tutto non si perde nessuna voce', Object.keys(voceLetta).length === registro().length, [Object.keys(voceLetta).length, registro().length]);
+    verifica('nel registro generale ci sono anche le voci senza incarico (impostazioni, errori)', (await chiama('a.missori@emvas.tax', { azione: 'registro', limite: 500 })).voci.some(v => v.azione === 'supervisori' && !v.incaricoId));
+    // se la voce non si riesce a scrivere l'azione vale lo stesso, e chi amministra lo viene a sapere
+    const collVera = db.collection;
+    db.collection = nome => (nome === 'circRegistro' ? { doc: () => ({ set: async () => { throw new Error('registro giu\''); } }) } : collVera(nome));
+    const senzaReg = await chiama('anna@studio.it', { azione: 'risposta-manuale', id: c1.id, nota: 'registro spento' });
+    db.collection = collVera;
+    const erroreReg = [...dati.keys()].filter(k => /^circErrori\//.test(k)).map(k => dati.get(k)).filter(e => /non è stata scritta nel registro/.test(e.titolo || '') && e.stato === 'aperto');
+    verifica('registro non scrivibile: l\'azione riesce lo stesso e nasce un errore da controllare', senzaReg.ok && (await scheda(c1.id)).risposta.nota === 'registro spento' && erroreReg.length === 1 && /risposta-manuale/.test(erroreReg[0].dettaglio), erroreReg);
+    await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.map(x => x.id) });
+    await chiama('anna@studio.it', { azione: 'risposta-manuale', id: c1.id, togli: true });
+
     // ---------- 13. pulizie ----------
     const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });
     verifica('una bozza non compare in elenco', bozza.ok && !(await chiama('anna@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' })).schede.some(x => x.id === bozza.id));
@@ -553,6 +606,12 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     s = await scheda(c1.id);
     verifica('una lettera preparata dopo (1 febbraio) il suo PDF lo ha ancora', s && !s.allegato.tolto);
     verifica('il giro programmato a riposo non spedisce e non prende il lucchetto', (await chiama('x', {}, 'GET', { authorization: 'Bearer cron' })).invii.esito === 'niente da spedire');
+    // le pulizie del giro tolgono dei dati: quando tolgono qualcosa resta scritto nel registro, a nome del servizio
+    await chiama('luca@studio.it', { azione: 'bozza-salva', incaricoId: 'inc-beta', ambito: 'obbligatorie', base: 0, bozza: { righe: [{ id: 'z1', categoria: 'banca', nome: 'Banca dimenticata', pec: 'dim@pec.it' }] } });
+    const primaPulizie = registro('pulizie').length;
+    avanti(31 * GIORNO);
+    const giroPulizie = await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('pulizie automatiche: nel registro, a nome del servizio', giroPulizie.bozzeTolte === 1 && registro('pulizie').length === primaPulizie + 1 && registro('pulizie').slice(-1)[0].da === 'servizio' && /1 bozza ferma/.test(registro('pulizie').slice(-1)[0].dettaglio), [giroPulizie.bozzeTolte, registro('pulizie').length]);
 
     console.log('\ncircolarizzazioni: ' + passate + ' verifiche passate' + (fallite ? ', ' + fallite + ' FALLITE' : ''));
     process.exit(fallite ? 1 : 0);

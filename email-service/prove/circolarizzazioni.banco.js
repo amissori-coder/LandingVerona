@@ -42,7 +42,12 @@ const incarichi = [
     { id: 'inc-alfa', cliente: 'ALFA MECCANICA SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Rossi, Bianchi' },
     { id: 'inc-beta', cliente: 'BETA TESSILE SPA', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Bianchi' },
     { id: 'inc-delta', cliente: 'DELTA COSTRUZIONI SRL', stato: 'attivo', respIncarico: 'Missori', qualita: 'Neri', team: 'Rossi' },
-    { id: 'inc-gamma', cliente: 'GAMMA LOGISTICA SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Bianchi' }
+    { id: 'inc-gamma', cliente: 'GAMMA LOGISTICA SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Bianchi' },
+    // Marta Rossi in tutte e tre le vesti (e in due sullo stesso incarico), per vedere l'elenco diviso per ruolo
+    { id: 'inc-epsilon', cliente: 'EPSILON ALIMENTARI SPA', stato: 'attivo', respIncarico: 'Rossi', qualita: 'Neri', team: 'Bianchi' },
+    { id: 'inc-zeta', cliente: 'ZETA IMPIANTI SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Rossi', team: 'Bianchi' },
+    { id: 'inc-eta', cliente: 'ETA SERVIZI SRL', stato: 'attivo', respIncarico: 'Rossi', qualita: 'Verdi', team: 'Rossi, Bianchi' },
+    { id: 'inc-theta', cliente: 'THETA HOLDING SPA', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Rossi', team: 'Bianchi' }
 ];
 F.dati.set('archivio/incarichi', { json: JSON.stringify(incarichi) });
 F.dati.set('archivio/persone', { json: JSON.stringify(persone) });

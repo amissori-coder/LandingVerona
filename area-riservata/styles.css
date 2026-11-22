@@ -4522,6 +4522,41 @@ table.pc-righe input.pc-r-saldo { min-width: 110px; text-align: right; font-vari
 .pc-fatti strong { overflow-wrap: anywhere; }
 table.pc-tab td { vertical-align: top; }
 table.pc-tab .pc-num { font-variant-numeric: tabular-nums; }
+/* l'elenco degli incarichi diviso per ruolo: il filtro in alto, un colore per ruolo */
+.pc-barra-ruoli { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin: 6px 0 16px; }
+/* la societa' e il ruolo hanno bisogno di spazio, i numeri no (le larghezze definitive le mette pcIncolonna partendo da queste) */
+table.pc-tab-incarichi th:first-child { width: 31%; }
+table.pc-tab-incarichi th:nth-child(2) { width: 21%; }
+.pc-ruoli { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-ruolo-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid var(--grigio-200); border-radius: 999px; background: #fff; color: var(--blu-900); font: inherit; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+.pc-ruolo-btn span { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--grigio-100); color: var(--grigio-600); font-size: 0.76rem; font-weight: 700; line-height: 1.6; text-align: center; font-variant-numeric: tabular-nums; }
+.pc-ruolo-btn:hover { border-color: var(--blu-500); }
+.pc-ruolo-btn.attivo { background: var(--blu-900); border-color: var(--blu-900); color: #fff; }
+.pc-ruolo-btn.attivo span { background: rgba(255, 255, 255, .18); color: #fff; }
+.pc-ruolo-btn::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--grigio-400); }
+.pc-ruolo-btn[data-ruolo=""]::before { display: none; }
+.pc-ruolo-btn.responsabile::before { background: var(--blu-700); }
+.pc-ruolo-btn.qualita::before { background: var(--oro); }
+.pc-ruolo-btn.team::before { background: var(--verde); }
+.pc-ruolo-btn.attivo::before { box-shadow: 0 0 0 2px rgba(255, 255, 255, .55); }
+.pc-cerca-inc { flex: 0 1 320px; margin: 0; }
+.pc-ruolo { display: inline-block; margin: 0 5px 3px 0; padding: 2px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.pc-ruolo.responsabile { background: var(--blu-100); color: var(--blu-900); box-shadow: inset 0 0 0 1px #C9D8E7; }
+.pc-ruolo.qualita { background: var(--ambra-bg); color: #6B4E00; box-shadow: inset 0 0 0 1px #EBD48A; }
+.pc-ruolo.team { background: var(--verde-bg); color: #17643E; box-shadow: inset 0 0 0 1px #BFE1CD; }
+.pc-ruolo.altro { background: var(--grigio-100); color: var(--grigio-600); }
+.pc-tipo-tit.pc-gruppo-ruolo.responsabile { border-left-color: var(--blu-700); }
+.pc-tipo-tit.pc-gruppo-ruolo.qualita { border-left-color: var(--oro); }
+.pc-tipo-tit.pc-gruppo-ruolo.team { border-left-color: var(--verde); }
+.pc-tipo-tit.pc-gruppo-ruolo.altro { border-left-color: var(--grigio-400); }
+/* il registro delle operazioni */
+.pc-reg-filtri { margin-top: 10px; }
+table.pc-reg td { font-size: 0.86rem; }
+table.pc-reg th.r-chi { width: 13%; } table.pc-reg th.r-op { width: 15%; } table.pc-reg th.r-soc { width: 15%; } table.pc-reg th.r-let { width: 16%; }
+table.pc-reg td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--grigio-600); }
+.pc-reg-dett > span { display: block; line-height: 1.45; text-align: justify; }
+.pc-reg-dett .reg-diff { margin-top: 2px; }
+.pc-reg-dett .pc-link { display: inline-block; margin-top: 3px; }
 /* tabelle delle tipologie incolonnate fra loro (pcIncolonna): larghezze imposte,
    quindi il testo lungo va a capo dentro la sua cella invece di uscirne */
 table.pc-tab.pc-incolonnata { table-layout: fixed; width: 100%; }
@@ -4715,7 +4750,7 @@ body.pc-stampa-report { overflow: hidden; }
     #pc-report .pc-rep-scorri { overflow: visible !important; padding: 0 !important; }
     #pc-report .pc-rep-foglio { zoom: 1 !important; width: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
     .pc-tipo-tit { -webkit-print-color-adjust: exact; print-color-adjust: exact; break-after: avoid; page-break-after: avoid; }
-    .pc-schede, .pc-casella, table.pc-tab:not(.pc-errori) td:last-child, table.pc-tab:not(.pc-errori) th:last-child { display: none !important; }
+    .pc-schede, .pc-casella, table.pc-tab:not(.pc-errori):not(.pc-reg) td:last-child, table.pc-tab:not(.pc-errori):not(.pc-reg) th:last-child { display: none !important; }
     .pc-avviso, .pc-kpi .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .pc-fatti { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
