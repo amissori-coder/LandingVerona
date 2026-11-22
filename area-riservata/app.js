@@ -37125,8 +37125,9 @@
        sua: la descrizione (di cosa si tratta, come si svolge, cosa resta agli
        atti, riferimenti), i passaggi della carta di lavoro e, accanto a ogni
        passaggio, i documenti da usare, ciascuno con una riga che dice a cosa
-       serve. Nessun collegamento ai fogli Google del piano: la sezione basta a
-       se stessa.
+       serve. Nessun collegamento ai documenti su Google Drive (originali, fogli
+       del piano, cartelle): la sezione basta a se stessa. Restano solo i moduli
+       per gli invii e i siti esterni (INI-PEC, calcolo del campione).
        I dati stanno in strumenti-revisione.js (caricato quando si apre la
        sezione), i file in strumenti-revisione/allegati/, il testo dei
        documenti Word brevi in strumenti-revisione/testi.json (al primo "Leggi").
@@ -37138,10 +37139,10 @@
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
-    const SR_DATI_VERSIONE = '20261122b';
+    const SR_DATI_VERSIONE = '20261122c';
     const SR_TIPI = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
-    const SR_LINK = { modulo: 'Modulo Google', drive: 'Google Drive', web: 'Sito esterno' };
-    const SR_LINK_BREVE = { modulo: 'Modulo', drive: 'Drive', web: 'Web' };
+    const SR_LINK = { modulo: 'Modulo Google', web: 'Sito esterno' };
+    const SR_LINK_BREVE = { modulo: 'Modulo', web: 'Web' };
     let _srTesti = null;            // promessa del file dei testi, caricato al primo "Leggi"
     let _srAnno = null;             // anno scelto nelle schede in cima
     const _srFiltri = { fase: '', stato: '', q: '' };
@@ -37233,7 +37234,6 @@
             + (a.testo ? '<button type="button" class="btn btn-sm btn-secondary sr-leggi" aria-expanded="false">Leggi</button>' : '')
             + (pdf ? '<a class="btn btn-sm btn-secondary" href="' + esc(a.file) + '" target="_blank" rel="noopener">Apri</a>' : '')
             + '<a class="btn btn-sm btn-secondary" href="' + esc(a.file) + '" download>Scarica</a>'
-            + (a.drive ? '<a class="btn btn-sm btn-ghost" href="' + esc(a.drive) + '" target="_blank" rel="noopener" title="L\'originale su Google Drive' + (a.titoloDrive ? ' («' + esc(a.titoloDrive) + '»)' : '') + ': si apre con l\'account Google abilitato">Drive</a>' : '')
             + '</span></li>';
     }
     function srDocHtml(d, x) {
@@ -37267,7 +37267,7 @@
         const parti = [a.titolo, a.sintesi, ...(a.come || []), a.agliAtti || '', a.attenzione || '', ...(a.riferimenti || [])];
         const doc = x => {
             parti.push(x.et || '', x.descrizione || '');
-            (x.c || (x.a ? [x.a] : [])).forEach(k => { const al = d.allegati[k]; if (al) parti.push(al.nome, al.descrizione || '', al.titoloDrive || ''); });
+            (x.c || (x.a ? [x.a] : [])).forEach(k => { const al = d.allegati[k]; if (al) parti.push(al.nome, al.descrizione || ''); });
         };
         (a.documentiUtili || []).forEach(doc);
         const c = a.carta && d.carte[a.carta];
