@@ -95,6 +95,8 @@ section p, section li { font-size: 10pt; line-height: 1.55; color: #1e293b; text
 section p { margin-bottom: 2mm; }
 section ul { margin: 0 0 2mm; padding-left: 5mm; }
 section li { margin-bottom: 1mm; }
+.finale { break-inside: avoid; }
+.finale section { margin-bottom: 0; }
 .sito { display: flex; align-items: center; justify-content: space-between; gap: 6mm; margin-top: 8mm; padding: 4.5mm 6mm; border-radius: 2mm; background: #164068; color: #ffffff; text-decoration: none; break-inside: avoid; }
 .sito-testo { display: flex; flex-direction: column; gap: 0.6mm; }
 .sito-sopra { font-size: 7.5pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #8bb8d4; }
@@ -124,7 +126,11 @@ function pagina(b, D, logo) {
             ? (s.p || []).map((t) => '<p>' + esc(t) + '</p>').join('')
             : '<ul>' + (s.l || []).map((t) => '<li>' + esc(t) + '</li>').join('') + '</ul>')).join('');
         return '<section><h2>' + esc(s.t) + '</h2>' + dentro + '</section>';
-    }).join('');
+    });
+    /* L'ultima sezione resta insieme alla fascia del sito e ai recapiti: nelle
+       schede lunghe, senza, i recapiti finivano da soli su una pagina in piu'.
+       Cosi' l'ultima pagina ha sempre anche un pezzo di scheda. */
+    const ultima = sezioni.pop() || '';
     return '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + esc(b.titolo) + ' - Scheda sintetica</title><style>' + STILE + '</style></head><body>'
         + '<table class="impaginato"><thead><tr><td><div class="testata"><img src="' + logo + '" alt="Revilaw">'
         + '<div class="testata-titolo"><strong>Bandi e agevolazioni</strong>Scheda sintetica · ' + esc(b.titolo) + '</div></div></td></tr></thead>'
@@ -136,7 +142,8 @@ function pagina(b, D, logo) {
         + (b.revisore ? '<div class="bollo">' + SIGILLO + '<div><strong>Certificazione del revisore</strong><span>Richiesta da questo bando</span></div></div>' : '')
         + '<dl class="dati">' + dato('Agevolazione', b.importo) + dato('Tipologia', tipologie) + dato('Finalità', finalita)
         + dato('Per chi', b.beneficiari) + dato('Quando', b.scadenza) + dato('Revisore', revisore) + dato('Procedura', procedura) + '</dl>'
-        + sezioni
+        + sezioni.join('')
+        + '<div class="finale">' + ultima
         /* il sito in evidenza: una fascia blu che e' anche un collegamento, per
            chi legge il PDF a schermo, alla scheda del bando sul sito */
         + '<a class="sito" href="https://' + SITO + '/bandi/#' + esc(b.id) + '"><span class="sito-testo">'
@@ -151,6 +158,7 @@ function pagina(b, D, logo) {
         + 'Sintesi a scopo informativo: non sostituisce il testo ufficiale del bando né un parere professionale. '
         + 'Requisiti, importi e scadenze vanno verificati sull\'avviso pubblicato dall\'ente gestore.</span>'
         + '</div></div>'
+        + '</div>'
         + '</td></tr></tbody></table></body></html>';
 }
 
