@@ -22,10 +22,51 @@ manuale resta sempre disponibile e non dipende dalla coda.
 | 1 | `repo-full.bundle` — storia git completa, **solo la domenica** (pesa centinaia di MB) |
 | 1-bis | I video allegati alle release: inventario sempre, copia su Drive incrementale |
 | 2 | Verifica dello zip e `node --check` sui file critici |
-| 3 | `firestore-data.json` — tutti i dati, sottocollezioni comprese |
+| 3 | `firestore-data.jsonl.gz` — tutti i dati, sottocollezioni comprese: una riga per documento, compressi |
 | 3-bis | `auth-users.json` + parametri di cifratura, regole di sicurezza, indici |
 | 4 | Verifica che sito e API rispondano; `dns.txt` con i record del dominio |
 | 5 | Stato del repository, TODO/FIXME, dipendenze del servizio email |
+
+### Come si salvano i dati (e perché dal 2 settembre al 23 novembre 2026 non si salvavano)
+
+Il passo 3 legge **tutti i documenti del database, a qualunque profondità**:
+una interrogazione per ogni collezione di primo livello che chiede "tutto
+quello che sta sotto, a pagine" (`lib/firestore.cjs`). Costa una lettura per
+documento. I documenti si scrivono man mano in `firestore-data.jsonl.gz`, una
+riga ciascuno: il database non sta mai tutto in memoria e non c'è un limite
+alla sua grandezza. Ogni collezione lascia una riga nel report (quanti
+documenti, quanti MB, quanti secondi), poi il file viene riletto per intero
+per controllo. Ci sono dentro anche le circolarizzazioni via PEC: lettere,
+PDF a pezzi, bozze, registro delle operazioni.
+
+Prima si faceva diversamente: letta una collezione, per **ogni** documento si
+chiedeva a Firestore se avesse sottocollezioni, una chiamata alla volta. Con
+2.500 documenti erano sette minuti; cresciuto il database (iscrizioni, inviti
+alle aziende, invii) l'esportazione ha superato le due ore concesse al lavoro,
+e GitHub la interrompeva. **Un lavoro interrotto per tempo scaduto risulta
+"annullato", non "fallito": non parte nessuna mail.** L'ultimo backup completo
+dei dati è stato quello del 1° settembre 2026; fino al 23 novembre ogni notte
+si è salvato solo il codice. Nessuno se n'è accorto perché niente lo diceva.
+
+Due cose perché non succeda più:
+
+- la lettura nuova non dipende dal numero di documenti in quel modo: decine di
+  migliaia di documenti sono minuti;
+- **il guardiano** (`esegui-backup.cjs`): se dopo 100 minuti il backup non ha
+  finito, scrive il report con quello che c'è e chiude con un **errore**, che
+  GitHub segnala per mail. Il tempo del lavoro nel workflow (120 minuti) deve
+  restare più lungo di quello del guardiano.
+
+Le prove dell'esportazione e del ripristino, senza rete e senza chiavi:
+
+```
+node scripts/backup/prove/firestore.prove.cjs
+```
+
+**Che cosa NON c'è nel backup dei dati**: i messaggi delle caselle PEC
+(ricevute e risposte restano nella casella del gestore; sul portale c'è solo
+l'elenco), e le variabili d'ambiente di Vercel e i segreti di GitHub, che per
+loro natura non si esportano: vanno rimessi a mano (i nomi sono nei README).
 
 Ogni cartella contiene `RIPRISTINO.txt` (istruzioni passo-passo),
 `import-firestore.cjs` (lo strumento che rimette dentro i dati) e `report.txt`.
@@ -135,7 +176,7 @@ Il report distingue due livelli:
 
 ```
 npm install firebase-admin
-node import-firestore.cjs <chiave-service-account.json> firestore-data.json
+node import-firestore.cjs <chiave-service-account.json> firestore-data.jsonl.gz
 ```
 
 Così fa solo una prova a vuoto e dice cosa scriverebbe. Per scrivere davvero si

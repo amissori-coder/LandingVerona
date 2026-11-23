@@ -72,6 +72,24 @@ async function passo(descrizione, azione) {
     }
 }
 
+/* Se il backup si blocca, GitHub lo interrompe allo scadere del tempo del
+   lavoro e lo segna "annullato": nessuna mail, e nessuno se ne accorge. E'
+   successo dal 2 settembre al 23 novembre 2026: l'esportazione dei dati non
+   arrivava piu' in fondo e ogni notte il backup risultava annullato.
+   Per questo c'e' un guardiano: passato il suo tempo (meno di quello del
+   lavoro, vedi timeout-minutes nel workflow) scrive il report con quello che
+   c'e' e chiude con un ERRORE, che GitHub segnala. */
+const TEMPO_MASSIMO_MIN = Number(process.env.BACKUP_TEMPO_MASSIMO_MIN) || 100;
+let cartellaInCorso = '';
+const guardiano = setTimeout(() => {
+    const riga = ora() + '  === ESITO: INTERROTTO - il backup non ha finito in ' + TEMPO_MASSIMO_MIN + ' minuti: i dati di stanotte NON sono al sicuro ===';
+    righe.push(riga);
+    console.error(riga);
+    try { if (cartellaInCorso) fs.writeFileSync(path.join(cartellaInCorso, 'report.txt'), righe.join('\n') + '\n'); } catch (_) { /* resta il log dell'esecuzione */ }
+    process.exit(1);
+}, TEMPO_MASSIMO_MIN * 60 * 1000);
+guardiano.unref();
+
 async function principale() {
     const adesso = new Date();
     const stampaData = adesso.toLocaleString('it-IT', { timeZone: FUSO, hour12: false });
@@ -82,6 +100,7 @@ async function principale() {
 
     const uscita = path.resolve(process.env.CARTELLA_BACKUP || path.join(radice, 'backup-uscita'), etichetta);
     fs.mkdirSync(uscita, { recursive: true });
+    cartellaInCorso = uscita;
 
     const deposito = process.env.GITHUB_REPOSITORY || '';
     const commit = comando('git', ['rev-parse', '--short', 'HEAD']);
@@ -169,15 +188,20 @@ async function principale() {
     admin.initializeApp({ credential: admin.credential.cert(cred) });
     const progetto = cred.project_id;
 
-    const esportazione = await passo('esportazione Firestore', async () => {
-        const e = await firestore.esportaTutto(progetto);
-        const destinazione = path.join(uscita, 'firestore-data.json');
-        fs.writeFileSync(destinazione, JSON.stringify(e.contenuto, null, 1));
-        const peso = fs.statSync(destinazione).size;
-        log('  Export OK: ' + e.conteggi.collezioni + ' collezioni, ' + e.conteggi.documenti + ' documenti');
-        JSON.parse(fs.readFileSync(destinazione, 'utf8'));   // rilettura di controllo
-        log('  dati Firebase: OK (JSON valido, ' + mb(peso) + ')');
-        return e;
+    /* Tutti i documenti, a qualunque profondita', scritti man mano in un file
+       compresso (una riga per documento). Ogni collezione di primo livello
+       lascia una riga nel report: se una notte il backup rallenta o si ferma,
+       si vede su quale. */
+    await passo('esportazione Firestore', async () => {
+        const destinazione = path.join(uscita, firestore.NOME_FILE);
+        const c = await firestore.esportaSuFile(progetto, destinazione, {
+            token: () => token(cred, firestore.AMBITI),
+            log: t => log('    ' + t)
+        });
+        log('  Export OK: ' + c.collezioni + ' collezioni, ' + c.documenti + ' documenti');
+        const riletti = await firestore.verificaFile(destinazione);   // rilettura di controllo, riga per riga
+        log('  dati Firebase: OK (' + riletti + ' documenti riletti, ' + mb(c.byte) + ' di dati, ' + mb(fs.statSync(destinazione).size) + ' il file compresso)');
+        return c;
     });
 
     /* ---------- 3-bis) Configurazione Firebase ---------- */
