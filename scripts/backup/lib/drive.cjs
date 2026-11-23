@@ -17,6 +17,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { Readable } = require('stream');
+const { pipeline } = require('stream/promises');
 
 const AMBITI = ['https://www.googleapis.com/auth/drive'];
 const SOGLIA_RIPARTIBILE = 5 * 1024 * 1024;
@@ -157,4 +159,16 @@ async function caricaFile(tok, percorso, idCartella, nome) {
         : caricaPiccolo(tok, percorso, etichetta, idCartella);
 }
 
-module.exports = { AMBITI, elenca, trovaOCreaCartella, caricaFile };
+/* Scarica un file in `destinazione`, a flusso: non lo tiene in memoria.
+   Serve alla prova di ripristino, che riprende il backup da dove sta. */
+async function scaricaFile(tok, idFile, destinazione) {
+    const r = await conRiprova(() => fetch(
+        'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(idFile) + '?alt=media&supportsAllDrives=true',
+        { headers: { Authorization: 'Bearer ' + tok } }
+    ));
+    if (!r.ok) throw await errore('Drive download', r);
+    await pipeline(Readable.fromWeb(r.body), fs.createWriteStream(destinazione));
+    return fs.statSync(destinazione).size;
+}
+
+module.exports = { AMBITI, elenca, trovaOCreaCartella, caricaFile, scaricaFile };
