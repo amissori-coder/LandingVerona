@@ -865,6 +865,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_MAX_GIRO` | *(facoltativa)* quante PEC per giro. Senza: `80` |
 | `CIRC_PAUSA_MS` | *(facoltativa)* pausa fra una PEC e la successiva. Senza: `1200` |
 | `CIRC_LETTORE_RECUPERO` | *(facoltativa)* se il gestore rigenera la cartella, quanti messaggi rileggere all'indietro. Senza: `200`. Alla prima accensione non si guarda indietro: la posta gia' presente non entra fra le "non associate" |
+| `CIRC_PEC_PROXY` | **serve per spedire.** Il "ponte": `http://utente:password@indirizzo:porta` di un proxy con indirizzo di rete italiano da cui passano gli invii. Senza, il gestore respinge gli invii perche' arrivano dall'estero (`554 5.7.1`). La riga la stampa `strumenti/ponte-pec.sh`. Vedi "Quando il gestore sospende gli invii" |
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
@@ -928,8 +929,9 @@ rispetto al database**. Con Firestore in Europa (`europe-west8`, `eur3`) e le
 funzioni nella regione predefinita di Vercel (Washington), ogni lettura
 attraversa due volte l'oceano. La funzione delle circolarizzazioni gira gia' a
 Francoforte: lo dice `vercel.json` (`"regions": ["fra1"]` sulla sola
-`api/circolarizzazioni.js`, per via del blocco del gestore PEC, vedi piu'
-sotto). Le altre funzioni restano nella regione del progetto, che si cambia su
+`api/circolarizzazioni.js`: non risolve il blocco del gestore PEC, che vuole un
+indirizzo italiano, ma la avvicina alla casella e al ponte, vedi piu' sotto).
+Le altre funzioni restano nella regione del progetto, che si cambia su
 Vercel in Settings -> Functions -> Function Regions: portarle a Francoforte
 conviene solo se Firestore e' in Europa.
 
@@ -1068,50 +1070,78 @@ rimette la scheda in coda, senza toccare il resto: vedi qui sotto.
 
 E' successo al primo invio vero: Aruba ha risposto `554 5.7.1 Indirizzo IP
 bloccato temporaneamente per sospetto abuso. Contattare assistenza e utilizzare
-la Webmail`. Non dipende dalle lettere ne' dalla password (la casella si legge):
-il gestore ha respinto **l'indirizzo di rete** da cui la funzione si e'
-collegata. Le funzioni Vercel escono su indirizzi condivisi con altri clienti e
-che cambiano a ogni esecuzione; in piu', senza una regione scelta, partono dagli
-Stati Uniti.
+la Webmail`. **La causa e' che il servizio si collega dall'estero.** Lo dice la
+guida di Aruba agli errori della PEC: l'errore compare quando si spedisce da un
+programma di posta collegandosi dall'estero via SMTP, e nell'attesa si puo'
+usare la webmail. Le funzioni Vercel girano fuori dall'Italia (Stati Uniti; la
+funzione delle circolarizzazioni ora a Francoforte, `vercel.json`), e Vercel
+non ha una regione italiana: cambiare regione non basta, e infatti da
+Francoforte il rifiuto e' lo stesso. La lettura della casella (IMAP) dall'estero
+invece passa. Non c'entrano le lettere ne' la password.
 
-Che cosa fa il servizio (`lib/circ-giro.js`):
+**Il rimedio: il ponte (`CIRC_PEC_PROXY`).** Gli invii devono arrivare al
+gestore da un indirizzo di rete italiano. Il servizio sa farli passare da un
+proxy HTTP con credenziali:
+
+    CIRC_PEC_PROXY=http://utente:password@indirizzo:porta
+
+Con la variabile impostata la connessione a `smtps.pec.aruba.it` parte dal
+ponte. Dentro il passaggio resta cifrata e verificata contro il nome del server
+del gestore: il ponte vede solo traffico cifrato, non la password della casella
+ne' le lettere. La lettura della casella continua a collegarsi direttamente.
+Nell'area riservata, accanto alla casella, compare "invii dal ponte italiano"
+(l'indirizzo solo a chi vede tutto; le credenziali non escono mai dal
+servizio). Se la variabile e' scritta male il servizio non spedisce affatto e
+lo segnala: senza ponte tornerebbe il rifiuto del gestore, e non si capirebbe
+perche'.
+
+**Come si prepara il ponte.** Serve un piccolo server Linux (Ubuntu o Debian)
+con indirizzo pubblico italiano, per esempio il taglio piu' piccolo di un
+fornitore italiano, in un data center in Italia. Sul server, da amministratore:
+
+    sudo bash ponte-pec.sh
+
+Lo script e' `strumenti/ponte-pec.sh`: installa `tinyproxy`, crea utente e
+password, ammette **solo** `smtps.pec.aruba.it` e `imaps.pec.aruba.it` sulle
+porte 465 e 993, e alla fine stampa la riga `CIRC_PEC_PROXY=...` da mettere
+nelle variabili d'ambiente di Vercel (poi serve un nuovo deployment). Va aperta
+la porta 8443 anche nel firewall del fornitore, se ce n'e' uno. Rilanciarlo non
+cambia la password.
+
+Provato qui con `tinyproxy` 1.11 e un server di posta finto: con le credenziali
+giuste la PEC (con un PDF di 3 MB) passa; password sbagliata, nessuna
+credenziale, un'altra destinazione o un'altra porta vengono rifiutate. **Non
+provato contro Aruba**: che un indirizzo italiano basti lo dice la guida del
+gestore, e si vede solo al primo invio dal ponte.
+
+**Che cosa fa il servizio quando il gestore (o il ponte) rifiuta**
+(`lib/circ-giro.js`):
 
 - **le lettere restano in coda e il tentativo non conta.** Il rifiuto non
   consuma i tre tentativi della lettera: un blocco di ore non manda nessuna
   lettera in "non partita" e non fa partire avvisi a chi l'ha preparata;
 - **gli invii si fermano per un po', per tutta la coda**: dieci minuti dopo il
-  primo rifiuto, poi venti, quaranta, un'ora (e un'ora per i successivi). Ogni
-  tentativo e' un'altra connessione da un indirizzo appena respinto: insistere
-  ogni cinque minuti allunga il blocco. In pausa il giro programmato non apre
-  connessioni di invio e non legge la casella "in fretta"; la prima PEC
+  primo rifiuto, poi venti, quaranta, un'ora (e un'ora per i successivi). In
+  pausa il giro programmato non apre connessioni di invio; la prima PEC
   accettata azzera tutto;
 - **lo dice**: nell'area riservata un avviso riporta la risposta del server, che
   cosa vuol dire e a che ora si riprova (lo vede anche il team, nella pagina
-  dell'incarico: altrimenti una lettera ferma "in coda" non si spiega), e nel
-  registro degli errori c'e' la riga "Il server PEC ha sospeso gli invii".
-  L'avviso resta finche' una PEC non parte davvero (`meta/circGiro.rifiuto`);
+  dell'incarico), e nel registro degli errori c'e' la riga "Il server PEC ha
+  sospeso gli invii". L'avviso resta finche' una PEC non parte davvero
+  (`meta/circGiro.rifiuto`). La spiegazione cambia con la causa: indirizzo
+  estero, ponte che non risponde o con credenziali sbagliate, password della
+  casella, troppi invii;
+- **il ponte che non risponde e' trattato allo stesso modo** (la lettera non
+  c'entra): pausa, avviso, niente "non partita". L'indirizzo del ponte non
+  compare nel testo dell'avviso;
 - **chi vede tutto puo' riprovare subito** con "Riprova adesso" (azione
-  `riprova-invii`), per esempio dopo aver sentito l'assistenza del gestore: il
-  tentativo resta nel registro delle operazioni. Se il gestore rifiuta ancora,
-  la pausa si allunga.
+  `riprova-invii`): il tentativo resta nel registro delle operazioni.
 
-**Il blocco non si risolve dal codice.** Se si ripete, in ordine di costo:
-
-1. *Regione della funzione in Europa*: fatto. `vercel.json` fa girare
-   `api/circolarizzazioni.js` a Francoforte (`"regions": ["fra1"]`), cosi' si
-   esce da un altro gruppo di indirizzi, europei, e piu' vicini alla casella.
-   Non e' una garanzia: restano indirizzi condivisi. Se Firestore non fosse in
-   Europa la pagina delle circolarizzazioni diventerebbe piu' lenta: in quel
-   caso basta togliere quella voce.
-2. *Assistenza del gestore*: chiedere se la casella puo' essere usata da un
-   programma che si collega da un servizio cloud, e se un indirizzo si puo'
-   autorizzare.
-3. *Un indirizzo fisso.* O gli "Static IPs" di Vercel (a pagamento, per
-   progetto; sono comunque condivisi con un piccolo gruppo di clienti), o un
-   piccolo server italiano con indirizzo fisso che faccia da ponte verso
-   `smtps.pec.aruba.it` e `imaps.pec.aruba.it`: gli host sono gia' variabili
-   (`CIRC_PEC_SMTP_HOST`, `CIRC_PEC_IMAP_HOST`), ma per un ponte va aggiunto il
-   nome del certificato da verificare, che oggi non c'e'.
+Le alternative al ponte, per completezza: chiedere all'assistenza del gestore
+di sbloccare gli indirizzi (li sblocca uno per uno su richiesta, e quelli delle
+funzioni cambiano a ogni esecuzione), oppure gli "Static IPs" di Vercel (a
+pagamento, per progetto) per avere indirizzi fissi da far sbloccare: restano
+pero' indirizzi esteri.
 
 ### I solleciti
 
@@ -1338,7 +1368,9 @@ quelle rifiutate, chi lo legge, che resta dopo la cancellazione), le letture
 della pagina degli incarichi (poche, e non crescono con gli incarichi), il
 gestore che respinge il servizio (pausa che cresce, nessun tentativo in pausa,
 la lettera che non consuma i tentativi, ripresa a mano, avviso che resta
-finche' una PEC non parte), cancellazione.
+finche' una PEC non parte), il ponte (gli invii passano di li', il ponte
+spento o con credenziali sbagliate, la variabile scritta male, l'indirizzo che
+non esce dal servizio), cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:

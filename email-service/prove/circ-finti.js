@@ -107,8 +107,9 @@ const posta = [];
 const stato = { rifiuta: null, prossimoUid: 1 };       // rifiuta: funzione (msg) -> Error | null
 const avvisi = [];         // le email ordinarie degli errori (a chi amministra): partono dal server SMTP_HOST, non dalla PEC
 const notizie = [];        // le email ordinarie a chi ha preparato le lettere (risposte arrivate, PEC non consegnate)
+const trasporti = [];       // le opzioni con cui il codice ha aperto ogni collegamento di posta
 const nodemailerFinto = {
-    createTransport: o => ({
+    createTransport: o => (trasporti.push(o), {
         sendMail: async msg => {
             if (o && o.host === process.env.SMTP_HOST) {
                 if (stato.rifiutaAvvisi) throw new Error('posta ordinaria giu\'');
@@ -193,5 +194,5 @@ Module.prototype.require = function (nome) {
 Object.assign(process.env, { CIRC_PEC_USER: 'circolarizzazionirevilaw@pec.it', CIRC_PEC_PASS: 'segreta', CIRC_PAUSA_MS: '0', CRON_SECRET: 'cron', FIREBASE_SERVICE_ACCOUNT: '{}',
     SMTP_HOST: 'posta-ordinaria.finta', SMTP_PORT: '587', SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_FROM_EMAIL: 'noreply@nextgenerationbusiness.it', APP_BASE_URL: 'https://nextgenerationbusiness.it' });
 
-module.exports = { dati, db, posta, avvisi, notizie, casella, stato, letture, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
+module.exports = { dati, db, posta, trasporti, avvisi, notizie, casella, stato, letture, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
 

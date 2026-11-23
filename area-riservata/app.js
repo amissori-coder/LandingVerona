@@ -37938,6 +37938,9 @@
         const voci = ['Casella <strong>' + esc(st.casella) + '</strong>'];
         if (l.ultimoGiro && l.ultimoGiro.quando) voci.push('ricevute e risposte controllate il ' + esc(fmtDataOra(l.ultimoGiro.quando)));
         if (g.inviateNellOra) voci.push(esc(g.inviateNellOra) + ' PEC partite nell\'ultima ora (tetto ' + esc(g.tettoOrario) + ')');
+        // da dove partono gli invii: il gestore accetta solo indirizzi italiani, e il servizio gira all'estero
+        if (st.ponte === 'attivo') voci.push('invii dal ponte italiano' + (st.ponteDove ? ' (' + esc(st.ponteDove) + ')' : ''));
+        else if (st.ponte === 'errato' && st.profilo.vedeTutto) voci.push('<strong>ponte per gli invii configurato male</strong>');
         let avviso = '';
         if (l.fermoPerCredenziali) avviso = 'La casella PEC rifiuta la password: ricevute e risposte non si aggiornano finché l\'amministratore non la rinnova.';
         else if (l.ultimoGiro && l.ultimoGiro.esito === 'errore') avviso = 'L\'ultimo controllo della casella non è riuscito: ' + (l.ultimoGiro.motivo || '');

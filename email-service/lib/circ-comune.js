@@ -25,9 +25,28 @@ const s = v => String(v == null ? '' : v).trim();
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 
 /* ---------- la casella ---------- */
+/* Il "ponte": un proxy con indirizzo di rete ITALIANO da cui passa la
+   connessione di invio (CIRC_PEC_PROXY = http://utente:password@indirizzo:porta).
+   Serve perche' il gestore respinge gli invii che arrivano da un indirizzo
+   estero ("554 5.7.1 Indirizzo IP bloccato temporaneamente per sospetto
+   abuso"), e le funzioni girano all'estero. Il proxy vede solo una connessione
+   cifrata verso il gestore: password della casella e lettere non le legge.
+   Torna {} se la variabile non c'e', { errato: true } se c'e' ma non si legge,
+   altrimenti { url, dove }: `dove` (indirizzo:porta, senza credenziali) e'
+   l'unica cosa che esce dal servizio. */
+function ponte(v) {
+    const t = s(v);
+    if (!t) return {};
+    let u;
+    try { u = new URL(t); } catch (_) { return { errato: true }; }
+    if (!/^https?:$/.test(u.protocol) || !u.hostname) return { errato: true };
+    return { url: t, dove: u.hostname + (u.port ? ':' + u.port : '') };
+}
 function configurazione() {
     const utente = s(process.env.CIRC_PEC_USER);
+    const pt = ponte(process.env.CIRC_PEC_PROXY);
     return {
+        proxy: pt.url || '', proxyDove: pt.dove || '', proxyErrato: !!pt.errato,
         utente: utente,
         password: String(process.env.CIRC_PEC_PASS || ''),
         // il mittente di una PEC DEVE essere la casella: il gestore rifiuta ogni altro indirizzo
