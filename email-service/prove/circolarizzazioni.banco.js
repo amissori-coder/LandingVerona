@@ -21,7 +21,8 @@
                        (mancata consegna se l'indirizzo contiene "errore")
      /banco/risposta   { pec, oggetto?, inRisposta?: true, ordinaria? }
                        una risposta da quell'indirizzo, con un PDF
-     /banco/rifiuta    { testo, codice }: il server PEC rifiuta ogni invio; {}: riapre
+     /banco/rifiuta    { testo, codice }: il server PEC rifiuta ogni invio; con
+                       { pec } solo quelli a quell'indirizzo; {}: riapre
      /banco/giro       il giro programmato (casella, invii, pulizie, avvisi);
                        con { alle: <istante ISO> } prima sposta l'orologio
      /banco/avvisi     le email degli errori partite finora
@@ -101,8 +102,8 @@ http.createServer((req, res) => {
             if (req.url === '/banco/ricevute') out = { stato: 200, corpo: { ok: true, ricevute: ricevute() } };
             else if (req.url === '/banco/risposta') out = { stato: 200, corpo: { ok: true, risposte: rispondi(b) } };
             else if (req.url === '/banco/rifiuta') {
-                // { testo, codice } fa rifiutare al server PEC finto ogni invio (come un indirizzo bloccato dal gestore); {} lo riapre
-                F.stato.rifiuta = b.testo ? () => Object.assign(new Error(String(b.testo)), { responseCode: Number(b.codice) || 554 }) : null;
+                // { testo, codice } fa rifiutare al server PEC finto ogni invio (come un indirizzo bloccato dal gestore); con { pec } solo quelli a quell'indirizzo; {} lo riapre
+                F.stato.rifiuta = b.testo ? msg => (!b.pec || String(msg.to) === String(b.pec) ? Object.assign(new Error(String(b.testo)), { responseCode: Number(b.codice) || 554 }) : null) : null;
                 out = { stato: 200, corpo: { ok: true, rifiuta: !!b.testo } };
             }
             else if (req.url === '/banco/giro') {

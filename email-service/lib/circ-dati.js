@@ -42,6 +42,7 @@ const PEZZI = 'allegato';
 const PROPRIETARIO = 'a.missori@emvas.tax';
 const MINUTO = 60 * 1000, GIORNO = 24 * 60 * MINUTO;
 const VERIFICA_MS = 20 * MINUTO;        // un passo "in invio" senza esito si riguarda dopo venti minuti
+const RIPROVA_MS = 15 * MINUTO;         // una lettera respinta mentre le altre partono si ritenta dopo un quarto d'ora
 const MAX_TENTATIVI = 3;
 
 function docImpostazioni(db) { return db.collection('meta').doc('circolarizzazioni'); }
@@ -509,7 +510,8 @@ async function prendi(db, id, ora, lettoreOk) {
         }
         if ((Number(p.tentativi) || 0) >= MAX_TENTATIVI) {
             p.stato = 'errore';
-            p.errore = p.errore || 'Invio non riuscito dopo ' + MAX_TENTATIVI + ' tentativi.';
+            p.errore = p.propria ? ('Il server PEC ha rifiutato questa lettera ' + MAX_TENTATIVI + ' volte mentre le altre partivano: ' + (p.errore || 'nessun dettaglio')).slice(0, 300)
+                : (p.errore || 'Invio non riuscito dopo ' + MAX_TENTATIVI + ' tentativi.');
             return Object.assign(salva('troppi tentativi'), { errore: { inv: inv, passo: n, testo: p.errore } });
         }
         if (!inv.allegato || inv.allegato.tolto) {
@@ -541,8 +543,9 @@ async function prendi(db, id, ora, lettoreOk) {
     return esito;
 }
 /* L'esito della consegna al server di posta. `esito`: { ok } oppure
-   { ok: false, msg, riprova } (riprova = il rifiuto riguarda noi, non il
-   destinatario: si rimette in coda). */
+   { ok: false, msg, riprova, propria }. `riprova`: il rifiuto non dice che la
+   lettera sia sbagliata, quindi torna in coda; con `propria` il gestore ha
+   respinto questa lettera mentre le altre partivano, e il tentativo conta. */
 async function esitoInvio(db, id, n, riferimento, esito) {
     const rif = db.collection(INVII).doc(String(id));
     let fallita = '';
@@ -554,15 +557,26 @@ async function esitoInvio(db, id, n, riferimento, esito) {
         const p = Object.assign({}, inv.passi[n]);
         if (p.riferimento !== riferimento || p.stato !== 'invio') return inv;     // nel frattempo e' cambiato: non si tocca
         const ora = Date.now();
-        if (esito.ok) { p.stato = 'inviato'; p.inviatoIl = ora; delete p.verificaIl; delete p.errore; }
+        if (esito.ok) { p.stato = 'inviato'; p.inviatoIl = ora; delete p.verificaIl; delete p.errore; delete p.respintaIl; delete p.propria; }
         else if (esito.riprova) {
-            /* Il rifiuto riguarda il servizio, non la lettera: torna in coda da
-               subito e il tentativo NON conta. Quando riprovare lo decide la
-               pausa del giro (lib/circ-giro.js), che vale per tutta la coda: se
-               il gestore blocca per ore, nessuna lettera deve finire "non
-               partita" per colpa sua. */
-            p.stato = 'coda'; p.previsto = ora; p.tentativi = Math.max(0, (Number(p.tentativi) || 0) - 1);
+            p.stato = 'coda';
             p.errore = String(esito.msg || '').slice(0, 300);
+            p.respintaIl = ora;
+            if (esito.propria) {
+                /* Il gestore ha respinto QUESTA lettera mentre le altre partono:
+                   il tentativo conta, e si riprova da sola fra un quarto d'ora
+                   senza tenere ferma la coda. Al terzo rifiuto va in "non
+                   partita" (lo fa `prendi`). */
+                p.propria = true;
+                p.previsto = ora + RIPROVA_MS;
+            } else {
+                /* Il rifiuto riguarda il servizio, o non si sa ancora: torna in
+                   coda da subito e il tentativo NON conta. Quando riprovare lo
+                   decide la pausa del giro (lib/circ-giro.js): se il gestore
+                   blocca per ore, nessuna lettera deve finire "non partita" per
+                   colpa sua. */
+                p.previsto = ora; p.tentativi = Math.max(0, (Number(p.tentativi) || 0) - 1);
+            }
         }
         else { p.stato = 'errore'; p.errore = String(esito.msg || 'Invio non riuscito.').slice(0, 300); fallita = p.errore; }
         inv.passi = Object.assign({}, inv.passi, { [n]: p });
@@ -577,6 +591,35 @@ async function esitoInvio(db, id, n, riferimento, esito) {
         await AVVISI.accoda(db, dopo, String(id), { tipo: 'invio', chiave: 'invio~' + id + '~' + n, passo: n, titolo: titoloGuasto(n, 'partita'), dettaglio: fallita });
     }
     return dopo;
+}
+
+/* Una lettera respinta poco fa "in dubbio" (non si sapeva se il problema fosse
+   suo o del servizio): nel frattempo un'altra PEC e' partita, quindi il
+   problema e' suo. Il tentativo torna a contare e la lettera si ritenta da
+   sola piu' tardi. */
+async function rifiutoProprio(db, id, n, ora) {
+    const rif = db.collection(INVII).doc(String(id));
+    return db.runTransaction(async tx => {
+        const s = await tx.get(rif);
+        if (!s.exists) return false;
+        const inv = s.data() || {};
+        const p = Object.assign({}, (inv.passi || {})[n]);
+        if (p.stato !== 'coda' || !p.respintaIl || p.propria) return false;
+        p.propria = true;
+        p.tentativi = (Number(p.tentativi) || 0) + 1;
+        p.previsto = ora + RIPROVA_MS;
+        inv.passi = Object.assign({}, inv.passi, { [n]: p });
+        chiudi(inv, ora);
+        tx.set(rif, inv);
+        return true;
+    });
+}
+/* Il passo dovuto adesso e' gia' stato respinto e aspetta: in pausa non lo si
+   ritenta, si provano solo le lettere nuove. */
+function respintaInAttesa(inv, ora) {
+    const n = passoDovuto(inv, ora);
+    const p = n ? passo(inv, n) : null;
+    return !!(p && p.stato === 'coda' && p.respintaIl);
 }
 
 /* ============================================================
@@ -884,11 +927,11 @@ async function pulizia(db, ora, max) {
 }
 
 module.exports = {
-    INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, MAX_TENTATIVI,
+    INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, RIPROVA_MS, MAX_TENTATIVI,
     profilo, leggiBase, incaricoDi, impostazioni, docImpostazioni,
     statoDi, prossimoDi, passoDovuto, conteggi, conteggiPerAmbito, passo, inviato, esitoPasso,
     schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, caricaIntero, leggiAllegato,
-    chiaviMsgId, trovaRiferimento, prendi, esitoInvio,
+    chiaviMsgId, trovaRiferimento, prendi, esitoInvio, rifiutoProprio, respintaInAttesa,
     applicaRicevuta, registraRisposta, candidatiPerIndirizzo,
     modificaSolleciti, annulla, rispostaManuale, togliRispostaManuale, reinvia,
     nonAssociate, associa, scarta, cancellaIncarico, pulizia,
