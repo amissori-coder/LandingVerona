@@ -24,6 +24,7 @@ function verifica(cosa, condizione, dettaglio) {
 
 const PROGETTO = 'progetto-di-prova';
 const RADICE = 'projects/' + PROGETTO + '/databases/(default)/documents';
+const SERVIZIO = 'https://firestore.googleapis.com/v1/';
 const cartella = fs.mkdtempSync(path.join(os.tmpdir(), 'ngb-backup-prova-'));
 
 /* ---------- il database finto: percorso -> campi nel formato dell'API ---------- */
@@ -60,13 +61,15 @@ global.fetch = async (url, opz) => {
     const corpo = JSON.parse(opz.body);
     if (opz.headers.Authorization !== 'Bearer gettone-finto') return risposta(401, { error: { status: 'UNAUTHENTICATED' } });
     if (guasta) { const r = guasta(url, corpo); if (r) return r; }
-    if (url === RADICE + ':listCollectionIds') {
+    // l'indirizzo deve essere quello vero del servizio, per intero: una volta e' mancato, e la prova non se n'era accorta
+    try { new URL(url); } catch (_) { throw new TypeError('Failed to parse URL from ' + url); }
+    if (url === SERVIZIO + RADICE + ':listCollectionIds') {
         chiamate.elenco++;
         const tutte = Array.from(new Set(Array.from(banca.keys()).map(p => p.split('/')[0]))).concat(['vuota']);
         // a due pagine, per provare anche il segno di pagina
         return corpo.pageToken ? risposta(200, { collectionIds: tutte.slice(3) }) : risposta(200, { collectionIds: tutte.slice(0, 3), nextPageToken: 'seconda' });
     }
-    if (url === RADICE + ':runQuery') {
+    if (url === SERVIZIO + RADICE + ':runQuery') {
         chiamate.pagine++;
         const q = corpo.structuredQuery, f = q.where.compositeFilter.filters;
         if (!(q.from.length === 1 && q.from[0].allDescendants === true && !q.from[0].collectionId)) return risposta(400, 'interrogazione non prevista');
