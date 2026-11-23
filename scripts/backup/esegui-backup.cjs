@@ -8,7 +8,8 @@
 
    Variabili d'ambiente:
      FIREBASE_SERVICE_ACCOUNT  (obbligatoria) chiave del progetto Firebase
-     GDRIVE_FOLDER_ID          (facoltativa)  id della cartella Backup-NGB
+     GDRIVE_FOLDER_ID          id della cartella Backup-NGB: senza, il backup
+                               non viene conservato (ed e' un ERRORE)
      GDRIVE_CLIENT_ID          \
      GDRIVE_CLIENT_SECRET       > accesso per conto dell'utente: l'unico che
      GDRIVE_REFRESH_TOKEN      /  funziona dentro "Il mio Drive"
@@ -123,10 +124,9 @@ async function principale() {
     // La storia completa pesa centinaia di MB: si salva una volta a settimana
     // (domenica), come faceva il backup di prima.
     //
-    // Ma solo se c'e' Drive a conservarla. L'allegato dell'esecuzione la esclude
-    // di proposito - GitHub la storia ce l'ha gia', ricopiarla dentro GitHub non
-    // aggiunge nessuna sicurezza - quindi senza Drive si passerebbe mezzo minuto
-    // a produrre mezzo giga per poi buttarlo via.
+    // Ma solo se c'e' Drive a conservarla: e' l'unico posto dove il backup
+    // viene tenuto, quindi senza Drive si passerebbe mezzo minuto a produrre
+    // mezzo giga per poi buttarlo via.
     const conDrive = !!(process.env.GDRIVE_FOLDER_ID || '').trim();
     const domenica = adesso.getDay() === 0;
     const forzato = String(process.env.INCLUDI_BUNDLE || '').toLowerCase() === 'si';
@@ -298,7 +298,9 @@ async function principale() {
     let idBackup = null;
     const idCartella = (process.env.GDRIVE_FOLDER_ID || '').trim();
     if (!idCartella) {
-        log('  saltata: GDRIVE_FOLDER_ID non impostato (il backup resta come artifact di questa esecuzione)');
+        // Una volta la copia restava allegata all'esecuzione. Non piu': il
+        // repository e' pubblico, e gli allegati li scarica chiunque.
+        guasto('copia su Drive non configurata (manca GDRIVE_FOLDER_ID): il backup di questa notte NON e\' stato conservato da nessuna parte');
     } else {
         await passo('copia su Drive', async () => {
             // Si annuncia PRIMA di autenticarsi: se le credenziali non vanno,

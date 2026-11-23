@@ -182,6 +182,15 @@ global.fetch = async (url, opz) => {
     const vecchi = new Map([].concat(...fs.readFileSync(uscitaFinta, 'utf8').trim().split('\n').map(x => JSON.parse(x))).map(o => [o.p, o.d]));
     verifica('il formato di prima (firestore-data.json) si ripristina ancora, sottocollezioni comprese', r.ok && vecchi.size === 3 && vecchi.get('cose/a/figli/b').pdf.__buf === 3 && vecchi.get('archivio/incarichi').quando.__ts === '2026-09-01T06:00:00.000Z', r.testo);
 
+    // ---------- 5. niente allegati alle esecuzioni ----------
+    // Il repository e' pubblico: gli allegati (artifact) li scarica chiunque abbia un account GitHub.
+    // Nessun lavoro deve caricarne, e meno di tutti quelli che maneggiano la cartella del backup.
+    const lavori = path.join(__dirname, '..', '..', '..', '.github', 'workflows');
+    const cheAllegano = fs.readdirSync(lavori).filter(f => /\.ya?ml$/.test(f)).filter(f => fs.readFileSync(path.join(lavori, f), 'utf8').split('\n').some(r => !/^\s*#/.test(r) && /upload-artifact/.test(r)));
+    verifica('nessun lavoro allega file all\'esecuzione (il repository e\' pubblico)', cheAllegano.length === 0, cheAllegano);
+    const copione = fs.readFileSync(path.join(__dirname, '..', 'esegui-backup.cjs'), 'utf8');
+    verifica('senza Drive il backup e\' in errore: non c\'e\' un altro posto dove conservarlo', /guasto\('copia su Drive non configurata/.test(copione) && !/resta come artifact/.test(copione));
+
     fs.rmSync(cartella, { recursive: true, force: true });
     console.log('\nbackup Firestore: ' + passate + ' verifiche passate' + (fallite ? ', ' + fallite + ' FALLITE' : ''));
     process.exit(fallite ? 1 : 0);

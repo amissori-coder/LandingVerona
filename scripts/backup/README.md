@@ -89,12 +89,21 @@ L'account predefinito `firebase-adminsdk-*` ha già i permessi che servono. Se
 regole o parametri di cifratura risultassero vuoti nel report, aggiungi i ruoli
 *Firebase Authentication Admin*, *Firebase Rules Viewer* e *Cloud Datastore User*.
 
-### 2. Copia su Google Drive (facoltativo ma consigliato)
+### 2. Copia su Google Drive (obbligatoria)
 
-Senza questa parte il backup funziona lo stesso: le copie restano allegate
-all'esecuzione (artifact, 90 giorni) invece di finire in `Backup-NGB`.
+`Backup-NGB` su Drive è **l'unico posto** dove il backup viene conservato. Senza
+questa parte, o se una notte la copia su Drive non riesce, il backup risulta in
+ERRORE e GitHub manda la mail.
 
-In ogni caso serve il segreto:
+> **Il backup non allega niente all'esecuzione, e non deve farlo mai.** Questo
+> repository è pubblico, e gli allegati (*artifact*) delle esecuzioni di un
+> repository pubblico li può scaricare chiunque abbia un account GitHub. La
+> cartella del backup contiene i dati e gli accessi: non va allegata nemmeno in
+> parte. Il report si legge nel riepilogo dell'esecuzione. Se dovessero esserci
+> allegati `backup-...`, li cancella *Actions* → *Pulizia degli allegati delle
+> esecuzioni* → *Run workflow* (scrivendo `CANCELLA` nel campo di conferma).
+
+Serve il segreto:
 
 - `GDRIVE_FOLDER_ID` = `1mDoyhjZUX_3OogUu9LX-cJA7a9IhV0c-`
 

@@ -7,7 +7,7 @@ name: Backup notturno
 #
 #   FIREBASE_SERVICE_ACCOUNT  obbligatorio - chiave del service account Firebase
 #
-#   Per la copia su Drive, tutti facoltativi:
+#   Per la copia su Drive (senza, il backup non ha dove salvare):
 #   GDRIVE_FOLDER_ID          id della cartella Backup-NGB
 #   GDRIVE_CLIENT_ID          \
 #   GDRIVE_CLIENT_SECRET       > accesso per conto dell'utente: l'unico che
@@ -18,8 +18,9 @@ name: Backup notturno
 # "Esegui il backup": i segreti del repository da soli non arrivano al processo.
 # Dimenticarne una non da' errore, fa solo prendere una strada diversa.
 #
-# Senza i segreti di Drive il backup funziona lo stesso: le copie restano
-# allegate all'esecuzione (artifact) invece di finire su Drive.
+# La copia va SOLO su Drive. Senza i segreti di Drive i dati non vengono
+# conservati da nessuna parte e il backup risulta in errore: niente allegati
+# all'esecuzione, perche' il repository e' pubblico (vedi piu' sotto).
 #
 # ATTENZIONE: le esecuzioni pianificate partono SOLO dal ramo predefinito del
 # repository. Finche' questo file sta su un altro ramo, il backup va lanciato
@@ -100,19 +101,12 @@ jobs:
           SALTA_VIDEO: ${{ inputs.salta_video && 'si' || '' }}
         run: node scripts/backup/esegui-backup.cjs
 
-      - name: Conserva la copia come allegato dell'esecuzione
-        # Anche quando il backup segnala problemi: serve proprio a capire cosa
-        # e' andato storto. La storia git completa resta fuori: GitHub ce l'ha
-        # gia', copiarla dentro GitHub non aggiunge nessuna sicurezza.
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backup-${{ steps.backup.outputs.etichetta || github.run_id }}
-          path: |
-            backup-uscita/**
-            !backup-uscita/**/repo-full.bundle
-          retention-days: 90
-          if-no-files-found: warn
+      # NIENTE ALLEGATI ALL'ESECUZIONE. Questo repository e' pubblico, e gli
+      # allegati (artifact) di un repository pubblico li puo' scaricare chiunque
+      # abbia un account GitHub. La cartella del backup contiene dati e accessi:
+      # non va MAI allegata, nemmeno in parte, nemmeno "solo per capire cosa e'
+      # andato storto". La copia sta su Drive e basta; il report si legge nel
+      # riepilogo dell'esecuzione, qui sotto.
 
       - name: Riepilogo
         if: always()
