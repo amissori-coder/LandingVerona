@@ -207,6 +207,8 @@ const AZIONI = {
             oggi: C.giornoRoma(), incarichi: incarichi,
             giro: giro, lettore: lettore
         };
+        // l'indirizzo di rete da cui e' uscito il servizio serve a chi parla con l'assistenza del gestore: agli altri non si manda
+        if (!prof.vedeTutto && giro.rifiuto) out.giro = Object.assign({}, giro, { rifiuto: Object.assign({}, giro.rifiuto, { ip: '', regione: '' }) });
         if (prof.vedeTutto) {
             out.errori = errori;
             out.nonAssociate = nonAssociate.length;

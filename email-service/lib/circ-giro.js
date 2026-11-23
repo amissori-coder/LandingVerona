@@ -64,6 +64,24 @@ function spiegaRifiuto(testo) {
     if (/too many|troppi|rate|quota|421|45[0-2]/.test(t)) return 'Il gestore ha chiesto di rallentare: troppi messaggi o troppe connessioni in poco tempo.';
     return 'Il rifiuto riguarda la casella o il collegamento, non le lettere.';
 }
+/* Da quale indirizzo di rete e' uscito il servizio. Lo chiede l'assistenza del
+   gestore per autorizzare la casella, e una funzione non ha un indirizzo suo:
+   lo si domanda a un servizio che lo restituisce (una lettura: non esce nessun
+   dato). Si chiede subito dopo il rifiuto, dalla stessa esecuzione. Senza
+   risposta in tre secondi si fa a meno. CIRC_IP_SERVIZI: gli indirizzi a cui
+   chiedere, separati da virgola (vuota: non si chiede). */
+const IP_SERVIZI = ['https://checkip.amazonaws.com/', 'https://api.ipify.org/'];
+async function indirizzoUscita() {
+    const elenco = process.env.CIRC_IP_SERVIZI == null ? IP_SERVIZI : String(process.env.CIRC_IP_SERVIZI).split(',').map(x => x.trim()).filter(Boolean);
+    for (const u of elenco) {
+        try {
+            const r = await fetch(u, { signal: AbortSignal.timeout(3000) });
+            const t = String(await r.text()).trim();
+            if (/^[0-9a-f.:]{7,45}$/i.test(t)) return t;
+        } catch (_) { /* si prova il successivo */ }
+    }
+    return '';
+}
 function docGiro(db) { return db.collection('meta').doc('circGiro'); }
 function aspetta(ms) { return ms > 0 ? new Promise(r => setTimeout(r, ms)) : Promise.resolve(); }
 
@@ -321,7 +339,14 @@ async function giro(db, opz) {
     const finoA = conferma ? sospesoFino : (rifiutato ? fine + pausaDopo(rifiuti) : (conto.inviate ? 0 : Math.max(0, sospesoFino > fine ? sospesoFino : 0)));
     /* L'ultimo rifiuto resta scritto finche' una PEC non parte davvero: un giro
        che non ha trovato niente da spedire non dimostra che il blocco e' finito. */
-    const rifiuto = rifiutato ? { quando: fine, testo: fermato, spiegazione: spiegaRifiuto(fermato) } : (conto.inviate ? null : (prima.rifiuto || null));
+    // `ip` e `regione` ci sono sempre: il documento si scrive unendo i campi, e quelli di un rifiuto vecchio resterebbero li'
+    let rifiuto = rifiutato ? { quando: fine, testo: fermato, spiegazione: spiegaRifiuto(fermato), ip: '', regione: '' } : (conto.inviate ? null : (prima.rifiuto || null));
+    /* Il gestore ha respinto l'indirizzo di rete: per autorizzare la casella la
+       sua assistenza chiede da quale indirizzo ci si e' collegati e quando.
+       Con il ponte l'indirizzo e' il suo, e non serve chiederlo. */
+    if (rifiutato && !C.configurazione().proxy && /bloccat|blocked|abus|5\.7\.\d/i.test(fermato)) {
+        rifiuto = Object.assign(rifiuto, { ip: await indirizzoUscita(), regione: String(process.env.VERCEL_REGION || '').slice(0, 20) });
+    }
     // il giro si e' fermato per un rifiuto che riguarda la casella (tetto, blocco, password) o per un guasto
     if (fermato) {
         await ERRORI.segna(db, {
@@ -344,4 +369,4 @@ async function giro(db, opz) {
     }, riepilogo);
 }
 
-module.exports = { giro, stato, inAttesa, _interni: { fermaTutto, bloccoCerto, docGiro, pausaDopo, spiegaRifiuto } };
+module.exports = { giro, stato, inAttesa, _interni: { fermaTutto, bloccoCerto, docGiro, pausaDopo, spiegaRifiuto, indirizzoUscita } };
