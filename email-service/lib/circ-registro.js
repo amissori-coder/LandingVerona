@@ -47,6 +47,10 @@ const AZIONI = {
     'avvisi-errori': 'Destinatari dell\'avviso degli errori cambiati',
     'supervisori': 'Supervisori cambiati',
     'incarico-cancellato': 'Dati dell\'incarico cancellati dal portale',
+    'lettera-cancellata': 'Lettera cancellata dal portale',
+    'risposta-cancellata': 'Risposta cancellata dalla lettera',
+    'risposta-spostata': 'Risposta spostata su un\'altra lettera',
+    'risposta-dissociata': 'Risposta rimessa fra le non associate',
     'bozza-svuotata': 'Bozza delle nuove lettere svuotata',
     'invii-riprovati': 'Invii ripresi a mano dopo una sospensione',
     'pulizie': 'Pulizie automatiche'

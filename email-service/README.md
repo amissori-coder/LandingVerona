@@ -889,14 +889,33 @@ dell'area riservata per riconoscere le persone dalle etichette:
   riepilogo, ogni incarico e le risposte non associate. I supervisori li
   indica l'amministratore dalla scheda "Impostazioni" della sezione (stanno
   in `meta/circolarizzazioni`);
-- solo l'amministratore nomina i supervisori e cancella i dati di un incarico.
+- gli **equity partner** e i **founding partner** vedono invii e risposte di
+  **tutti** gli incarichi: su quelli in cui hanno un ruolo (team, responsabile
+  dell'incarico o della qualita') lavorano come gli altri, gli altri li hanno in
+  **sola visualizzazione** (`soloLettura` sull'incarico). Leggono l'elenco, la
+  scheda di ogni lettera, ricevute e risposte, il registro dell'incarico,
+  scaricano e stampano il report; non preparano lettere, non toccano solleciti,
+  non annullano, non reinviano, non segnano risposte. Non sono "chi vede
+  tutto": risposte non associate, errori, registro generale e impostazioni
+  restano ad amministratore e supervisori. Partner e' chi ha la qualifica in
+  anagrafica (la scheda in Aderenti Revilaw collegata all'indirizzo con cui
+  entra, attiva: la stessa regola dei controlli qualita') oppure un ruolo di
+  accesso il cui identificativo dice "equity" o "founding";
+- solo l'amministratore nomina i supervisori, cancella i dati di un incarico,
+  cancella una lettera o una risposta e ne cambia l'associazione (vedi
+  "L'amministratore: cancellare e riassociare").
 
 Nell'elenco ognuno trova i propri incarichi **divisi per ruolo**: prima quelli
 di cui e' responsabile dell'incarico, poi quelli di cui e' responsabile della
 qualita', poi quelli in cui e' nel team, con un filtro in alto e il conteggio
 di ciascun gruppo. Chi ha piu' ruoli sullo stesso incarico lo trova una volta
 sola, sotto il piu' alto, con tutti i ruoli scritti nella riga. Chi vede tutto
-ha in fondo anche gli "altri incarichi", quelli su cui non ha un ruolo.
+ha in fondo anche gli "altri incarichi", quelli su cui non ha un ruolo; per i
+partner quel gruppo si chiama "Altri incarichi · sola visualizzazione".
+
+Ogni azione che cambia qualcosa passa da `incaricoScrivibile()` o
+`letteraDaModificare()` (`api/circolarizzazioni.js`): su un incarico in sola
+visualizzazione il servizio risponde 403, qualunque cosa mostri la pagina.
 
 Ogni azione su una lettera ricontrolla che il suo incarico sia fra quelli di
 chi chiama, e un messaggio della casella si apre solo se e' elencato su quella
@@ -953,6 +972,23 @@ non si sceglie a mano e non puo' essere sbagliata. Ogni scheda porta anche il
 caratteri (il conto, la pratica, la fattura): servono al report, **non entrano
 nel testo della PEC**. I conteggi di ogni incarico sono tenuti anche per area
 (`perAmbito` in `circIncarichi`): l'elenco di un'area mostra solo i suoi numeri.
+
+**La pagina dell'incarico mostra sempre tutte le tabelle.** Invii, solleciti e
+risposte hanno una tabella per tipologia, e la tabella si vede anche quando per
+quella tipologia non c'e' ancora niente: l'intestazione, i conteggi a zero e
+una riga che lo dice. E' la struttura del lavoro, e si deve leggere tutta anche
+prima del primo invio. Solo con un filtro attivo le tabelle senza righe
+spariscono. Lo stesso vale per il report: tutte le tipologie dell'area, anche
+quelle senza lettere, nel riepilogo e nelle tabelle, e si stampa anche prima
+del primo invio.
+
+**"Nuove lettere" e' in evidenza, e serve anche a integrare gli invii.** Il
+pulsante sta in testa alla pagina e in una fascia sopra le tabelle, che dice a
+che cosa serve: prima del primo invio a preparare le lettere, dopo ad
+aggiungere altri destinatari o altre tipologie (le lettere partite restano
+nelle tabelle). Ogni tabella ha il suo "Aggiungi", che apre la finestra gia'
+su quella tipologia. Chi ha l'incarico in sola visualizzazione non vede ne'
+l'uno ne' l'altro.
 
 **Preparare l'invio.** Nella finestra "Nuove lettere" le tabelle delle
 tipologie sono **tutte gia' pronte**, fatte come fogli di calcolo: una cella
@@ -1259,6 +1295,27 @@ messaggio intero, con la firma del gestore) e gli allegati come file loro
 casella, e li ricompone l'area riservata. "Scarica ricevute e risposte" mette
 tutto in un archivio ZIP con il riepilogo in Excel.
 
+### L'amministratore: cancellare e riassociare
+
+Una lettera o una risposta finita sul portale per errore si toglie; una
+risposta abbinata alla lettera sbagliata si sposta su quella giusta. Lo fa solo
+l'amministratore, dalla scheda della lettera, e **ogni azione resta nel
+registro delle operazioni** con quello che c'era: dopo, e' l'unica traccia.
+
+| Azione | Che cosa fa |
+|---|---|
+| `cancella-lettera` | toglie dal portale UNA lettera: scheda, PDF, date dei solleciti, indice dei riferimenti, ricevute e risposte abbinate. Vuole la conferma. Nel registro resta il riepilogo della lettera (destinatario, PEC, stato, date di invio, consegna e risposta) e il motivo scritto da chi cancella. Se la PEC era gia' partita, le risposte che arriveranno finiranno fra le non associate |
+| `risposta-cancella` | toglie una risposta dalla lettera; il messaggio resta nella casella PEC e non torna fra le non associate |
+| `risposta-sposta` | sposta la risposta su un'altra lettera, dello stesso incarico o di un altro (per riferimento `RVL-XXXXXX`). Due voci nel registro: lo spostamento sull'incarico di partenza (da quale lettera a quale), l'arrivo su quello di destinazione |
+| `risposta-dissocia` | rimette la risposta fra le "non associate", da dove si associa o si scarta come le altre |
+
+Quando una risposta esce da una lettera, la lettera resta "con risposta" se ne
+ha un'altra vera; altrimenti **torna senza risposta e i solleciti che la
+risposta aveva fermato ripartono**, se la loro data non e' passata. Sulla
+lettera di arrivo i solleciti in programma si fermano, come per ogni risposta,
+e chi l'ha preparata riceve l'avviso. Una lettera con una PEC che sta partendo
+in quel momento non si cancella: si riprova un minuto dopo.
+
 ### Il registro degli errori
 
 Tutto quello che va storto finisce in un posto solo (`lib/circ-errori.js`,
@@ -1432,7 +1489,10 @@ rifiuto va in "non partita", la lettera nuova provata in pausa, il blocco di
 tutti che non allunga la pausa), il ponte (gli invii passano di li', il ponte
 spento o con credenziali sbagliate, la variabile scritta male, l'indirizzo che
 non esce dal servizio), i dati per l'assistenza del gestore (indirizzo di
-uscita rilevato al rifiuto, non mandato al team), cancellazione.
+uscita rilevato al rifiuto, non mandato al team), l'amministratore che
+cancella e riassocia (solo lui, solleciti che ripartono, registro con il
+riepilogo), equity e founding partner in sola visualizzazione (leggono tutto,
+ogni modifica rifiutata), cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:

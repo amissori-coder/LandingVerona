@@ -103,11 +103,24 @@ async function letteraDi(db, prof, id) {
     if (!DATI.incaricoDi(prof, inv.incaricoId)) esci(403, 'Questa lettera è di un incarico che non segui.');
     return inv;
 }
+/* Equity e founding partner vedono anche gli incarichi in cui non hanno un
+   ruolo, ma solo per leggere: ogni azione che cambia qualcosa passa di qui. */
+const SOLO_LETTURA = 'Su questo incarico hai la sola visualizzazione: invii e risposte si leggono, non si modificano.';
+function incaricoScrivibile(prof, incaricoId) {
+    const inc = DATI.incaricoDi(prof, incaricoId);
+    if (!inc) esci(403, 'Non segui questo incarico.');
+    if (inc.soloLettura) esci(403, SOLO_LETTURA);
+    return inc;
+}
+async function letteraDaModificare(db, prof, id) {
+    const inv = await letteraDi(db, prof, id);
+    if ((DATI.incaricoDi(prof, inv.incaricoId) || {}).soloLettura) esci(403, SOLO_LETTURA);
+    return inv;
+}
 /* La bozza delle nuove lettere e' di chi chiama, per un incarico che segue e
    per una delle due aree. */
 function bozzaDi(prof, b) {
-    const inc = DATI.incaricoDi(prof, b.incaricoId);
-    if (!inc) esci(403, 'Non segui questo incarico.');
+    const inc = incaricoScrivibile(prof, b.incaricoId);
     const ambito = String(b.ambito || '');
     if (!Object.prototype.hasOwnProperty.call(C.AMBITI, ambito)) esci(400, 'Area non indicata.');
     return { inc: inc, ambito: ambito };
@@ -160,6 +173,19 @@ async function messaggioDetto(db, chiave) {
         return m ? 'Messaggio di ' + (m.da || 'mittente sconosciuto') + (m.quando ? ' del ' + giornoDetto(C.giornoRoma(m.quando)) : '') + (m.oggetto ? ', oggetto «' + C.unaRiga(m.oggetto, 160) + '»' : '') + '.' : '';
     } catch (_) { return ''; }
 }
+/* Una risposta in parole, per il registro: da chi, quando, con quale oggetto. */
+function rispostaDetta(t) {
+    t = t || {};
+    const n = (t.allegati || []).length;
+    return 'Risposta di ' + (t.da || 'mittente sconosciuto') + (t.quando ? ' del ' + giornoDetto(C.giornoRoma(t.quando)) : '')
+        + (t.oggetto ? ', oggetto «' + C.unaRiga(t.oggetto, 160) + '»' : '') + (n ? ', ' + n + (n === 1 ? ' allegato' : ' allegati') : '') + '.';
+}
+/* Che cosa resta sulla lettera dopo che una risposta e' stata tolta. */
+function dopoLoStacco(inv) {
+    if (inv.risposta) return ' La lettera resta con risposta (ne ha un\'altra).';
+    const sol = ['sollecito1', 'sollecito2'].map(k => (inv.passi || {})[k]).filter(x => x && x.stato === 'programmato').length;
+    return ' La lettera torna senza risposta' + (sol ? ': ' + (sol === 1 ? 'il sollecito in programma riparte' : 'i solleciti in programma ripartono') + '.' : '.');
+}
 function soloAdmin(prof) { if (!prof.admin) esci(403, 'Solo l\'amministratore può farlo.'); }
 function soloChiVedeTutto(prof) { if (!prof.vedeTutto) esci(403, 'Solo l\'amministratore e i supervisori possono farlo.'); }
 
@@ -186,7 +212,7 @@ const AZIONI = {
         /* Le letture non dipendono l'una dall'altra: partono insieme. In fila,
            la pagina aspettava una mezza dozzina di viaggi fino a Firestore. */
         const [conDati, giro, lettore, errori, nonAssociate, impAdmin, avvisi] = await Promise.all([
-            DATI.riepiloghi(db, prof.vedeTutto ? null : prof.incarichi.map(i => i.id)),
+            DATI.riepiloghi(db, prof.vedeTutto || prof.partner ? null : prof.incarichi.map(i => i.id)),
             GIRO.stato(db), LETTORE.stato(db),
             prof.vedeTutto ? ERRORI.conta(db) : null,
             prof.vedeTutto ? DATI.nonAssociate(db) : null,
@@ -200,7 +226,7 @@ const AZIONI = {
             configurato: C.configurato(), casella: C.configurato() ? cfg.mittente : '',
             // da dove partono gli invii: dal ponte italiano (a chi vede tutto anche il suo indirizzo, mai le credenziali) o direttamente
             ponte: cfg.proxyErrato ? 'errato' : (cfg.proxy ? 'attivo' : ''), ponteDove: prof.vedeTutto ? cfg.proxyDove : '',
-            profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto },
+            profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto, partner: !!prof.partner },
             limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni, bozzaGiorni: C.LIMITI.bozzaGiorni, bozzaRighe: BOZZE.MAX_RIGHE },
             ambiti: Object.keys(C.AMBITI).map(k => ({ id: k, nome: C.AMBITI[k] })),
             categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome, uno: C.CATEGORIE[k].uno, ambito: C.ambitoDi(k), saldo: !!C.CATEGORIE[k].saldo })),
@@ -249,8 +275,7 @@ const AZIONI = {
     /* Una lettera nuova: la scheda nasce in bozza, poi arriva il PDF a pezzi. */
     async crea(db, prof, b) {
         if (!C.configurato()) esci(503, 'La casella PEC delle circolarizzazioni non è ancora configurata: avvisa l\'amministratore.');
-        const inc = DATI.incaricoDi(prof, b.incaricoId);
-        if (!inc) esci(403, 'Non segui questo incarico.');
+        const inc = incaricoScrivibile(prof, b.incaricoId);
         const c = daEsito(C.controllaRichiesta(b, C.giornoRoma()));
         return daEsito(await DATI.crea(db, prof, inc, c.dati, { forza: b.forza === true }));
     },
@@ -317,21 +342,21 @@ const AZIONI = {
         return Object.assign({}, r, { ok: true, letto: r.ok });
     },
     async solleciti(db, prof, b) {
-        const prima = await letteraDi(db, prof, b.id);
+        const prima = await letteraDaModificare(db, prof, b.id);
         const r = daEsito(await DATI.modificaSolleciti(db, b.id, { sollecito1: b.sollecito1, sollecito2: b.sollecito2 }, prof));
         const campi = diffSolleciti(prima, r.invio);
         if (campi.length) await traccia(db, prof, 'solleciti-modificati', Object.assign(REGISTRO.diLettera(r.invio), { campi: campi }));
         return { ok: true, scheda: perArea(r.invio) };
     },
     async annulla(db, prof, b) {
-        const prima = await letteraDi(db, prof, b.id);
+        const prima = await letteraDaModificare(db, prof, b.id);
         const r = daEsito(await DATI.annulla(db, b.id, prof));
         if (r.cosa === 'lettera') await traccia(db, prof, 'lettera-annullata', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'La PEC non era ancora partita: non partirà.' }));
         else await traccia(db, prof, 'solleciti-annullati', Object.assign(REGISTRO.diLettera(r.invio), { campi: diffSolleciti(prima, r.invio) }));
         return { ok: true, cosa: r.cosa, scheda: perArea(r.invio) };
     },
     async 'risposta-manuale'(db, prof, b) {
-        const prima = await letteraDi(db, prof, b.id);
+        const prima = await letteraDaModificare(db, prof, b.id);
         const r = daEsito(b.togli ? await DATI.togliRispostaManuale(db, b.id) : await DATI.rispostaManuale(db, b.id, b.nota, prof));
         if (b.togli) await traccia(db, prof, 'risposta-manuale-tolta', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Era stata segnata da ' + ((prima.risposta || {}).da || '?') + ((prima.risposta || {}).nota ? ' con la nota «' + prima.risposta.nota + '»' : '') + '. I solleciti fermi tornano in programma.', campi: diffSolleciti(prima, r.invio) }));
         else await traccia(db, prof, 'risposta-manuale', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Risposta arrivata fuori dalla casella PEC' + ((r.invio.risposta || {}).nota ? ': «' + r.invio.risposta.nota + '»' : '') + '. I solleciti in programma si fermano.', campi: diffSolleciti(prima, r.invio) }));
@@ -339,7 +364,7 @@ const AZIONI = {
     },
     async reinvia(db, prof, b) {
         if (!C.configurato()) esci(503, 'La casella PEC delle circolarizzazioni non è configurata.');
-        const prima = await letteraDi(db, prof, b.id);
+        const prima = await letteraDaModificare(db, prof, b.id);
         const r = daEsito(await DATI.reinvia(db, b.id, b.pec, prof));
         await traccia(db, prof, 'lettera-reinviata', Object.assign(REGISTRO.diLettera(r.invio), {
             dettaglio: 'La prima PEC non era arrivata: la lettera torna in coda con lo stesso PDF.',
@@ -466,6 +491,57 @@ const AZIONI = {
         const r = await DATI.cancellaIncarico(db, id);
         await REGISTRO.scriviCancellazione(db, prof, inc, schede, { bozze: r.bozze || 0 });
         return r;
+    },
+    /* ---------- l'amministratore: cancellare e riassociare ----------
+       Una lettera o una risposta finita sul portale per errore si toglie; una
+       risposta abbinata alla lettera sbagliata si sposta su quella giusta, o
+       si rimette fra le non associate. Ogni azione resta nel registro con
+       quello che c'era: e' l'unica traccia, dopo. */
+    async 'cancella-lettera'(db, prof, b) {
+        soloAdmin(prof);
+        if (b.conferma !== true) esci(400, 'Conferma mancante.');
+        const r = daEsito(await DATI.cancellaLettera(db, b.id));
+        const inv = r.invio, primo = (inv.passi || {}).primo || {};
+        const nRisposte = (inv.risposte || []).length;
+        await traccia(db, prof, 'lettera-cancellata', Object.assign(REGISTRO.diLettera(inv), {
+            dettaglio: (primo.stato === 'inviato' ? 'La PEC era partita il ' + giornoDetto(C.giornoRoma(primo.inviatoIl || 0)) + ': le risposte che arriveranno finiranno fra le non associate.' : 'La PEC non era partita: non partirà.')
+                + ' Tolti dal portale scheda, PDF e date dei solleciti' + (nRisposte ? ', con ' + nRisposte + (nRisposte === 1 ? ' risposta' : ' risposte') : '') + '. I messaggi restano nella casella PEC.'
+                + (C.unaRiga(b.motivo, 300) ? ' Motivo: «' + C.unaRiga(b.motivo, 300) + '».' : ''),
+            lettere: [REGISTRO.letteraBreve(inv)], dati: { stato: inv.stato || '', risposte: nRisposte }
+        }));
+        return { ok: true, incaricoId: inv.incaricoId };
+    },
+    async 'risposta-cancella'(db, prof, b) {
+        soloAdmin(prof);
+        const r = daEsito(await DATI.cancellaRisposta(db, b.id, b.chiave, prof));
+        await traccia(db, prof, 'risposta-cancellata', Object.assign(REGISTRO.diLettera(r.invio), {
+            dettaglio: rispostaDetta(r.tolta) + ' Tolta dalla lettera: il messaggio resta nella casella PEC.' + dopoLoStacco(r.invio)
+                + (C.unaRiga(b.motivo, 300) ? ' Motivo: «' + C.unaRiga(b.motivo, 300) + '».' : '')
+        }));
+        return { ok: true, scheda: perArea(r.invio) };
+    },
+    async 'risposta-dissocia'(db, prof, b) {
+        soloAdmin(prof);
+        const r = daEsito(await DATI.dissociaRisposta(db, b.id, b.chiave, prof));
+        await traccia(db, prof, 'risposta-dissociata', Object.assign(REGISTRO.diLettera(r.invio), {
+            dettaglio: rispostaDetta(r.tolta) + ' Non era di questa lettera: è tornata fra le risposte non associate.' + dopoLoStacco(r.invio)
+        }));
+        return { ok: true, scheda: perArea(r.invio) };
+    },
+    async 'risposta-sposta'(db, prof, b) {
+        soloAdmin(prof);
+        const r = daEsito(await DATI.spostaRisposta(db, b.id, b.chiave, b.a, prof));
+        const da = r.invio, a = r.nuova || {};
+        const detta = x => (x.codice || '') + ' — ' + (x.destinatario || '') + ' (' + (x.cliente || '') + ')';
+        await traccia(db, prof, 'risposta-spostata', Object.assign(REGISTRO.diLettera(da), {
+            dettaglio: rispostaDetta(r.tolta) + dopoLoStacco(da),
+            campi: [{ campo: 'Lettera a cui è associata', prima: detta(da), dopo: detta(a) }]
+        }));
+        // anche nel registro dell'incarico di arrivo: chi lo segue vede da dove viene la risposta
+        await traccia(db, prof, 'risposta-associata', Object.assign(REGISTRO.diLettera(a), {
+            dettaglio: rispostaDetta(r.tolta) + ' Era associata alla lettera ' + detta(da) + ': spostata qui dall\'amministratore. I solleciti in programma per questa lettera si fermano.'
+        }));
+        return { ok: true, scheda: perArea(da), nuova: perArea(a) };
     },
     /* Il registro delle operazioni. Di un incarico lo legge chi lo segue;
        quello generale (tutti gli incarichi, impostazioni, errori) chi vede tutto. */

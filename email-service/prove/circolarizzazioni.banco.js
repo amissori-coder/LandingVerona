@@ -39,7 +39,10 @@ const persone = [
     { id: 'p1', nome: 'Rossi', nomeProprio: 'Marta', email: 'marta@studio.it', attivo: true },
     { id: 'p2', nome: 'Bianchi', nomeProprio: 'Luca', email: 'luca@studio.it', attivo: true },
     { id: 'p3', nome: 'Verdi', nomeProprio: 'Anna', email: 'anna@studio.it', attivo: true },
-    { id: 'p4', nome: 'Neri', nomeProprio: 'Ugo', email: 'ugo@studio.it', attivo: true }
+    { id: 'p4', nome: 'Neri', nomeProprio: 'Ugo', email: 'ugo@studio.it', attivo: true },
+    // un equity partner (responsabile della qualita' di un incarico solo) e un founding partner senza ruoli: gli altri incarichi li vedono in sola visualizzazione
+    { id: 'p5', nome: 'Blu', nomeProprio: 'Elena', email: 'elena@studio.it', attivo: true, equityPartner: true },
+    { id: 'p6', nome: 'Viola', nomeProprio: 'Piero', email: 'piero@studio.it', attivo: true, foundingPartner: true }
 ];
 const incarichi = [
     { id: 'inc-alfa', cliente: 'ALFA MECCANICA SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Neri', team: 'Rossi, Bianchi' },
@@ -50,7 +53,8 @@ const incarichi = [
     { id: 'inc-epsilon', cliente: 'EPSILON ALIMENTARI SPA', stato: 'attivo', respIncarico: 'Rossi', qualita: 'Neri', team: 'Bianchi' },
     { id: 'inc-zeta', cliente: 'ZETA IMPIANTI SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Rossi', team: 'Bianchi' },
     { id: 'inc-eta', cliente: 'ETA SERVIZI SRL', stato: 'attivo', respIncarico: 'Rossi', qualita: 'Verdi', team: 'Rossi, Bianchi' },
-    { id: 'inc-theta', cliente: 'THETA HOLDING SPA', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Rossi', team: 'Bianchi' }
+    { id: 'inc-theta', cliente: 'THETA HOLDING SPA', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Rossi', team: 'Bianchi' },
+    { id: 'inc-iota', cliente: 'IOTA FARMACEUTICI SPA', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Blu', team: 'Bianchi' }
 ];
 F.dati.set('archivio/incarichi', { json: JSON.stringify(incarichi) });
 F.dati.set('archivio/persone', { json: JSON.stringify(persone) });

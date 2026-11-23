@@ -836,6 +836,116 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     avanti(41 * MIN);
     await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
     verifica('finito il blocco la lettera parte', (await scheda(ip1.id)).passi.primo.stato === 'inviato');
+    // ---------- 12j. l'amministratore cancella e riassocia ----------
+    const AD = 'a.missori@emvas.tax';
+    const messaggio = ch => dati.get('circMessaggi/' + ch) || null;
+    const am1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Fornitore Giusto', pec: 'giusto@pec.it', categoria: 'altro' });
+    const am2 = await nuova('anna@studio.it', 'inc-alfa', { destinatario: 'Fornitore Altro', pec: 'altro.fornitore@pec.it', categoria: 'altro' });
+    await GIRO.giro(db, {});
+    risposta({ da: 'giusto@pec.it', oggetto: 'Re: conferma - rif. ' + am1.codice });
+    await LETTORE.giro(db, {});
+    sp = await scheda(am1.id);
+    const chRisp = sp.risposte[0].chiave;
+    verifica('la risposta arriva sulla prima lettera e ne ferma i solleciti', sp.stato === 'risposta' && sp.risposte.length === 1 && sp.passi.sollecito1.stato === 'bloccato' && messaggio(chRisp).invio === am1.id);
+    verifica('cancellare e riassociare e\' dell\'amministratore: il responsabile dell\'incarico non puo\'', (await chiama('anna@studio.it', { azione: 'risposta-sposta', id: am1.id, chiave: chRisp, a: am2.id })).http === 403
+        && (await chiama('anna@studio.it', { azione: 'risposta-cancella', id: am1.id, chiave: chRisp })).http === 403 && (await chiama('anna@studio.it', { azione: 'risposta-dissocia', id: am1.id, chiave: chRisp })).http === 403
+        && (await chiama('anna@studio.it', { azione: 'cancella-lettera', id: am1.id, conferma: true })).http === 403 && (await scheda(am1.id)).risposte.length === 1);
+    verifica('spostare sulla stessa lettera o su una che non esiste: rifiutato, e la risposta resta dov\'e\'', (await chiama(AD, { azione: 'risposta-sposta', id: am1.id, chiave: chRisp, a: am1.id })).http === 400
+        && (await chiama(AD, { azione: 'risposta-sposta', id: am1.id, chiave: chRisp, a: 'non-esiste' })).http === 404 && (await scheda(am1.id)).stato === 'risposta');
+    const primaReg = registro().length;
+    const spo = await chiama(AD, { azione: 'risposta-sposta', id: am1.id, chiave: chRisp, a: am2.id });
+    sp = await scheda(am1.id);
+    let sp2 = await scheda(am2.id);
+    verifica('risposta spostata: la prima lettera torna senza risposta e i suoi solleciti ripartono', spo.ok && sp.risposta === null && sp.risposte.length === 0 && sp.stato !== 'risposta' && sp.passi.sollecito1.stato === 'programmato' && sp.passi.sollecito2.stato === 'programmato' && sp.prossimo === sp.passi.sollecito1.previsto, [spo, sp.stato, sp.passi.sollecito1]);
+    verifica('sulla seconda la risposta c\'e\', associata a mano, e i solleciti si fermano', sp2.stato === 'risposta' && sp2.risposte.length === 1 && sp2.risposte[0].chiave === chRisp && sp2.risposte[0].via === 'manuale' && /a\.missori@emvas\.tax/.test(sp2.risposte[0].associataDa.da) && sp2.passi.sollecito1.stato === 'bloccato' && messaggio(chRisp).invio === am2.id && messaggio(chRisp).stato === 'associato');
+    const vSpo = registro('risposta-spostata').slice(-1)[0], vArr = registro('risposta-associata').slice(-1)[0];
+    verifica('nel registro: lo spostamento sull\'incarico di partenza (da quale lettera a quale) e l\'arrivo su quello di destinazione', registro().length === primaReg + 2 && vSpo.incaricoId === 'inc-beta' && vSpo.da === AD && vSpo.campi.length === 1 && vSpo.campi[0].prima.indexOf(am1.codice) === 0 && vSpo.campi[0].dopo.indexOf(am2.codice) === 0 && /giusto@pec\.it/.test(vSpo.dettaglio) && /torna senza risposta/.test(vSpo.dettaglio)
+        && vArr.incaricoId === 'inc-alfa' && vArr.dettaglio.indexOf(am1.codice) > 0, [vSpo, vArr]);
+    verifica('il testo della risposta si legge dalla lettera nuova, non piu\' dalla vecchia', (await chiama('anna@studio.it', { azione: 'leggi', id: am2.id, chiave: chRisp })).ok === true && (await chiama('anna@studio.it', { azione: 'leggi', id: am1.id, chiave: chRisp })).http === 404);
+    // rimessa fra le non associate, e da li' associata di nuovo
+    const dis = await chiama(AD, { azione: 'risposta-dissocia', id: am2.id, chiave: chRisp });
+    sp2 = await scheda(am2.id);
+    na = await chiama(AD, { azione: 'non-associate' });
+    verifica('rimessa fra le non associate: esce dalla lettera, i solleciti ripartono, e l\'amministratore la ritrova con mittente, oggetto e allegato', dis.ok && sp2.risposta === null && sp2.risposte.length === 0 && sp2.passi.sollecito1.stato === 'programmato'
+        && na.messaggi.length === 1 && na.messaggi[0].chiave === chRisp && na.messaggi[0].da === 'giusto@pec.it' && /rif\./.test(na.messaggi[0].oggetto) && na.messaggi[0].allegati.length === 1 && registro('risposta-dissociata').length === 1, na.messaggi);
+    verifica('da li\' si legge e si associa di nuovo alla lettera giusta', (await chiama(AD, { azione: 'leggi', chiave: chRisp })).ok === true && (await chiama(AD, { azione: 'associa', chiave: chRisp, id: am1.id })).ok === true && (await scheda(am1.id)).stato === 'risposta' && (await chiama(AD, { azione: 'non-associate' })).messaggi.length === 0);
+    // due risposte sulla stessa lettera: cancellandone una la lettera resta con risposta
+    avanti(MIN);
+    risposta({ da: 'giusto@pec.it', oggetto: 'Re: integrazione - rif. ' + am1.codice });
+    await LETTORE.giro(db, {});
+    sp = await scheda(am1.id);
+    const chSeconda = sp.risposte.find(x => x.chiave !== chRisp).chiave;
+    const can1 = await chiama(AD, { azione: 'risposta-cancella', id: am1.id, chiave: chSeconda, motivo: 'doppione' });
+    sp = await scheda(am1.id);
+    verifica('cancellata una risposta di due: la lettera resta con risposta e i solleciti restano fermi', can1.ok && sp.stato === 'risposta' && sp.risposte.length === 1 && sp.risposte[0].chiave === chRisp && sp.passi.sollecito1.stato === 'bloccato' && /resta con risposta/.test(registro('risposta-cancellata').slice(-1)[0].dettaglio) && /doppione/.test(registro('risposta-cancellata').slice(-1)[0].dettaglio));
+    const can2 = await chiama(AD, { azione: 'risposta-cancella', id: am1.id, chiave: chRisp });
+    sp = await scheda(am1.id);
+    verifica('cancellata anche l\'ultima: la lettera torna senza risposta, il messaggio non torna fra le non associate', can2.ok && sp.risposta === null && sp.risposte.length === 0 && sp.passi.sollecito1.stato === 'programmato' && messaggio(chRisp).stato === 'scartato' && messaggio(chRisp).invio === '' && (await chiama(AD, { azione: 'non-associate' })).messaggi.length === 0 && registro('risposta-cancellata').length === 2);
+    verifica('una risposta che non c\'e\' piu\' non si cancella due volte', (await chiama(AD, { azione: 'risposta-cancella', id: am1.id, chiave: chRisp })).http === 404);
+    // cancellare una lettera
+    risposta({ da: 'altro.fornitore@pec.it', oggetto: 'Re: rif. ' + am2.codice });
+    await LETTORE.giro(db, {});
+    const contiPrima = (await chiama(AD, { azione: 'stato' })).incarichi.find(i => i.id === 'inc-alfa').conteggi.totale;
+    verifica('senza conferma la lettera non si cancella', (await chiama(AD, { azione: 'cancella-lettera', id: am2.id })).http === 400 && (await scheda(am2.id)) !== null);
+    const chAm2 = (await scheda(am2.id)).risposte[0].chiave;
+    const canL = await chiama(AD, { azione: 'cancella-lettera', id: am2.id, conferma: true, motivo: 'destinatario sbagliato' });
+    const vCan = registro('lettera-cancellata').slice(-1)[0];
+    verifica('lettera cancellata: via scheda, PDF, indice dei riferimenti e messaggi abbinati', canL.ok && canL.incaricoId === 'inc-alfa' && (await scheda(am2.id)) === null && ![...dati.keys()].some(k => k.indexOf('circInvii/' + am2.id) === 0) && !dati.has('circRiferimenti/c~' + am2.codice) && messaggio(chAm2) === null, [...dati.keys()].filter(k => k.indexOf(am2.id) >= 0));
+    verifica('nel registro resta che cosa c\'era: destinatario, PEC, stato, risposta, e il motivo', registro('lettera-cancellata').length === 1 && vCan.da === AD && vCan.incaricoId === 'inc-alfa' && vCan.codice === am2.codice && vCan.lettere.length === 1 && vCan.lettere[0].codice === am2.codice && vCan.lettere[0].pec === 'altro.fornitore@pec.it' && vCan.lettere[0].inviataIl > 0 && vCan.lettere[0].rispostaIl > 0 && /destinatario sbagliato/.test(vCan.dettaglio) && /1 risposta/.test(vCan.dettaglio), vCan);
+    verifica('i conteggi dell\'incarico si aggiornano', (await chiama(AD, { azione: 'stato' })).incarichi.find(i => i.id === 'inc-alfa').conteggi.totale === contiPrima - 1);
+    risposta({ da: 'altro.fornitore@pec.it', oggetto: 'Re: ancora - rif. ' + am2.codice });
+    await LETTORE.giro(db, {});
+    na = await chiama(AD, { azione: 'non-associate' });
+    verifica('una risposta arrivata dopo, per la lettera cancellata, finisce fra le non associate', na.messaggi.length === 1 && na.messaggi[0].da === 'altro.fornitore@pec.it');
+    await chiama(AD, { azione: 'scarta', chiave: na.messaggi[0].chiave });
+    verifica('una lettera che non esiste non si cancella', (await chiama(AD, { azione: 'cancella-lettera', id: am2.id, conferma: true })).http === 404);
+    await chiama(AD, { azione: 'cancella-lettera', id: am1.id, conferma: true });
+
+    // ---------- 12k. equity e founding partner: tutti gli incarichi, in sola visualizzazione ----------
+    const personeOra = JSON.parse(dati.get('archivio/persone').json), incarichiOra = JSON.parse(dati.get('archivio/incarichi').json);
+    dati.set('archivio/persone', { json: JSON.stringify(personeOra.concat([
+        { id: 'pe1', nome: 'Blu', nomeProprio: 'Elena', email: 'elena@studio.it', attivo: true, equityPartner: true },
+        { id: 'pe2', nome: 'Viola', nomeProprio: 'Piero', email: 'piero@studio.it', attivo: true, foundingPartner: true },
+        { id: 'pe3', nome: 'Grigi', nomeProprio: 'Ada', email: 'ada@studio.it', attivo: false, equityPartner: true }
+    ])) });
+    dati.set('archivio/incarichi', { json: JSON.stringify(incarichiOra.concat([{ id: 'inc-pi', cliente: 'PI GRECO SRL', stato: 'attivo', respIncarico: 'Verdi', qualita: 'Blu', team: 'Bianchi' }])) });
+    ['elena', 'piero', 'ada'].forEach(n => dati.set('utenti/' + n + '@studio.it', { nome: n, ruolo: 'procuratore', attivo: true }));
+    dati.set('utenti/ruolo.equity@studio.it', { nome: 'Ruolo Equity', ruolo: 'equity-partner', attivo: true });
+    const pk1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Visibile al Partner', pec: 'visibile@pec.it', categoria: 'altro' });
+    await GIRO.giro(db, {});
+    risposta({ da: 'visibile@pec.it', oggetto: 'Re: rif. ' + pk1.codice });
+    await LETTORE.giro(db, {});
+    const stE = await chiama('elena@studio.it', { azione: 'stato' });
+    const incE = id => stE.incarichi.find(i => i.id === id);
+    verifica('l\'equity partner vede tutti gli incarichi: in sola visualizzazione quelli in cui non ha un ruolo, in lavoro quello in cui e\' responsabile della qualita\'', stE.ok && stE.profilo.partner === true && stE.profilo.vedeTutto === false && stE.profilo.admin === false
+        && incE('inc-alfa').soloLettura === true && incE('inc-beta').soloLettura === true && incE('inc-pi').soloLettura === false && incE('inc-pi').ruoli.join() === 'qualita' && !incE('inc-gamma') && incE('inc-beta').conteggi.totale >= 1, stE.incarichi.map(i => [i.id, i.soloLettura, i.ruoli]));
+    const elE = await chiama('elena@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' });
+    const chPk = (await scheda(pk1.id)).risposte[0].chiave;
+    verifica('legge invii e risposte: elenco, scheda della lettera, testo della risposta, registro dell\'incarico', elE.ok && elE.incarico.soloLettura === true && elE.schede.some(x => x.id === pk1.id) && (await chiama('elena@studio.it', { azione: 'dettaglio', id: pk1.id })).ok === true
+        && (await chiama('elena@studio.it', { azione: 'leggi', id: pk1.id, chiave: chPk })).testo === 'Confermiamo il saldo indicato.' && (await chiama('elena@studio.it', { azione: 'registro', incaricoId: 'inc-beta' })).ok === true);
+    const no = async corpo => { const r = await chiama('elena@studio.it', corpo); return r.http === 403 && /sola visualizzazione/.test(r.msg || ''); };
+    const primaSola = JSON.stringify(await scheda(pk1.id)), regSola = registro().length;
+    verifica('ma non modifica niente: nuove lettere, bozza, solleciti, annullamento, risposta a mano, reinvio', (await no({ azione: 'crea', incaricoId: 'inc-beta', destinatario: 'X', pec: 'x@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 100 }))
+        && (await no({ azione: 'bozza-salva', incaricoId: 'inc-beta', ambito: 'obbligatorie', base: 0, bozza: { righe: [{ id: 'r1', categoria: 'banca', nome: 'B', pec: 'b@pec.it' }] } }))
+        && (await no({ azione: 'bozza-leggi', incaricoId: 'inc-beta', ambito: 'obbligatorie' }))
+        && (await no({ azione: 'solleciti', id: pk1.id, sollecito1: null, sollecito2: null })) && (await no({ azione: 'annulla', id: pk1.id }))
+        && (await no({ azione: 'risposta-manuale', id: pk1.id, nota: 'x' })) && (await no({ azione: 'reinvia', id: pk1.id, pec: 'y@pec.it' }))
+        && JSON.stringify(await scheda(pk1.id)) === primaSola && registro().length === regSola);
+    verifica('non e\' "chi vede tutto": non associate, errori, registro generale e cancellazioni restano ad amministratore e supervisori', (await chiama('elena@studio.it', { azione: 'non-associate' })).http === 403 && (await chiama('elena@studio.it', { azione: 'errori' })).http === 403
+        && (await chiama('elena@studio.it', { azione: 'registro' })).http === 403 && (await chiama('elena@studio.it', { azione: 'cancella-lettera', id: pk1.id, conferma: true })).http === 403 && (await chiama('elena@studio.it', { azione: 'riprova-invii' })).http === 403);
+    const suo = await nuova('elena@studio.it', 'inc-pi', { destinatario: 'Lettera del Partner', pec: 'sua@pec.it', categoria: 'altro' });
+    verifica('sull\'incarico in cui e\' responsabile della qualita\' lavora come gli altri', suo.ok === true && (await scheda(suo.id)).stato === 'coda' && (await chiama('elena@studio.it', { azione: 'annulla', id: suo.id })).ok === true);
+    const stP = await chiama('piero@studio.it', { azione: 'stato' }), stR = await chiama('ruolo.equity@studio.it', { azione: 'stato' });
+    verifica('lo stesso per il founding partner, e per chi ha il ruolo di accesso da partner', stP.profilo.partner === true && stP.incarichi.length === stE.incarichi.length && stP.incarichi.every(i => i.soloLettura === true)
+        && stR.profilo.partner === true && stR.incarichi.length === stE.incarichi.length && stR.incarichi.every(i => i.soloLettura === true), [stP.incarichi.length, stR.incarichi.length]);
+    const stA = await chiama('ada@studio.it', { azione: 'stato' }), stM = await chiama('marta@studio.it', { azione: 'stato' });
+    verifica('una scheda non attiva non da\' la qualifica, e chi non e\' partner continua a vedere solo i suoi incarichi', stA.profilo.partner === false && stA.incarichi.length === 0 && stM.profilo.partner === false && stM.incarichi.map(i => i.id).join() === 'inc-alfa'
+        && stM.incarichi.every(i => i.soloLettura === false) && (await chiama('marta@studio.it', { azione: 'elenco', incaricoId: 'inc-beta' })).http === 403, [stA.profilo, stM.incarichi.map(i => [i.id, i.soloLettura])]);
+    verifica('per amministratore e supervisori nessun incarico e\' in sola visualizzazione', (await chiama(AD, { azione: 'stato' })).incarichi.every(i => i.soloLettura === false) && (await chiama(AD, { azione: 'stato' })).profilo.partner === false);
+    await chiama(AD, { azione: 'cancella-lettera', id: pk1.id, conferma: true });
+    await chiama(AD, { azione: 'cancella-lettera', id: suo.id, conferma: true });
+    dati.set('archivio/persone', { json: JSON.stringify(personeOra) });
+    dati.set('archivio/incarichi', { json: JSON.stringify(incarichiOra) });
     verifica('le pause crescono: dieci minuti, venti, quaranta, poi un\'ora', [1, 2, 3, 4, 9].map(n => GIRO._interni.pausaDopo(n) / MIN).join() === '10,20,40,60,60');
     await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.map(x => x.id) });
 
