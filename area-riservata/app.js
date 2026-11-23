@@ -37964,13 +37964,42 @@
             return '<div class="pc-avviso pc-problema pc-sospeso" role="alert"><strong>Invii sospesi dal gestore della PEC.</strong> ' + il(rf.quando) + ' il server ha risposto: «' + esc(rf.testo) + '». '
                 + esc(rf.spiegazione || 'Il rifiuto riguarda la casella o il collegamento, non le lettere.')
                 + ' <strong>Le lettere restano in coda</strong>, nessuna va persa e nessuna viene segnata «non partita»: il servizio riprova da solo '
-                + (inPausa ? 'alle ' + esc(fmtDataOra(g.sospesoFino).slice(11)) + (g.rifiuti > 1 ? ' (è il ' + g.rifiuti + '° rifiuto di fila, quindi aspetta di più)' : '') : 'entro cinque minuti') + '.' + riprova + '</div>';
+                + (inPausa ? 'alle ' + esc(fmtDataOra(g.sospesoFino).slice(11)) + (g.rifiuti > 1 ? ' (è il ' + g.rifiuti + '° rifiuto di fila, quindi aspetta di più)' : '') : 'entro cinque minuti') + '.' + riprova + pcDatiGestoreHtml(st, rf) + '</div>';
         }
         if (!u.fermato) return '';
         return '<div class="pc-avviso pc-problema pc-sospeso" role="alert"><strong>L\'ultimo invio si è interrotto.</strong> ' + il(u.quando) + ': «' + esc(u.fermato) + '». <strong>Le lettere restano in coda</strong> e ripartono da sole al prossimo giro, entro cinque minuti.' + riprova + '</div>';
     }
+    /* Per autorizzare la casella l'assistenza del gestore chiede quattro cose:
+       l'indirizzo IP pubblico della connessione, se e' statico o dinamico, data
+       e ora esatta dell'ultimo invio fallito, la casella. L'indirizzo e l'ora
+       li conosce solo il servizio (non e' il computer di chi guarda la pagina
+       a spedire): si mostrano qui, pronti da copiare, a chi vede tutto. */
+    const PC_REGIONI = { fra1: 'Francoforte', iad1: 'Washington', cdg1: 'Parigi', dub1: 'Dublino', lhr1: 'Londra', arn1: 'Stoccolma' };
+    function pcDatiGestore(st, rf) {
+        const quando = new Date(rf.quando).toLocaleString('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dove = rf.regione ? ' (server di ' + (PC_REGIONI[rf.regione] || rf.regione) + ')' : '';
+        return [
+            ['Indirizzo IP pubblico da cui si collega il servizio', rf.ip ? rf.ip + dove : ''],
+            ['Tipo di connessione', 'IP dinamico: è un servizio cloud, l\'indirizzo cambia a ogni collegamento'],
+            ['Data e ora dell\'ultimo invio fallito', quando + ' (ora italiana)'],
+            ['Casella PEC', st.casella || '']
+        ];
+    }
+    function pcDatiGestoreHtml(st, rf) {
+        if (!st.profilo.vedeTutto || !rf || !/bloccat|blocked|abus|5\.7\.\d/i.test(rf.testo || '')) return '';
+        const dati = pcDatiGestore(st, rf);
+        const testo = dati.map(d => d[0] + ': ' + (d[1] || 'non rilevato')).join('\n');
+        return '<div class="pc-dati-gestore"><strong>Dati da comunicare all\'assistenza del gestore</strong> <button type="button" class="btn btn-sm btn-secondary pc-copia-dati" data-testo="' + esc(testo) + '">Copia</button><ul>'
+            + dati.map(d => '<li>' + esc(d[0]) + ': <b>' + (d[1] ? esc(d[1]) : 'non ancora rilevato — premi «Riprova adesso»') + '</b></li>').join('') + '</ul></div>';
+    }
     // il pulsante «Riprova adesso» dell'avviso qui sopra: `dopo` ricarica la pagina che lo mostra
     function pcCollegaRiprova(dentro, dopo) {
+        const copia = dentro.querySelector('.pc-copia-dati');
+        if (copia) copia.addEventListener('click', () => {
+            const testo = copia.dataset.testo || '';
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(testo).then(() => toast('Dati copiati: incollali nella risposta al gestore.', 'verde')).catch(() => window.prompt('Copia i dati:', testo));
+            else window.prompt('Copia i dati:', testo);
+        });
         const b = dentro.querySelector('.pc-riprova');
         if (b) b.addEventListener('click', () => conAttesa(b, async () => {
             const r = await pcChiama('riprova-invii');

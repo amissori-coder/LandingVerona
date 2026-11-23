@@ -866,6 +866,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_PAUSA_MS` | *(facoltativa)* pausa fra una PEC e la successiva. Senza: `1200` |
 | `CIRC_LETTORE_RECUPERO` | *(facoltativa)* se il gestore rigenera la cartella, quanti messaggi rileggere all'indietro. Senza: `200`. Alla prima accensione non si guarda indietro: la posta gia' presente non entra fra le "non associate" |
 | `CIRC_PEC_PROXY` | *(facoltativa: serve se il gestore non autorizza la casella a spedire dal servizio)* Il "ponte": `http://utente:password@indirizzo:porta` di un proxy con indirizzo di rete italiano da cui passano gli invii. Senza, il gestore respinge gli invii perche' arrivano dall'estero (`554 5.7.1`). La riga la stampa `strumenti/ponte-pec.sh`. Vedi "Quando il gestore sospende gli invii" |
+| `CIRC_IP_SERVIZI` | *(facoltativa)* a chi chiedere l'indirizzo di rete da cui e' uscito il servizio quando il gestore lo respinge, separati da virgola. Senza: `https://checkip.amazonaws.com/` e `https://api.ipify.org/`. Vuota: non si chiede |
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
@@ -1117,8 +1118,25 @@ agli eventi (`revilawngb@pec.it`), che spedisce dallo stesso servizio, il
 titolare ha gia' ottenuto l'autorizzazione dall'assistenza del gestore: la
 stessa richiesta va fatta per la casella delle circolarizzazioni, citando quel
 precedente. Non costa e non richiede altro; ottenuta l'autorizzazione basta
-"Riprova adesso". Di che cosa abbia abilitato di preciso il gestore l'altra
-volta qui non c'e' traccia.
+"Riprova adesso".
+
+L'assistenza ha risposto che il rifiuto viene dai controlli automatici di
+sicurezza delle caselle PEC, e che per autorizzare la casella le servono:
+l'indirizzo IP pubblico della connessione, se e' statico o dinamico, data e ora
+esatta dell'ultimo invio fallito, le caselle coinvolte. **L'indirizzo non e'
+quello del computer di chi usa l'area riservata**: a spedire e' il servizio. Per
+questo, quando il gestore respinge l'indirizzo, il servizio lo rileva subito
+dopo il rifiuto (`indirizzoUscita()`: lo chiede a `checkip.amazonaws.com`, poi
+a `api.ipify.org`; una lettura, non esce nessun dato) e l'avviso mostra a chi
+vede tutto il riquadro "Dati da comunicare all'assistenza del gestore", con il
+pulsante Copia: indirizzo e regione, tipo di connessione (dinamico: l'indirizzo
+cambia a ogni collegamento), data e ora al secondo, casella. Al team
+l'indirizzo non viene mandato. Con un indirizzo dinamico il gestore apre la
+casella "verso tutte le reti": le sue protezioni automatiche si riducono,
+quindi raccomanda una password complessa, cambiata periodicamente, e la
+verifica in due passaggi. Con la verifica in due passaggi il servizio deve
+usare la password per i programmi di posta (`CIRC_PEC_PASS`), che scade ogni
+sei mesi.
 
 **Secondo rimedio: il ponte (`CIRC_PEC_PROXY`).** Se il gestore non autorizza,
 gli invii devono arrivargli da un indirizzo di rete italiano. Il servizio sa
@@ -1413,7 +1431,8 @@ altre partono nello stesso giro, la respinta si ritenta da sola e al terzo
 rifiuto va in "non partita", la lettera nuova provata in pausa, il blocco di
 tutti che non allunga la pausa), il ponte (gli invii passano di li', il ponte
 spento o con credenziali sbagliate, la variabile scritta male, l'indirizzo che
-non esce dal servizio), cancellazione.
+non esce dal servizio), i dati per l'assistenza del gestore (indirizzo di
+uscita rilevato al rifiuto, non mandato al team), cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:
