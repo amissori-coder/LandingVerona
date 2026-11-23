@@ -48,6 +48,7 @@ const AZIONI = {
     'supervisori': 'Supervisori cambiati',
     'incarico-cancellato': 'Dati dell\'incarico cancellati dal portale',
     'bozza-svuotata': 'Bozza delle nuove lettere svuotata',
+    'invii-riprovati': 'Invii ripresi a mano dopo una sospensione',
     'pulizie': 'Pulizie automatiche'
 };
 /* Il servizio quando agisce da solo (le pulizie del giro programmato). */

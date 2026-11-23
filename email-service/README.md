@@ -1056,10 +1056,58 @@ riguarda, e si rispedisce solo se nel frattempo la casella e' stata letta e la
 ricevuta di accettazione non c'e'. Se la ricevuta c'e', la PEC era partita e la
 scheda si aggiorna da sola.
 
-**Se il server PEC rifiuta.** Un rifiuto che riguarda noi (tetto superato,
-indirizzo bloccato, password) ferma il giro e rimette la scheda in coda, senza
-segnare "errore" sul resto; un rifiuto del solo destinatario segna quella
-scheda e si va avanti. Dopo tre tentativi falliti la scheda va in errore.
+**Se il server PEC rifiuta.** Un rifiuto del solo destinatario segna quella
+scheda "non partita" e si va avanti. Un rifiuto che riguarda noi (tetto
+superato, indirizzo bloccato, password, server irraggiungibile) ferma il giro e
+rimette la scheda in coda, senza toccare il resto: vedi qui sotto.
+
+### Quando il gestore sospende gli invii (`554 5.7.1 Indirizzo IP bloccato`)
+
+E' successo al primo invio vero: Aruba ha risposto `554 5.7.1 Indirizzo IP
+bloccato temporaneamente per sospetto abuso. Contattare assistenza e utilizzare
+la Webmail`. Non dipende dalle lettere ne' dalla password (la casella si legge):
+il gestore ha respinto **l'indirizzo di rete** da cui la funzione si e'
+collegata. Le funzioni Vercel escono su indirizzi condivisi con altri clienti e
+che cambiano a ogni esecuzione; in piu', senza una regione scelta, partono dagli
+Stati Uniti.
+
+Che cosa fa il servizio (`lib/circ-giro.js`):
+
+- **le lettere restano in coda e il tentativo non conta.** Il rifiuto non
+  consuma i tre tentativi della lettera: un blocco di ore non manda nessuna
+  lettera in "non partita" e non fa partire avvisi a chi l'ha preparata;
+- **gli invii si fermano per un po', per tutta la coda**: dieci minuti dopo il
+  primo rifiuto, poi venti, quaranta, un'ora (e un'ora per i successivi). Ogni
+  tentativo e' un'altra connessione da un indirizzo appena respinto: insistere
+  ogni cinque minuti allunga il blocco. In pausa il giro programmato non apre
+  connessioni di invio e non legge la casella "in fretta"; la prima PEC
+  accettata azzera tutto;
+- **lo dice**: nell'area riservata un avviso riporta la risposta del server, che
+  cosa vuol dire e a che ora si riprova (lo vede anche il team, nella pagina
+  dell'incarico: altrimenti una lettera ferma "in coda" non si spiega), e nel
+  registro degli errori c'e' la riga "Il server PEC ha sospeso gli invii".
+  L'avviso resta finche' una PEC non parte davvero (`meta/circGiro.rifiuto`);
+- **chi vede tutto puo' riprovare subito** con "Riprova adesso" (azione
+  `riprova-invii`), per esempio dopo aver sentito l'assistenza del gestore: il
+  tentativo resta nel registro delle operazioni. Se il gestore rifiuta ancora,
+  la pausa si allunga.
+
+**Il blocco non si risolve dal codice.** Se si ripete, in ordine di costo:
+
+1. *Regione della funzione in Europa* (Vercel > Settings > Functions > Function
+   Region, per esempio Francoforte): non costa, cambia il gruppo di indirizzi da
+   cui si esce e avvicina la funzione alla casella. Vale per tutte le funzioni
+   del progetto: va fatto se anche Firestore e' in Europa (vedi "Quanto ci mette
+   ad aprirsi"). Non e' una garanzia: restano indirizzi condivisi.
+2. *Assistenza del gestore*: chiedere se la casella puo' essere usata da un
+   programma che si collega da un servizio cloud, e se un indirizzo si puo'
+   autorizzare.
+3. *Un indirizzo fisso.* O gli "Static IPs" di Vercel (a pagamento, per
+   progetto; sono comunque condivisi con un piccolo gruppo di clienti), o un
+   piccolo server italiano con indirizzo fisso che faccia da ponte verso
+   `smtps.pec.aruba.it` e `imaps.pec.aruba.it`: gli host sono gia' variabili
+   (`CIRC_PEC_SMTP_HOST`, `CIRC_PEC_IMAP_HOST`), ma per un ponte va aggiunto il
+   nome del certificato da verificare, che oggi non c'e'.
 
 ### I solleciti
 
@@ -1127,8 +1175,8 @@ raccolta `circErrori`), e chi amministra viene avvisato per email:
 | Tipo | Che cosa |
 |---|---|
 | Recapito | la PEC non e' stata accettata dal gestore o non e' stata consegnata (un preavviso di mancata consegna entra come "da tenere d'occhio") |
-| Invio | la lettera non e' partita: rifiuto del server per quel destinatario, PDF non piu' leggibile, tre tentativi falliti |
-| Server PEC | il server ha sospeso gli invii (tetto superato, indirizzo bloccato, password): le lettere restano in coda |
+| Invio | la lettera non e' partita: rifiuto del server per quel destinatario, PDF non piu' leggibile, tre tentativi rimasti senza esito |
+| Server PEC | il server ha sospeso gli invii (tetto superato, indirizzo bloccato, password): le lettere restano in coda, con l'ora del prossimo tentativo e la spiegazione |
 | Casella PEC | la casella rifiuta la password (subito), non si legge per due giri di fila, o un messaggio non si e' potuto leggere |
 | Servizio | un errore imprevisto di un'azione dell'area riservata o del giro programmato |
 
@@ -1278,13 +1326,15 @@ solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
 tetto orario, registro degli errori (una riga per problema, una sola email,
 spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
 conteggi, saldo e note, la bozza sul portale (ripresa da un altro computer,
-conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza), il
+conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza),
 l'orario dei solleciti (parte all'ora scelta e non prima, senza orario alle
 9:00, le date di ogni riga nella bozza), il
 registro delle operazioni (una voce per ogni azione riuscita, nessuna per
 quelle rifiutate, chi lo legge, che resta dopo la cancellazione), le letture
-della pagina degli incarichi (poche, e non crescono con gli incarichi),
-cancellazione.
+della pagina degli incarichi (poche, e non crescono con gli incarichi), il
+gestore che respinge il servizio (pausa che cresce, nessun tentativo in pausa,
+la lettera che non consuma i tentativi, ripresa a mano, avviso che resta
+finche' una PEC non parte), cancellazione.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:

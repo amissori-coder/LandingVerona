@@ -42,6 +42,10 @@
      - l'orario dei solleciti lo sceglie chi invia: il sollecito parte
        a quell'ora e non prima, senza orario vale le 9:00, e la bozza
        conserva le date di ogni riga;
+     - quando il gestore respinge il servizio (indirizzo bloccato) gli
+       invii si fermano per un po' invece di ritentare a ogni giro, la
+       pausa cresce se il rifiuto si ripete, chi vede tutto puo'
+       riprovare a mano e alla fine della pausa tutto riparte da solo;
      - la pagina degli incarichi si apre con poche letture, sempre le
        stesse, anche per chi segue centinaia di incarichi (prima erano
        una per incarico, in fila);
@@ -645,6 +649,57 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     const rigaD = (await chiama('anna@studio.it', { azione: 'bozza-leggi', incaricoId: 'inc-beta', ambito: 'obbligatorie' })).bozza.righe[0];
     verifica('la bozza conserva termine, data e orario dei solleciti di ogni riga, e scarta quello che non e\' una data o un orario', rigaD.scad === '2027-05-10' && rigaD.s1d === '2027-05-11' && rigaD.s1o === '08:15' && rigaD.s1s === '2027-05-18' && rigaD.s2d === '' && rigaD.s2o === '' && rigaD.s2s === '', rigaD);
     await chiama('anna@studio.it', { azione: 'bozza-togli', incaricoId: 'inc-beta', ambito: 'obbligatorie' });
+
+    // ---------- 12f. il gestore respinge il servizio: gli invii si fermano per un po' ----------
+    const gP = C.giornoRoma();
+    const pausa1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Pausa Uno', pec: 'pausa.uno@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    const pausa2 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Pausa Due', pec: 'pausa.due@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    let tentativi = 0;
+    F.stato.rifiuta = () => { tentativi++; return Object.assign(new Error('554 5.7.1 Indirizzo IP bloccato temporaneamente per sospetto abuso. Contattare assistenza e utilizzare la Webmail'), { responseCode: 554 }); };
+    const primaPausa = posta.length, t0 = Date.now();
+    const r1 = await GIRO.giro(db, {});
+    let sg = await GIRO.stato(db);
+    verifica('indirizzo bloccato dal gestore: il giro si ferma, le lettere restano in coda e parte una pausa di dieci minuti', r1.esito === 'fermato' && tentativi === 1 && posta.length === primaPausa && (await scheda(pausa1.id)).passi.primo.stato === 'coda' && (await scheda(pausa2.id)).passi.primo.stato === 'coda' && sg.sospesoFino === t0 + 10 * MIN && sg.rifiuti === 1, [r1.esito, tentativi, sg.sospesoFino - t0, sg.rifiuti]);
+    verifica('la spiegazione dice che cos\'e\', e che non dipende dalle lettere', /indirizzo di rete/.test(r1.spiegazione) && /non dipende dalle lettere/.test(r1.spiegazione) && /si riprova alle \d\d:\d\d/.test(r1.msg), r1.msg);
+    avanti(5 * MIN);
+    const cronP = await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    verifica('al giro dopo, in pausa: nessun altro tentativo verso il gestore', tentativi === 1 && cronP.invii.esito === 'sospeso', cronP.invii);
+    const avviaP = await chiama('anna@studio.it', { azione: 'avvia' });
+    verifica('chi preme Invia nel frattempo: le lettere restano in coda, con l\'ora del prossimo tentativo', avviaP.inviato === false && /si riprova alle \d\d:\d\d/.test(avviaP.msg) && tentativi === 1, avviaP.msg);
+    verifica('lo stato dice che gli invii sono fermi e fino a quando', (await chiama('anna@studio.it', { azione: 'stato' })).giro.sospesoFino === t0 + 10 * MIN);
+    verifica('riprovare a mano e\' di chi vede tutto', (await chiama('anna@studio.it', { azione: 'riprova-invii' })).http === 403 && tentativi === 1);
+    const rip = await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    sg = await GIRO.stato(db);
+    verifica('riprovando a mano mentre il gestore rifiuta ancora: la pausa raddoppia', rip.ok && rip.inviato === false && tentativi === 2 && sg.rifiuti === 2 && sg.sospesoFino === Date.now() + 20 * MIN, [tentativi, sg.rifiuti, sg.sospesoFino - Date.now()]);
+    verifica('il tentativo a mano resta nel registro', registro('invii-riprovati').length === 1 && registro('invii-riprovati')[0].da === 'a.missori@emvas.tax' && /non riuscito/.test(registro('invii-riprovati')[0].dettaglio));
+    const errPausa = [...dati.keys()].filter(k => /^circErrori\//.test(k)).map(k => dati.get(k)).filter(e => /sospeso gli invii/.test(e.titolo));
+    verifica('nel registro degli errori: il testo del gestore, l\'ora del prossimo tentativo e la spiegazione', errPausa.length === 1 && errPausa[0].stato === 'aperto' && /554 5\.7\.1/.test(errPausa[0].dettaglio) && /riprova da solo alle \d\d:\d\d \(è il 2° rifiuto di fila\)/.test(errPausa[0].dettaglio) && /indirizzo fisso/.test(errPausa[0].dettaglio), errPausa.map(e => e.dettaglio));
+    // un blocco che dura ore: la stessa lettera viene respinta piu' volte di quanti tentativi ha, e non deve finire "non partita"
+    await chiama('a.missori@emvas.tax', { azione: 'annulla', id: pausa2.id });
+    const primaLunga = tentativi;
+    for (let i = 0; i < 5; i++) { avanti(61 * MIN); await chiama('x', {}, 'GET', { authorization: 'Bearer cron' }); }
+    sg = await GIRO.stato(db);
+    let sp = await scheda(pausa1.id);
+    verifica('un blocco lungo non consuma i tentativi della lettera: dopo cinque rifiuti e\' ancora in coda', tentativi === primaLunga + 5 && sp.passi.primo.stato === 'coda' && sp.stato === 'coda' && (sp.passi.primo.tentativi || 0) === 0 && /554 5\.7\.1/.test(sp.passi.primo.errore) && sg.rifiuti === 7 && sg.sospesoFino === Date.now() + 60 * MIN, [tentativi - primaLunga, sp.passi.primo.stato, sp.passi.primo.tentativi, sg.rifiuti]);
+    verifica('nessun avviso "non partita" a chi ha preparato la lettera', ![...dati.keys()].filter(k => /^circErrori\//.test(k)).map(k => dati.get(k)).some(e => e.invio === pausa1.id));
+    const ripUna = await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    verifica('riprovando a mano la lettera respinta si ritenta davvero, senza aspettare', ripUna.inviato === false && tentativi === primaLunga + 6 && (await GIRO.stato(db)).rifiuti === 8, [tentativi - primaLunga, ripUna.msg]);
+    // la coda si svuota mentre il gestore rifiuta: l'ultimo rifiuto resta scritto finche' una PEC non parte davvero
+    const pausa3 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Pausa Tre', pec: 'pausa.tre@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    await chiama('a.missori@emvas.tax', { azione: 'annulla', id: pausa3.id });
+    await chiama('a.missori@emvas.tax', { azione: 'annulla', id: pausa1.id });
+    const ripVuota = await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    sg = (await chiama('a.missori@emvas.tax', { azione: 'stato' })).giro;
+    verifica('un giro che non trova niente da spedire non cancella l\'ultimo rifiuto', ripVuota.ok && tentativi === primaLunga + 6 && sg.rifiuto && /554 5\.7\.1/.test(sg.rifiuto.testo) && /indirizzo di rete/.test(sg.rifiuto.spiegazione) && sg.rifiuti === 8 && sg.sospesoFino > Date.now(), sg);
+    const pausa4 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Pausa Quattro', pec: 'pausa.quattro@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    const pausa5 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Pausa Cinque', pec: 'pausa.cinque@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    F.stato.rifiuta = null;
+    avanti(61 * MIN);
+    await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
+    sg = await GIRO.stato(db);
+    verifica('finita la pausa il giro riparte da solo, e la conta dei rifiuti si azzera', posta.length === primaPausa + 2 && (await scheda(pausa4.id)).passi.primo.stato === 'inviato' && (await scheda(pausa5.id)).passi.primo.stato === 'inviato' && sg.rifiuto === null && sg.sospesoFino === 0 && sg.rifiuti === 0, [posta.length - primaPausa, sg.sospesoFino, sg.rifiuti]);
+    verifica('le pause crescono: dieci minuti, venti, quaranta, poi un\'ora', [1, 2, 3, 4, 9].map(n => GIRO._interni.pausaDopo(n) / MIN).join() === '10,20,40,60,60');
+    await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.map(x => x.id) });
 
     // ---------- 13. pulizie ----------
     const bozza = await chiama('anna@studio.it', { azione: 'crea', incaricoId: 'inc-beta', destinatario: 'Mai finita', pec: 'mai@pec.it', categoria: 'altro', bilancio: '2026-12-31', scadenza: C.aggiungiGiorni(C.giornoRoma(), 5), allegatoNome: 'x.pdf', allegatoDimensione: 5000 });

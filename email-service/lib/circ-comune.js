@@ -141,6 +141,11 @@ function istanteRoma(g, ore, minuti) {
     const visto = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
     return ipotesi - (visto - ipotesi);
 }
+/* L'ora di Roma di un istante, "HH:MM": per dire a che ora si riprova. */
+function oraBreve(ms) {
+    const p = partiRoma(Number(ms) || Date.now());
+    return ('0' + (+p.hour % 24)).slice(-2) + ':' + ('0' + (+p.minute)).slice(-2);
+}
 function aggiungiGiorni(g, n) {
     const m = RE_GIORNO.exec(String(g || ''));
     if (!m) return '';
@@ -406,7 +411,7 @@ function messaggio(invio, passo) {
 
 module.exports = {
     configurazione, configurato, LIMITI, CATEGORIE, AMBITI, ambitoDi, PASSI, NOME_PASSO, EMAIL_RE,
-    giornoValido, orarioValido, giornoRoma, istanteRoma, aggiungiGiorni, dataEstesa, dataBreve,
+    giornoValido, orarioValido, giornoRoma, istanteRoma, oraBreve, aggiungiGiorni, dataEstesa, dataBreve,
     codiceNuovo, codiceDa, riferimentoNuovo, unaRiga, nomeFile, megabyte,
     controllaRichiesta, oggetto, testoSemplice, html, datiMessaggio, messaggio
 };

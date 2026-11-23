@@ -35,6 +35,24 @@ const DATI = require('./circ-dati');
 const ERRORI = require('./circ-errori');
 
 const LUCCHETTO_MS = 6 * 60 * 1000;
+/* Dopo un rifiuto che riguarda NOI (indirizzo bloccato, troppi invii,
+   password) non si ritenta al giro dopo: ogni tentativo e' un'altra
+   connessione alla casella da un indirizzo che il gestore ha appena respinto,
+   e insistere allunga il blocco. Si aspetta, ogni volta di piu' se il rifiuto
+   si ripete: dieci minuti, poi venti, quaranta, un'ora. Il primo invio
+   riuscito azzera tutto. Chi vede tutto puo' riprovare subito a mano. */
+const PAUSE_MIN = [10, 20, 40, 60];
+function pausaDopo(rifiuti) { return PAUSE_MIN[Math.min(Math.max(1, rifiuti), PAUSE_MIN.length) - 1] * 60 * 1000; }
+/* Che cosa vuol dire, in parole, il rifiuto del gestore: sta nell'avviso e nel
+   registro degli errori, perche' il testo del server da solo non dice che
+   fare. */
+function spiegaRifiuto(testo) {
+    const t = String(testo || '').toLowerCase();
+    if (/password|autentic|authentication|credential|535|eauth/.test(t)) return 'La casella non accetta le credenziali del servizio: va controllata la password per i programmi di posta (su Aruba scade ogni sei mesi).';
+    if (/ip|host|client|bloccat|blocked|blacklist|abus/.test(t)) return 'Il gestore ha bloccato per un po\' l\'indirizzo di rete da cui il servizio si collega: non dipende dalle lettere né dalla password. Quegli indirizzi sono condivisi e cambiano, quindi spesso il tentativo dopo passa. Se si ripete, serve un indirizzo fisso autorizzato dal gestore.';
+    if (/too many|troppi|rate|quota|421|45[0-2]/.test(t)) return 'Il gestore ha chiesto di rallentare: troppi messaggi o troppe connessioni in poco tempo.';
+    return 'Il rifiuto riguarda la casella o il collegamento, non le lettere.';
+}
 function docGiro(db) { return db.collection('meta').doc('circGiro'); }
 function aspetta(ms) { return ms > 0 ? new Promise(r => setTimeout(r, ms)) : Promise.resolve(); }
 
@@ -73,8 +91,12 @@ async function prendiLucchetto(db, chi) {
     });
 }
 async function mollaLucchetto(db, campi) {
-    try { await docGiro(db).set(Object.assign({ lucchetto: null }, campi || {}), { merge: true }); }
-    catch (_) { /* al massimo scade da solo */ }
+    const dati = Object.assign({ lucchetto: null }, campi || {});
+    try { await docGiro(db).set(dati, { merge: true }); }
+    catch (_) {
+        // con i campi c'e' anche la pausa dopo un rifiuto: un secondo tentativo, poi al massimo il lucchetto scade da solo
+        if (campi) { try { await docGiro(db).set(dati, { merge: true }); } catch (e) { console.error('Circolarizzazioni, esito del giro non scritto:', String((e && e.message) || e).slice(0, 200)); } }
+    }
 }
 function chiaveOra(ms) { return new Date(ms).toISOString().slice(0, 13); }
 
@@ -84,6 +106,10 @@ async function stato(db) {
     const adesso = chiaveOra(Date.now());
     return {
         ultimoGiro: d.ultimoGiro || null,
+        // gli invii sono fermi fino a questo istante (0: non sono fermi), dopo quanti rifiuti di fila
+        sospesoFino: (Number(d.sospesoFino) || 0) > Date.now() ? Number(d.sospesoFino) : 0, rifiuti: Number(d.rifiuti) || 0,
+        // l'ultimo rifiuto del gestore, finche' una PEC non riparte davvero: { quando, testo, spiegazione }
+        rifiuto: d.rifiuto && d.rifiuto.testo ? d.rifiuto : null,
         inCorso: !!(d.lucchetto && d.lucchetto.fino > Date.now()),
         inviateNellOra: d.ora === adesso ? (Number(d.inviati) || 0) : 0,
         tettoOrario: C.LIMITI.perOra
@@ -96,7 +122,8 @@ async function inAttesa(db, max) {
     return q.docs.length;
 }
 
-/* Un giro. `opz`: { budgetMs, max, da }. Torna sempre un riepilogo. */
+/* Un giro. `opz`: { budgetMs, max, da, forza }. Torna sempre un riepilogo.
+   `forza`: si spedisce anche se gli invii sono in pausa dopo un rifiuto. */
 async function giro(db, opz) {
     opz = opz || {};
     const inizio = Date.now();
@@ -111,7 +138,14 @@ async function giro(db, opz) {
     const budget = Number(opz.budgetMs) || 200000;
     const disponibili = Math.min(Number(opz.max) || C.LIMITI.perGiro, C.LIMITI.perOra - giaNellOra);
     const conto = { inviate: 0, errori: 0, saltate: 0, solleciti: 0 };
-    let fermato = '', restanti = false, incarichi = {};
+    let fermato = '', rifiutato = false, restanti = false, incarichi = {};
+
+    // il gestore ha appena respinto il servizio: fino alla fine della pausa non si riprova (salvo chi lo chiede a mano)
+    const sospesoFino = Number(prima.sospesoFino) || 0;
+    if (!opz.forza && sospesoFino > inizio) {
+        await mollaLucchetto(db);
+        return { ok: false, esito: 'sospeso', sospesoFino: sospesoFino, msg: 'Il gestore della PEC ha sospeso gli invii: le lettere restano in coda e si riprova alle ' + C.oraBreve(sospesoFino) + '.', inviate: 0, errori: 0, restanti: true };
+    }
 
     if (disponibili <= 0) {
         await mollaLucchetto(db);
@@ -176,6 +210,7 @@ async function giro(db, opz) {
                 if (fermaTutto(e)) {
                     await DATI.esitoInvio(db, inv.id, lavoro.passo, lavoro.riferimento, { ok: false, riprova: true, msg: testo });
                     fermato = testo;
+                    rifiutato = true;
                     restanti = true;
                     break;
                 }
@@ -191,15 +226,33 @@ async function giro(db, opz) {
         if (posta) { try { posta.close(); } catch (_) { /* gia' chiusa */ } }
     }
 
+    /* Il gestore ha respinto il servizio: gli invii si fermano per un po', ogni
+       volta di piu' se si ripete. Un giro che ha spedito almeno una PEC senza
+       rifiuti azzera la conta. */
+    const fine = Date.now();
+    const rifiuti = rifiutato ? (Number(prima.rifiuti) || 0) + 1 : (conto.inviate ? 0 : (Number(prima.rifiuti) || 0));
+    const finoA = rifiutato ? fine + pausaDopo(rifiuti) : (conto.inviate ? 0 : Math.max(0, sospesoFino > fine ? sospesoFino : 0));
+    /* L'ultimo rifiuto resta scritto finche' una PEC non parte davvero: un giro
+       che non ha trovato niente da spedire non dimostra che il blocco e' finito. */
+    const rifiuto = rifiutato ? { quando: fine, testo: fermato, spiegazione: spiegaRifiuto(fermato) } : (conto.inviate ? null : (prima.rifiuto || null));
     // il giro si e' fermato per un rifiuto che riguarda la casella (tetto, blocco, password) o per un guasto
-    if (fermato) await ERRORI.segna(db, { chiave: 'server~invii-sospesi', tipo: 'server', titolo: 'Il server PEC ha sospeso gli invii', dettaglio: fermato + '. Le lettere restano in coda e ripartono da sole al prossimo giro.' });
+    if (fermato) {
+        await ERRORI.segna(db, {
+            chiave: 'server~invii-sospesi', tipo: 'server', titolo: 'Il server PEC ha sospeso gli invii',
+            // prima che cosa succede adesso, poi il perche' (il registro tiene 600 caratteri)
+            dettaglio: fermato.slice(0, 170) + '. ' + (rifiutato ? 'Le lettere restano in coda: il servizio riprova da solo alle ' + C.oraBreve(finoA) + (rifiuti > 1 ? ' (è il ' + rifiuti + '° rifiuto di fila)' : '') + '. ' + spiegaRifiuto(fermato) : 'Le lettere restano in coda e ripartono da sole al prossimo giro.')
+        });
+    }
     const riepilogo = {
-        quando: Date.now(), durataMs: Date.now() - inizio, da: String(opz.da || 'giro').slice(0, 120),
+        quando: fine, durataMs: fine - inizio, da: String(opz.da || 'giro').slice(0, 120),
         inviate: conto.inviate, solleciti: conto.solleciti, errori: conto.errori, saltate: conto.saltate,
-        restanti: restanti, fermato: fermato
+        restanti: restanti, fermato: fermato, spiegazione: rifiutato ? spiegaRifiuto(fermato) : ''
     };
-    await mollaLucchetto(db, { ora: oraChiave, inviati: giaNellOra + conto.inviate, ultimoGiro: riepilogo });
-    return Object.assign({ ok: !fermato, esito: fermato ? 'fermato' : 'ok', msg: fermato ? 'Invio sospeso dal server PEC: ' + fermato + '. Le lettere restano in coda e ripartono da sole.' : '', incarichi: Object.keys(incarichi) }, riepilogo);
+    await mollaLucchetto(db, { ora: oraChiave, inviati: giaNellOra + conto.inviate, ultimoGiro: riepilogo, rifiuti: rifiuti, sospesoFino: finoA, rifiuto: rifiuto });
+    return Object.assign({
+        ok: !fermato, esito: fermato ? 'fermato' : 'ok', incarichi: Object.keys(incarichi), sospesoFino: finoA,
+        msg: fermato ? 'Invio sospeso dal server PEC: ' + fermato + '. Le lettere restano in coda' + (rifiutato ? ': si riprova alle ' + C.oraBreve(finoA) + '.' : ' e ripartono da sole.') : ''
+    }, riepilogo);
 }
 
-module.exports = { giro, stato, inAttesa, _interni: { fermaTutto, docGiro } };
+module.exports = { giro, stato, inAttesa, _interni: { fermaTutto, docGiro, pausaDopo, spiegaRifiuto } };
