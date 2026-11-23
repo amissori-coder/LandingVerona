@@ -95,13 +95,24 @@ function ruoliSuIncarico(inc, idPersone, risolvi) {
     return r;
 }
 const STATI_ESCLUSI = ['proposta', 'nonAccettato'];     // un incarico mai partito non ha circolarizzazioni
-function incaricoBreve(inc, ruoli, risolvi) {
+function incaricoBreve(inc, ruoli, risolvi, soloLettura) {
     const nomi = campo => dividiNomi(campo).map(t => nomePersona(risolvi(t)) || t).join(', ');
     return {
         id: String(inc.id), cliente: String(inc.cliente || ''), stato: String(inc.stato || 'attivo'),
         responsabile: nomi(inc.respIncarico), qualita: nomi(inc.qualita), team: nomi(inc.team),
-        ruoli: ruoli || []
+        ruoli: ruoli || [],
+        // lo si vede soltanto: invii e risposte si leggono, niente si modifica
+        soloLettura: !!soloLettura
     };
+}
+/* Equity partner e founding partner. Vale la qualifica dell'anagrafica (la
+   scheda in Aderenti Revilaw collegata all'indirizzo con cui si entra, come
+   per i controlli qualita') e vale il ruolo di accesso il cui identificativo
+   dice "equity" o "founding" (come per le iscrizioni agli eventi). */
+const RE_PARTNER = /equity|found/i;
+function ePartner(ue, persone, mie) {
+    if (RE_PARTNER.test(String((ue && ue.ruolo) || ''))) return true;
+    return (persone || []).some(p => p && mie.has(p.id) && p.attivo !== false && !p.eliminato && (p.equityPartner || p.foundingPartner));
 }
 async function impostazioni(db) {
     let d = {};
@@ -128,15 +139,23 @@ async function profilo(db, ue, base) {
     const supervisore = imp.supervisori.indexOf(email) >= 0 || imp.supervisori.indexOf(sessione) >= 0;
     const risolvi = risolutorePersone(persone);
     const mie = new Set(persone.filter(p => p && !p.eliminato && String(p.email || '').trim().toLowerCase() === email).map(p => p.id));
+    /* Equity e founding partner vedono invii e risposte di TUTTI gli incarichi:
+       lavorano su quelli in cui hanno un ruolo (team, responsabile
+       dell'incarico o della qualita'), gli altri li hanno in sola
+       visualizzazione. Non sono "chi vede tutto": risposte non associate,
+       errori, registro generale e impostazioni restano ad amministratore e
+       supervisori. */
+    const partner = !admin && !supervisore && ePartner(ue, persone, mie);
     const visibili = [];
     incarichi.forEach(inc => {
         if (!inc || !inc.id || STATI_ESCLUSI.indexOf(String(inc.stato || '')) >= 0) return;
         const ruoli = mie.size ? ruoliSuIncarico(inc, mie, risolvi) : [];
-        if (admin || supervisore || ruoli.length) visibili.push(incaricoBreve(inc, ruoli, risolvi));
+        const lavora = admin || supervisore || ruoli.length > 0;
+        if (lavora || partner) visibili.push(incaricoBreve(inc, ruoli, risolvi, !lavora));
     });
     const nome = String((ue.sessione && ue.sessione.nome) || (ue.dati && ue.dati.nome) || sessione);
     return {
-        email: sessione, effettivo: email, nome: nome, admin: admin, supervisore: supervisore,
+        email: sessione, effettivo: email, nome: nome, admin: admin, supervisore: supervisore, partner: partner,
         vedeTutto: admin || supervisore, incarichi: visibili,
         firma: nome + ' <' + sessione + '>'
     };
@@ -879,19 +898,107 @@ async function scarta(db, chiave, prof) {
     await rifM.set({ stato: 'scartato', scartataDa: prof.firma, scartataIl: Date.now() }, { merge: true });
     return { ok: true };
 }
+/* Via una lettera dal portale: PDF, indice dei riferimenti, messaggi
+   abbinati e scheda. I messaggi restano nella casella PEC. */
+async function togliLettera(db, id, inv) {
+    await togliAllegato(db, id, ((inv || {}).allegato || {}).pezzi);
+    for (const coll of [RIF, MSG]) {
+        const legati = await db.collection(coll).where('invio', '==', id).get();
+        for (const l of legati.docs) { try { await db.collection(coll).doc(l.id).delete(); } catch (_) { /* resta un segnaposto */ } }
+    }
+    await db.collection(INVII).doc(id).delete();
+}
+/* L'amministratore cancella UNA lettera. Torna la scheda com'era, perche'
+   nel registro resti che cosa c'era. Se la PEC era gia' partita, le risposte
+   che arriveranno non troveranno piu' la lettera: finiranno fra le non
+   associate. */
+async function cancellaLettera(db, id) {
+    id = String(id || '');
+    const s = await db.collection(INVII).doc(id).get();
+    if (!s.exists) return { ok: false, stato: 404, msg: 'Lettera non trovata.' };
+    const inv = Object.assign({ id: id }, s.data() || {});
+    if (C.PASSI.some(k => passo(inv, k).stato === 'invio')) return { ok: false, stato: 409, msg: 'Una PEC di questa lettera sta partendo in questo momento: riprova fra un minuto.' };
+    await togliLettera(db, id, inv);
+    try { await db.collection(INC).doc(String(inv.incaricoId)).set({ sporco: true }, { merge: true }); } catch (_) { /* i conteggi si rifanno al prossimo cambio */ }
+    await ERRORI.dimenticaLettera(db, id);
+    return { ok: true, invio: inv };
+}
+/* Toglie una risposta dalla scheda. La lettera resta "con risposta" se ne ha
+   un'altra vera; altrimenti torna senza risposta, e i solleciti che la
+   risposta aveva fermato ripartono (se la loro data non e' passata). */
+async function staccaRisposta(db, idInvio, chiave) {
+    let tolta = null;
+    const r = await cambia(db, idInvio, (inv, ora) => {
+        const risposte = Array.isArray(inv.risposte) ? inv.risposte : [];
+        const i = risposte.findIndex(x => x.chiave === String(chiave || ''));
+        if (i < 0) return { ok: false, stato: 404, msg: 'Risposta non trovata su questa lettera.' };
+        tolta = risposte[i];
+        inv.risposte = risposte.filter((_, j) => j !== i);
+        if (inv.risposta && inv.risposta.modo !== 'manuale') {
+            const vere = inv.risposte.filter(x => !x.automatica).sort((a, b) => (a.quando || 0) - (b.quando || 0));
+            if (vere.length) inv.risposta = { il: vere[0].quando, modo: vere[0].certificata ? 'pec' : 'email', da: vere[0].da };
+            else { inv.risposta = null; sbloccaSolleciti(inv, 'risposta', ora); }
+        }
+        return null;
+    });
+    return r.ok ? Object.assign(r, { tolta: tolta }) : r;
+}
+/* L'amministratore cancella una risposta: esce dalla scheda e non torna fra
+   le non associate (il messaggio resta nella casella PEC). */
+async function cancellaRisposta(db, idInvio, chiave, prof) {
+    const r = await staccaRisposta(db, idInvio, chiave);
+    if (!r.ok) return r;
+    await db.collection(MSG).doc(String(chiave)).set({ stato: 'scartato', invio: '', scartataDa: prof.firma, scartataIl: Date.now() }, { merge: true });
+    return r;
+}
+/* Il messaggio di una risposta staccata, rimesso fra le non associate: da li'
+   si associa a un'altra lettera o si scarta. */
+function rimettiNonAssociata(db, chiave, tolta, prof) {
+    return db.collection(MSG).doc(String(chiave)).set({
+        stato: 'non-associato', genere: tolta.certificata ? 'risposta' : 'posta', invio: '',
+        uid: tolta.uid, uidValidity: tolta.uidValidity, quando: tolta.quando || Date.now(),
+        da: tolta.da || '', oggetto: tolta.oggetto || '', certificata: !!tolta.certificata,
+        allegati: tolta.allegati || [], dimensione: Number(tolta.dimensione) || 0, candidati: [],
+        dissociataDa: prof.firma, dissociataIl: Date.now()
+    }, { merge: true });
+}
+async function dissociaRisposta(db, idInvio, chiave, prof) {
+    const r = await staccaRisposta(db, idInvio, chiave);
+    if (!r.ok) return r;
+    await rimettiNonAssociata(db, chiave, r.tolta, prof);
+    return r;
+}
+/* L'amministratore sposta una risposta dalla lettera sbagliata a quella
+   giusta. Sulla nuova lettera i solleciti in programma si fermano, come per
+   ogni risposta. */
+async function spostaRisposta(db, idInvio, chiave, idNuova, prof) {
+    idInvio = String(idInvio || ''); idNuova = String(idNuova || '');
+    if (!idNuova || idNuova === idInvio) return { ok: false, stato: 400, msg: 'Indica un\'altra lettera a cui associare la risposta.' };
+    const nuova = await leggi(db, idNuova);
+    if (!nuova || nuova.stato === 'bozza') return { ok: false, stato: 404, msg: 'La lettera a cui associare la risposta non esiste.' };
+    const r = await staccaRisposta(db, idInvio, chiave);
+    if (!r.ok) return r;
+    const t = r.tolta;
+    const messa = await registraRisposta(db, idNuova, {
+        chiave: String(chiave), uid: t.uid, uidValidity: t.uidValidity, quando: t.quando, da: t.da, oggetto: t.oggetto,
+        certificata: !!t.certificata, automatica: !!t.automatica, allegati: t.allegati || [], dimensione: t.dimensione, via: 'manuale',
+        associataDa: { il: Date.now(), da: prof.firma }
+    });
+    if (!messa.ok) {
+        // la lettera di arrivo e' sparita nel frattempo: la risposta non si perde, torna fra le non associate
+        await rimettiNonAssociata(db, chiave, t, prof);
+        return { ok: false, stato: 409, msg: 'La lettera di arrivo non c\'è più: la risposta è tornata fra le non associate.' };
+    }
+    await db.collection(MSG).doc(String(chiave)).set({ stato: 'associato', invio: idNuova, associataDa: prof.firma, associataIl: Date.now() }, { merge: true });
+    return Object.assign(r, { nuova: await leggi(db, idNuova) });
+}
 /* Via tutte le lettere di un incarico: schede, PDF, indice e messaggi
    abbinati. I messaggi restano nella casella PEC, che e' l'archivio vero. */
 async function cancellaIncarico(db, incaricoId) {
     const q = await db.collection(INVII).where('incaricoId', '==', String(incaricoId)).get();
     let tolte = 0;
     for (const s of q.docs) {
-        const inv = s.data() || {};
-        await togliAllegato(db, s.id, (inv.allegato || {}).pezzi);
-        for (const coll of [RIF, MSG]) {
-            const legati = await db.collection(coll).where('invio', '==', s.id).get();
-            for (const l of legati.docs) { try { await db.collection(coll).doc(l.id).delete(); } catch (_) { /* resta un segnaposto */ } }
-        }
-        await db.collection(INVII).doc(s.id).delete();
+        await togliLettera(db, s.id, s.data() || {});
         tolte++;
     }
     try { await db.collection(INC).doc(String(incaricoId)).delete(); } catch (_) { /* si rifa' da solo */ }
@@ -934,6 +1041,6 @@ module.exports = {
     chiaviMsgId, trovaRiferimento, prendi, esitoInvio, rifiutoProprio, respintaInAttesa,
     applicaRicevuta, registraRisposta, candidatiPerIndirizzo,
     modificaSolleciti, annulla, rispostaManuale, togliRispostaManuale, reinvia,
-    nonAssociate, associa, scarta, cancellaIncarico, pulizia,
+    nonAssociate, associa, scarta, cancellaIncarico, cancellaLettera, cancellaRisposta, dissociaRisposta, spostaRisposta, pulizia,
     _interni: { risolutorePersone, ruoliSuIncarico, dividiNomi, bloccaSolleciti, sbloccaSolleciti, chiudi }
 };

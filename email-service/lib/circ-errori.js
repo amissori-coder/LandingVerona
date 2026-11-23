@@ -126,6 +126,13 @@ async function dimenticaIncarico(db, incaricoId) {
         for (const s of q.docs) await db.collection(ERR).doc(s.id).delete();
     } catch (_) { /* restano righe che non portano piu' da nessuna parte: si spuntano a mano */ }
 }
+/* Via le righe che riguardano una lettera tolta dal portale. */
+async function dimenticaLettera(db, idInvio) {
+    try {
+        const q = await db.collection(ERR).where('invio', '==', String(idInvio)).get();
+        for (const s of q.docs) await db.collection(ERR).doc(s.id).delete();
+    } catch (_) { /* restano righe che non portano piu' da nessuna parte: si spuntano a mano */ }
+}
 
 /* ---------- l'avviso per email ---------- */
 function postaConfigurata() {
@@ -212,4 +219,4 @@ async function avvisa(db) {
     return { ok: true, avvisati: nuovi.length, a: d.lista };
 }
 
-module.exports = { ERR, TIPI, segna, diLettera, aperti, elenco, conta, risolvi, riapri, dimenticaIncarico, avvisa, manda, destinatari, postaConfigurata, _interni: { messaggio, idDa } };
+module.exports = { ERR, TIPI, segna, diLettera, aperti, elenco, conta, risolvi, riapri, dimenticaIncarico, dimenticaLettera, avvisa, manda, destinatari, postaConfigurata, _interni: { messaggio, idDa } };

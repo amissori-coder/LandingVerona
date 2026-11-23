@@ -38189,13 +38189,17 @@
             const haRuolo = (i, r) => r === 'altro' ? !(i.ruoli || []).length : (i.ruoli || []).indexOf(r) >= 0;
             const gruppoDi = i => PC_ORDINE_RUOLI.find(r => haRuolo(i, r)) || 'altro';
             // chi vede tutto ha centinaia di incarichi: di norma solo quelli con lettere
-            const base = p.vedeTutto && !PC.senzaLettere ? conLettere : tutti;
+            /* Equity e founding partner vedono anche gli incarichi in cui non
+               hanno un ruolo, in sola visualizzazione: di norma, come chi vede
+               tutto, solo quelli con lettere (i loro restano sempre). */
+            const tanti = p.vedeTutto || p.partner;
+            const base = !tanti || PC.senzaLettere ? tutti : (p.vedeTutto ? conLettere : tutti.filter(i => (i.ruoli || []).length || conLettere.indexOf(i) >= 0));
             const gruppi = PC_ORDINE_RUOLI.concat(['altro']).filter(r => base.some(i => haRuolo(i, r)));
             if (PC.ruolo && gruppi.indexOf(PC.ruolo) < 0) PC.ruolo = '';
             const cerca = String(PC.cercaInc || '').trim().toLowerCase();
             const mostra = base.filter(i => (!PC.ruolo || haRuolo(i, PC.ruolo)) && (!cerca || (i.cliente + ' ' + (i.responsabile || '') + ' ' + (i.qualita || '') + ' ' + (i.team || '')).toLowerCase().includes(cerca)))
                 .sort((x, y) => ((y.conteggi ? 1 : 0) - (x.conteggi ? 1 : 0)) || String(x.cliente).localeCompare(String(y.cliente), 'it'));
-            const nomeGruppo = r => r === 'altro' ? 'Altri incarichi' : (r === 'team' ? 'Team di revisione' : PC_RUOLI[r]);
+            const nomeGruppo = r => r === 'altro' ? (p.partner ? 'Altri incarichi · sola visualizzazione' : 'Altri incarichi') : (r === 'team' ? 'Team di revisione' : PC_RUOLI[r]);
             const n = v => v ? String(v) : '<span class="pc-muto">0</span>';
             const incarichi = k => k + (k === 1 ? ' incarico' : ' incarichi');
             const rigaDi = i => {
@@ -38203,7 +38207,7 @@
                 const prog = c.sollecito1.programmati + c.sollecito2.programmati;
                 return '<tr class="cliccabile" data-inc="' + esc(i.id) + '">'
                     + '<td data-label="Società"><strong>' + esc(i.cliente) + '</strong>' + (i.responsabile ? '<span class="pc-nota">Resp. ' + esc(i.responsabile) + (i.qualita ? ' · Qualità ' + esc(i.qualita) : '') + '</span>' : '') + '</td>'
-                    + '<td data-label="Il tuo ruolo">' + ((i.ruoli || []).length ? i.ruoli.map(r => '<span class="pc-ruolo ' + esc(r) + '">' + esc(PC_RUOLI[r] || r) + '</span>').join('') : '<span class="pc-ruolo altro">' + (p.admin ? 'Amministratore' : 'Supervisore') + '</span>') + '</td>'
+                    + '<td data-label="Il tuo ruolo">' + ((i.ruoli || []).length ? i.ruoli.map(r => '<span class="pc-ruolo ' + esc(r) + '">' + esc(PC_RUOLI[r] || r) + '</span>').join('') : '<span class="pc-ruolo altro">' + (i.soloLettura ? 'Sola visualizzazione' : (p.admin ? 'Amministratore' : 'Supervisore')) + '</span>') + '</td>'
                     + '<td data-label="Lettere" class="pc-num">' + n(c.totale) + (c.inCoda ? '<span class="pc-nota">' + c.inCoda + ' in coda</span>' : '') + '</td>'
                     + '<td data-label="Consegnate" class="pc-num">' + n(c.consegnate) + '</td>'
                     + '<td data-label="Non consegnate" class="pc-num">' + (c.errori ? pcBadge('rosso', String(c.errori)) : n(0)) + '</td>'
@@ -38224,12 +38228,14 @@
                 + '</div>' : '';
             const ricerca = base.length >= 8 ? '<div class="campo ricerca pc-cerca-inc"><label for="pc-cerca-inc">Ricerca</label><input type="search" id="pc-cerca-inc" placeholder="Società, responsabile, componente del team…" value="' + esc(PC.cercaInc || '') + '"></div>' : '';
             dentro.innerHTML = '<div class="card">'
-                + '<h2>' + (p.vedeTutto ? 'Incarichi' : 'I tuoi incarichi') + '</h2>'
-                + (base.length ? '<p class="hint">' + (p.vedeTutto ? 'Vedi le circolarizzazioni di tutti gli incarichi; quelli in cui hai un ruolo sono in cima, divisi per ruolo.' : 'Gli incarichi in cui sei responsabile dell\'incarico, responsabile della qualità o nel team, divisi per ruolo.') + ' Apri un incarico per preparare le lettere e seguire ricevute e risposte.</p>'
+                + '<h2>' + (tanti ? 'Incarichi' : 'I tuoi incarichi') + '</h2>'
+                + (base.length ? '<p class="hint">' + (p.vedeTutto ? 'Vedi le circolarizzazioni di tutti gli incarichi; quelli in cui hai un ruolo sono in cima, divisi per ruolo.'
+                    : p.partner ? 'Come equity o founding partner vedi le circolarizzazioni di tutti gli incarichi: quelli in cui sei responsabile dell\'incarico, responsabile della qualità o nel team sono in cima, e ci lavori; gli altri sono in fondo, in sola visualizzazione.'
+                        : 'Gli incarichi in cui sei responsabile dell\'incarico, responsabile della qualità o nel team, divisi per ruolo.') + ' Apri un incarico per preparare le lettere e seguire ricevute e risposte.</p>'
                     + ((filtroRuoli || ricerca) ? '<div class="pc-barra-ruoli no-stampa">' + filtroRuoli + ricerca + '</div>' : '')
                     + (sezioni || '<p class="hint">Nessun incarico corrisponde alla ricerca.</p>')
-                    : '<p class="descrizione">' + (p.vedeTutto ? 'Nessun incarico ha ancora lettere in «' + esc(pcNomeAmbito(st, amb)) + '».' : 'Non risulti nel team, responsabile dell\'incarico o responsabile della qualità di nessun incarico: se manca un incarico, chiedi di aggiornare la sua scheda.') + '</p>')
-                + (p.vedeTutto ? '<p class="pc-sotto"><label class="pc-spunta"><input type="checkbox" id="pc-senza"' + (PC.senzaLettere ? ' checked' : '') + '> Mostra anche gli incarichi senza lettere (' + (tutti.length - conLettere.length) + ')</label></p>' : '')
+                    : '<p class="descrizione">' + (tanti ? 'Nessun incarico ha ancora lettere in «' + esc(pcNomeAmbito(st, amb)) + '».' : 'Non risulti nel team, responsabile dell\'incarico o responsabile della qualità di nessun incarico: se manca un incarico, chiedi di aggiornare la sua scheda.') + '</p>')
+                + (tanti ? '<p class="pc-sotto"><label class="pc-spunta"><input type="checkbox" id="pc-senza"' + (PC.senzaLettere ? ' checked' : '') + '> Mostra anche gli incarichi senza lettere (' + (tutti.length - (PC.senzaLettere ? conLettere.length : base.length)) + ')</label></p>' : '')
                 + '</div>';
             pcIncolonna(dentro);
             dentro.querySelectorAll('tr[data-inc]').forEach(tr => tr.addEventListener('click', () => naviga('strumentiPecIncarico', { incaricoId: tr.dataset.inc })));
@@ -38591,10 +38597,13 @@
             const categorie = st.categorie.filter(x => x.ambito === amb);
             const schede = e.schede.filter(s => s.ambito === amb);
             const c = (e.perAmbito || {})[amb] || pcSomma([]);
+            // equity e founding partner, sugli incarichi in cui non hanno un ruolo: si legge, non si modifica
+            const sola = !!inc.soloLettura;
+            const piu = '<span class="pc-piu" aria-hidden="true">+</span>';
             const azioni = '<button type="button" class="btn btn-secondary" id="pc-aggiorna">Aggiorna ricevute e risposte</button>'
-                + (schede.length ? '<button type="button" class="btn btn-secondary" id="pc-zip" title="Ricevute (.eml), risposte con i loro allegati e riepilogo in Excel">Scarica ricevute e risposte</button>'
-                    + '<button type="button" class="btn btn-secondary" id="pc-report-btn" title="Il report degli invii e delle risposte di questa società, diviso per tipologia di lettera">' + SR_ICO_STAMPA + 'Stampa il report</button>' : '')
-                + '<button type="button" class="btn btn-primary" id="pc-nuove">Nuove lettere</button>';
+                + (schede.length ? '<button type="button" class="btn btn-secondary" id="pc-zip" title="Ricevute (.eml), risposte con i loro allegati e riepilogo in Excel">Scarica ricevute e risposte</button>' : '')
+                + '<button type="button" class="btn btn-secondary" id="pc-report-btn" title="Il report degli invii e delle risposte di questa società, diviso per tipologia di lettera">' + SR_ICO_STAMPA + 'Stampa il report</button>'
+                + (sola ? '' : '<button type="button" class="btn btn-primary pc-nuove-btn pc-nuove-testa" id="pc-nuove" title="Per il primo invio e per integrare gli invii già fatti: le lettere partite restano in tabella">' + piu + 'Nuove lettere</button>');
             const q = PC.filtri.q.trim().toLowerCase();
             const passa = s => (!q || (s.destinatario + ' ' + s.pec + ' ' + s.codice + ' ' + (s.nota || '')).toLowerCase().includes(q))
                 && (!PC.filtri.stato || (PC.filtri.stato === 'senza' ? (!s.risposta && s.passi.primo.stato === 'inviato' && s.stato !== 'errore') : (PC.filtri.stato === 'risposta' ? !!s.risposta : s.stato === PC.filtri.stato)));
@@ -38602,15 +38611,26 @@
             const dest = s => '<td data-label="Destinatario"><strong>' + esc(s.destinatario) + '</strong><span class="pc-nota">' + esc(s.pec) + (s.nota ? ' · ' + esc(s.nota) : '') + '</span></td>';
             const apri = '<td data-label=""><button type="button" class="btn btn-sm btn-secondary pc-apri">Apri</button></td>';
             const riga = (s, celle) => '<tr class="cliccabile' + (s.stato === 'annullata' ? ' pc-annullata' : '') + '" data-id="' + esc(s.id) + '">' + celle + '</tr>';
-            /* Una tabella per tipologia. `fai(cat, lettere)` torna { testa, righe[] }
-               oppure null se per quella tipologia in questa vista non c'e' niente. */
-            const perTipologia = fai => categorie.map(cat => {
+            /* Una tabella per tipologia, SEMPRE: anche quando per quella
+               tipologia non c'e' ancora niente la tabella si vede, con la sua
+               intestazione e una riga che lo dice. E' la struttura del lavoro,
+               e deve leggersi tutta anche prima del primo invio. Solo con un
+               filtro attivo le tabelle senza righe spariscono: li' si sta
+               cercando qualcosa. `fai(cat, lettere)` torna { testa, righe[] };
+               `niente` e' la frase della riga vuota. */
+            const filtrato = !!q || !!PC.filtri.stato;
+            const perTipologia = (fai, niente) => categorie.map(cat => {
                 const lettere = viste.filter(s => s.categoria === cat.id);
-                const t = lettere.length ? fai(cat, lettere) : null;
-                if (!t || !t.righe.length) return '';
+                const t = fai(cat, lettere);
+                if (!t.righe.length && filtrato) return '';
                 const risposte = lettere.filter(s => s.risposta).length;
-                return '<section class="pc-tipo"><h3 class="pc-tipo-tit">' + esc(cat.nome) + '<span>' + lettere.length + (lettere.length === 1 ? ' lettera' : ' lettere') + ' · ' + risposte + (risposte === 1 ? ' risposta' : ' risposte') + '</span></h3>'
-                    + '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr>' + t.testa.map(x => '<th>' + x + '</th>').join('') + '<th></th></tr></thead><tbody>' + t.righe.join('') + '</tbody></table></div></section>';
+                return '<section class="pc-tipo' + (t.righe.length ? '' : ' pc-tipo-vuota') + '"><h3 class="pc-tipo-tit">' + esc(cat.nome)
+                    + '<span>' + lettere.length + (lettere.length === 1 ? ' lettera' : ' lettere') + ' · ' + risposte + (risposte === 1 ? ' risposta' : ' risposte') + '</span>'
+                    + (sola ? '' : '<button type="button" class="pc-aggiungi no-stampa" data-cat="' + esc(cat.id) + '" title="Apre «Nuove lettere» su questa tabella: per il primo invio o per aggiungere altre lettere">' + piu + 'Aggiungi</button>')
+                    + '</h3>'
+                    + '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr>' + t.testa.map(x => '<th>' + x + '</th>').join('') + '<th></th></tr></thead><tbody>'
+                    + (t.righe.length ? t.righe.join('') : '<tr class="pc-riga-vuota"><td colspan="' + (t.testa.length + 1) + '">' + niente + '</td></tr>')
+                    + '</tbody></table></div></section>';
             }).join('');
             let tabelle;
             if (PC.tab === 'solleciti') {
@@ -38621,7 +38641,7 @@
                         + '<td data-label="Primo sollecito">' + pcSollecitoHtml(s.passi.sollecito1) + '</td>'
                         + '<td data-label="Secondo sollecito">' + pcSollecitoHtml(s.passi.sollecito2) + '</td>'
                         + '<td data-label="Risposta">' + pcRispostaHtml(s, oggi) + '</td>' + apri))
-                }));
+                }), 'Nessun sollecito: per questa tipologia non ci sono lettere.');
             } else if (PC.tab === 'risposte') {
                 tabelle = perTipologia((cat, lettere) => {
                     const righe = [];
@@ -38636,7 +38656,7 @@
                             + '<td data-label="Oggetto">' + esc(s.risposta.nota || 'Risposta arrivata fuori dalla casella PEC') + '</td><td data-label="Allegati"><span class="pc-muto">—</span></td>' + apri));
                     });
                     return { testa: ['Destinatario', 'Ricevuta il', 'Da', 'Oggetto', 'Allegati'], righe: righe };
-                });
+                }, 'Nessuna risposta arrivata per questa tipologia.');
             } else {
                 tabelle = perTipologia((cat, lettere) => ({
                     testa: ['Destinatario', 'Riferimento'].concat(cat.saldo ? ['Saldo'] : []).concat(['Inviata il', 'Recapito', 'Rispondere entro', 'Risposta']),
@@ -38647,8 +38667,15 @@
                         + '<td data-label="Recapito">' + (s.stato === 'annullata' ? pcBadge('grigio', 'Annullata') : pcRecapitoHtml(s.passi.primo)) + '</td>'
                         + '<td data-label="Rispondere entro">' + esc(fmtData(s.scadenza)) + '</td>'
                         + '<td data-label="Risposta">' + pcRispostaHtml(s, oggi) + '</td>' + apri))
-                }));
+                }), 'Nessuna lettera per questa tipologia.');
             }
+            /* «Nuove lettere» in evidenza, con scritto a che cosa serve: non
+               solo al primo invio, anche a integrare quelli gia' fatti. */
+            const invito = sola || PC.tab === 'registro' ? '' : '<div class="pc-invito no-stampa"><div class="pc-invito-testo">'
+                + (schede.length ? '<strong>Devi integrare gli invii?</strong><span>«Nuove lettere» serve anche dopo il primo invio: aggiungi altri destinatari o altre tipologie e inviali. Le lettere già partite restano nelle tabelle, con le loro ricevute e i loro solleciti.</span>'
+                    : '<strong>Le tabelle sono pronte, una per tipologia di lettera.</strong><span>Con «Nuove lettere» compili per ogni tipologia l\'elenco dei destinatari, alleghi a ciascuno la sua lettera in PDF e scegli le date della risposta e dei solleciti. Lo stesso pulsante servirà poi per integrare gli invii.</span>')
+                + '</div><button type="button" class="btn btn-primary pc-nuove-btn">' + piu + 'Nuove lettere</button></div>';
+            const avvisoSola = sola ? '<div class="pc-avviso pc-sola" role="note"><strong>Sola visualizzazione.</strong> Di questo incarico vedi invii, ricevute e risposte, li puoi scaricare e puoi stampare il report. Le lettere le prepara e le modifica chi è nel team, il responsabile dell\'incarico o il responsabile della qualità.</div>' : '';
             const nRisposte = schede.reduce((t, s) => t + (s.risposte || []).filter(r => !r.automatica).length + (s.risposta && s.risposta.modo === 'manuale' ? 1 : 0), 0);
             const opz = (v, t) => '<option value="' + v + '"' + (PC.filtri.stato === v ? ' selected' : '') + '>' + t + '</option>';
             const area = pcNomeAmbito(st, amb);
@@ -38667,19 +38694,17 @@
                 + [['Responsabile dell\'incarico', inc.responsabile], ['Responsabile della qualità', inc.qualita], ['Team', inc.team], ['Casella PEC', st.casella]]
                     .map(([a, b]) => '<div class="sr-fatto"><span class="sr-oggi-et">' + esc(a) + '</span><span class="sr-fatto-riga"><strong>' + esc(b || '—') + '</strong></span></div>').join('')
                 + '</div>'
-                + pcAvvisoHtml() + pcSospesoHtml(st) + pcKpi(c)
+                + avvisoSola + pcAvvisoHtml() + pcSospesoHtml(st) + pcKpi(c)
                 + '<div class="card" id="pc-lettere">'
                 + '<div class="tab-dest pc-schede" role="tablist">'
                 + [['invii', 'Invii (' + c.totale + ')'], ['solleciti', 'Solleciti (' + (c.sollecito1.programmati + c.sollecito2.programmati) + ' in programma)'], ['risposte', 'Risposte (' + nRisposte + ')'], ['registro', 'Registro']]
                     .map(([id, et]) => '<button type="button" class="tab-btn' + (PC.tab === id ? ' attivo' : '') + '" role="tab" data-tab="' + id + '">' + esc(et) + '</button>').join('')
                 + '</div>'
                 + (PC.tab === 'registro' ? registroHtml : '')
+                + invito
                 + (schede.length && PC.tab !== 'registro' ? '<div class="filtri no-stampa"><div class="campo ricerca"><label for="pc-cerca">Ricerca</label><input type="search" id="pc-cerca" placeholder="Destinatario, PEC o riferimento…" value="' + esc(PC.filtri.q) + '"></div>'
                     + '<div class="campo"><label for="pc-stato">Mostra</label><select id="pc-stato">' + opz('', 'Tutte le lettere') + opz('coda', 'In coda') + opz('errore', 'Non consegnate') + opz('senza', 'Senza risposta') + opz('risposta', 'Con risposta') + opz('annullata', 'Annullate') + '</select></div></div>' : '')
-                + (PC.tab === 'registro' ? '' : !schede.length ? '<p class="descrizione">Per questa società non ci sono ancora lettere in «' + esc(area) + '». Premi <strong>Nuove lettere</strong>: per ogni tipologia compili la tabella dei destinatari, alleghi a ciascuno la sua lettera in PDF e scegli le date della risposta e dei solleciti.</p>'
-                    : (tabelle || (PC.tab === 'risposte' && !q && !PC.filtri.stato
-                        ? '<p class="descrizione">Non è ancora arrivata nessuna risposta. Quando arrivano compaiono qui, divise per tipologia, e i solleciti in programma per quelle lettere si fermano da soli.</p>'
-                        : '<p class="hint">Nessuna lettera corrisponde ai filtri.</p>')))
+                + (PC.tab === 'registro' ? '' : (tabelle || '<p class="hint">Nessuna lettera corrisponde ai filtri.</p>'))
                 + '</div>'
                 + (st.profilo.admin && e.schede.length ? '<div class="card no-stampa"><h2>Chiusura</h2><p class="hint">A lavoro concluso, dopo che il team ha salvato ricevute e risposte, i dati di questo incarico (tutte e due le aree) si tolgono dal portale. I messaggi restano nella casella PEC.</p><button type="button" class="btn btn-ghost pc-pericolo" id="pc-cancella">Cancella i dati di questo incarico</button></div>' : '');
             torna();
@@ -38695,7 +38720,8 @@
                 cerca.addEventListener('input', () => { PC.filtri.q = cerca.value; const p = cerca.selectionStart; disegna(); const n = document.getElementById('pc-cerca'); n.focus(); n.setSelectionRange(p, p); });
                 document.getElementById('pc-stato').addEventListener('change', ev => { PC.filtri.stato = ev.target.value; disegna(); });
             }
-            document.getElementById('pc-nuove').addEventListener('click', () => pcModaleNuove(inc, amb, carica));
+            vista.querySelectorAll('.pc-nuove-btn').forEach(b => b.addEventListener('click', () => pcModaleNuove(inc, amb, carica)));
+            vista.querySelectorAll('.pc-aggiungi').forEach(b => b.addEventListener('click', () => pcModaleNuove(inc, amb, carica, b.dataset.cat)));
             document.getElementById('pc-aggiorna').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
                 const r = await pcChiama('controlla');
                 if (r.letto === false && r.msg) toast(r.msg, 'ambra');
@@ -38792,8 +38818,11 @@
         const barra = p => '<span class="pc-rep-perc"><span class="pc-rep-striscia"><i style="width:' + Math.max(0, Math.min(100, p)) + '%"></i></span><b>' + p + '%</b></span>';
         const lettere = n => n + (n === 1 ? ' lettera' : ' lettere');
         // la colonna del saldo c'e' o non c'e' per tutta l'area: le tabelle delle tipologie restano incolonnate
-        const conSaldo = categorie.some(cat => cat.saldo) && valide.some(s => s.saldo != null);
-        const gruppi = categorie.map(cat => ({ cat: cat, l: valide.filter(s => s.categoria === cat.id) })).filter(g => g.l.length);
+        const conSaldo = categorie.some(cat => cat.saldo) && (!valide.length || valide.some(s => s.saldo != null));
+        /* Tutte le tipologie dell'area, anche quelle senza lettere: il report
+           e' la struttura del lavoro, e una tabella vuota dice "qui non c'e'
+           stato niente da inviare" meglio di una tabella che manca. */
+        const gruppi = categorie.map(cat => ({ cat: cat, l: valide.filter(s => s.categoria === cat.id) }));
         const conto = l => {
             const risp = l.filter(s => s.risposta);
             return { n: l.length, consegnate: l.filter(consegnata).length, risposte: risp.length, saldo: somma(l), saldoRisp: somma(risp) };
@@ -38812,13 +38841,14 @@
             return '<section class="pc-rep-sez"><h2><b>' + esc(cat.nome) + '</b><span>' + lettere(k.n) + ' · ' + k.risposte + (k.risposte === 1 ? ' risposta' : ' risposte') + '</span></h2>'
                 + '<table class="pc-rep-tab' + (conSaldo ? ' con-saldo' : '') + '"><thead><tr><th class="n">N.</th><th class="c-den">Destinatario</th><th class="c-rif">Riferimento</th>'
                 + (conSaldo ? '<th class="num c-saldo">Saldo</th>' : '') + '<th class="c-data">Inviata il</th><th class="c-rec">Recapito</th><th class="c-sol">1° sollecito</th><th class="c-sol">2° sollecito</th><th class="c-risp">Risposta</th><th class="c-note">Note</th></tr></thead><tbody>'
+                + (l.length ? '' : '<tr class="pc-rep-vuota"><td class="n">—</td><td colspan="' + (conSaldo ? 9 : 8) + '">Nessuna lettera inviata per questa tipologia.</td></tr>')
                 + l.map((s, i) => '<tr><td class="n">' + (i + 1) + '</td><td class="pc-rep-dest"><strong>' + esc(s.destinatario) + '</strong><span>' + esc(s.pec) + '</span></td><td class="pc-rep-rif">' + esc(s.codice) + '</td>'
                     + (conSaldo ? '<td class="num">' + (s.saldo == null ? vuoto : esc(pcEuro(s.saldo))) + '</td>' : '')
                     + '<td>' + (s.passi.primo.inviatoIl ? esc(giorno(s.passi.primo.inviatoIl)) : vuoto) + '</td><td>' + recapito(s) + '</td><td>' + sollecito(s.passi.sollecito1) + '</td><td>' + sollecito(s.passi.sollecito2) + '</td>'
                     + '<td>' + risposta(s) + '</td><td class="pc-rep-nota-cella">' + esc(s.nota || '') + '</td></tr>').join('')
                 + '</tbody><tfoot><tr><td colspan="3">Totale ' + esc(cat.nome.toLowerCase()) + ': ' + lettere(k.n) + '</td>'
                 + (conSaldo ? '<td class="num">' + esc(pcEuro(k.saldo)) + '</td>' : '')
-                + '<td colspan="6">Risposte ricevute: ' + k.risposte + ' su ' + k.n + ' (' + perc(k.risposte, k.n) + '%)'
+                + '<td colspan="6">' + (k.n ? 'Risposte ricevute: ' + k.risposte + ' su ' + k.n + ' (' + perc(k.risposte, k.n) + '%)' : 'Risposte ricevute: —')
                 + (conSaldo && k.saldo > 0 ? ' · saldo con risposta ' + esc(pcEuro(k.saldoRisp)) + ' (' + perc(k.saldoRisp, k.saldo) + '%)' : '') + '</td></tr></tfoot></table></section>';
         }).join('');
 
@@ -38842,7 +38872,8 @@
             + '<dl class="pc-rep-dati">' + dati.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b || '—') + '</dd></div>').join('') + '</dl></section>'
             + '<section class="pc-rep-numeri">' + numeri.map(([cl, et, n, nota]) => '<div class="pc-rep-numero' + (cl ? ' ' + cl : '') + '"><span>' + esc(et) + '</span><strong>' + esc(n) + '</strong><em>' + esc(nota) + '</em></div>').join('') + '</section>'
             + riepilogo
-            + (sezioni || '<p class="pc-rep-niente">In quest\'area non ci sono ancora lettere inviate.</p>')
+            + (valide.length ? '' : '<p class="pc-rep-niente">In quest\'area non ci sono ancora lettere inviate: le tabelle qui sotto, una per tipologia, sono pronte a riceverle.</p>')
+            + sezioni
             + '<footer class="pc-rep-chiusa"><p class="pc-rep-nota">Le lettere sono state trasmesse a mezzo PEC dalla casella indicata. Il recapito riporta l\'esito delle ricevute di accettazione e di consegna del gestore; i solleciti partono solo se alla loro data la risposta non è arrivata. Ricevute e risposte dei terzi sono conservate nella casella PEC e, a cura del team, nelle carte di lavoro dell\'incarico.</p>'
             + '<div class="pc-rep-firme">' + firma('Preparato da') + firma('Verificato da') + '</div>'
             + '<p class="pc-rep-doc"><span>Revilaw S.p.A. · ' + esc(area) + ' · ' + esc(inc.cliente || '') + '</span><span>Situazione al ' + esc(fmtDataOra(adesso)) + ' · estratto dall\'area riservata da ' + esc(st.profilo.nome || '') + '</span></p></footer>'
@@ -38977,7 +39008,8 @@
        parte da sola (la scheda, poi il suo PDF: quello gia' salvato sul
        portale con la bozza, oppure caricato in quel momento): se una non va,
        le altre partono lo stesso e quella resta in tabella con il suo motivo. */
-    function pcModaleNuove(inc, amb, fatto) {
+    /* `vaiA`: la tipologia su cui portare la finestra appena pronta (si e' premuto «Aggiungi» sulla sua tabella). */
+    function pcModaleNuove(inc, amb, fatto, vaiA) {
         const st = PC.stato, oggi = st.oggi, lim = st.limiti;
         const categorie = st.categorie.filter(x => x.ambito === amb);
         const conSaldo = categorie.some(x => x.saldo);
@@ -39748,6 +39780,8 @@
             disegna();
             const primoCampo = sezioni.querySelector('input.pc-r-nome');
             if (primoCampo && !fonte) primoCampo.focus({ preventScroll: true });
+            // si e' premuto «Aggiungi» su una tabella: la finestra si apre li'
+            if (vaiA) { const sez = sezioni.querySelector('.pc-n-sez[data-cat="' + vaiA + '"]'); if (sez) { sez.scrollIntoView({ block: 'start' }); const primo = sez.querySelector('tr[data-id]:not(.pc-fatta) .pc-r-nome'); if (primo) primo.focus({ preventScroll: true }); } }
             if (fonte) toast(da === 'portale' ? 'Ripresa la bozza salvata sul portale il ' + fmtDataOra(S.quando) + '.' : 'Ripresa la bozza di questo computer' + (ultimaLocale ? ' (' + fmtDataOra(ultimaLocale) + ')' : '') + (S ? ': la salvo sul portale.' : '.'), 'verde');
             /* I PDF di questo computer (IndexedDB) arrivano un attimo dopo: servono
                per aprirli al volo e, se sul portale non ci sono ancora, per farli
@@ -39772,6 +39806,9 @@
         const oggi = (PC.elenco || {}).oggi || oggiISO();
         const primo = s.passi.primo;
         const partita = primo.stato === 'inviato';
+        // l'amministratore cancella e riassocia; equity e founding partner, dove non hanno un ruolo, leggono soltanto
+        const admin = !!(((PC.stato || {}).profilo) || {}).admin;
+        const sola = !!(((PC.elenco || {}).incarico) || {}).soloLettura;
         const messaggiDi = passo => (s.messaggi || []).filter(m => m.passo === passo);
         const ricevute = passo => messaggiDi(passo).map(m => '<button type="button" class="pc-link pc-l-eml" data-chiave="' + esc(m.chiave) + '" title="Scarica il messaggio del gestore (.eml)">' + esc(PC_RICEVUTE[m.tipo] || m.tipo) + '</button>').join('<br>') || '<span class="pc-muto">—</span>';
         const quando = ms => ms ? esc(fmtDataOra(ms)) : '<span class="pc-muto">—</span>';
@@ -39786,7 +39823,12 @@
             + '<div class="pc-azioni"><button type="button" class="btn btn-sm btn-secondary pc-l-leggi">Leggi</button>'
             + '<button type="button" class="btn btn-sm btn-ghost pc-l-eml" data-chiave="' + esc(r.chiave) + '">Scarica il messaggio (.eml)</button>'
             + (r.allegati || []).map(a => '<button type="button" class="btn btn-sm btn-ghost pc-l-all" data-parte="' + esc(a.parte) + '">' + esc(a.nome) + ' <span class="pc-muto">' + esc(pcPeso(a.dimensione / 1.37)) + '</span></button>').join('')
-            + '</div></li>').join('');
+            + '</div>'
+            + (admin ? '<div class="pc-azioni pc-admin-az"><span class="pc-admin-et">Amministratore</span>'
+                + '<button type="button" class="btn btn-sm btn-ghost pc-l-sposta" title="La risposta è finita sulla lettera sbagliata: la associ a quella giusta">Sposta su un\'altra lettera</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost pc-l-dissocia" title="Torna nell\'elenco «Risposte non associate», da dove si associa o si scarta">Rimetti fra le non associate</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost pc-pericolo pc-l-canc-risp" title="Toglie la risposta dalla lettera: il messaggio resta nella casella PEC">Cancella la risposta</button></div>' : '')
+            + '</li>').join('');
         const manuale = s.risposta && s.risposta.modo === 'manuale';
         const errore = s.stato === 'errore';
         const sollecitiVivi = ['sollecito1', 'sollecito2'].some(n => s.passi[n].stato === 'programmato');
@@ -39795,7 +39837,8 @@
             ['Saldo', s.saldo == null ? '—' : pcEuro(s.saldo)], ['Note', s.nota || '—'], ['Preparata da', ((s.creato || {}).nome || '') + ' il ' + fmtDataOra((s.creato || {}).il || 0)]];
         apriModale('<h2>' + esc(s.destinatario) + ' · ' + esc(s.codice) + '</h2>'
             + '<div class="pc-lettera">'
-            + (errore ? '<div class="pc-avviso pc-problema" role="alert"><strong>La PEC non è arrivata.</strong> ' + esc(primo.errore || (primo.problema || {}).motivo || '') + ' Controlla l\'indirizzo (INI-PEC) e reinvia: i solleciti restano fermi finché la lettera non è consegnata.</div>' : '')
+            + (sola ? '<div class="pc-avviso pc-sola" role="note"><strong>Sola visualizzazione.</strong> Puoi leggere e scaricare ricevute e risposte; la lettera la modifica chi segue l\'incarico.</div>' : '')
+            + (errore ? '<div class="pc-avviso pc-problema" role="alert"><strong>La PEC non è arrivata.</strong> ' + esc(primo.errore || (primo.problema || {}).motivo || '') + (sola ? '' : ' Controlla l\'indirizzo (INI-PEC) e reinvia: i solleciti restano fermi finché la lettera non è consegnata.') + '</div>' : '')
             + '<dl class="pc-dati">' + fatti.map(([a, b]) => '<div><dt>' + esc(a) + '</dt><dd>' + esc(b) + '</dd></div>').join('') + '</dl>'
             + '<h3 class="sr-sottotit">Invio, solleciti e ricevute</h3>'
             + '<div class="tabella-wrap"><table class="dati pc-tab pc-passi"><thead><tr><th>Passo</th><th>Stato</th><th>Inviata il</th><th>Accettata il</th><th>Consegnata il</th><th>Ricevute</th></tr></thead><tbody>'
@@ -39808,10 +39851,11 @@
             + '</div>'
             + '<div class="modale-azioni">'
             + '<button type="button" class="btn btn-ghost" id="pc-l-chiudi">Chiudi</button>'
-            + (s.stato !== 'annullata' && (partita || primo.stato === 'coda' || errore) ? '<button type="button" class="btn btn-ghost pc-pericolo" id="pc-l-annulla">' + (partita && !errore ? 'Annulla i solleciti' : 'Annulla la lettera') + '</button>' : '')
-            + (partita && !errore && (!s.risposta || manuale) && s.stato !== 'annullata' ? '<button type="button" class="btn btn-secondary" id="pc-l-manuale">' + (manuale ? 'Togli la risposta segnata a mano' : 'Risposta arrivata per altra via') + '</button>' : '')
-            + (partita && !errore && !s.risposta && s.stato !== 'annullata' ? '<button type="button" class="btn btn-secondary" id="pc-l-solleciti">Date dei solleciti</button>' : '')
-            + (errore && s.stato !== 'annullata' ? '<button type="button" class="btn btn-primary" id="pc-l-reinvia">Correggi la PEC e reinvia</button>' : '')
+            + (admin ? '<button type="button" class="btn btn-ghost pc-pericolo" id="pc-l-cancella" title="Toglie la lettera dal portale, con PDF, solleciti, ricevute e risposte: resta nel registro">Cancella la lettera</button>' : '')
+            + (!sola && s.stato !== 'annullata' && (partita || primo.stato === 'coda' || errore) ? '<button type="button" class="btn btn-ghost pc-pericolo" id="pc-l-annulla">' + (partita && !errore ? 'Annulla i solleciti' : 'Annulla la lettera') + '</button>' : '')
+            + (!sola && partita && !errore && (!s.risposta || manuale) && s.stato !== 'annullata' ? '<button type="button" class="btn btn-secondary" id="pc-l-manuale">' + (manuale ? 'Togli la risposta segnata a mano' : 'Risposta arrivata per altra via') + '</button>' : '')
+            + (!sola && partita && !errore && !s.risposta && s.stato !== 'annullata' ? '<button type="button" class="btn btn-secondary" id="pc-l-solleciti">Date dei solleciti</button>' : '')
+            + (!sola && errore && s.stato !== 'annullata' ? '<button type="button" class="btn btn-primary" id="pc-l-reinvia">Correggi la PEC e reinvia</button>' : '')
             + ((s.messaggi || []).length || (s.risposte || []).length ? '<button type="button" class="btn btn-primary" id="pc-l-zip">Scarica tutto</button>' : '')
             + '</div>', { classe: 'larga', finestra: true });
         const $ = id => document.getElementById(id);
@@ -39836,6 +39880,31 @@
                 const a = r.allegati.find(x => String(x.parte) === b.dataset.parte);
                 try { pcSalva(await pcBytes({ id: s.id, chiave: r.chiave, parte: a.parte }), nomeBase + ' - ' + pcNomeFile(a.nome), a.tipo); } catch (e) { toast(e.message, 'rosso'); }
             }, { testo: 'Scarico…' })));
+            // ---- solo l'amministratore: la risposta e' sulla lettera sbagliata, o non doveva esserci ----
+            const detta = 'la risposta di ' + (r.da || 'mittente non indicato') + ' del ' + fmtDataOra(r.quando);
+            const dopoLoStacco = 'Se è l\'unica risposta, la lettera torna «senza risposta» e i solleciti con data futura tornano in programma.';
+            const sposta = li.querySelector('.pc-l-sposta');
+            if (sposta) sposta.addEventListener('click', () => pcModaleSposta(s, r, ricarica));
+            const dissocia = li.querySelector('.pc-l-dissocia');
+            if (dissocia) dissocia.addEventListener('click', () => {
+                if (!window.confirm('Rimettere ' + detta + ' fra le risposte non associate?\n\nEsce da questa lettera e torna nell\'elenco «Risposte non associate», da dove la associ a un\'altra lettera o la scarti. ' + dopoLoStacco)) return;
+                pcChiama('risposta-dissocia', { id: s.id, chiave: r.chiave }).then(x => dopo(x, 'Risposta rimessa fra le non associate.'));
+            });
+            const cancR = li.querySelector('.pc-l-canc-risp');
+            if (cancR) cancR.addEventListener('click', () => {
+                const motivo = window.prompt('Cancellare ' + detta + ' da questa lettera?\n\nIl messaggio resta nella casella PEC, ma non comparirà più sul portale. ' + dopoLoStacco + '\n\nScrivi il motivo (resta nel registro) e conferma:', '');
+                if (motivo === null) return;
+                pcChiama('risposta-cancella', { id: s.id, chiave: r.chiave, motivo: motivo }).then(x => dopo(x, 'Risposta cancellata dalla lettera.'));
+            });
+        });
+        if ($('pc-l-cancella')) $('pc-l-cancella').addEventListener('click', () => {
+            const n = (s.risposte || []).length;
+            const motivo = window.prompt('Cancellare dal portale la lettera a ' + s.destinatario + ' (' + s.codice + ')?\n\n'
+                + 'Vengono tolti la scheda, il PDF, i solleciti in programma' + (n ? ', le ricevute e ' + (n === 1 ? 'la risposta' : 'le ' + n + ' risposte') : ' e le ricevute') + '. NON SI PUÒ ANNULLARE. I messaggi restano nella casella PEC.\n'
+                + (partita ? 'La PEC è già partita: le risposte che arriveranno finiranno fra le «non associate».\n' : 'La PEC non è ancora partita: non partirà.\n')
+                + '\nScrivi il motivo (resta nel registro, con il riepilogo della lettera) e conferma:', '');
+            if (motivo === null) return;
+            pcChiama('cancella-lettera', { id: s.id, conferma: true, motivo: motivo }).then(x => dopo(x, 'Lettera cancellata dal portale.'));
         });
         if ($('pc-l-zip')) $('pc-l-zip').addEventListener('click', () => { const b = $('pc-l-zip'); if (b.dataset.attesa !== '1') { b.dataset.attesa = '1'; pcScaricaZip([s], nomeBase, b).finally(() => { b.dataset.attesa = ''; }); } });
         if ($('pc-l-annulla')) $('pc-l-annulla').addEventListener('click', () => {
@@ -39859,6 +39928,37 @@
             });
         });
         if ($('pc-l-solleciti')) $('pc-l-solleciti').addEventListener('click', () => pcModaleSolleciti(s, ricarica));
+    }
+    /* L'amministratore sposta una risposta dalla lettera sbagliata a quella
+       giusta: una lettera dello stesso incarico (anche dell'altra area), o
+       qualunque lettera di cui si conosce il riferimento. */
+    function pcModaleSposta(s, r, ricarica) {
+        const st = PC.stato || {};
+        const altre = ((PC.elenco || {}).schede || []).filter(x => x.id !== s.id && x.stato !== 'annullata')
+            .sort((a, b) => String(a.destinatario).localeCompare(String(b.destinatario), 'it'));
+        apriModale('<h2>Sposta la risposta su un\'altra lettera</h2>'
+            + '<p class="descrizione">Risposta di <strong>' + esc(r.da || 'mittente non indicato') + '</strong> del ' + esc(fmtDataOra(r.quando)) + ': «' + esc(r.oggetto || 'senza oggetto') + '». Ora è associata alla lettera a <strong>' + esc(s.destinatario) + '</strong> (' + esc(s.codice) + ').</p>'
+            + (altre.length ? '<div class="campo"><label for="pc-sp-let">Una lettera di questa società</label><select id="pc-sp-let"><option value="">Scegli…</option>'
+                + altre.map(x => '<option value="' + esc(x.id) + '">' + esc(x.destinatario + ' · ' + x.pec + ' · ' + x.codice + ' · ' + pcNomeAmbito(st, x.ambito) + (x.risposta ? ' (ha già una risposta)' : '')) + '</option>').join('') + '</select></div>' : '')
+            + '<div class="campo"><label for="pc-sp-cod">' + (altre.length ? 'Oppure il riferimento di una lettera, anche di un\'altra società' : 'Il riferimento della lettera giusta') + '</label><input type="text" id="pc-sp-cod" placeholder="RVL-XXXXXX" maxlength="12" style="max-width:220px"><p class="hint">È scritto nell\'oggetto della PEC inviata.</p></div>'
+            + '<p class="hint">Sulla lettera di partenza, se non restano altre risposte, i solleciti con data futura tornano in programma; su quella di arrivo si fermano. Lo spostamento resta nel registro di tutte e due.</p>'
+            + '<p class="msg-errore" id="pc-sp-err" hidden></p>'
+            + '<div class="modale-azioni"><button type="button" class="btn btn-ghost" id="pc-sp-no">Annulla</button><button type="button" class="btn btn-primary" id="pc-sp-si">Sposta la risposta</button></div>', { classe: 'larga' });
+        const $ = id => document.getElementById(id);
+        $('pc-sp-no').addEventListener('click', chiudiModale);
+        $('pc-sp-si').addEventListener('click', ev => conAttesa(ev.currentTarget, async () => {
+            const errore = t => { $('pc-sp-err').textContent = t; $('pc-sp-err').hidden = false; };
+            let id = $('pc-sp-let') ? $('pc-sp-let').value : '';
+            const cod = $('pc-sp-cod').value.trim();
+            if (cod) { const x = await pcChiama('per-codice', { codice: cod }); if (!x.ok) { errore(x.msg); return; } id = x.scheda.id; }
+            if (!id) { errore('Scegli la lettera a cui associare la risposta.'); return; }
+            const x = await pcChiama('risposta-sposta', { id: s.id, chiave: r.chiave, a: id });
+            if (!x.ok) { errore(x.msg); return; }
+            chiudiModale();
+            toast('Risposta spostata sulla lettera a ' + ((x.nuova || {}).destinatario || 'un altro destinatario') + ' (' + ((x.nuova || {}).codice || '') + ').', 'verde');
+            PC.quando = 0;
+            await ricarica();
+        }));
     }
     /* Cambiare le date dei solleciti non ancora partiti, o toglierli. */
     function pcModaleSolleciti(s, ricarica) {
