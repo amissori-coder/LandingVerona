@@ -297,6 +297,15 @@ const AZIONI = {
         const r = await GIRO.giro(db, { da: prof.firma, budgetMs: 40000, max: 25 });
         return Object.assign({}, r, { ok: true, inviato: r.ok, inAttesa: await GIRO.inAttesa(db, 200) });
     },
+    /* Gli invii sono fermi perche' il gestore ha respinto il servizio: chi vede
+       tutto puo' riprovare subito, senza aspettare la fine della pausa (per
+       esempio dopo aver sentito l'assistenza del gestore). */
+    async 'riprova-invii'(db, prof) {
+        soloChiVedeTutto(prof);
+        const r = await GIRO.giro(db, { da: prof.firma, budgetMs: 40000, max: 25, forza: true });
+        await traccia(db, prof, 'invii-riprovati', { dettaglio: r.ok ? 'Invii ripresi a mano: ' + (r.inviate || 0) + (r.inviate === 1 ? ' PEC partita.' : ' PEC partite.') : 'Tentativo a mano non riuscito: ' + (r.fermato || r.msg || 'il gestore rifiuta ancora') + '.' });
+        return Object.assign({}, r, { ok: true, inviato: r.ok, inAttesa: await GIRO.inAttesa(db, 200) });
+    },
     /* "Aggiorna ricevute e risposte": una lettura della casella a richiesta. */
     async controlla(db, prof) {
         const r = await LETTORE.giro(db, { da: prof.firma, budgetMs: 40000 });
@@ -501,9 +510,14 @@ async function nonAssociata(db, prof, chiave, parte) {
    gestore li conta. */
 async function giroProgrammato(db) {
     const out = { ok: true };
-    const dovute = await GIRO.inAttesa(db, 1);
+    const [inCoda, sg] = await Promise.all([GIRO.inAttesa(db, 1), GIRO.stato(db)]);
+    /* Il gestore ha appena respinto il servizio: fino alla fine della pausa non
+       c'e' niente da spedire, e quindi nemmeno da leggere in fretta la casella.
+       Ogni connessione in piu' da un indirizzo respinto allunga il blocco. */
+    const inPausa = sg.sospesoFino > Date.now();
+    const dovute = inPausa ? 0 : inCoda;
     const sl = await LETTORE.stato(db);
-    const haLettere = dovute > 0 || (await db.collection(DATI.INC).limit(1).get()).docs.length > 0;
+    const haLettere = inCoda > 0 || (await db.collection(DATI.INC).limit(1).get()).docs.length > 0;
     const appenaLetta = sl.ultimoGiro && sl.ultimoGiro.esito === 'ok' && !sl.ultimoGiro.restanti && Date.now() - (sl.ultimoGiro.quando || 0) < 9 * 60 * 1000;
     // lettere partite che aspettano ancora le ricevute: si legge a ogni giro, chi ha inviato vuole vedere "consegnata"
     const inAttesaDiRicevute = haLettere && appenaLetta && dovute === 0
@@ -513,7 +527,8 @@ async function giroProgrammato(db) {
     /* Senza niente di dovuto il giro degli invii non parte nemmeno, e le
        pulizie si fanno una volta all'ora: a riposo il giro programmato costa
        a Firestore poche letture e nessuna scrittura. */
-    out.invii = dovute > 0 ? await GIRO.giro(db, { da: 'giro programmato', budgetMs: 190000 }) : { ok: true, esito: 'niente da spedire', inviate: 0 };
+    out.invii = dovute > 0 ? await GIRO.giro(db, { da: 'giro programmato', budgetMs: 190000 })
+        : (inPausa && inCoda > 0 ? { ok: true, esito: 'sospeso', sospesoFino: sg.sospesoFino, inviate: 0 } : { ok: true, esito: 'niente da spedire', inviate: 0 });
     if (new Date().getUTCMinutes() < 5) {
         try { out.pulizie = await DATI.pulizia(db, Date.now(), 40); } catch (e) { out.pulizie = 0; console.error('Circolarizzazioni, pulizie:', String((e && e.message) || e).slice(0, 200)); }
         try { out.bozzeTolte = await BOZZE.pulizia(db, Date.now(), 20); } catch (e) { out.bozzeTolte = 0; console.error('Circolarizzazioni, bozze:', String((e && e.message) || e).slice(0, 200)); }

@@ -37941,8 +37941,40 @@
         let avviso = '';
         if (l.fermoPerCredenziali) avviso = 'La casella PEC rifiuta la password: ricevute e risposte non si aggiornano finché l\'amministratore non la rinnova.';
         else if (l.ultimoGiro && l.ultimoGiro.esito === 'errore') avviso = 'L\'ultimo controllo della casella non è riuscito: ' + (l.ultimoGiro.motivo || '');
-        else if (g.ultimoGiro && g.ultimoGiro.fermato) avviso = 'L\'ultimo invio è stato sospeso dal server PEC (' + g.ultimoGiro.fermato + '): le lettere in coda ripartono da sole.';
-        return '<p class="pc-casella">' + voci.join(' · ') + '</p>' + (avviso ? '<div class="pc-avviso pc-problema" role="alert">' + esc(avviso) + '</div>' : '');
+        return '<p class="pc-casella">' + voci.join(' · ') + '</p>' + (avviso ? '<div class="pc-avviso pc-problema" role="alert">' + esc(avviso) + '</div>' : pcSospesoHtml(st));
+    }
+    /* Il gestore della PEC ha respinto il servizio (indirizzo bloccato, troppi
+       invii): gli invii sono fermi per un po' e ripartono da soli. Si dice
+       che cosa ha risposto il server, che cosa vuol dire, che le lettere sono
+       al sicuro in coda e a che ora si riprova; chi vede tutto puo' riprovare
+       subito. Lo vede anche il team, nella pagina dell'incarico: altrimenti
+       una lettera ferma «in coda» non si spiega. */
+    function pcSospesoHtml(st) {
+        const g = st.giro || {}, u = g.ultimoGiro || {}, rf = g.rifiuto;
+        const riprova = st.profilo.vedeTutto ? ' <button type="button" class="btn btn-sm btn-secondary pc-riprova">Riprova adesso</button>' : '';
+        const il = q => 'Alle ' + esc(fmtDataOra(q).slice(11)) + ' del ' + esc(fmtDataOra(q).slice(0, 10));
+        if (rf && rf.testo) {
+            // resta finche' una PEC non riparte davvero: un giro senza niente da spedire non dimostra che il blocco e' finito
+            const inPausa = (g.sospesoFino || 0) > Date.now();
+            return '<div class="pc-avviso pc-problema pc-sospeso" role="alert"><strong>Invii sospesi dal gestore della PEC.</strong> ' + il(rf.quando) + ' il server ha risposto: «' + esc(rf.testo) + '». '
+                + esc(rf.spiegazione || 'Il rifiuto riguarda la casella o il collegamento, non le lettere.')
+                + ' <strong>Le lettere restano in coda</strong>, nessuna va persa e nessuna viene segnata «non partita»: il servizio riprova da solo '
+                + (inPausa ? 'alle ' + esc(fmtDataOra(g.sospesoFino).slice(11)) + (g.rifiuti > 1 ? ' (è il ' + g.rifiuti + '° rifiuto di fila, quindi aspetta di più)' : '') : 'entro cinque minuti') + '.' + riprova + '</div>';
+        }
+        if (!u.fermato) return '';
+        return '<div class="pc-avviso pc-problema pc-sospeso" role="alert"><strong>L\'ultimo invio si è interrotto.</strong> ' + il(u.quando) + ': «' + esc(u.fermato) + '». <strong>Le lettere restano in coda</strong> e ripartono da sole al prossimo giro, entro cinque minuti.' + riprova + '</div>';
+    }
+    // il pulsante «Riprova adesso» dell'avviso qui sopra: `dopo` ricarica la pagina che lo mostra
+    function pcCollegaRiprova(dentro, dopo) {
+        const b = dentro.querySelector('.pc-riprova');
+        if (b) b.addEventListener('click', () => conAttesa(b, async () => {
+            const r = await pcChiama('riprova-invii');
+            if (!r.ok) toast(r.msg || 'Tentativo non riuscito.', 'rosso');
+            else if (r.inviato === false) toast(r.msg || 'Il gestore rifiuta ancora: le lettere restano in coda.', 'ambra');
+            else toast(r.inviate ? (r.inviate === 1 ? 'Una PEC è partita' : r.inviate + ' PEC sono partite') + ': il gestore ha riaperto gli invii.' : 'Il gestore accetta di nuovo: non c\'era niente in coda.', 'verde');
+            PC.quando = 0;
+            await dopo();
+        }, { testo: 'Riprovo…' }));
     }
 
     /* ---------- scaricare dalla casella: ricevute (.eml), risposte, allegati ----------
@@ -38105,6 +38137,7 @@
                 ? '<div class="pc-avviso pc-problema" role="alert"><strong>' + (st.errori === 1 ? 'C\'è un errore da controllare.' : 'Ci sono ' + st.errori + ' errori da controllare.') + '</strong> <button type="button" class="pc-link" id="pc-vai-errori">Vedi gli errori</button></div>' : '';
             corpo.innerHTML = daVedere + pcAmbitiHtml(st) + pcAvvisoHtml() + (p.vedeTutto ? pcKpi(somma) : '') + pcCasellaHtml(st) + schede + '<div id="pc-scheda"></div>';
             pcCollegaAmbiti(corpo, () => disegna(PC.stato));
+            pcCollegaRiprova(corpo, () => carica(true));
             corpo.querySelectorAll('.pc-schede [data-scheda]').forEach(b => b.addEventListener('click', () => { PC.scheda = b.dataset.scheda; disegna(PC.stato); }));
             const vai = document.getElementById('pc-vai-errori');
             if (vai) vai.addEventListener('click', () => { PC.scheda = 'errori'; disegna(PC.stato); });
@@ -38600,7 +38633,7 @@
                 + [['Responsabile dell\'incarico', inc.responsabile], ['Responsabile della qualità', inc.qualita], ['Team', inc.team], ['Casella PEC', st.casella]]
                     .map(([a, b]) => '<div class="sr-fatto"><span class="sr-oggi-et">' + esc(a) + '</span><span class="sr-fatto-riga"><strong>' + esc(b || '—') + '</strong></span></div>').join('')
                 + '</div>'
-                + pcAvvisoHtml() + pcKpi(c)
+                + pcAvvisoHtml() + pcSospesoHtml(st) + pcKpi(c)
                 + '<div class="card" id="pc-lettere">'
                 + '<div class="tab-dest pc-schede" role="tablist">'
                 + [['invii', 'Invii (' + c.totale + ')'], ['solleciti', 'Solleciti (' + (c.sollecito1.programmati + c.sollecito2.programmati) + ' in programma)'], ['risposte', 'Risposte (' + nRisposte + ')'], ['registro', 'Registro']]
@@ -38619,6 +38652,7 @@
             const vista = $vista();
             pcIncolonna(vista);
             pcCollegaAmbiti(vista, disegna);
+            pcCollegaRiprova(vista, () => carica());
             vista.querySelectorAll('.pc-schede [data-tab]').forEach(b => b.addEventListener('click', () => { PC.tab = b.dataset.tab; disegna(); if (PC.tab === 'registro' && !registroInc) caricaRegistro(); }));
             vista.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => pcModaleLettera(schede.find(s => s.id === tr.dataset.id), carica)));
             if (PC.tab === 'registro') pcRegCollega(vista, filtriReg, visteReg, st, disegna, 'Registro ' + area + ' ' + (inc.cliente || ''));
@@ -39575,19 +39609,29 @@
             righe.forEach(r => { if (r.stato !== 'fatto' && r.file && !r.remoto) caricaSulPortale(r); });
             salvaLocale();
             await spingi();
+            const inCoda = partite === 1 ? 'Una lettera è in coda' : partite + ' lettere sono in coda';
+            const restano = ' Restano in tabella, in grigio: puoi aggiungere altre righe e inviarle, oppure chiudere.';
             if (partite) {
                 // parte subito quello che e' in coda; il resto lo prende il giro ogni cinque minuti
                 PC.quando = 0;
-                pcChiama('avvia').then(a => { if (a.ok && a.inviato === false && a.msg) toast(a.msg, 'ambra'); fatto(); });
+                pcChiama('avvia').then(a => {
+                    // il gestore ha sospeso gli invii: non si lascia scritto che «parte fra pochi istanti»
+                    if (a.ok && a.inviato === false && a.msg) { toast(a.msg, 'ambra'); if (aperta()) esito(inCoda + '. ' + a.msg + restano); }
+                    fatto();
+                });
             }
             /* La finestra resta aperta: le lettere partite restano in tabella con
                il loro riferimento, e si possono aggiungere altre righe e inviare
                ancora, senza ricominciare da capo. */
             const rimaste = righe.filter(r => r.stato !== 'fatto' && !vuota(r)).length;
             if (partite) {
-                const detto = (partite === 1 ? 'Una lettera è in coda e parte' : partite + ' lettere sono in coda e partono') + ' fra pochi istanti.';
-                esito(detto + ' Restano in tabella, in grigio: puoi aggiungere altre righe e inviarle, oppure chiudere.');
-                toast(detto, 'verde');
+                // se si sa gia' che il gestore ha sospeso gli invii, lo si dice subito
+                const fermi = (((PC.stato || {}).giro || {}).sospesoFino || 0) > Date.now();
+                const detto = fermi ? inCoda + ': il gestore della PEC ha sospeso gli invii, ' + (partite === 1 ? 'parte da sola' : 'partono da sole') + ' appena li riapre.'
+                    : inCoda + (partite === 1 ? ' e parte' : ' e partono') + ' fra pochi istanti.';
+                esito(detto + restano);
+                // a video basta «in coda»: se il gestore sospende gli invii lo dice, un attimo dopo, la risposta del giro
+                toast(fermi ? detto : inCoda + '.', fermi ? 'ambra' : 'verde');
             }
             errore(rimaste ? (rimaste === 1 ? 'Una lettera non è partita: correggi la riga e premi di nuovo Invia.' : rimaste + ' lettere non sono partite: correggi le righe e premi di nuovo Invia.') : '');
         }, { testo: 'Invio…' }).then(() => { if (aperta()) disegna(); }));

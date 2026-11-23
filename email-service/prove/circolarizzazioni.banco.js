@@ -21,6 +21,7 @@
                        (mancata consegna se l'indirizzo contiene "errore")
      /banco/risposta   { pec, oggetto?, inRisposta?: true, ordinaria? }
                        una risposta da quell'indirizzo, con un PDF
+     /banco/rifiuta    { testo, codice }: il server PEC rifiuta ogni invio; {}: riapre
      /banco/giro       il giro programmato (casella, invii, pulizie, avvisi);
                        con { alle: <istante ISO> } prima sposta l'orologio
      /banco/avvisi     le email degli errori partite finora
@@ -99,6 +100,11 @@ http.createServer((req, res) => {
         try {
             if (req.url === '/banco/ricevute') out = { stato: 200, corpo: { ok: true, ricevute: ricevute() } };
             else if (req.url === '/banco/risposta') out = { stato: 200, corpo: { ok: true, risposte: rispondi(b) } };
+            else if (req.url === '/banco/rifiuta') {
+                // { testo, codice } fa rifiutare al server PEC finto ogni invio (come un indirizzo bloccato dal gestore); {} lo riapre
+                F.stato.rifiuta = b.testo ? () => Object.assign(new Error(String(b.testo)), { responseCode: Number(b.codice) || 554 }) : null;
+                out = { stato: 200, corpo: { ok: true, rifiuta: !!b.testo } };
+            }
             else if (req.url === '/banco/giro') {
                 // { alle: '2027-01-21T10:40:00+01:00' } porta l'orologio del banco a quel momento (e li' resta): per vedere partire un sollecito
                 if (b.alle) F.orologioFinto(b.alle);

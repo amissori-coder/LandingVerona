@@ -42,7 +42,6 @@ const PEZZI = 'allegato';
 const PROPRIETARIO = 'a.missori@emvas.tax';
 const MINUTO = 60 * 1000, GIORNO = 24 * 60 * MINUTO;
 const VERIFICA_MS = 20 * MINUTO;        // un passo "in invio" senza esito si riguarda dopo venti minuti
-const RIPROVA_MS = 15 * MINUTO;         // dopo un rifiuto che riguarda noi (tetto, blocco) si aspetta
 const MAX_TENTATIVI = 3;
 
 function docImpostazioni(db) { return db.collection('meta').doc('circolarizzazioni'); }
@@ -556,7 +555,15 @@ async function esitoInvio(db, id, n, riferimento, esito) {
         if (p.riferimento !== riferimento || p.stato !== 'invio') return inv;     // nel frattempo e' cambiato: non si tocca
         const ora = Date.now();
         if (esito.ok) { p.stato = 'inviato'; p.inviatoIl = ora; delete p.verificaIl; delete p.errore; }
-        else if (esito.riprova) { p.stato = 'coda'; p.previsto = ora + RIPROVA_MS; p.errore = String(esito.msg || '').slice(0, 300); }
+        else if (esito.riprova) {
+            /* Il rifiuto riguarda il servizio, non la lettera: torna in coda da
+               subito e il tentativo NON conta. Quando riprovare lo decide la
+               pausa del giro (lib/circ-giro.js), che vale per tutta la coda: se
+               il gestore blocca per ore, nessuna lettera deve finire "non
+               partita" per colpa sua. */
+            p.stato = 'coda'; p.previsto = ora; p.tentativi = Math.max(0, (Number(p.tentativi) || 0) - 1);
+            p.errore = String(esito.msg || '').slice(0, 300);
+        }
         else { p.stato = 'errore'; p.errore = String(esito.msg || 'Invio non riuscito.').slice(0, 300); fallita = p.errore; }
         inv.passi = Object.assign({}, inv.passi, { [n]: p });
         if (n === 'primo' && p.stato === 'errore') bloccaSolleciti(inv, 'La prima PEC non è partita: correggi l\'indirizzo e reinvia.', 'recapito');
@@ -877,7 +884,7 @@ async function pulizia(db, ora, max) {
 }
 
 module.exports = {
-    INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, RIPROVA_MS, MAX_TENTATIVI,
+    INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, MAX_TENTATIVI,
     profilo, leggiBase, incaricoDi, impostazioni, docImpostazioni,
     statoDi, prossimoDi, passoDovuto, conteggi, conteggiPerAmbito, passo, inviato, esitoPasso,
     schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, caricaIntero, leggiAllegato,
