@@ -37876,6 +37876,8 @@
     /* Lo stato del recapito di un passo, come si legge in tabella. */
     function pcRecapito(p) {
         p = p || {};
+        // respinta dal gestore mentre le altre partivano: si ritenta da sola, senza tenere ferma la coda
+        if (p.stato === 'coda' && p.propria) return { classe: 'ambra', testo: 'Respinta, si ritenta', nota: 'Il gestore ha respinto questa lettera mentre le altre partivano (tentativo ' + (p.tentativi || 1) + ' di 3): ' + (p.errore || '') + (p.previsto ? ' — nuovo tentativo alle ' + fmtDataOra(p.previsto).slice(11) : '') };
         if (p.stato === 'coda') return { classe: 'neutro', testo: 'In coda', nota: p.errore ? 'Ultimo tentativo: ' + p.errore : 'Parte entro pochi minuti' };
         if (p.stato === 'invio') return { classe: 'neutro', testo: 'In invio', nota: '' };
         if (p.stato === 'errore') return { classe: 'rosso', testo: 'Non partita', nota: p.errore || '' };
@@ -39620,6 +39622,8 @@
                 pcChiama('avvia').then(a => {
                     // il gestore ha sospeso gli invii: non si lascia scritto che «parte fra pochi istanti»
                     if (a.ok && a.inviato === false && a.msg) { toast(a.msg, 'ambra'); if (aperta()) esito(inCoda + '. ' + a.msg + restano); }
+                    // una PEC bloccata non tiene ferme le altre: lo si dice a chi ha appena inviato
+                    else if (a.ok && a.respinte) toast((a.respinte === 1 ? 'Il gestore ha respinto una lettera: le altre sono partite, quella si ritenta da sola' : 'Il gestore ha respinto ' + a.respinte + ' lettere: le altre sono partite, quelle si ritentano da sole') + ' fra un quarto d\'ora.', 'ambra');
                     fatto();
                 });
             }

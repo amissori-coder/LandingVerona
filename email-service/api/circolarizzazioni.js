@@ -70,7 +70,7 @@ function perArea(inv) {
         const o = {
             stato: p.stato, data: p.data || '', ora: p.ora || '', scadenza: p.scadenza || '', previsto: p.previsto || 0,
             inviatoIl: p.inviatoIl || 0, esito: p.esito || '', errore: p.errore || '', motivo: p.motivo || '', per: p.per || '',
-            tentativi: p.tentativi || 0
+            tentativi: p.tentativi || 0, propria: !!p.propria
         };
         if (p.accettata) o.accettata = p.accettata.quando || 0;
         if (p.consegnata) o.consegnata = p.consegnata.quando || 0;
@@ -296,7 +296,8 @@ const AZIONI = {
     },
     /* Fa partire subito quello che e' in coda, per poco: il resto lo prende il giro programmato. */
     async avvia(db, prof) {
-        const r = await GIRO.giro(db, { da: prof.firma, budgetMs: 40000, max: 25 });
+        // `nuove`: se gli invii sono in pausa per un rifiuto, le lettere appena preparate si provano lo stesso
+        const r = await GIRO.giro(db, { da: prof.firma, budgetMs: 40000, max: 25, nuove: true });
         return Object.assign({}, r, { ok: true, inviato: r.ok, inAttesa: await GIRO.inAttesa(db, 200) });
     },
     /* Gli invii sono fermi perche' il gestore ha respinto il servizio: chi vede

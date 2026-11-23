@@ -1062,9 +1062,42 @@ ricevuta di accettazione non c'e'. Se la ricevuta c'e', la PEC era partita e la
 scheda si aggiorna da sola.
 
 **Se il server PEC rifiuta.** Un rifiuto del solo destinatario segna quella
-scheda "non partita" e si va avanti. Un rifiuto che riguarda noi (tetto
-superato, indirizzo bloccato, password, server irraggiungibile) ferma il giro e
-rimette la scheda in coda, senza toccare il resto: vedi qui sotto.
+scheda "non partita" e si va avanti. Un rifiuto che puo' riguardare noi (tetto
+superato, indirizzo bloccato, password, server irraggiungibile) rimette la
+scheda in coda; **una PEC bloccata pero' non tiene ferme le altre**: vedi qui
+sotto.
+
+### Una PEC bloccata non tiene ferme le altre
+
+Quando il gestore respinge una lettera con un "bloccato" o un "abuso", da quel
+solo rifiuto non si sa se il problema sia di quella lettera o di tutto il
+servizio. Lo dice la lettera dopo (`lib/circ-giro.js`):
+
+- **si prova la successiva.** Se parte, il problema era della prima: il giro
+  va avanti con tutte le altre, e non c'e' nessuna pausa ne' avviso di
+  sospensione. Se viene respinta anche lei, e' il servizio a essere bloccato:
+  il giro si ferma e parte la pausa (sezione seguente);
+- **la lettera respinta mentre le altre partono si ritenta da sola** dopo un
+  quarto d'ora, senza toccare la coda. Qui il tentativo conta: al terzo rifiuto
+  va in "non partita" con il motivo ("Il server PEC ha rifiutato questa lettera
+  3 volte mentre le altre partivano: ..."), compare nel registro degli errori e
+  chi l'ha preparata riceve l'avviso. In tabella si legge "Respinta, si
+  ritenta", con il numero del tentativo e l'ora del prossimo;
+- **vale anche da un giro all'altro**: una lettera respinta, poi un'altra PEC
+  che parte, poi la stessa lettera respinta di nuovo -> il problema e' suo;
+- **respinta quando e' sola in coda**, non c'e' un'altra lettera che lo dica:
+  si tratta come un blocco di tutti (pausa, tentativo non contato). Ma **in
+  pausa una lettera nuova si prova subito** (chi preme Invia non aspetta la
+  fine della pausa): se parte, la pausa finisce li'; se viene respinta, il
+  blocco e' confermato e la pausa resta quella di prima, senza allungarsi. Le
+  lettere gia' respinte in pausa non si ritentano;
+- **non si prova la lettera dopo** quando il rifiuto riguarda di certo tutti:
+  il collegamento non si apre, le credenziali non passano, il gestore chiede di
+  rallentare (`421`, `45x`, "too many"), il ponte non risponde
+  (`bloccoCerto()`).
+
+Con il blocco per indirizzo estero descritto qui sotto vengono respinte tutte:
+in quel caso ogni giro fa due tentativi invece di uno, poi si ferma.
 
 ### Quando il gestore sospende gli invii (`554 5.7.1 Indirizzo IP bloccato`)
 
@@ -1125,9 +1158,10 @@ gestore, e si vede solo al primo invio dal ponte.
 **Che cosa fa il servizio quando il gestore (o il ponte) rifiuta**
 (`lib/circ-giro.js`):
 
-- **le lettere restano in coda e il tentativo non conta.** Il rifiuto non
-  consuma i tre tentativi della lettera: un blocco di ore non manda nessuna
-  lettera in "non partita" e non fa partire avvisi a chi l'ha preparata;
+- **le lettere restano in coda e il tentativo non conta.** Quando il blocco e'
+  di tutti, il rifiuto non consuma i tre tentativi della lettera: un blocco di
+  ore non manda nessuna lettera in "non partita" e non fa partire avvisi a chi
+  l'ha preparata;
 - **gli invii si fermano per un po', per tutta la coda**: dieci minuti dopo il
   primo rifiuto, poi venti, quaranta, un'ora (e un'ora per i successivi). In
   pausa il giro programmato non apre connessioni di invio; la prima PEC
@@ -1374,7 +1408,10 @@ quelle rifiutate, chi lo legge, che resta dopo la cancellazione), le letture
 della pagina degli incarichi (poche, e non crescono con gli incarichi), il
 gestore che respinge il servizio (pausa che cresce, nessun tentativo in pausa,
 la lettera che non consuma i tentativi, ripresa a mano, avviso che resta
-finche' una PEC non parte), il ponte (gli invii passano di li', il ponte
+finche' una PEC non parte), una PEC bloccata che non tiene ferme le altre (le
+altre partono nello stesso giro, la respinta si ritenta da sola e al terzo
+rifiuto va in "non partita", la lettera nuova provata in pausa, il blocco di
+tutti che non allunga la pausa), il ponte (gli invii passano di li', il ponte
 spento o con credenziali sbagliate, la variabile scritta male, l'indirizzo che
 non esce dal servizio), cancellazione.
 
