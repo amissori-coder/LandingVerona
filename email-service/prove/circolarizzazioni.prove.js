@@ -673,7 +673,7 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('riprovando a mano mentre il gestore rifiuta ancora: la pausa raddoppia', rip.ok && rip.inviato === false && tentativi === 2 && sg.rifiuti === 2 && sg.sospesoFino === Date.now() + 20 * MIN, [tentativi, sg.rifiuti, sg.sospesoFino - Date.now()]);
     verifica('il tentativo a mano resta nel registro', registro('invii-riprovati').length === 1 && registro('invii-riprovati')[0].da === 'a.missori@emvas.tax' && /non riuscito/.test(registro('invii-riprovati')[0].dettaglio));
     const errPausa = [...dati.keys()].filter(k => /^circErrori\//.test(k)).map(k => dati.get(k)).filter(e => /sospeso gli invii/.test(e.titolo));
-    verifica('nel registro degli errori: il testo del gestore, l\'ora del prossimo tentativo e la spiegazione', errPausa.length === 1 && errPausa[0].stato === 'aperto' && /554 5\.7\.1/.test(errPausa[0].dettaglio) && /riprova da solo alle \d\d:\d\d \(è il 2° rifiuto di fila\)/.test(errPausa[0].dettaglio) && /indirizzo fisso/.test(errPausa[0].dettaglio), errPausa.map(e => e.dettaglio));
+    verifica('nel registro degli errori: il testo del gestore, l\'ora del prossimo tentativo e la spiegazione', errPausa.length === 1 && errPausa[0].stato === 'aperto' && /554 5\.7\.1/.test(errPausa[0].dettaglio) && /riprova da solo alle \d\d:\d\d \(è il 2° rifiuto di fila\)/.test(errPausa[0].dettaglio) && /fuori dall'Italia/.test(errPausa[0].dettaglio) && /CIRC_PEC_PROXY\)\.$/.test(errPausa[0].dettaglio), errPausa.map(e => e.dettaglio));
     // un blocco che dura ore: la stessa lettera viene respinta piu' volte di quanti tentativi ha, e non deve finire "non partita"
     await chiama('a.missori@emvas.tax', { azione: 'annulla', id: pausa2.id });
     const primaLunga = tentativi;
@@ -698,6 +698,44 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
     sg = await GIRO.stato(db);
     verifica('finita la pausa il giro riparte da solo, e la conta dei rifiuti si azzera', posta.length === primaPausa + 2 && (await scheda(pausa4.id)).passi.primo.stato === 'inviato' && (await scheda(pausa5.id)).passi.primo.stato === 'inviato' && sg.rifiuto === null && sg.sospesoFino === 0 && sg.rifiuti === 0, [posta.length - primaPausa, sg.sospesoFino, sg.rifiuti]);
+    // ---------- 12g. il ponte: gli invii passano da un indirizzo italiano ----------
+    verifica('senza la variabile gli invii partono direttamente, e lo stato lo dice', !F.trasporti.some(o => o.proxy) && (await chiama('a.missori@emvas.tax', { azione: 'stato' })).ponte === '');
+    process.env.CIRC_PEC_PROXY = 'http://ponte:Segreta123@203.0.113.7:8443';
+    const pt1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Ponte Uno', pec: 'ponte.uno@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    const primaPonte = F.trasporti.length;
+    await GIRO.giro(db, {});
+    const viaPonte = F.trasporti.slice(primaPonte).filter(o => o.host === 'smtps.pec.aruba.it');
+    verifica('con il ponte la connessione al gestore passa di li\', verso lo stesso server e con la stessa cifratura', viaPonte.length === 1 && viaPonte[0].proxy === 'http://ponte:Segreta123@203.0.113.7:8443' && viaPonte[0].secure === true && viaPonte[0].port === 465 && (await scheda(pt1.id)).passi.primo.stato === 'inviato', viaPonte);
+    const stPonteAdmin = await chiama('a.missori@emvas.tax', { azione: 'stato' }), stPonteTeam = await chiama('anna@studio.it', { azione: 'stato' });
+    verifica('lo stato dice che il ponte e\' attivo; l\'indirizzo solo a chi vede tutto, le credenziali a nessuno', stPonteAdmin.ponte === 'attivo' && stPonteAdmin.ponteDove === '203.0.113.7:8443' && stPonteTeam.ponte === 'attivo' && stPonteTeam.ponteDove === '' && JSON.stringify(stPonteAdmin).indexOf('Segreta123') < 0 && JSON.stringify(stPonteTeam).indexOf('203.0.113') < 0);
+    // il ponte non risponde: riguarda il servizio, non la lettera
+    const pt2 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Ponte Due', pec: 'ponte.due@pec.it', categoria: 'altro', scadenza: C.aggiungiGiorni(gP, 5), sollecito1: null, sollecito2: null });
+    F.stato.rifiuta = () => Object.assign(new Error('connect ECONNREFUSED 203.0.113.7:8443'), { code: 'ECONNREFUSED' });
+    const rPonteGiu = await GIRO.giro(db, {});
+    sp = await scheda(pt2.id);
+    verifica('ponte spento: la lettera resta in coda, gli invii vanno in pausa e la spiegazione nomina il ponte', rPonteGiu.esito === 'fermato' && sp.passi.primo.stato === 'coda' && (sp.passi.primo.tentativi || 0) === 0 && (await GIRO.stato(db)).sospesoFino > Date.now() && /Non risponde il ponte/.test(rPonteGiu.spiegazione), rPonteGiu);
+    verifica('l\'indirizzo del ponte non finisce nell\'avviso che leggono tutti', rPonteGiu.fermato.indexOf('203.0.113.7') < 0 && /\[ponte\]/.test(rPonteGiu.fermato) && JSON.stringify((await chiama('anna@studio.it', { azione: 'stato' })).giro).indexOf('203.0.113') < 0, rPonteGiu.fermato);
+    F.stato.rifiuta = () => new Error('Invalid response from proxy: 407');
+    const rPonte407 = await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    verifica('credenziali del ponte sbagliate: stesso trattamento', rPonte407.inviato === false && (await scheda(pt2.id)).passi.primo.stato === 'coda' && /utente e password/.test(rPonte407.spiegazione), rPonte407);
+    F.stato.rifiuta = () => Object.assign(new Error('554 5.7.1 Indirizzo IP bloccato temporaneamente per sospetto abuso'), { responseCode: 554 });
+    const rPonteIp = await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    verifica('il gestore respinge anche il ponte: la spiegazione dice di controllare che sia italiano', /anche passando dal ponte/.test(rPonteIp.spiegazione) && /italiano/.test(rPonteIp.spiegazione), rPonteIp.spiegazione);
+    // la variabile scritta male: non si spedisce affatto (senza ponte tornerebbe il rifiuto del gestore)
+    process.env.CIRC_PEC_PROXY = 'ponte 203.0.113.7';
+    F.stato.rifiuta = null;
+    const primaErrato = F.trasporti.length, postaErrato = posta.length;
+    const rErrato = await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    const errPonte = [...dati.keys()].filter(k => /^circErrori\//.test(k)).map(k => dati.get(k)).filter(e => /ponte per gli invii/.test(e.titolo));
+    verifica('variabile del ponte scritta male: niente invii, lettera in coda, errore nel registro, e lo stato lo dice', rErrato.inviato === false && /CIRC_PEC_PROXY/.test(rErrato.msg) && posta.length === postaErrato && !F.trasporti.slice(primaErrato).some(o => o.host === 'smtps.pec.aruba.it') && (await scheda(pt2.id)).passi.primo.stato === 'coda' && errPonte.length === 1 && (await chiama('a.missori@emvas.tax', { azione: 'stato' })).ponte === 'errato', [rErrato.msg, errPonte.length]);
+    verifica('forme accettate e rifiutate della variabile', ['http://u:p@1.2.3.4:8443', 'https://u:p@ponte.example.it:443', 'http://1.2.3.4:3128'].every(v => { process.env.CIRC_PEC_PROXY = v; const c = C.configurazione(); return c.proxy === v && !c.proxyErrato && c.proxyDove.indexOf('@') < 0; })
+        && ['socks5://u:p@1.2.3.4:1080', '1.2.3.4:8443', 'ftp://x', 'http://'].every(v => { process.env.CIRC_PEC_PROXY = v; const c = C.configurazione(); return c.proxyErrato && !c.proxy; }));
+    process.env.CIRC_PEC_PROXY = 'http://ponte:Segreta123@203.0.113.7:8443';
+    await chiama('a.missori@emvas.tax', { azione: 'riprova-invii' });
+    verifica('rimessa a posto la variabile, la lettera parte dal ponte', (await scheda(pt2.id)).passi.primo.stato === 'inviato' && (await GIRO.stato(db)).rifiuto === null);
+    delete process.env.CIRC_PEC_PROXY;
+    verifica('un indirizzo che non esiste resta un errore della sola lettera', GIRO._interni.fermaTutto(Object.assign(new Error('550 5.1.1 User unknown'), { responseCode: 550 })) === false
+        && GIRO._interni.fermaTutto(new Error('Invalid response from proxy: 407')) === true && GIRO._interni.fermaTutto(Object.assign(new Error('connect ECONNREFUSED 1.2.3.4:1'), { code: 'ECONNREFUSED' })) === true);
     verifica('le pause crescono: dieci minuti, venti, quaranta, poi un\'ora', [1, 2, 3, 4, 9].map(n => GIRO._interni.pausaDopo(n) / MIN).join() === '10,20,40,60,60');
     await chiama('a.missori@emvas.tax', { azione: 'errore-risolvi', ids: (await chiama('a.missori@emvas.tax', { azione: 'errori' })).aperti.map(x => x.id) });
 

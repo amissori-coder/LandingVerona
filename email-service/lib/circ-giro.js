@@ -48,8 +48,16 @@ function pausaDopo(rifiuti) { return PAUSE_MIN[Math.min(Math.max(1, rifiuti), PA
    fare. */
 function spiegaRifiuto(testo) {
     const t = String(testo || '').toLowerCase();
+    const conPonte = !!C.configurazione().proxy;
+    if (/proxy|econnrefused|ehostunreach|enetunreach|enotfound|eai_again/.test(t)) {
+        return conPonte ? 'Non risponde il ponte, cioè il server con indirizzo italiano da cui passano gli invii (CIRC_PEC_PROXY): va controllato che sia acceso, che la porta sia aperta e che utente e password siano quelli giusti.'
+            : 'Il servizio non è riuscito a collegarsi al server di posta: non dipende dalle lettere.';
+    }
     if (/password|autentic|authentication|credential|535|eauth/.test(t)) return 'La casella non accetta le credenziali del servizio: va controllata la password per i programmi di posta (su Aruba scade ogni sei mesi).';
-    if (/ip|host|client|bloccat|blocked|blacklist|abus/.test(t)) return 'Il gestore ha bloccato per un po\' l\'indirizzo di rete da cui il servizio si collega: non dipende dalle lettere né dalla password. Quegli indirizzi sono condivisi e cambiano, quindi spesso il tentativo dopo passa. Se si ripete, serve un indirizzo fisso autorizzato dal gestore.';
+    if (/ip|host|client|bloccat|blocked|blacklist|abus/.test(t)) {
+        return conPonte ? 'Il gestore ha respinto l\'indirizzo di rete da cui arriva l\'invio, anche passando dal ponte: va controllato che l\'indirizzo del ponte sia italiano, oppure va sentita l\'assistenza del gestore. Non dipende dalle lettere né dalla password.'
+            : 'Il gestore respinge gli invii che arrivano da un indirizzo di rete fuori dall\'Italia, e il servizio si collega dall\'estero: non dipende dalle lettere né dalla password, e riprovare non basta. Serve far passare gli invii da un indirizzo italiano: lo imposta l\'amministratore (il «ponte», variabile CIRC_PEC_PROXY).';
+    }
     if (/too many|troppi|rate|quota|421|45[0-2]/.test(t)) return 'Il gestore ha chiesto di rallentare: troppi messaggi o troppe connessioni in poco tempo.';
     return 'Il rifiuto riguarda la casella o il collegamento, non le lettere.';
 }
@@ -58,13 +66,18 @@ function aspetta(ms) { return ms > 0 ? new Promise(r => setTimeout(r, ms)) : Pro
 
 function trasporto() {
     const c = C.configurazione();
-    return nodemailer.createTransport({
+    const opz = {
         host: c.smtpHost, port: c.smtpPorta, secure: c.smtpPorta === 465,
         auth: { user: c.utente, pass: c.password },
         // una sola connessione per tutto il giro: i gestori PEC contano le connessioni al minuto
         pool: true, maxConnections: 1, maxMessages: 200,
         connectionTimeout: 20000, greetingTimeout: 20000, socketTimeout: 45000
-    });
+    };
+    /* Il ponte: la connessione al gestore parte dal suo indirizzo, italiano.
+       Dentro il passaggio la connessione resta cifrata e verificata contro il
+       nome del server del gestore: il ponte non legge niente. */
+    if (c.proxy) opz.proxy = c.proxy;
+    return nodemailer.createTransport(opz);
 }
 /* Un rifiuto che riguarda NOI e non il destinatario (stessa regola di
    lib/canali-invito.js): insistere non lo migliora, e brucerebbe il resto
@@ -76,7 +89,9 @@ function fermaTutto(e) {
     if (/^(421|450|451|452)$/.test(codice)) return true;
     if (/(^|[\s:])(421|45[0-2])([\s-]|$)/.test(testo)) return true;
     if (/5\.7\.\d/.test(testo) && /ip|host|client/.test(testo)) return true;
-    if (e && (e.code === 'EAUTH' || e.code === 'ECONNECTION' || e.code === 'ETIMEDOUT' || e.code === 'ESOCKET')) return true;
+    // il collegamento non si apre (anche verso il ponte, che non lascia un codice di nodemailer)
+    if (/invalid response from proxy|proxy/.test(testo)) return true;
+    if (e && /^(EAUTH|ECONNECTION|ETIMEDOUT|ESOCKET|EDNS|ETLS|ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENETUNREACH|ENOTFOUND|EAI_AGAIN|EPIPE)$/.test(String(e.code || ''))) return true;
     return false;
 }
 
@@ -129,6 +144,12 @@ async function giro(db, opz) {
     const inizio = Date.now();
     if (!C.configurato()) {
         return { ok: false, esito: 'non-configurato', msg: 'La casella PEC delle circolarizzazioni non è configurata (CIRC_PEC_USER e CIRC_PEC_PASS).' };
+    }
+    if (C.configurazione().proxyErrato) {
+        // la variabile c'e' ma non si legge: spedire senza ponte darebbe di nuovo il rifiuto del gestore, e non si capirebbe perche'
+        const msg = 'La variabile CIRC_PEC_PROXY non è un indirizzo valido: deve avere la forma http://utente:password@indirizzo:porta. Le lettere restano in coda.';
+        await ERRORI.segna(db, { chiave: 'server~ponte', tipo: 'server', titolo: 'Il ponte per gli invii non è configurato bene', dettaglio: msg });
+        return { ok: false, esito: 'non-configurato', msg: msg, inviate: 0, errori: 0, restanti: true };
     }
     const preso = await prendiLucchetto(db, opz.da || 'giro');
     if (!preso.preso) return { ok: true, esito: 'occupato', msg: 'Un invio è già in corso.', inviate: 0, errori: 0 };
@@ -206,7 +227,10 @@ async function giro(db, opz) {
                 if (lavoro.passo !== 'primo') conto.solleciti++;
                 incarichi[inv.incaricoId] = 1;
             } catch (e) {
-                const testo = String((e && (e.response || e.message)) || 'errore').replace(/\s+/g, ' ').slice(0, 250);
+                let testo = String((e && (e.response || e.message)) || 'errore').replace(/\s+/g, ' ').slice(0, 250);
+                // l'indirizzo del ponte non va in giro: l'avviso lo leggono tutti quelli dell'incarico
+                const hostPonte = (mitt.proxyDove || '').replace(/:\d+$/, '');
+                if (hostPonte) testo = testo.split(hostPonte).join('[ponte]');
                 if (fermaTutto(e)) {
                     await DATI.esitoInvio(db, inv.id, lavoro.passo, lavoro.riferimento, { ok: false, riprova: true, msg: testo });
                     fermato = testo;

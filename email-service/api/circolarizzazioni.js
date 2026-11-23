@@ -198,6 +198,8 @@ const AZIONI = {
         const out = {
             ok: true,
             configurato: C.configurato(), casella: C.configurato() ? cfg.mittente : '',
+            // da dove partono gli invii: dal ponte italiano (a chi vede tutto anche il suo indirizzo, mai le credenziali) o direttamente
+            ponte: cfg.proxyErrato ? 'errato' : (cfg.proxy ? 'attivo' : ''), ponteDove: prof.vedeTutto ? cfg.proxyDove : '',
             profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto },
             limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni, bozzaGiorni: C.LIMITI.bozzaGiorni, bozzaRighe: BOZZE.MAX_RIGHE },
             ambiti: Object.keys(C.AMBITI).map(k => ({ id: k, nome: C.AMBITI[k] })),
