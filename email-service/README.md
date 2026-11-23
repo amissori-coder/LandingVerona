@@ -924,11 +924,14 @@ Nell'area riservata chi torna all'elenco (da un incarico, da un'altra sezione)
 rivede subito quello di poco fa, mentre il servizio lo rilegge.
 
 Se le pagine restano lente, la cosa da guardare e' **dove gira il servizio
-rispetto al database**: su Vercel, Settings -> Functions -> Function Region.
-Con Firestore in Europa (`europe-west8`, `eur3`) e le funzioni nella regione
-predefinita di Vercel (Washington), ogni lettura attraversa due volte
-l'oceano: portare le funzioni a Francoforte (`fra1`) accorcia tutte le
-chiamate del servizio, non solo queste.
+rispetto al database**. Con Firestore in Europa (`europe-west8`, `eur3`) e le
+funzioni nella regione predefinita di Vercel (Washington), ogni lettura
+attraversa due volte l'oceano. La funzione delle circolarizzazioni gira gia' a
+Francoforte: lo dice `vercel.json` (`"regions": ["fra1"]` sulla sola
+`api/circolarizzazioni.js`, per via del blocco del gestore PEC, vedi piu'
+sotto). Le altre funzioni restano nella regione del progetto, che si cambia su
+Vercel in Settings -> Functions -> Function Regions: portarle a Francoforte
+conviene solo se Firestore e' in Europa.
 
 ### Due aree, e dentro ogni area le tipologie di lettera
 
@@ -1094,11 +1097,12 @@ Che cosa fa il servizio (`lib/circ-giro.js`):
 
 **Il blocco non si risolve dal codice.** Se si ripete, in ordine di costo:
 
-1. *Regione della funzione in Europa* (Vercel > Settings > Functions > Function
-   Region, per esempio Francoforte): non costa, cambia il gruppo di indirizzi da
-   cui si esce e avvicina la funzione alla casella. Vale per tutte le funzioni
-   del progetto: va fatto se anche Firestore e' in Europa (vedi "Quanto ci mette
-   ad aprirsi"). Non e' una garanzia: restano indirizzi condivisi.
+1. *Regione della funzione in Europa*: fatto. `vercel.json` fa girare
+   `api/circolarizzazioni.js` a Francoforte (`"regions": ["fra1"]`), cosi' si
+   esce da un altro gruppo di indirizzi, europei, e piu' vicini alla casella.
+   Non e' una garanzia: restano indirizzi condivisi. Se Firestore non fosse in
+   Europa la pagina delle circolarizzazioni diventerebbe piu' lenta: in quel
+   caso basta togliere quella voce.
 2. *Assistenza del gestore*: chiedere se la casella puo' essere usata da un
    programma che si collega da un servizio cloud, e se un indirizzo si puo'
    autorizzare.

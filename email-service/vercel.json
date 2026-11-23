@@ -35,6 +35,6 @@
     "api/conferme-email.js": { "maxDuration": 60 },
     "api/promemoria-seconda-persona.js": { "maxDuration": 60 },
     "api/newsletter-bandi.js": { "maxDuration": 300 },
-    "api/circolarizzazioni.js": { "maxDuration": 300 }
+    "api/circolarizzazioni.js": { "maxDuration": 300, "regions": ["fra1"] }
   }
 }
