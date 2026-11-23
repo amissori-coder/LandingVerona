@@ -1451,9 +1451,10 @@
             // La firma email e' personale: la compone chiunque lavori nell'area
             // (stessa platea delle richieste, quindi fuori gli invitati "solo sondaggio")
             if (sez === 'firma') return this.puoUsareRichieste();
-            // Gli strumenti di revisione (carte di lavoro e documenti tipo) sono pensati per
-            // tutti i team, ma per ora sono in prova: li vede solo chi e' in SR_ANTEPRIMA.
-            // Svuotato l'elenco, li vede chiunque lavori nell'area (stessa platea della firma).
+            // Gli strumenti di revisione (carte di lavoro, documenti tipo, circolarizzazioni via
+            // PEC) sono aperti a tutti: li vede chiunque lavori nell'area (stessa platea della
+            // firma). SR_ANTEPRIMA serve a rimetterli in prova: con degli indirizzi dentro, la
+            // sezione compare solo a quelli.
             if (sez === 'strumenti') return SR_ANTEPRIMA.length ? SR_ANTEPRIMA.includes(this.emailSessione()) : this.puoUsareRichieste();
             // I Controlli qualita hanno un filtro in piu' sulla PERSONA: la sezione compare
             // solo a chi in Aderenti Revilaw e' responsabile qualita o equity partner
@@ -37166,14 +37167,16 @@
        sezione), i file in strumenti-revisione/allegati/, il testo dei
        documenti Word brevi in strumenti-revisione/testi.json (al primo "Leggi").
     ========================================================= */
-    /* In prova: la sezione compare solo a questi indirizzi di accesso (la persona
-       che entra davvero, non l'utente per cui lavora un collaboratore). Per
-       aprirla a tutti basta lasciare l'elenco vuoto: [].
-       Il secondo indirizzo e' l'account di prova del titolare: serve a vedere la
-       sezione come la vedra' chi non amministra (nelle circolarizzazioni via PEC
-       solo gli incarichi in cui quella persona e' nel team o e' responsabile).
-       Gli indirizzi vanno scritti in minuscolo. */
-    const SR_ANTEPRIMA = [PROPRIETARIO, 'andreamissori@revilaw.it'];
+    /* La sezione e' APERTA A TUTTI (dal 23/11/2026): l'elenco e' vuoto, e la vede
+       chiunque lavori nell'area. Nelle circolarizzazioni via PEC ognuno vede poi
+       i suoi incarichi (team, responsabile dell'incarico o della qualita'),
+       equity e founding partner anche gli altri in sola visualizzazione,
+       amministratore e supervisori tutto: lo decide il servizio.
+       Per rimetterla in prova basta scrivere qui gli indirizzi di accesso che
+       devono vederla (in minuscolo; conta la persona che entra davvero, non
+       l'utente per cui lavora un collaboratore), per esempio
+       [PROPRIETARIO, 'andreamissori@revilaw.it']. */
+    const SR_ANTEPRIMA = [];
     /* I dati si scaricano solo quando si apre la sezione: chi non la vede non li
        carica. Va cambiata a ogni modifica di strumenti-revisione.js, come la "v="
        degli script in index.html. */
