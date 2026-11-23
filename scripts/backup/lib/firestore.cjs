@@ -49,6 +49,10 @@ const NOME_FILE = 'firestore-data.jsonl.gz';
 const PER_PAGINA = 100;
 const AMBITI = ['https://www.googleapis.com/auth/datastore'];
 
+/* `radiceDi` e' il NOME della radice dei documenti, come lo vuole Firestore
+   dentro le interrogazioni e come compare nel nome di ogni documento; per
+   chiamare l'API gli va messo davanti l'indirizzo del servizio (API). */
+const API = 'https://firestore.googleapis.com/v1/';
 function radiceDi(progetto) { return 'projects/' + progetto + '/databases/(default)/documents'; }
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -128,7 +132,7 @@ async function elencaRadici(radice, tok) {
     const nomi = [];
     let segno = '';
     do {
-        const r = await chiama(radice + ':listCollectionIds', tok, Object.assign({ pageSize: 300 }, segno ? { pageToken: segno } : {}), 'elenco delle collezioni');
+        const r = await chiama(API + radice + ':listCollectionIds', tok, Object.assign({ pageSize: 300 }, segno ? { pageToken: segno } : {}), 'elenco delle collezioni');
         (r.collectionIds || []).forEach(n => nomi.push(n));
         segno = r.nextPageToken || '';
     } while (segno);
@@ -156,7 +160,7 @@ async function leggiPagina(radice, tok, nome, dopo, quanti) {
         limit: quanti
     };
     if (dopo) q.startAt = { values: [{ referenceValue: dopo }], before: false };
-    const r = await chiama(radice + ':runQuery', tok, { structuredQuery: q }, 'lettura di ' + nome);
+    const r = await chiama(API + radice + ':runQuery', tok, { structuredQuery: q }, 'lettura di ' + nome);
     return (Array.isArray(r) ? r : []).map(x => x && x.document).filter(Boolean);
 }
 
@@ -238,4 +242,4 @@ async function verificaFile(destinazione) {
     return n;
 }
 
-module.exports = { FORMATO, NOME_FILE, AMBITI, PER_PAGINA, esportaSuFile, verificaFile, daRest, campi, _interni: { radiceDi, leggiPagina, elencaRadici, chiama } };
+module.exports = { FORMATO, NOME_FILE, AMBITI, PER_PAGINA, esportaSuFile, verificaFile, daRest, campi, _interni: { API, radiceDi, leggiPagina, elencaRadici, chiama } };
