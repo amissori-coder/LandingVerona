@@ -191,3 +191,71 @@ node import-firestore.cjs <chiave-service-account.json> firestore-data.jsonl.gz
 Così fa solo una prova a vuoto e dice cosa scriverebbe. Per scrivere davvero si
 aggiunge `--conferma`. Gli utenti e le password si reimportano a parte, con il
 comando che sta in `auth-parametri-hash.txt`.
+
+## Prova di ripristino
+
+Un backup che non è mai stato ripristinato è una speranza, non un backup. La
+prova lo ripristina **davvero**, ma in un progetto Firebase di appoggio che non
+c'entra niente con quello vero:
+
+1. scarica da `Backup-NGB` l'ultimo `firestore-data.jsonl.gz` e lo controlla da
+   cima a fondo;
+2. controlla che il progetto di appoggio sia vuoto;
+3. ci ripristina i dati con `import-firestore.cjs`, lo stesso strumento che si
+   userebbe il giorno del guaio;
+4. rilegge tutto quello che ha scritto;
+5. lo confronta con il backup, documento per documento e campo per campo;
+6. ripulisce il progetto di appoggio.
+
+Workflow: [`.github/workflows/prova-ripristino.yml`](../../.github/workflows/prova-ripristino.yml).
+Parte da sola il 2 di ogni mese e ogni volta che cambia lo strumento di
+ripristino; a mano da *Actions* → *Prova di ripristino* → *Run workflow*. L'esito
+sta nel riepilogo dell'esecuzione: una tabella con, per ogni collezione, quanti
+documenti nel backup, quanti ripristinati e quanti identici. Se anche un solo
+documento non torna identico l'esecuzione fallisce e GitHub manda la mail.
+
+**Campione o tutto.** Di base ripristina un campione: i primi 200 documenti di
+ogni collezione di primo livello, sottocollezioni comprese (circa novemila
+scritture, sta nel piano gratuito di Firebase). Scegliendo *tutto* ripristina
+l'intero backup: sono centinaia di migliaia di scritture, serve il piano a
+consumo sul progetto di appoggio e ci vuole un paio d'ore.
+
+### Preparare il progetto di appoggio (una volta sola)
+
+1. [console.firebase.google.com](https://console.firebase.google.com) → *Aggiungi
+   progetto* → un nome che non si confonda con quello vero, per esempio
+   `revilaw-ripristino-prova`. Google Analytics non serve.
+2. Nel progetto nuovo: *Firestore Database* → *Crea database* → modalità
+   **produzione** (regole chiuse), una sede europea. Va lasciato **vuoto**.
+3. ⚙ → *Impostazioni progetto* → *Account di servizio* → *Genera nuova chiave
+   privata*: scarica un file JSON.
+4. Su GitHub: *Settings* → *Secrets and variables* → *Actions* → *New repository
+   secret*, nome `FIREBASE_SERVICE_ACCOUNT_APPOGGIO`, valore tutto il contenuto
+   del file JSON. Poi il file si può cancellare dal computer.
+
+Finché il segreto manca, la prova si salta da sola senza dare errore.
+
+### Perché non può toccare il progetto vero
+
+- Il lavoro non riceve la chiave del progetto vero (`FIREBASE_SERVICE_ACCOUNT`):
+  ha solo quella di appoggio.
+- Si rifiuta di partire se la chiave di appoggio è del progetto vero, o dello
+  stesso progetto da cui viene il backup.
+- Scrive e cancella solo in un progetto trovato **vuoto**, oppure che porta il
+  contrassegno lasciato da una sua prova precedente (il documento
+  `_provaRipristino/stato`). Il progetto vero non è vuoto e quel contrassegno
+  non ce l'ha: anche con la chiave sbagliata si fermerebbe lì, senza scrivere.
+
+### Cosa prova e cosa no
+
+Prova che il file del backup è leggibile e completo, che lo strumento di
+ripristino funziona, e che i dati tornano identici: testi, numeri, date con
+l'orario intero, allegati PDF, sottocollezioni. **Non** prova il ripristino
+degli account (`auth-users.json`), delle regole e degli indici, né quello del
+sito: quelli seguono `RIPRISTINO.txt`.
+
+Il registro dell'esecuzione è pubblico come il repository: per questo la prova
+non scrive mai il contenuto né il percorso di un documento, solo nomi di
+collezione, conteggi e impronte.
+
+Prove senza rete: `node scripts/backup/prove/prova-ripristino.prove.cjs`.

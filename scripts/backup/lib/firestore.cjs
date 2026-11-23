@@ -144,7 +144,7 @@ async function elencaRadici(radice, tok) {
    anche lo strumento di Firebase per cancellare una collezione con tutto
    quello che contiene: nessun nome di collezione, tutti i discendenti, e il
    percorso compreso fra il primo e l'ultimo possibile sotto `nome`. */
-async function leggiPagina(radice, tok, nome, dopo, quanti) {
+async function leggiPagina(radice, tok, nome, dopo, quanti, soloNomi) {
     const nul = '\u0000';
     const q = {
         from: [{ allDescendants: true }],
@@ -160,8 +160,18 @@ async function leggiPagina(radice, tok, nome, dopo, quanti) {
         limit: quanti
     };
     if (dopo) q.startAt = { values: [{ referenceValue: dopo }], before: false };
+    // solo i nomi, senza i campi: basta a chi deve cancellare (prova di ripristino)
+    if (soloNomi) q.select = { fields: [{ fieldPath: '__name__' }] };
     const r = await chiama(API + radice + ':runQuery', tok, { structuredQuery: q }, 'lettura di ' + nome);
     return (Array.isArray(r) ? r : []).map(x => x && x.document).filter(Boolean);
+}
+
+/* Un gruppo di scritture in una volta sola (al massimo 500):
+   { update: { name, fields } } scrive un documento, { delete: nome } lo cancella.
+   Il backup notturno NON la usa mai: legge soltanto. Serve alla prova di
+   ripristino, che scrive e cancella nel solo progetto di appoggio. */
+async function scriviGruppo(radice, tok, scritture) {
+    return chiama(API + radice + ':commit', tok, { writes: scritture }, 'scrittura');
 }
 
 /* Esporta l'intero database in `destinazione` (firestore-data.jsonl.gz).
@@ -242,4 +252,4 @@ async function verificaFile(destinazione) {
     return n;
 }
 
-module.exports = { FORMATO, NOME_FILE, AMBITI, PER_PAGINA, esportaSuFile, verificaFile, daRest, campi, _interni: { API, radiceDi, leggiPagina, elencaRadici, chiama } };
+module.exports = { FORMATO, NOME_FILE, AMBITI, PER_PAGINA, esportaSuFile, verificaFile, daRest, campi, radiceDi, elencaRadici, leggiPagina, scriviGruppo, _interni: { API, radiceDi, leggiPagina, elencaRadici, chiama } };

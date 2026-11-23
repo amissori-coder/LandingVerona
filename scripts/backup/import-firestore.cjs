@@ -51,13 +51,23 @@ if (chiave.private_key && chiave.private_key.includes('\\n')) chiave.private_key
 admin.initializeApp({ credential: admin.credential.cert(chiave) });
 const db = admin.firestore();
 
+/* Una data torna con l'orario INTERO, fino all'ultima cifra salvata: Firestore
+   tiene i milionesimi di secondo, una data di JavaScript solo i millesimi, e
+   passando da quella i documenti ripristinati non sarebbero identici al backup. */
+function istante(testo) {
+    const m = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?(Z|[+-]\d\d:\d\d)$/.exec(String(testo));
+    const secondi = m ? Date.parse(m[1] + m[3]) / 1000 : NaN;
+    if (!Number.isFinite(secondi)) return admin.firestore.Timestamp.fromDate(new Date(testo));
+    return new admin.firestore.Timestamp(secondi, Number((m[2] || '').padEnd(9, '0')));
+}
+
 /* --- ricostruisce i tipi che JSON non sa rappresentare --- */
 function deserializza(valore) {
     if (valore === null || valore === undefined) return null;
     if (Array.isArray(valore)) return valore.map(deserializza);
     if (typeof valore === 'object') {
         switch (valore.__tipo__) {
-            case 'timestamp': return admin.firestore.Timestamp.fromDate(new Date(valore.valore));
+            case 'timestamp': return istante(valore.valore);
             case 'geopoint': return new admin.firestore.GeoPoint(valore.latitudine, valore.longitudine);
             case 'riferimento': return db.doc(valore.percorso);
             case 'byte': return Buffer.from(valore.valore, 'base64');

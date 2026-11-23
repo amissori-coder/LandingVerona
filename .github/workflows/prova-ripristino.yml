@@ -1,0 +1,125 @@
+name: Prova di ripristino
+
+# Prende l'ultimo backup da Drive e lo ripristina DAVVERO in un progetto
+# Firebase di appoggio, vuoto; rilegge quello che ha scritto, lo confronta con
+# il backup documento per documento e ripulisce. Vedi scripts/backup/README.md.
+#
+# Segreti (Settings > Secrets and variables > Actions):
+#
+#   FIREBASE_SERVICE_ACCOUNT_APPOGGIO  chiave del progetto Firebase di APPOGGIO.
+#                                      Finche' manca, la prova si salta da sola.
+#   GDRIVE_FOLDER_ID, GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET,
+#   GDRIVE_REFRESH_TOKEN               gli stessi del backup notturno: servono
+#                                      a leggere il backup da Backup-NGB.
+#
+# A questo lavoro NON va mai passata la chiave del progetto vero
+# (FIREBASE_SERVICE_ACCOUNT): non gli serve, e non avendola non puo' toccarlo.
+#
+# Questo repository e' pubblico: niente allegati all'esecuzione, e il registro
+# non contiene mai il contenuto ne' il percorso di un documento.
+
+on:
+  schedule:
+    # Il 2 di ogni mese, di notte: un campione. Il minuto dispari e' voluto
+    # (vedi backup-notturno.yml).
+    - cron: '43 3 2 * *'
+  # Quando cambia la prova stessa o lo strumento di ripristino, si esegue
+  # subito (un campione): una modifica va verificata quando la si fa.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/prova-ripristino.yml'
+      - 'scripts/backup/prova-ripristino.cjs'
+      - 'scripts/backup/import-firestore.cjs'
+
+  workflow_dispatch:
+    inputs:
+      ampiezza:
+        description: "Quanto ripristinare: un campione (piano gratuito) o tutto il backup (serve il piano a consumo sul progetto di appoggio)"
+        type: choice
+        options: [campione, tutto]
+        default: campione
+      per_collezione:
+        description: "Campione: quanti documenti per ogni collezione di primo livello"
+        type: string
+        default: '200'
+      lascia_dati:
+        description: "Non ripulire alla fine (per andare a guardare i dati ripristinati)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prova-ripristino
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prova:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: C'e' il progetto di appoggio?
+        id: pronto
+        env:
+          APPOGGIO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_APPOGGIO }}
+        run: |
+          if [ -z "$APPOGGIO" ]; then
+            echo "pronto=no" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Prova di ripristino"
+              echo "Saltata: manca il segreto \`FIREBASE_SERVICE_ACCOUNT_APPOGGIO\` (la chiave del progetto Firebase di appoggio)."
+              echo "Come prepararlo: \`scripts/backup/README.md\`, sezione *Prova di ripristino*."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "pronto=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Scarica il repository
+        if: steps.pronto.outputs.pronto == 'si'
+        uses: actions/checkout@v4
+
+      - name: Prepara Node
+        if: steps.pronto.outputs.pronto == 'si'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Installa le dipendenze
+        if: steps.pronto.outputs.pronto == 'si'
+        run: npm install --prefix scripts/backup --no-audit --no-fund
+
+      - name: Esegui la prova di ripristino
+        if: steps.pronto.outputs.pronto == 'si'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_APPOGGIO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_APPOGGIO }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          GDRIVE_SERVICE_ACCOUNT: ${{ secrets.GDRIVE_SERVICE_ACCOUNT }}
+          PROVA_REPORT: ${{ runner.temp }}/report-prova.txt
+          AMPIEZZA: ${{ inputs.ampiezza || 'campione' }}
+          PER_COLLEZIONE: ${{ inputs.per_collezione || '200' }}
+          LASCIA: ${{ inputs.lascia_dati && 'si' || '' }}
+        run: |
+          case "$PER_COLLEZIONE" in ''|*[!0-9]*) PER_COLLEZIONE=200 ;; esac
+          if [ "$AMPIEZZA" = "tutto" ]; then ARGOMENTI="--tutto"; else ARGOMENTI="--per-collezione $PER_COLLEZIONE"; fi
+          if [ "$LASCIA" = "si" ]; then ARGOMENTI="$ARGOMENTI --lascia"; fi
+          node scripts/backup/prova-ripristino.cjs $ARGOMENTI
+
+      - name: Riepilogo
+        if: always() && steps.pronto.outputs.pronto == 'si'
+        env:
+          PROVA_REPORT: ${{ runner.temp }}/report-prova.txt
+        run: |
+          echo "### Prova di ripristino" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$PROVA_REPORT" ]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat "$PROVA_REPORT" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nessun report: la prova si e' interrotta prima di scriverlo." >> "$GITHUB_STEP_SUMMARY"
+          fi

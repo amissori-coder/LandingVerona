@@ -149,7 +149,8 @@ global.fetch = async (url, opz) => {
         const piatto = v => Buffer.isBuffer(v) ? { __buf: v.length, sha: crypto.createHash('sha1').update(v).digest('hex') } : typeof v === 'bigint' ? { __big: String(v) } : typeof v === 'number' && !Number.isFinite(v) ? { __num: String(v) } : Array.isArray(v) ? v.map(piatto) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, piatto(x)])) : v;
         const db = { doc: p => ({ __doc: p }), batch: () => { const ops = []; return { set: (r, d) => ops.push({ p: r.__doc, d: piatto(d) }), commit: async () => fs.appendFileSync(process.env.FINTO_USCITA, JSON.stringify(ops) + '\\n') }; } };
         class GeoPoint { constructor(a, b) { this.__geo = [a, b]; } }
-        module.exports = { initializeApp() { }, credential: { cert: x => x }, firestore: Object.assign(() => db, { Timestamp: { fromDate: d => ({ __ts: d.toISOString() }) }, GeoPoint }) };
+        class Timestamp { constructor(s, n) { this.__ts = new Date(s * 1000).toISOString().replace('.000Z', '') + '.' + String(n).padStart(9, '0') + 'Z'; } static fromDate(d) { return { __ts: d.toISOString() }; } }
+        module.exports = { initializeApp() { }, credential: { cert: x => x }, firestore: Object.assign(() => db, { Timestamp, GeoPoint }) };
     `);
     const chiave = path.join(cartella, 'chiave.json');
     fs.writeFileSync(chiave, JSON.stringify({ project_id: 'progetto-nuovo', client_email: 'x@y', private_key: 'k' }));
@@ -165,7 +166,8 @@ global.fetch = async (url, opz) => {
     verifica('con --conferma scrive tutti i documenti, ognuno al suo percorso', r.ok && scritti.size === banca.size && Array.from(banca.keys()).every(p => scritti.has(p)) && new RegExp('Fatto: ' + banca.size + ' documenti').test(r.testo), r.testo.slice(-300));
     verifica('i pezzi dei PDF tornano byte, identici', scritti.get('circInvii/L1/allegato/0007').dati.__buf === PEZZO.length && scritti.get('circInvii/L1/allegato/0007').dati.sha === require('crypto').createHash('sha1').update(PEZZO).digest('hex'));
     const su = scritti.get('utenti/a@b.it');
-    verifica('date, coordinate, riferimenti, interi grandi e NaN tornano del loro tipo', scritti.get('archivio/incarichi').aggiornato.__ts === '2026-11-23T10:15:30.123Z' && su.dove.__geo.join() === '45.46,9.19' && su.rif.__doc === 'archivio/persone' && su.enorme.__big === '9007199254740993' && su.nonNumero.__num === 'NaN' && su.accessi === 42 && su.scheda.dentro.n === 7, su);
+    verifica('date, coordinate, riferimenti, interi grandi e NaN tornano del loro tipo', scritti.get('archivio/incarichi').aggiornato.__ts === '2026-11-23T10:15:30.123456000Z' && su.dove.__geo.join() === '45.46,9.19' && su.rif.__doc === 'archivio/persone' && su.enorme.__big === '9007199254740993' && su.nonNumero.__num === 'NaN' && su.accessi === 42 && su.scheda.dentro.n === 7, su);
+    verifica('una data torna con l\'orario intero, fino ai milionesimi di secondo (una data di JavaScript li perderebbe)', scritti.get('archivio/incarichi').aggiornato.__ts === '2026-11-23T10:15:30.123456000Z');
     verifica('i gruppi di scrittura restano sotto 300 documenti e sotto 5 MB (i pezzi dei PDF pesano)', lotti.length >= 2 && lotti.every(l => l.length <= 300 && JSON.stringify(l).length < 6 * 1024 * 1024), lotti.map(l => l.length));
     // il file decompresso a mano va bene lo stesso
     const piano = path.join(cartella, 'firestore-data.jsonl');
@@ -180,7 +182,7 @@ global.fetch = async (url, opz) => {
     fs.rmSync(uscitaFinta, { force: true });
     r = lancia([chiave, vecchio, '--conferma']);
     const vecchi = new Map([].concat(...fs.readFileSync(uscitaFinta, 'utf8').trim().split('\n').map(x => JSON.parse(x))).map(o => [o.p, o.d]));
-    verifica('il formato di prima (firestore-data.json) si ripristina ancora, sottocollezioni comprese', r.ok && vecchi.size === 3 && vecchi.get('cose/a/figli/b').pdf.__buf === 3 && vecchi.get('archivio/incarichi').quando.__ts === '2026-09-01T06:00:00.000Z', r.testo);
+    verifica('il formato di prima (firestore-data.json) si ripristina ancora, sottocollezioni comprese', r.ok && vecchi.size === 3 && vecchi.get('cose/a/figli/b').pdf.__buf === 3 && vecchi.get('archivio/incarichi').quando.__ts === '2026-09-01T06:00:00.000000000Z', r.testo);
 
     // ---------- 5. niente allegati alle esecuzioni ----------
     // Il repository e' pubblico: gli allegati (artifact) li scarica chiunque abbia un account GitHub.
