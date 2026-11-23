@@ -865,7 +865,7 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_MAX_GIRO` | *(facoltativa)* quante PEC per giro. Senza: `80` |
 | `CIRC_PAUSA_MS` | *(facoltativa)* pausa fra una PEC e la successiva. Senza: `1200` |
 | `CIRC_LETTORE_RECUPERO` | *(facoltativa)* se il gestore rigenera la cartella, quanti messaggi rileggere all'indietro. Senza: `200`. Alla prima accensione non si guarda indietro: la posta gia' presente non entra fra le "non associate" |
-| `CIRC_PEC_PROXY` | **serve per spedire.** Il "ponte": `http://utente:password@indirizzo:porta` di un proxy con indirizzo di rete italiano da cui passano gli invii. Senza, il gestore respinge gli invii perche' arrivano dall'estero (`554 5.7.1`). La riga la stampa `strumenti/ponte-pec.sh`. Vedi "Quando il gestore sospende gli invii" |
+| `CIRC_PEC_PROXY` | *(facoltativa: serve se il gestore non autorizza la casella a spedire dal servizio)* Il "ponte": `http://utente:password@indirizzo:porta` di un proxy con indirizzo di rete italiano da cui passano gli invii. Senza, il gestore respinge gli invii perche' arrivano dall'estero (`554 5.7.1`). La riga la stampa `strumenti/ponte-pec.sh`. Vedi "Quando il gestore sospende gli invii" |
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
@@ -1079,9 +1079,17 @@ non ha una regione italiana: cambiare regione non basta, e infatti da
 Francoforte il rifiuto e' lo stesso. La lettura della casella (IMAP) dall'estero
 invece passa. Non c'entrano le lettere ne' la password.
 
-**Il rimedio: il ponte (`CIRC_PEC_PROXY`).** Gli invii devono arrivare al
-gestore da un indirizzo di rete italiano. Il servizio sa farli passare da un
-proxy HTTP con credenziali:
+**Primo rimedio: farsi autorizzare dal gestore.** Per la casella degli inviti
+agli eventi (`revilawngb@pec.it`), che spedisce dallo stesso servizio, il
+titolare ha gia' ottenuto l'autorizzazione dall'assistenza del gestore: la
+stessa richiesta va fatta per la casella delle circolarizzazioni, citando quel
+precedente. Non costa e non richiede altro; ottenuta l'autorizzazione basta
+"Riprova adesso". Di che cosa abbia abilitato di preciso il gestore l'altra
+volta qui non c'e' traccia.
+
+**Secondo rimedio: il ponte (`CIRC_PEC_PROXY`).** Se il gestore non autorizza,
+gli invii devono arrivargli da un indirizzo di rete italiano. Il servizio sa
+farli passare da un proxy HTTP con credenziali:
 
     CIRC_PEC_PROXY=http://utente:password@indirizzo:porta
 
@@ -1137,11 +1145,9 @@ gestore, e si vede solo al primo invio dal ponte.
 - **chi vede tutto puo' riprovare subito** con "Riprova adesso" (azione
   `riprova-invii`): il tentativo resta nel registro delle operazioni.
 
-Le alternative al ponte, per completezza: chiedere all'assistenza del gestore
-di sbloccare gli indirizzi (li sblocca uno per uno su richiesta, e quelli delle
-funzioni cambiano a ogni esecuzione), oppure gli "Static IPs" di Vercel (a
-pagamento, per progetto) per avere indirizzi fissi da far sbloccare: restano
-pero' indirizzi esteri.
+Un'altra strada, piu' cara e meno diretta: gli "Static IPs" di Vercel (a
+pagamento, per progetto) per avere indirizzi fissi da far autorizzare al
+gestore; restano indirizzi esteri.
 
 ### I solleciti
 

@@ -56,7 +56,7 @@ function spiegaRifiuto(testo) {
     if (/password|autentic|authentication|credential|535|eauth/.test(t)) return 'La casella non accetta le credenziali del servizio: va controllata la password per i programmi di posta (su Aruba scade ogni sei mesi).';
     if (/ip|host|client|bloccat|blocked|blacklist|abus/.test(t)) {
         return conPonte ? 'Il gestore ha respinto l\'indirizzo di rete da cui arriva l\'invio, anche passando dal ponte: va controllato che l\'indirizzo del ponte sia italiano, oppure va sentita l\'assistenza del gestore. Non dipende dalle lettere né dalla password.'
-            : 'Il gestore respinge gli invii che arrivano da un indirizzo di rete fuori dall\'Italia, e il servizio si collega dall\'estero: non dipende dalle lettere né dalla password, e riprovare non basta. Serve far passare gli invii da un indirizzo italiano: lo imposta l\'amministratore (il «ponte», variabile CIRC_PEC_PROXY).';
+            : 'Il gestore respinge gli invii che arrivano da un indirizzo di rete fuori dall\'Italia, e il servizio si collega dall\'estero: non dipende dalle lettere né dalla password, e riprovare non basta. Serve che il gestore autorizzi questa casella, oppure far passare gli invii da un indirizzo italiano: se ne occupa l\'amministratore (il «ponte», variabile CIRC_PEC_PROXY).';
     }
     if (/too many|troppi|rate|quota|421|45[0-2]/.test(t)) return 'Il gestore ha chiesto di rallentare: troppi messaggi o troppe connessioni in poco tempo.';
     return 'Il rifiuto riguarda la casella o il collegamento, non le lettere.';
