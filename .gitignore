@@ -1,4 +1,5 @@
-.claude/
+.claude/*
+!.claude/agents/
 
 # Strumenti locali per i badge di Napoli.
 # I dati veri degli iscritti (nomi, aziende, email) e i codici personali
