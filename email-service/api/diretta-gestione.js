@@ -14,6 +14,9 @@
      connessi, esporta                         -> lib/diretta-dati.js
      prova-link                                -> lib/diretta-prova-link.js
      ascolti                                   -> lib/diretta-ascolti.js
+     relatori-salva, domande, domanda-segna    -> lib/diretta-domande.js
+                      (anche 'eventi' ed 'evento-salva' portano i
+                      relatori dell'evento: evento.relatori, le email)
      email-prova, email-accoda, email-avanza,
      email-stato, email-esiti                  -> lib/diretta-invio.js
 
@@ -168,6 +171,7 @@ const I = require('../lib/diretta-iscrizione');
 const Z = require('../lib/diretta-azzera');
 const A = require('../lib/diretta-ascolti');
 const P = require('../lib/diretta-programmate');
+const Q = require('../lib/diretta-domande');
 const { contesto } = require('../lib/diretta-firebase');
 
 const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
@@ -229,8 +233,29 @@ async function provaLink(ctx, b, g) {
 
 const AZIONI = {
     'chi-sono': async (ctx, b, g) => ({ email: g.email }),
-    'eventi': async ctx => ({ eventi: await D.elencoEventi(ctx) }),
-    'evento-salva': async (ctx, b) => ({ evento: await D.salvaEvento(ctx, b.evento) }),
+    // con gli eventi anche i loro relatori (lib/diretta-domande.js, relatoriEventi)
+    'eventi': async ctx => {
+        const eventi = await D.elencoEventi(ctx);
+        const rel = await Q.relatoriDiEventi(ctx, eventi.map(e => e.id));
+        eventi.forEach(e => { e.relatori = rel[e.id] || []; });
+        return { eventi: eventi };
+    },
+    /* evento.relatori (facoltativo): le email dei relatori; si controllano
+       PRIMA di salvare l'evento, cosi' un indirizzo sbagliato non lascia
+       l'evento salvato a meta'. */
+    'evento-salva': async (ctx, b, g) => {
+        const ev = b.evento || {};
+        const relatori = ev.relatori !== undefined ? Q.leggiRelatori(ev.relatori) : undefined;
+        const evento = await D.salvaEvento(ctx, ev);
+        evento.relatori = relatori !== undefined
+            ? await Q.salvaRelatori(ctx, { idEvento: evento.id, relatori: relatori }, g.email)
+            : await Q.relatoriDi(ctx, evento.id);
+        return { evento: evento };
+    },
+    'relatori-salva': async (ctx, b, g) => ({ relatori: await Q.salvaRelatori(ctx, { idEvento: b.idEvento, relatori: b.relatori }, g.email) }),
+    // le domande dei partecipanti al relatore: la regia le vede e le segna come il relatore
+    'domande': async (ctx, b, g) => Q.elenco(ctx, b.idEvento, { email: g.email, ruolo: 'gestore' }),
+    'domanda-segna': async (ctx, b, g) => Q.segna(ctx, { idEvento: b.idEvento, idDomanda: b.idDomanda, risposta: b.risposta }, { email: g.email, ruolo: 'gestore' }),
     'evento-stato': async (ctx, b) => ({ evento: await D.cambiaStato(ctx, { idEvento: b.idEvento, stato: b.stato, ripresa: b.ripresa }) }),
     'evento-video': async (ctx, b) => ({ evento: await D.cambiaVideo(ctx, { idEvento: b.idEvento, azotoUrl: b.azotoUrl, videoUrl: b.videoUrl, videoId: b.videoId, riservaUrl: b.riservaUrl }) }),
     'evento-player': async (ctx, b) => ({ evento: await D.cambiaPlayer(ctx, { idEvento: b.idEvento, tipoPlayer: b.tipoPlayer }) }),

@@ -1,7 +1,7 @@
 /* ============================================================
    ANTEPRIMA - il servizio VERO (email-service/api/diretta-*.js)
    ------------------------------------------------------------
-   Le quattro funzioni di Vercel della diretta, cosi' come sono,
+   Le cinque funzioni di Vercel della diretta, cosi' come sono,
    chiamate con una richiesta e una risposta finte al posto di quelle
    di Vercel. Le pagine le raggiungono con fetch() verso
    https://anteprima.invalid/api/<funzione>: anteprima/pagina.js
@@ -24,7 +24,9 @@ const FUNZIONI = {
     'diretta-accesso': require('../../../../email-service/api/diretta-accesso.js'),
     'diretta-gestione': require('../../../../email-service/api/diretta-gestione.js'),
     'diretta-stato': require('../../../../email-service/api/diretta-stato.js'),
-    'diretta-cron': require('../../../../email-service/api/diretta-cron.js')
+    'diretta-cron': require('../../../../email-service/api/diretta-cron.js'),
+    // le domande al relatore (dalla pagina della diretta e dalla pagina del relatore)
+    'diretta-domande': require('../../../../email-service/api/diretta-domande.js')
 };
 
 const INDIRIZZO_SERVIZIO = 'https://anteprima.invalid/api';

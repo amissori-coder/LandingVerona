@@ -97,6 +97,10 @@
         file: null,            // il file aperto: cartella di lavoro, foglio, abbinamento
         caricamento: null,     // l'anteprima in corso
         connessi: { timer: null, ultimo: null, inCorso: false },
+        /* Regia, «Domande al relatore»: l'ultimo elenco del servizio (di quale
+           evento), il filtro, i segni in corso o appena salvati (vincono sulle
+           letture partite prima) e il giro automatico */
+        domandeRegia: { timer: null, inCorso: false, di: '', dati: [], evento: null, filtro: 'aperte', forzati: new Map(), firma: '' },
         /* la scheda Ascolti: l'ultimo risultato del servizio (dati), il giro
            automatico (timer) e come il gestore guarda l'elenco delle persone
            (ordine, verso, quante righe, le linee del tempo aperte): restano
@@ -234,8 +238,15 @@
     const NOTA_AZOTO = (SV && SV.AVVISO_INCORPORATO) || '';
     if (NOTA_AZOTO) document.querySelectorAll('.nota-azoto').forEach(n => { n.textContent = NOTA_AZOTO; });
     // i nomi brevi, per le frasi della regia
-    const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'player Azoto' };
-    const NOMI_PLAYER = { azoto: 'Player Azoto', flusso: 'Flusso diretto' };
+    const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'player YouTube o Azoto' };
+    const NOMI_PLAYER = { azoto: 'Player YouTube o Azoto', flusso: 'Flusso diretto' };
+    /* Il nome del player incorporato salvato: YouTube o Azoto, lo dice il
+       link (sorgente-video.js, eYouTube). Senza link resta quello generico. */
+    function nomeIncorporato(url, maiuscola) {
+        const yt = !!(url && SV && typeof SV.eYouTube === 'function' && SV.eYouTube(url));
+        const nome = !url ? NOMI_PLAYER.azoto.toLowerCase() : (yt ? 'video YouTube' : 'player Azoto');
+        return maiuscola ? nome.charAt(0).toUpperCase() + nome.slice(1) : nome;
+    }
     // i campi del player Azoto; gli altri (ev-video, ev-riserva, regia-video, regia-riserva) sono il flusso diretto
     const CAMPI_AZOTO = { 'ev-azoto': true, 'regia-azoto': true };
 
@@ -796,6 +807,7 @@
                 seguiCampoLink('ev-riserva', ev.riservaUrl);
                 seguiFirma(ev);
                 seguiTipoPlayer(ev);
+                seguiRelatori(ev);
             }
             seguiCampoLink('regia-azoto', ev.azotoUrl);
             seguiCampoLink('regia-video', ev.videoUrl);
@@ -811,6 +823,28 @@
        resta quello che ha scritto, e al salvataggio vale come una sua
        scelta esplicita. dataset.iniziale e' l'ultimo valore del servizio:
        al salvataggio si manda un link solo se e' diverso da quello. */
+    /* I relatori dell'evento (scheda Evento): come i link, al salvataggio
+       si mandano solo se il gestore li ha cambiati qui (dataset.iniziale e'
+       l'ultimo elenco del servizio), cosi' un salvataggio del titolo non
+       rimette i relatori di prima tolti nel frattempo da un altro gestore. */
+    function testoRelatori(ev) { return ev && Array.isArray(ev.relatori) ? ev.relatori.join('\n') : ''; }
+    function compilaRelatori(ev) {
+        const campo = $('#ev-relatori');
+        campo.value = testoRelatori(ev);
+        campo.dataset.iniziale = campo.value;
+        campo.removeAttribute('aria-invalid');
+    }
+    function seguiRelatori(ev) {
+        const campo = $('#ev-relatori');
+        if (campo.value.trim() === (campo.dataset.iniziale || '').trim()) { campo.value = testoRelatori(ev); campo.removeAttribute('aria-invalid'); }
+        campo.dataset.iniziale = testoRelatori(ev);
+    }
+    function relatoriCambiati() {
+        const campo = $('#ev-relatori');
+        const norma = t => String(t || '').toLowerCase().split(/[\s,;]+/).filter(Boolean).join('\n');
+        return norma(campo.value) !== norma(campo.dataset.iniziale);
+    }
+
     function seguiCampoLink(id, valore) {
         const campo = $('#' + id);
         const nuovo = valore || '';
@@ -987,6 +1021,8 @@
         $('#ev-pagina').value = ev ? ev.paginaEvento || '' : '';
         compilaIscrizioni(ev);
         $('#ev-un-dispositivo').checked = !!(ev && ev.unSoloDispositivo);
+        $('#ev-domande').checked = !!(ev && ev.domande);
+        compilaRelatori(ev);
         $('#ev-promemoria-giorno').checked = !!(ev && ev.promemoria && ev.promemoria.giornoPrima);
         $('#ev-promemoria-ora').checked = !!(ev && ev.promemoria && ev.promemoria.oraPrima);
         $('#titolo-form-evento').textContent = ev ? 'Dati dell\'evento' : 'Nuovo evento';
@@ -1455,8 +1491,11 @@
             programma: programma.voci,
             paginaEvento: pagina,
             unSoloDispositivo: $('#ev-un-dispositivo').checked,
+            domande: $('#ev-domande').checked,
             promemoria: { giornoPrima: $('#ev-promemoria-giorno').checked, oraPrima: $('#ev-promemoria-ora').checked }
         };
+        // i relatori solo se cambiati qui (vedi seguiRelatori); il servizio controlla le email
+        if (stato.nuovo || relatoriCambiati()) evento.relatori = $('#ev-relatori').value;
         // al servizio va solo l'indirizzo ricavato qui, mai il codice incollato
         if (azotoCambiato) evento.azotoUrl = la && !la.errore ? la.valore : '';
         const tipoCambiato = stato.nuovo || tipo !== stato.tipoSalvato;
@@ -1606,6 +1645,10 @@
                 } else if (err.stato === 400 && (err.codice === 'azoto' || err.codice === 'video')) {
                     $(err.codice === 'azoto' ? '#ev-azoto' : '#ev-video').setAttribute('aria-invalid', 'true');
                     erroreGenerico(err, '#msg-evento');
+                } else if (err.stato === 400 && err.codice === 'relatori') {
+                    $('#ev-relatori').setAttribute('aria-invalid', 'true');
+                    mostraMsg('#msg-evento', (err.msg || 'Email dei relatori non valida.') + ' Non ho salvato niente.', 'errore');
+                    $('#ev-relatori').focus();
                 } else if (err.stato === 400 && err.codice === 'tipoPlayer') {
                     RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
                     aggiornaVistaTipoPlayer();
@@ -1716,8 +1759,8 @@
             let video;
             if (tipoPlayerDi(ev) === 'azoto') {
                 video = ev.azotoUrl
-                    ? 'Si usa il player Azoto (' + linkBreve(ev.azotoUrl) + ').' + vistaSubito
-                    : 'L\'indirizzo del player Azoto NON è impostato: finché non lo inserisci, i partecipanti vedranno «Il video sta per arrivare».';
+                    ? 'Si usa il ' + nomeIncorporato(ev.azotoUrl) + ' (' + linkBreve(ev.azotoUrl) + ').' + vistaSubito
+                    : 'Il link del video YouTube (o del player Azoto) NON è impostato: finché non lo inserisci, i partecipanti vedranno «Il video sta per arrivare».';
             } else {
                 video = ev.videoId
                     ? 'Si usa il flusso diretto (' + (NOMI_TIPO[tipoDi(ev.videoId)] || 'web TV') + (ev.riservaUrl ? ', con la riserva' : ', senza riserva') + ').'
@@ -1901,9 +1944,155 @@
        Una chiamata ogni 20 secondi, SOLO mentre la scheda Regia e' aperta
        e la pagina e' in primo piano: il conteggio costa letture su
        Firestore e non serve a nessuno quando non lo si guarda. */
+    /* ============================================================
+       REGIA: LE DOMANDE AL RELATORE
+       ------------------------------------------------------------
+       Le stesse domande della pagina del relatore (/diretta/relatore/),
+       con lo stesso segno «Risposta data»: lo puo' mettere (o togliere)
+       la regia come il relatore, e ognuno vede quello dell'altro al giro
+       dopo. La regia vede anche l'email di chi ha scritto e chi ha segnato
+       la risposta. Si leggono ogni 8 secondi mentre la scheda Regia e'
+       aperta e visibile (azione 'domande'); il segno e' 'domanda-segna'.
+       ============================================================ */
+    const OGNI_DOMANDE_REGIA_MS = 8000;
+    const SEGNO_RECENTE_MS = 15000;
+    function avviaDomandeRegia() {
+        fermaDomandeRegia();
+        const q = stato.domandeRegia;
+        if (q.di !== stato.idEvento) {
+            q.di = stato.idEvento;
+            q.dati = [];
+            q.evento = null;
+            q.forzati = new Map();
+            q.firma = '';
+            disegnaDomandeRegia(true);
+        }
+        if (!stato.idEvento) return;
+        aggiornaDomandeRegia();
+        q.timer = setInterval(() => { if (document.visibilityState === 'visible') aggiornaDomandeRegia(); }, OGNI_DOMANDE_REGIA_MS);
+    }
+    function fermaDomandeRegia() {
+        const q = stato.domandeRegia;
+        if (q.timer) clearInterval(q.timer);
+        q.timer = null;
+    }
+    async function aggiornaDomandeRegia() {
+        const q = stato.domandeRegia;
+        const id = stato.idEvento;
+        if (!id || q.inCorso || !stato.utente) return;
+        q.inCorso = true;
+        try {
+            const r = await chiama('domande', { idEvento: id });
+            if (id !== stato.idEvento) return;
+            const adesso = Date.now();
+            const dati = Array.isArray(r.domande) ? r.domande.filter(d => d && typeof d.id === 'string') : [];
+            dati.forEach(d => {
+                const f = q.forzati.get(d.id);
+                if (!f) return;
+                if (f.scade < adesso || d.risposta === f.risposta) q.forzati.delete(d.id);
+                else d.risposta = f.risposta;
+            });
+            q.dati = dati;
+            q.evento = r.evento || null;
+            disegnaDomandeRegia();
+            $('#regia-domande-aggiornato').textContent = 'Aggiornate alle ' + oraSecondi(r.aggiornato || Date.now()) + ' · si aggiornano da sole ogni 8 secondi mentre questa scheda è aperta.';
+        } catch (e) {
+            if (e.stato === 401 || e.stato === 403) { erroreGenerico(e); return; }
+            $('#regia-domande-aggiornato').textContent = 'Domande non aggiornate: ' + (e.msg || 'errore') + ' Riprovo tra poco.';
+        } finally {
+            q.inCorso = false;
+        }
+    }
+    function disegnaDomandeRegia(forza) {
+        const q = stato.domandeRegia;
+        const tutte = q.dati.length;
+        const risposte = q.dati.filter(d => d.risposta).length;
+        $('#regia-num-aperte').textContent = String(tutte - risposte);
+        $('#regia-num-tutte').textContent = String(tutte);
+        const ev = q.evento || stato.evento;
+        const spente = !!ev && ev.domande !== true;
+        $('#regia-domande-stato').textContent = spente
+            ? 'Le domande sono spente per questo evento: si accendono nella scheda Evento («Domande al relatore»).'
+            : (tutte ? conNumero(tutte, 'domanda ricevuta', 'domande ricevute') + ' · ' + risposte + ' con risposta' : 'Nessuna domanda, per ora.');
+        $('#regia-domande').dataset.spente = spente ? '1' : '';
+        const numerate = q.dati.slice().sort((a, b) => (a.quando || 0) - (b.quando || 0) || String(a.id).localeCompare(String(b.id)));
+        numerate.forEach((d, i) => { d.numero = i + 1; });
+        const elenco = (q.filtro === 'aperte' ? numerate.filter(d => !d.risposta) : numerate).slice().reverse();
+        // si ridisegna solo se qualcosa e' cambiato; il fuoco torna sul pulsante di prima
+        const firma = q.filtro + '|' + elenco.map(d => d.id + ':' + (d.risposta ? 1 : 0) + ':' + (q.forzati.has(d.id) ? 1 : 0)).join(',');
+        if (!forza && firma === q.firma) return;
+        q.firma = firma;
+        const lista = $('#regia-elenco-domande');
+        const conFuoco = document.activeElement && lista.contains(document.activeElement) ? document.activeElement.closest('[data-id]') : null;
+        const idFuoco = conFuoco ? conFuoco.dataset.id : '';
+        svuota(lista);
+        elenco.forEach(d => {
+            const nome = [d.nome, d.cognome].map(x => String(x || '').trim()).filter(Boolean).join(' ') || 'Partecipante';
+            const chi = [nome, d.azienda, d.email].filter(Boolean).join(' · ');
+            const inCorso = q.forzati.has(d.id) && q.forzati.get(d.id).scade === Infinity;
+            const esito = d.risposta
+                ? 'Risposta data' + (d.rispostaQuando ? ' alle ' + oraLeggibile(d.rispostaQuando) : '') + (d.rispostaDa ? ' (' + d.rispostaDa + ')' : '')
+                : '';
+            const b = el('button', {
+                type: 'button', classe: 'btn btn-piccolo ' + (d.risposta ? 'btn-secondario' : 'btn-primario') + ' btn-segna-domanda',
+                'aria-pressed': String(!!d.risposta), disabled: inCorso,
+                'aria-label': (d.risposta ? 'Togli il segno di risposta alla domanda n. ' : 'Segna come risposta la domanda n. ') + d.numero + ' di ' + nome,
+                testo: d.risposta ? 'Togli «Risposta data»' : 'Segna come risposta'
+            });
+            b.addEventListener('click', () => segnaDomandaRegia(d.id, !d.risposta));
+            lista.appendChild(el('li', { classe: 'regia-domanda' + (d.risposta ? ' risposta' : ''), dati: { id: d.id } }, [
+                el('p', { classe: 'regia-domanda-chi' }, [
+                    el('strong', { testo: 'n. ' + d.numero }), ' ', chi, ' · ', oraLeggibile(d.quando)
+                ]),
+                el('p', { classe: 'regia-domanda-testo', testo: d.testo }),
+                el('div', { classe: 'regia-domanda-piede' }, [el('span', { classe: 'regia-domanda-esito', testo: esito }), b])
+            ]));
+        });
+        if (idFuoco) {
+            const li = Array.from(lista.children).find(x => x.dataset.id === idFuoco);
+            const b = li && li.querySelector('button');
+            if (b) b.focus({ preventScroll: true });
+        }
+        const vuoto = $('#regia-domande-vuoto');
+        vuoto.hidden = !!elenco.length;
+        vuoto.textContent = tutte ? 'Nessuna domanda da rispondere.' : 'Le domande dei partecipanti compariranno qui.';
+    }
+    async function segnaDomandaRegia(idDomanda, risposta) {
+        const q = stato.domandeRegia;
+        const id = stato.idEvento;
+        const d = q.dati.find(x => x.id === idDomanda);
+        if (!d) return;
+        const prima = !!d.risposta;
+        q.forzati.set(idDomanda, { risposta: risposta, scade: Infinity });
+        d.risposta = risposta;
+        disegnaDomandeRegia();
+        try {
+            const r = await chiama('domanda-segna', { idEvento: id, idDomanda: idDomanda, risposta: risposta });
+            if (id !== stato.idEvento) return;
+            q.forzati.set(idDomanda, { risposta: risposta, scade: Date.now() + SEGNO_RECENTE_MS });
+            const i = q.dati.findIndex(x => x.id === idDomanda);
+            if (i >= 0 && r.domanda) q.dati[i] = Object.assign({}, q.dati[i], r.domanda);
+            disegnaDomandeRegia();
+        } catch (e) {
+            if (id !== stato.idEvento) return;
+            q.forzati.delete(idDomanda);
+            const x = q.dati.find(y => y.id === idDomanda);
+            if (x) x.risposta = prima;
+            disegnaDomandeRegia(true);
+            if (e.stato === 401 || e.stato === 403) { erroreGenerico(e); return; }
+            avviso(e.msg || 'Non è stato possibile salvare: riprova.', 'errore');
+        }
+    }
+    document.querySelectorAll('.filtro-domande').forEach(b => b.addEventListener('click', () => {
+        stato.domandeRegia.filtro = b.dataset.filtro === 'tutte' ? 'tutte' : 'aperte';
+        document.querySelectorAll('.filtro-domande').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        disegnaDomandeRegia(true);
+    }));
+
     function avviaConnessi() {
         fermaConnessi();
         if (!stato.idEvento) return;
+        avviaDomandeRegia();
         aggiornaConnessi();
         stato.connessi.timer = setInterval(() => {
             if (document.visibilityState === 'visible') aggiornaConnessi();
@@ -1912,6 +2101,7 @@
     function fermaConnessi() {
         if (stato.connessi.timer) clearInterval(stato.connessi.timer);
         stato.connessi.timer = null;
+        fermaDomandeRegia();
     }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && stato.scheda === 'regia' && stato.connessi.timer) aggiornaConnessi();
@@ -2611,7 +2801,7 @@
         // il player che vedono tutti (eventi.tipoPlayer)
         const bollinoTipo = $('#regia-tipo-player');
         bollinoTipo.dataset.tipo = tipo;
-        bollinoTipo.textContent = NOMI_PLAYER[tipo];
+        bollinoTipo.textContent = tipo === 'azoto' ? nomeIncorporato(ev && ev.azotoUrl, true) : NOMI_PLAYER[tipo];
         document.querySelectorAll('.regia-video-riquadro .blocco-uso').forEach(n => {
             const inUso = n.dataset.uso === tipo;
             n.textContent = inUso ? 'in uso' : 'non in uso';

@@ -165,7 +165,7 @@ const pausa = ms => new Promise(r => setTimeout(r, ms));
    l'Azoto vero; ora lo segue instradaAzoto, e questa e' la rete di
    sicurezza). */
 const LANCIO = {
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    executablePath: ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p)),
     args: ['--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
 };
 /* L'iPhone. Safari non mette l'iframe di un altro sito in un processo a
@@ -863,10 +863,10 @@ function contaAscolti(page) {
             vero(!(await visibile(p, '#avviso-lento')) && !(await visibile(i, '#avviso-lento')), 'l\'avviso e\' tornato');
         });
 
-        await prova('modalità A: nessuna violazione della CSP (frame-src solo il player di Azoto), nessun errore nella pagina né in console', async () => {
+        await prova('modalità A: nessuna violazione della CSP (frame-src solo i player di YouTube e di Azoto), nessun errore nella pagina né in console', async () => {
             const csp = await p.getAttribute('meta[http-equiv="Content-Security-Policy"]', 'content');
             const frameSrc = (/(?:^|;)\s*frame-src ([^;]*)/.exec(csp) || [])[1];
-            vero(frameSrc && frameSrc.trim() === 'https://cdn.azotosolutions.com', 'frame-src: «' + frameSrc + '»');
+            vero(frameSrc && frameSrc.trim() === 'https://www.youtube-nocookie.com https://cdn.azotosolutions.com', 'frame-src: «' + frameSrc + '»');
             vero(!/azotosolutions/.test((/(?:^|;)\s*script-src ([^;]*)/.exec(csp) || [])[1] || ''), 'script di Azoto ammessi nella CSP');
             for (const [c, nome] of [[pc, 'computer'], [ip, 'iPhone']]) {
                 const v = await c.page.evaluate(() => window.__violazioniCsp || []);

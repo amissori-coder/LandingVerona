@@ -1,7 +1,7 @@
 /* ============================================================
    ANTEPRIMA DELLA DIRETTA - il guscio
    ------------------------------------------------------------
-   Le schede Guida, Partecipante, Gestione e Posta di prova. Le pagine
+   Le schede Guida, Partecipante, Gestione, Relatore e Posta di prova. Le pagine
    vere della diretta girano in iframe "srcdoc" (stessa origine del
    guscio: cosi' raggiungono il motore, window.NGBA). Ogni iframe e' un
    "dispositivo": il telefono del partecipante e il computer della regia
@@ -39,6 +39,8 @@
     var pannelli = {
         partecipante: { iframe: $('fr-partecipante'), dispositivo: 'telefono', ip: '93.44.10.21', pagina: 'diretta', ricerca: '' },
         gestione: { iframe: $('fr-gestione'), dispositivo: 'regia', ip: '151.12.3.4', pagina: 'gestione', ricerca: '' },
+        // il computer del relatore: un accesso suo, separato da quello della regia
+        relatore: { iframe: $('fr-relatore'), dispositivo: 'relatore', ip: '93.44.10.30', pagina: 'relatore', ricerca: '' },
         sopra: { iframe: null, dispositivo: 'regia', ip: '151.12.3.4', pagina: 'diretta', ricerca: '' }
     };
     function monta(p, pagina, ricerca) {
@@ -60,6 +62,7 @@
     }
     function paginaDa(percorso) {
         if (/^\/diretta\/gestione(\/|\/index\.html)?$/.test(percorso)) return 'gestione';
+        if (/^\/diretta\/relatore(\/|\/index\.html)?$/.test(percorso)) return 'relatore';
         if (/^\/diretta\/reimposta\.html$/.test(percorso)) return 'reimposta';
         if (/^\/diretta(\/|\/index\.html)?$/.test(percorso)) return 'diretta';
         return '';
@@ -78,7 +81,7 @@
     M.ricordaRicerca = function (finestra, s) { var p = pannelloDi(finestra); if (p) p.ricerca = s; };
     M.naviga = function (finestra, url) {
         var p = pannelloDi(finestra) || pannelli.partecipante;
-        var base = SITO + (p.pagina === 'gestione' ? '/diretta/gestione/' : '/diretta/');
+        var base = SITO + (p.pagina === 'gestione' ? '/diretta/gestione/' : (p.pagina === 'relatore' ? '/diretta/relatore/' : '/diretta/'));
         var u;
         try { u = new URL(url, base); } catch (e) { return; }
         var dest = u.origin === SITO ? paginaDa(u.pathname) : '';
@@ -89,6 +92,15 @@
             apriScheda('gestione');
             return;
         }
+        // la pagina del relatore (dalla gestione, dalla reimpostazione della password): nella sua scheda
+        if (dest === 'relatore') {
+            if (p === pannelli.sopra) chiudiSopra();
+            monta(pannelli.relatore, 'relatore', u.search);
+            apriScheda('relatore');
+            return;
+        }
+        // dalla pagina del relatore, la diretta si apre nella scheda del partecipante
+        if (p === pannelli.relatore && dest === 'diretta') { monta(pannelli.partecipante, 'diretta', u.search); apriScheda('partecipante'); return; }
         // dalla regia, la pagina dei partecipanti si apre sopra (anteprima del gestore)
         if (p === pannelli.gestione && dest === 'diretta') { apriSopraPagina(u.search); return; }
         monta(p, dest, u.search);
@@ -100,7 +112,7 @@
     };
 
     /* ---------------- schede ---------------- */
-    var SCHEDE = ['guida', 'partecipante', 'gestione', 'posta'];
+    var SCHEDE = ['guida', 'partecipante', 'gestione', 'relatore', 'posta'];
     function apriScheda(nome, conFuoco) {
         SCHEDE.forEach(function (s) {
             var tab = $('tab-' + s), pan = $('pannello-' + s), si = s === nome;
@@ -110,6 +122,7 @@
         });
         if (nome === 'partecipante') montaSeServe(pannelli.partecipante);
         if (nome === 'gestione') montaSeServe(pannelli.gestione);
+        if (nome === 'relatore') montaSeServe(pannelli.relatore);
         if (nome === 'posta') disegnaPosta();
         if (conFuoco) $('tab-' + nome).focus();
         memoria.scrivi('scheda', nome);
@@ -138,6 +151,7 @@
     $('formato-computer').addEventListener('click', function () { formato(false); });
     $('btn-ricarica-partecipante').addEventListener('click', function () { monta(pannelli.partecipante); });
     $('btn-ricarica-gestione').addEventListener('click', function () { monta(pannelli.gestione); });
+    $('btn-ricarica-relatore').addEventListener('click', function () { monta(pannelli.relatore); });
 
     // l'email con cui la persona entra (quella vera, mai l'email tecnica dell'account)
     function emailDi(uid) {
@@ -155,8 +169,13 @@
         cg.textContent = '';
         if (g) { cg.appendChild(document.createTextNode('Regia collegata come ')); cg.appendChild(crea('b', { testo: g.email || '' })); }
         else cg.textContent = 'La regia non è ancora collegata.';
+        var r = M.utenteDi('relatore');
+        var cr = $('chi-relatore');
+        cr.textContent = '';
+        if (r) { cr.appendChild(document.createTextNode('Relatore collegato come ')); cr.appendChild(crea('b', { testo: r.email || '' })); }
+        else cr.textContent = 'Il relatore non è ancora collegato.';
     }
-    ['telefono', 'regia'].forEach(function (d) {
+    ['telefono', 'regia', 'relatore'].forEach(function (d) {
         M.sdk.auth.onAuthStateChanged({ _dispositivo: d, app: { _finestra: window } }, aggiornaChi);
     });
 
@@ -206,6 +225,26 @@
         });
     }
     $('btn-usa-gestore').addEventListener('click', function () { entraInGestione().catch(function () { avviso('Scrivi email e password nella pagina.'); }); });
+    function entraComeRelatore() {
+        var p = pannelli.relatore;
+        apriScheda('relatore');
+        if (M.utenteDi('relatore')) return Promise.resolve();
+        var r = (M.accessi() || {}).relatore || {};
+        return aspetta(p, '#campo-email', 12000).then(function (campo) {
+            scriviIn(campo, r.email);
+            scriviIn(p.iframe.contentDocument.getElementById('campo-password'), r.password);
+            p.iframe.contentDocument.getElementById('btn-entra').click();
+        });
+    }
+    $('btn-usa-relatore').addEventListener('click', function () { entraComeRelatore().catch(function () { avviso('Scrivi email e password nella pagina.'); }); });
+
+    // sulla scheda «Relatore»: quante domande aspettano una risposta
+    function contaDomande() {
+        var n = 0;
+        M.archivio.elenco('domande').forEach(function (x) { if (x.rec.dati.idEvento === ID_EVENTO && x.rec.dati.risposta !== true) n++; });
+        testo($('conta-domande'), n ? n : '');
+    }
+    M.archivio.ascoltaTutto(function (percorso) { if (/^domande\//.test(percorso)) contaDomande(); });
 
     $('btn-file-esempio').addEventListener('click', function () {
         var p = pannelli.gestione;
@@ -263,7 +302,8 @@
             data = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', weekday: 'long', day: 'numeric', month: 'long' }).format(ev.inizio.toDate());
         } catch (e) { data = ev.data; }
         [['Evento', ev.titolo], ['Quando', data + ', dalle ' + ev.oraInizio.replace(':', '.') + ' alle ' + ev.oraFine.replace(':', '.')], ['Stato', STATI[ev.stato] || ev.stato],
-            ['Video', ev.tipoPlayer === 'flusso' ? 'flusso diretto (.m3u8)' : 'player Azoto (iframe)']]
+            ['Video', ev.tipoPlayer === 'flusso' ? 'flusso diretto (.m3u8)' : 'player YouTube o Azoto (iframe)'],
+            ['Domande al relatore', ev.domande === true ? 'accese' : 'spente']]
             .forEach(function (x) { info.appendChild(crea('span', {}, [crea('b', { testo: x[0] + ': ' }), document.createTextNode(x[1])])); });
     }
     M.archivio.ascolta('eventi/' + ID_EVENTO, aggiornaEvento);
@@ -285,6 +325,10 @@
         });
         copiabile($('gestore-email'), s.gestore.email);
         copiabile($('gestore-password'), s.gestore.password);
+        if (s.relatore) {
+            copiabile($('relatore-email'), s.relatore.email);
+            copiabile($('relatore-password'), s.relatore.password);
+        }
     }
 
     /* ---------------- posta di prova ---------------- */
@@ -324,10 +368,12 @@
         try { u = new URL(href); } catch (e) { return false; }
         var dest = u.origin === SITO ? paginaDa(u.pathname) : '';
         if (!dest) return false;
-        var perGestione = dest === 'gestione' || u.searchParams.get('per') === 'gestione';
-        var p = perGestione ? pannelli.gestione : pannelli.partecipante;
+        // il collegamento della password del relatore (&per=relatore) si apre nella sua scheda
+        var perRelatore = dest === 'relatore' || u.searchParams.get('per') === 'relatore';
+        var perGestione = !perRelatore && (dest === 'gestione' || u.searchParams.get('per') === 'gestione');
+        var p = perRelatore ? pannelli.relatore : (perGestione ? pannelli.gestione : pannelli.partecipante);
         monta(p, dest, u.search);
-        apriScheda(perGestione ? 'gestione' : 'partecipante');
+        apriScheda(perRelatore ? 'relatore' : (perGestione ? 'gestione' : 'partecipante'));
         return true;
     }
     function apriMessaggio(id) {
@@ -466,6 +512,7 @@
         aggiornaEvento();
         aggiornaChi();
         disegnaPosta();
+        contaDomande();
         var scheda = memoria.leggi('scheda');
         apriScheda(SCHEDE.indexOf(scheda) >= 0 ? scheda : 'guida');
     }, function () { /* il messaggio e' gia' nella preparazione */ });

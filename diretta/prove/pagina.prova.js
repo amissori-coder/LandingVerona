@@ -81,7 +81,7 @@
    non disponibile», niente iframe e nessuna richiesta a quel sito; il
    player che non risponde mai (/cloudtv/lento/): a 15 s l'avviso sotto
    il riquadro, «Ricarica il video» ricrea solo l'iframe; la CSP blocca
-   un iframe di qualunque altro sito (frame-src solo Azoto).
+   un iframe di qualunque altro sito (frame-src solo YouTube e Azoto).
 
    E I CASI DELLA REVISIONE (ognuno falliva prima delle correzioni):
    - un solo dispositivo, DUE contesti veri: A entra e segnala, B entra
@@ -797,8 +797,9 @@ function eventoIniziale(T) {
         await prova('la pagina ha la CSP e il viewport per iPhone (viewport-fit=cover)', async () => {
             const csp = await p.getAttribute('meta[http-equiv="Content-Security-Policy"]', 'content');
             vero(/script-src 'self' https:\/\/www\.gstatic\.com;/.test(csp) && /object-src 'none'/.test(csp), 'CSP mancante o diversa');
-            // negli iframe SOLO il player di Azoto; e nessuno script di Azoto (azoto-player.js non si carica)
-            vero(/(^|;)\s*frame-src https:\/\/cdn\.azotosolutions\.com;/.test(csp), 'frame-src: ' + (/frame-src[^;]*/.exec(csp) || [''])[0]);
+            // negli iframe SOLO i player da incorporare (YouTube, dal webinar del 10 dicembre, e Azoto); e nessuno script loro
+            vero(/(^|;)\s*frame-src https:\/\/www\.youtube-nocookie\.com https:\/\/cdn\.azotosolutions\.com;/.test(csp) && !/script-src[^;]*(youtube|azoto)/.test(csp),
+                'frame-src: ' + (/frame-src[^;]*/.exec(csp) || [''])[0]);
             const vp = await p.getAttribute('meta[name="viewport"]', 'content');
             vero(/viewport-fit=cover/.test(vp), 'viewport senza viewport-fit=cover');
             const inLinea = await p.evaluate(() => Array.from(document.scripts).filter(s => !s.src && s.type !== 'application/ld+json').length);
@@ -1689,7 +1690,7 @@ function eventoIniziale(T) {
             vero(!(await visibile(pa, '#avviso-lento')), 'l\'avviso resta con il player buono');
         });
 
-        await prova('modalità A: nessuna violazione della CSP e nessun errore; e la CSP blocca un iframe di un altro sito (frame-src solo Azoto)', async () => {
+        await prova('modalità A: nessuna violazione della CSP e nessun errore; e la CSP blocca un iframe di un altro sito (frame-src solo YouTube e Azoto)', async () => {
             vero((await pa.evaluate(() => window.__violazioniCsp)).length === 0, 'violazioni: ' + (await pa.evaluate(() => window.__violazioniCsp)).join(' | '));
             vero(pa.__erroriPagina.length === 0, 'errori: ' + pa.__erroriPagina.join(' | '));
             // un iframe verso un'altra pagina, messo qui dalla prova: il browser lo rifiuta senza nemmeno chiederla

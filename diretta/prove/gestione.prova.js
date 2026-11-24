@@ -419,19 +419,20 @@ async function sheetJSNode() {
             && !fs.existsSync(path.join(RADICE, 'diretta/nome-utente.js')),
             'si entra con l\'email: la gestione non carica più nome-utente.js (cancellato), non usa window.NGBNomeUtente e in nessun testo della pagina compare un «nome utente»');
         const cssGestione = fs.readFileSync(path.join(RADICE, 'diretta/gestione/gestione.css'), 'utf8');
-        // le vecchie piattaforme si scrivono a pezzi, per non comparire nelle ricerche (come in email-service/prove/diretta-video.prove.js)
-        const VECCHIE = new RegExp(['you' + 'tube', 'you' + 'tu\\.be', 'vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
+        /* le vecchie piattaforme si scrivono a pezzi, per non comparire nelle ricerche (come in email-service/prove/diretta-video.prove.js).
+           YouTube non e' piu' fra queste: dal webinar del 10 dicembre 2026 il suo player si incorpora come quello di Azoto (§13 del README) */
+        const VECCHIE = new RegExp(['vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
         vero(!VECCHIE.test(codiceGestione + htmlGestione + cssGestione),
-            'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva solo dalla web TV Azoto');
+            'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva da YouTube o dalla web TV Azoto');
         vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="\.\.\/player-azoto\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
             'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio), player-webtv.js e player-azoto.js (i player dei partecipanti, per l\'anteprima)');
         const cspGestione = (/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(htmlGestione) || [])[1] || '';
         const direttiva = nome => ((new RegExp('(?:^|;)\\s*' + nome + ' ([^;]*)').exec(cspGestione) || [])[1] || '').trim();
-        vero(direttiva('frame-src') === 'https://cdn.azotosolutions.com' && !/azotosolutions/.test(direttiva('script-src')),
-            'CSP della gestione: negli iframe solo il player di Azoto (frame-src https://cdn.azotosolutions.com); nessuno script di Azoto (azoto-player.js non si carica)', cspGestione);
+        vero(direttiva('frame-src') === 'https://www.youtube-nocookie.com https://cdn.azotosolutions.com' && !/azotosolutions|youtube/.test(direttiva('script-src')),
+            'CSP della gestione: negli iframe solo i player da incorporare, YouTube (youtube-nocookie) e Azoto; nessuno script loro (azoto-player.js non si carica)', cspGestione);
         const notaHtml = ((/<p class="aiuto nota-azoto">([^<]*)<\/p>/.exec(htmlGestione) || [])[1] || '').replace(/&#39;/g, '\'');
         vero(notaHtml === V.AVVISO_INCORPORATO && /SV\.AVVISO_INCORPORATO/.test(codiceGestione),
-            'la nota sotto il campo del player Azoto è quella di sorgente-video.js (AVVISO_INCORPORATO), e gestione.js la prende da lì: «' + V.AVVISO_INCORPORATO + '»', notaHtml);
+            'la nota sotto il campo del player YouTube o Azoto è quella di sorgente-video.js (AVVISO_INCORPORATO), e gestione.js la prende da lì: «' + V.AVVISO_INCORPORATO + '»', notaHtml);
         const codicePlayerAzoto = fs.readFileSync(path.join(RADICE, 'diretta/player-azoto.js'), 'utf8');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML|document\.write|srcdoc/.test(codicePlayerAzoto) && /document\.createElement\('iframe'\)/.test(codicePlayerAzoto),
             'player-azoto.js costruisce l\'iframe con document.createElement: niente innerHTML, document.write o srcdoc (l\'HTML incollato non entra mai nella pagina)');
@@ -489,7 +490,7 @@ async function sheetJSNode() {
         // lingua del sistema italiana: i campi data e ora del browser si mostrano
         // come li vede il gestore (14:30 e 02/10/2026, non 02:30 PM e 10/02/2026)
         browser = await chromium.launch({
-            executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--lang=it-IT'],
+            executablePath: ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p)), args: ['--lang=it-IT'],
             env: Object.assign({}, process.env, { LANG: 'it_IT.UTF-8', LANGUAGE: 'it', LC_ALL: 'it_IT.UTF-8' })
         });
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, locale: 'it-IT', timezoneId: 'Europe/Rome' });
@@ -875,8 +876,8 @@ async function sheetJSNode() {
         const flussoSpento = async () => await radioFlusso.isDisabled()
             && /\bspenta\b/.test(await $('#ev-tipo-player .opzione:has(input[value="flusso"])').getAttribute('class') || '');
         const testoTipoPlayer = (await testo('#ev-tipo-player')).replace(/\s+/g, ' ');
-        vero(await testo('#ev-tipo-player legend') === 'Tipo di player' && /Player Azoto \(iframe\) predefinito/.test(testoTipoPlayer) && /Flusso diretto \(\.m3u8\)/.test(testoTipoPlayer),
-            'la scheda Evento ha il campo «Tipo di player»: «Player Azoto (iframe)» (predefinito) e «Flusso diretto (.m3u8)»', testoTipoPlayer);
+        vero(await testo('#ev-tipo-player legend') === 'Tipo di player' && /Player YouTube o Azoto \(iframe\) predefinito/.test(testoTipoPlayer) && /Flusso diretto \(\.m3u8\)/.test(testoTipoPlayer),
+            'la scheda Evento ha il campo «Tipo di player»: «Player YouTube o Azoto (iframe)» (predefinito) e «Flusso diretto (.m3u8)»', testoTipoPlayer);
         vero(await radioAzoto.isChecked() && !(await radioFlusso.isChecked()), 'per un evento nuovo è scelto «Player Azoto (iframe)»');
         vero(await flussoSpento() && /^Si può scegliere quando c'è il link \.m3u8 del flusso/.test(await testo('#ev-tipo-flusso-nota')),
             '«Flusso diretto (.m3u8)» non si può scegliere senza il link del flusso, e lo dice: «' + await testo('#ev-tipo-flusso-nota') + '»');
@@ -1917,7 +1918,7 @@ async function sheetJSNode() {
         // vedi come un partecipante
         const [nuovaScheda] = await Promise.all([context.waitForEvent('page'), $('#btn-anteprima').click()]);
         await nuovaScheda.waitForLoadState('domcontentloaded').catch(() => {});
-        vero(/\/diretta\/\?anteprima=napoli-2026&emulatori=1$/.test(nuovaScheda.url()), '«Vedi come un partecipante» apre /diretta/?anteprima=napoli-2026 in una nuova scheda');
+        vero(/\/diretta\/\?anteprima=napoli-2026&emulatori=1$/.test(nuovaScheda.url()), '«Vedi come un partecipante» apre /diretta/?anteprima=napoli-2026 in una nuova scheda', nuovaScheda.url());
         if (fs.existsSync(path.join(RADICE, 'diretta/diretta.js'))) {
             // stessa app Firebase (nome predefinito) = stessa sessione: la pagina
             // dei partecipanti riconosce il gestore senza chiedere un nuovo accesso

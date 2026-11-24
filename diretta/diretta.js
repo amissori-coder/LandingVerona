@@ -331,6 +331,7 @@
         document.querySelectorAll('[data-vista-di]').forEach(el => { el.hidden = el.getAttribute('data-vista-di') !== nome; });
         aggiornaTestata();
         posizionaAvvisoConnessione();
+        posizionaDomande();
         if (nome !== 'diretta') esciSchermoIntero();
         if (cambiata) window.scrollTo(0, 0);
         if (opzioni && opzioni.fuoco) {
@@ -479,6 +480,7 @@
     function fermaTutto() {
         smettiDiAscoltare();
         fermaPresenza();
+        fermaDomande();
         fermaConto();
         clearInterval(stato.timerProgramma);
         stato.timerProgramma = null;
@@ -1071,6 +1073,7 @@
         else if (d.stato === 'pausa') mostraPausa(d, primaVolta);
         else if (d.stato === 'terminato') mostraFine(d, primaVolta);
         else mostraAttesa(d, primaVolta);
+        aggiornaDomande(d);
         aggiornaTestata();
     }
 
@@ -2534,6 +2537,318 @@
     }
 
     /* ---------------------------------------------------------------
+       DOMANDE AL RELATORE
+       ---------------------------------------------------------------
+       Se la regia ha acceso «Domande al relatore» per l'evento
+       (eventi.domande, scheda Evento della gestione), nelle viste
+       attesa, diretta e pausa compare il riquadro #carta-domande: uno
+       solo per la pagina, spostato nel posto (.posto-domande) della
+       vista aperta, cosi' il testo che si sta scrivendo resta anche
+       quando la regia mette in pausa o riprende. Dopo «Termina» sparisce.
+       Le domande vanno al servizio (api/diretta-domande, azione
+       'invia'): le leggono il relatore (/diretta/relatore/) e la regia,
+       MAI gli altri partecipanti. Firestore qui non c'entra: niente
+       regole nuove, niente ascolti in piu'.
+       Sotto il modulo chi scrive vede le PROPRIE domande ('mie', lette
+       una volta quando il riquadro compare) e, quando il relatore la
+       segna, «Il relatore ha risposto». Per saperlo la pagina rilegge
+       le sue domande ogni minuto circa, con partenze sparse a caso, SOLO
+       finche' ne ha qualcuna senza risposta: mille pagine aperte che non
+       hanno scritto niente non chiamano mai il servizio.
+       Una domanda ogni 8 secondi (il servizio lo impone: 429 'attendi'),
+       da 3 a 600 caratteri, al massimo 15 righe. Nell'anteprima del
+       gestore il riquadro si vede, ma da li' le domande non partono.
+       --------------------------------------------------------------- */
+    const VISTE_DOMANDE = ['attesa', 'diretta', 'pausa'];
+    const DOMANDA_MIN = 3;
+    const DOMANDA_MAX = 600;
+    const DOMANDA_RIGHE = 15;
+    const PAUSA_DOMANDE_S = 8;
+    const domande = {
+        idEvento: '',            // l'evento delle domande nel riquadro
+        attive: false,           // l'evento ha «Domande al relatore» acceso
+        aperte: false,           // si possono mandare (non dopo «Termina»)
+        mie: [],                 // le proprie domande: { id, testo, quando, risposta }
+        lette: false,            // 'mie' gia' letto per questo evento
+        inLettura: false,
+        inInvio: false,
+        attesaFino: 0,           // dopo un invio (o un 429) il pulsante aspetta fino a...
+        timerAttesa: null,
+        timerRilettura: null
+    };
+
+    // il testo come lo pulisce il servizio (lib/diretta-domande.js, pulisci)
+    function pulisciDomanda(v) {
+        return String(v == null ? '' : v).replace(/\r\n?/g, '\n')
+            .replace(/[\u0000-\u0008\u000b-\u001f\u007f\u2028\u2029]/g, ' ')
+            .split('\n').map(r => r.replace(/[ \t\u00a0]+/g, ' ').trim()).join('\n')
+            .replace(/\n{3,}/g, '\n\n').trim();
+    }
+    function esitoDomanda(t, tipo) { msg('esito-domanda', t, tipo); }
+
+    function azzeraDomande() {
+        clearTimeout(domande.timerRilettura);
+        clearTimeout(domande.timerAttesa);
+        domande.timerRilettura = null;
+        domande.timerAttesa = null;
+        domande.idEvento = '';
+        domande.attive = false;
+        domande.aperte = false;
+        domande.mie = [];
+        domande.lette = false;
+        domande.attesaFino = 0;
+        const campo = $('testo-domanda');
+        if (campo) campo.value = '';
+        if ($('esito-domanda')) {
+            esitoDomanda('');
+            aggiornaContaDomanda();
+            disegnaMie();
+            aggiornaBottoneDomanda();
+            posizionaDomande();
+        }
+    }
+    // fine della sessione (uscita, cambio di persona): via anche il testo che si stava scrivendo
+    function fermaDomande() { azzeraDomande(); }
+
+    // da aggiornaEvento: ogni aggiornamento del documento dell'evento
+    function aggiornaDomande(d) {
+        if (domande.idEvento !== stato.idEvento) { azzeraDomande(); domande.idEvento = stato.idEvento; }
+        const prima = domande.aperte;
+        domande.attive = !!d && d.domande === true;
+        domande.aperte = domande.attive && d.stato !== 'terminato';
+        if (domande.attive && !domande.lette && !stato.anteprima) primaLetturaMie();
+        if (stato.anteprima) esitoDomanda('Anteprima: da qui le domande non partono. I partecipanti le scrivono in questo riquadro.', 'info');
+        else if (prima && !domande.aperte && domande.attive) esitoDomanda('La diretta è terminata: le domande sono chiuse.', 'info');
+        aggiornaBottoneDomanda();
+        posizionaDomande();
+        programmaRilettura();
+    }
+
+    // il riquadro nel posto della vista aperta (da mostraVista e da aggiornaDomande)
+    function posizionaDomande() {
+        const carta = $('carta-domande');
+        if (!carta) return;
+        const posto = document.querySelector('#vista-' + vista + ' [data-posto-domande]');
+        const visibile = !!posto && domande.attive && !!stato.idEvento && VISTE_DOMANDE.indexOf(vista) >= 0;
+        document.querySelectorAll('[data-posto-domande]').forEach(p => { p.hidden = !(visibile && p === posto); });
+        if (visibile && carta.parentNode !== posto) {
+            // spostato, l'elemento con il fuoco lo perderebbe: lo si rimette
+            const conFuoco = carta.contains(document.activeElement) ? document.activeElement : null;
+            posto.appendChild(carta);
+            if (conFuoco) { try { conFuoco.focus({ preventScroll: true }); } catch (e) { conFuoco.focus(); } }
+        }
+        carta.hidden = !visibile;
+        if (!visibile) { clearTimeout(domande.timerRilettura); domande.timerRilettura = null; }
+    }
+
+    function aggiornaContaDomanda() {
+        const campo = $('testo-domanda');
+        const n = pulisciDomanda(campo ? campo.value : '').length;
+        const el = $('conta-domanda');
+        if (!el) return;
+        el.textContent = n + '/' + DOMANDA_MAX;
+        if (n > DOMANDA_MAX) el.setAttribute('data-troppo', ''); else el.removeAttribute('data-troppo');
+    }
+    function aggiornaBottoneDomanda() {
+        const b = $('btn-invia-domanda');
+        const campo = $('testo-domanda');
+        if (!b || !campo) return;
+        const resto = Math.ceil((domande.attesaFino - Date.now()) / 1000);
+        const chiuso = !domande.aperte || stato.anteprima;
+        campo.disabled = chiuso;
+        b.disabled = chiuso || domande.inInvio || resto > 0;
+        testo('btn-invia-domanda-testo', domande.inInvio ? 'Invio in corso…' : (resto > 0 ? 'Puoi inviarne un\'altra tra ' + resto + ' s' : 'Invia la domanda'));
+    }
+    // il pulsante aspetta qualche secondo (come il servizio), con il conto alla rovescia
+    function attesaDomanda(secondi) {
+        domande.attesaFino = Date.now() + Math.max(1, Math.min(120, Number(secondi) || PAUSA_DOMANDE_S)) * 1000;
+        clearTimeout(domande.timerAttesa);
+        const giro = () => {
+            aggiornaBottoneDomanda();
+            domande.timerAttesa = Date.now() < domande.attesaFino ? setTimeout(giro, 1000) : null;
+        };
+        giro();
+    }
+
+    function oraDi(ms) {
+        if (!ms) return '';
+        try { return new Date(ms).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); }
+        catch (e) { return ''; }
+    }
+    // le proprie domande, la piu' recente in cima; solo testo (textContent)
+    function disegnaMie() {
+        const el = $('elenco-mie');
+        if (!el) return;
+        el.textContent = '';
+        const elenco = domande.mie.slice().sort((a, b) => (b.quando || 0) - (a.quando || 0));
+        elenco.forEach(d => {
+            const li = document.createElement('li');
+            li.className = 'mia-domanda';
+            li.setAttribute('data-risposta', d.risposta ? '1' : '0');
+            const t = document.createElement('p');
+            t.className = 'mia-testo';
+            t.textContent = d.testo;
+            const s = document.createElement('p');
+            s.className = 'mia-stato';
+            const ora = oraDi(d.quando);
+            const inviata = document.createElement('span');
+            inviata.textContent = ora ? 'Inviata alle ' + ora : 'Inviata';
+            s.appendChild(inviata);
+            if (d.risposta) {
+                const r = document.createElement('span');
+                r.className = 'mia-risposta';
+                r.textContent = 'Il relatore ha risposto';
+                s.appendChild(r);
+            }
+            li.appendChild(t);
+            li.appendChild(s);
+            el.appendChild(li);
+        });
+        mostra('blocco-mie', elenco.length > 0);
+    }
+    function domandaValida(d) {
+        return !!d && typeof d.id === 'string' && typeof d.testo === 'string' && d.testo.length <= 2000;
+    }
+
+    // al servizio delle domande con il token; un 401 (token scaduto) si riprova una volta con un token nuovo
+    async function chiamaDomande(dati) {
+        const u = fb.auth && fb.auth.currentUser;
+        if (!u) return { ok: false, codice: 'non-autenticato', statoHttp: 401 };
+        let token;
+        try { token = await u.getIdToken(); } catch (e) { return { ok: false, codice: 'rete', statoHttp: 0 }; }
+        let r = await chiamaServizio(dati, token, 'diretta-domande');
+        if (r.statoHttp === 401) {
+            try { token = await u.getIdToken(true); } catch (e) { return r; }
+            r = await chiamaServizio(dati, token, 'diretta-domande');
+        }
+        return r;
+    }
+
+    /* La prima lettura delle proprie domande parte dopo un ritardo a caso
+       fino a 15 secondi: se la regia accende le domande in piena diretta,
+       o se mille persone ricaricano la pagina insieme, il servizio non
+       riceve mille chiamate nello stesso secondo. Chi manda una domanda
+       prima la vede subito comunque (la risposta di 'invia'). */
+    function primaLetturaMie() {
+        if (domande.timerRilettura || domande.inLettura) return;
+        domande.timerRilettura = setTimeout(() => { domande.timerRilettura = null; leggiMie(); }, casuale(Math.min(15000, tempiDomande().rilettura)));
+    }
+    // ogni quanto si rileggono le proprie domande: 45-75 s; piu' spesso solo in modalita' prove (config.js)
+    function tempiDomande() {
+        const p = (CFG && CFG.prove) || null;
+        const r = p && p.rileggiDomandeMs != null && isFinite(p.rileggiDomandeMs) ? Math.max(1000, Number(p.rileggiDomandeMs)) : 45000;
+        return { rilettura: r, aCaso: Math.round(r * 2 / 3) };
+    }
+
+    async function leggiMie() {
+        if (domande.inLettura || stato.anteprima || !domande.idEvento) return;
+        const gen = stato.generazione;
+        const id = domande.idEvento;
+        domande.inLettura = true;
+        let r;
+        try {
+            r = await chiamaDomande({ azione: 'mie', idEvento: id, sessione: sessioneDispositivo() });
+        } finally {
+            domande.inLettura = false;
+        }
+        if (gen !== stato.generazione || id !== domande.idEvento) return;
+        if (r && r.ok && Array.isArray(r.domande)) {
+            domande.mie = r.domande.filter(domandaValida).slice(-200);
+            domande.lette = true;
+            disegnaMie();
+        } else if (r && r.codice === 'disattivato') {
+            await esciConMessaggio('disattivato');
+            return;
+        }
+        programmaRilettura();
+    }
+
+    /* Quando rileggere le proprie domande: solo con il riquadro a vista e
+       qualche domanda ancora senza risposta (o la prima lettura non
+       riuscita), fra 45 e 75 secondi. Un timer gia' in corso non si
+       sposta: gli aggiornamenti dell'evento non lo rimandano all'infinito. */
+    function programmaRilettura() {
+        if (domande.timerRilettura) return;
+        const aVista = domande.attive && VISTE_DOMANDE.indexOf(vista) >= 0 && !stato.anteprima;
+        const senzaRisposta = domande.mie.some(d => !d.risposta);
+        if (!aVista || (domande.lette && !senzaRisposta)) return;
+        const t = tempiDomande();
+        domande.timerRilettura = setTimeout(() => {
+            domande.timerRilettura = null;
+            if (document.hidden) { programmaRilettura(); return; }
+            leggiMie();
+        }, t.rilettura + casuale(t.aCaso));
+    }
+
+    async function inviaDomanda() {
+        if (domande.inInvio || stato.anteprima || !domande.aperte || !domande.idEvento) return;
+        const campo = $('testo-domanda');
+        const t = pulisciDomanda(campo.value);
+        if (t.length < DOMANDA_MIN) { esitoDomanda('Scrivi la tua domanda prima di inviarla.', 'errore'); campo.focus(); return; }
+        if (t.length > DOMANDA_MAX) { esitoDomanda('La domanda è troppo lunga: al massimo ' + DOMANDA_MAX + ' caratteri.', 'errore'); campo.focus(); return; }
+        if (t.split('\n').length > DOMANDA_RIGHE) { esitoDomanda('La domanda ha troppi a capo: scrivila in meno righe.', 'errore'); campo.focus(); return; }
+        if (Date.now() < domande.attesaFino) return;
+        const gen = stato.generazione;
+        const id = domande.idEvento;
+        domande.inInvio = true;
+        esitoDomanda('');
+        aggiornaBottoneDomanda();
+        let r;
+        try {
+            r = await chiamaDomande({ azione: 'invia', idEvento: id, testo: t, sessione: sessioneDispositivo() });
+        } finally {
+            domande.inInvio = false;
+        }
+        if (gen !== stato.generazione || id !== domande.idEvento) return;
+        if (r.ok && domandaValida(r.domanda)) {
+            // il testo si toglie solo se nel frattempo non e' cambiato
+            if (pulisciDomanda(campo.value) === t) campo.value = '';
+            aggiornaContaDomanda();
+            domande.mie.push(r.domanda);
+            disegnaMie();
+            esitoDomanda('Domanda inviata: la riceve il relatore.', 'ok');
+            attesaDomanda(PAUSA_DOMANDE_S);
+            programmaRilettura();
+            return;
+        }
+        const c = r.codice;
+        if (c === 'attendi') {
+            attesaDomanda(r.attesaSecondi);
+            esitoDomanda('Stai mandando domande troppo in fretta: aspetta qualche secondo e riprova.', 'info');
+        } else if (c === 'domande-chiuse' || c === 'domande-spente') {
+            domande.aperte = false;
+            esitoDomanda(c === 'domande-chiuse' ? 'La diretta è terminata: le domande sono chiuse.' : 'Le domande al relatore non sono attive per questa diretta.', 'info');
+        } else if (c === 'disattivato') {
+            await esciConMessaggio('disattivato');
+            return;
+        } else if (c === 'testo' || c === 'altro-dispositivo' || c === 'non-iscritto') {
+            esitoDomanda(String(r.msg || 'Non è stato possibile inviare la domanda.'), 'errore');
+        } else if (c === 'non-autenticato') {
+            esitoDomanda('La sessione è scaduta: ricarica la pagina e accedi di nuovo. Il testo della domanda è rimasto qui.', 'errore');
+        } else {
+            esitoDomanda('Non è stato possibile inviare la domanda: controlla la connessione e riprova. Il testo è rimasto qui.', 'errore');
+        }
+        aggiornaBottoneDomanda();
+    }
+
+    function preparaDomande() {
+        const modulo = $('modulo-domanda');
+        if (!modulo) return;
+        modulo.addEventListener('submit', e => { e.preventDefault(); inviaDomanda(); });
+        $('testo-domanda').addEventListener('input', () => {
+            aggiornaContaDomanda();
+            if ($('esito-domanda').getAttribute('data-tipo') === 'errore') esitoDomanda('');
+        });
+        // Ctrl+Invio (Cmd+Invio sul Mac) manda la domanda; Invio da solo va a capo
+        $('testo-domanda').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); inviaDomanda(); }
+        });
+        // tornando sulla pagina: se il timer e' scaduto mentre era nascosta, si rilegge
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) programmaRilettura(); });
+        aggiornaContaDomanda();
+    }
+
+    /* ---------------------------------------------------------------
        PRESENZA (il contatore dei collegati e i minuti per gli attestati)
        ---------------------------------------------------------------
        Un documento per persona e per evento, presenze/{idEvento}_{uid},
@@ -2980,6 +3295,7 @@
         preparaModuli();
         preparaComandi();
         preparaRete();
+        preparaDomande();
         $('btn-esci').addEventListener('click', async () => {
             if (stato.anteprima) { chiudiAnteprima(); return; }
             // il gestore entrato qui (vista 'gestore') condivide la sessione con la gestione
@@ -3009,7 +3325,7 @@
        REIMPOSTAZIONE DELLA PASSWORD (/diretta/reimposta.html)
        ---------------------------------------------------------------
        Il collegamento arriva per email: reimposta.html?oobCode=...
-       (&per=gestione per i gestori). Il collegamento non porta l'email della
+       (&per=gestione per i gestori, &per=relatore per i relatori). Il collegamento non porta l'email della
        persona (niente indirizzi negli URL) e l'email tecnica dietro
        l'account, quella che conosce Firebase, non si vede mai (DECISIONI
        D1): il campo «Email» riprende l'ultima email usata su questo
@@ -3021,9 +3337,14 @@
         preparaAssistenza();
         const par = new URLSearchParams(location.search);
         const oob = par.get('oobCode') || '';
-        const perGestione = par.get('per') === 'gestione';
-        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/';
-        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1';
+        /* &per=gestione (i gestori) e &per=relatore (i relatori): tutti e due
+           entrano con la loro email vera, scritta nel collegamento; cambia
+           solo la pagina a cui si torna. */
+        const perRelatore = par.get('per') === 'relatore';
+        const perGestione = par.get('per') === 'gestione' || perRelatore;
+        const paginaAccount = perRelatore ? '/diretta/relatore/' : '/diretta/gestione/';
+        const destinazione = perGestione ? paginaAccount : '/diretta/';
+        const nuovoCollegamento = perGestione ? paginaAccount : '/diretta/?dimenticata=1';
 
         function avviso(t, tipo) { msg('msg-reimposta', t, tipo); }
         function mostraScaduto() {
@@ -3035,7 +3356,7 @@
             a.hidden = false;
         }
 
-        $('link-reimposta-accesso').setAttribute('href', perGestione ? '/diretta/gestione/' : '/diretta/');
+        $('link-reimposta-accesso').setAttribute('href', perGestione ? paginaAccount : '/diretta/');
         $('btn-mostra-nuova').addEventListener('click', () => {
             const b = $('btn-mostra-nuova');
             const visibili = b.getAttribute('aria-pressed') !== 'true';
@@ -3084,8 +3405,8 @@
         } else {
             campoEmail.value = emailRicordata();
         }
-        testo('reimposta-sottotitolo', perGestione ? 'La userai per entrare nella gestione della diretta.'
-            : 'La userai per entrare nella diretta, insieme alla tua email.');
+        testo('reimposta-sottotitolo', perRelatore ? 'La userai per entrare nella pagina del relatore.'
+            : (perGestione ? 'La userai per entrare nella gestione della diretta.' : 'La userai per entrare nella diretta, insieme alla tua email.'));
         mostra('form-reimposta', true);
         try { $('campo-nuova').focus({ preventScroll: true }); } catch (e) { /* niente */ }
 
@@ -3116,11 +3437,12 @@
             testo('reimposta-sottotitolo', 'Password salvata.');
             const vai = $('link-dopo-reimposta');
             vai.setAttribute('href', destinazione);
-            testo(vai, perGestione ? 'Vai alla gestione' : 'Vai alla diretta');
+            testo(vai, perRelatore ? 'Vai alla pagina del relatore' : (perGestione ? 'Vai alla gestione' : 'Vai alla diretta'));
 
             const emailPersona = perGestione ? '' : emailPulita(campoEmail.value);
             if (perGestione || !emailPersona) {
-                avviso(perGestione ? 'Ora puoi entrare nella gestione con la nuova password.' : 'Ora puoi entrare nella diretta con la tua email e la nuova password.', 'ok');
+                avviso(perRelatore ? 'Ora puoi entrare nella pagina del relatore con la nuova password.'
+                    : (perGestione ? 'Ora puoi entrare nella gestione con la nuova password.' : 'Ora puoi entrare nella diretta con la tua email e la nuova password.'), 'ok');
                 mostra('link-dopo-reimposta', true);
                 return;
             }

@@ -344,6 +344,11 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .opzione.spenta { cursor: not-allowed; }
 .opzione.spenta strong { color: var(--tenue-2); }
 
+/* i relatori dell'evento, sotto «Domande al relatore» */
+.campo-relatori { padding: 10px 4px 12px 34px; border-bottom: 1px solid var(--sfondo); }
+.campo-relatori textarea { min-height: 64px; font-family: inherit; }
+.campo-relatori .aiuto { margin-top: 6px; }
+
 /* il tipo di player e i due riquadri del video (Azoto, flusso diretto) */
 .tipo-player { margin-top: 0; min-width: 0; }
 .tipo-player[data-errore="si"] { border-color: var(--rosso); background: #FFFBFB; }
@@ -460,6 +465,26 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 #dialogo-azzera .campo { margin-top: 12px; }
 #azzera-parola { text-transform: uppercase; letter-spacing: .08em; }
 .regia-connessi { text-align: center; }
+
+/* Regia: le domande al relatore (le stesse della pagina del relatore) */
+.regia-domande-testa { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.regia-domande[data-spente="1"] .regia-dettaglio { color: var(--ambra); font-weight: 600; }
+.filtri-domande { display: inline-flex; margin: 10px 0 12px; border: 1.5px solid var(--su-scuro); border-radius: var(--raggio-btn); overflow: hidden; }
+.filtro-domande { border: 0; background: #fff; color: var(--blu); font-weight: 700; font-size: 0.85rem; padding: 7px 12px; min-height: 38px; }
+.filtro-domande + .filtro-domande { border-left: 1.5px solid var(--su-scuro); }
+.filtro-domande[aria-pressed="true"] { background: var(--blu); color: #fff; }
+.filtro-domande .filtro-numero { font-weight: 800; margin-left: 4px; }
+.regia-elenco-domande { list-style: none; display: grid; gap: 10px; max-height: 520px; overflow-y: auto; padding-right: 2px; }
+.regia-domanda { border: 1px solid var(--bordo); border-left: 4px solid var(--accento); border-radius: var(--raggio); padding: 10px 12px; background: #fff; }
+.regia-domanda.risposta { border-left-color: var(--verde); background: #F6FBF8; }
+.regia-domanda-chi { font-size: 0.8rem; color: var(--tenue); overflow-wrap: anywhere; }
+.regia-domanda-chi strong { color: var(--blu); }
+.regia-domanda-testo { margin: 4px 0 8px; white-space: pre-line; overflow-wrap: anywhere; color: var(--testo); }
+.regia-domanda.risposta .regia-domanda-testo { color: var(--tenue); }
+.regia-domanda-piede { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.regia-domanda-esito { font-size: 0.8rem; font-weight: 700; color: var(--verde); }
+.btn-segna-domanda { margin-left: auto; }
+.regia-domande-vuoto { padding: 14px; text-align: center; color: var(--tenue); background: var(--chiaro); border-radius: var(--raggio); }
 .regia-avviso textarea { min-height: 64px; }
 .regia-avviso .azioni { margin-top: 10px; }
 .video-anteprima { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
@@ -984,8 +1009,9 @@ tr.riga-nota { background: var(--blu-velo); }
     .regia-stato-riquadro { order: 1; }
     .regia-connessi { order: 2; }
     .regia-video-riquadro { order: 3; }
-    .regia-avviso { order: 4; }
-    .regia-anteprima { order: 5; }
+    .regia-domande { order: 4; }
+    .regia-avviso { order: 5; }
+    .regia-anteprima { order: 6; }
 }
 @media (max-width: 900px) {
     .testata-riga { padding: 10px 16px; gap: 10px 14px; }
