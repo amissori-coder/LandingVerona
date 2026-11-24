@@ -75,7 +75,7 @@ fs.mkdirSync(DEST, { recursive: true });
    l'Azoto vero; ora lo segue instradaAzoto, e questa e' la rete di
    sicurezza). */
 const LANCIO = {
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    executablePath: ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p)),
     args: ['--no-proxy-server', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost']
 };
 

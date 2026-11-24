@@ -12,9 +12,17 @@
    COSA DIMOSTRANO.
    - La copia del servizio e' identica a quella del sito
      (diretta/sorgente-video.js); HOST_AZOTO e' uno solo, in un solo
-     posto; non c'e' piu' nessuna traccia della vecchia piattaforma
-     video (il suo nome qui si scrive a pezzi, per non comparire nelle
-     ricerche) nelle funzioni, nelle librerie e nelle prove del servizio.
+     posto. YOUTUBE e' tornato dal webinar del 10 dicembre 2026, ma solo
+     come player incorporato: l'indirizzo del player di YouTube
+     (youtube-nocookie) si scrive in un solo posto, YOUTUBE_EMBED, e il
+     valore si ricostruisce sempre dall'identificativo del video; nelle
+     funzioni del servizio nessuno costruisce indirizzi di YouTube per
+     conto suo.
+   - YOUTUBE. Il link del video, della diretta, il link corto, quello
+     del telefono e il codice «Incorpora» diventano tutti lo stesso
+     player (youtube-nocookie.com/embed/<id>, con i nostri parametri);
+     un canale, una playlist, un identificativo sbagliato, http o
+     un'altra porta no; i parametri incollati non passano.
    - IL PLAYER DI AZOTO. Dal codice vero di Azoto (virgolette singole,
      <div>, <iframe>, <script>) si prende SOLO l'indirizzo del primo
      iframe. Il codice malevolo non passa mai: <script>, onload=,
@@ -62,19 +70,23 @@ const AZOTO_30 = 'https://cdn.azotosolutions.com/cloudtv/livetv92/player';
 // il codice che Azoto ha dato, cosi' com'e' (virgolette singole)
 const CODICE_AZOTO = "<div class='azoto-player-container'>\n<iframe src='https://cdn.azotosolutions.com/cloudtv/livetv91/player' frameborder='0' scrolling='no' allowfullscreen></iframe>\n</div>\n<script src='https://azotosolutions.com/videojs/azoto-player.js'></script>";
 const HLS = 'https://webtv.esempio.it/live/napoli/playlist.m3u8';
+// il player di YouTube, come lo ricostruisce sorgente-video.js
+const YT = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1&rel=0';
 const HLS_RISERVA = 'https://riserva.webtv.esempio.it/live/napoli/playlist.m3u8';
 
 /* ---------- la copia del servizio e' la stessa del sito ---------- */
 const sito = fs.readFileSync(path.resolve(__dirname, '../../diretta/sorgente-video.js'), 'utf8');
 const servizio = fs.readFileSync(path.resolve(__dirname, '../lib/diretta-sorgente-video.js'), 'utf8');
 vero(sito === servizio, 'email-service/lib/diretta-sorgente-video.js e\' identica a diretta/sorgente-video.js (si modifica il sito e si ricopia)');
-const VECCHIA = new RegExp('you' + 'tu', 'i');
-vero(!VECCHIA.test(sito), 'nessuna traccia della vecchia piattaforma video in sorgente-video.js');
+/* YouTube: l'indirizzo del suo player in un solo posto (YOUTUBE_EMBED), e
+   nessuna funzione del servizio che costruisca indirizzi di YouTube da se'. */
+const codiceSito = sito.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+vero(V.YOUTUBE_EMBED === 'www.youtube-nocookie.com' && (codiceSito.match(/www\.youtube-nocookie\.com/g) || []).length === 1,
+    'il player di YouTube (www.youtube-nocookie.com) si scrive una volta sola, in YOUTUBE_EMBED');
 const cartella = c => fs.readdirSync(path.resolve(__dirname, c)).filter(f => /^diretta-.*\.js$/.test(f)).map(f => path.resolve(__dirname, c, f));
-const fileDiretta = cartella('../lib').concat(cartella('../api'), cartella('.'),
-    [path.resolve(__dirname, '../../diretta/prove/accesso.prova.js'), path.resolve(__dirname, '../../diretta/prove/regole.prova.js')]);
-const conVecchia = fileDiretta.filter(f => VECCHIA.test(fs.readFileSync(f, 'utf8'))).map(f => path.basename(f));
-vero(conVecchia.length === 0, 'nessuna traccia della vecchia piattaforma video nelle funzioni, nelle librerie e nelle prove della diretta: ' + conVecchia.join(', '));
+const fileServizio = cartella('../lib').concat(cartella('../api')).filter(f => !/diretta-sorgente-video\.js$/.test(f));
+const conYouTube = fileServizio.filter(f => /youtube(-nocookie)?\.com\/(embed|watch)|youtu\.be\//i.test(fs.readFileSync(f, 'utf8'))).map(f => path.basename(f));
+vero(conYouTube.length === 0, 'nessuna funzione del servizio costruisce da se\' indirizzi di YouTube (li fa solo sorgente-video.js): ' + conYouTube.join(', '));
 
 /* ---------- HOST_AZOTO: uno solo, in un solo posto ---------- */
 vero(JSON.stringify(V.HOST_AZOTO) === '["cdn.azotosolutions.com"]' && Object.isFrozen(V.HOST_AZOTO), 'HOST_AZOTO = [\'cdn.azotosolutions.com\'] (e non si puo\' allungare da fuori)');
@@ -104,7 +116,18 @@ const buoni = [
     ["<IFRAME SRC='" + AZOTO + "'></IFRAME>", 'incorporato', AZOTO],
     ['<div style="padding:56% 0 0"><iframe src=' + AZOTO + ' allow="autoplay"></iframe></div>', 'incorporato', AZOTO],
     ['<iframe\n  src = "' + AZOTO + '"\n></iframe>', 'incorporato', AZOTO],
-    ['<iframe/src=' + AZOTO + '>', 'incorporato', AZOTO]
+    ['<iframe/src=' + AZOTO + '>', 'incorporato', AZOTO],
+    // YouTube: tutto diventa lo stesso player, ricostruito dall'identificativo
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'incorporato', YT],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s&list=PLx', 'incorporato', YT],
+    ['https://youtube.com/watch?feature=share&v=dQw4w9WgXcQ', 'incorporato', YT],
+    ['https://m.youtube.com/watch?v=dQw4w9WgXcQ', 'incorporato', YT],
+    ['https://youtu.be/dQw4w9WgXcQ?si=AbCdEf', 'incorporato', YT],
+    ['https://www.youtube.com/live/dQw4w9WgXcQ?si=AbCdEf', 'incorporato', YT],
+    ['https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&controls=0', 'incorporato', YT],
+    ['https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'incorporato', YT],
+    [YT, 'incorporato', YT],
+    ['<iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=Zz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>', 'incorporato', YT]
 ];
 buoni.forEach(([testo, tipo, valore]) => {
     const r = V.leggi(testo);
@@ -175,7 +198,37 @@ host.forEach(([testo, errore]) => {
     const r = V.leggi(testo);
     vero(r && r.errore === errore, 'host non consentito (' + errore + '): ' + testo.slice(0, 80) + ' -> ' + JSON.stringify(r));
 });
-vero(/solo un indirizzo https di cdn\.azotosolutions\.com/.test(V.messaggio({ errore: 'non-azoto' })), 'messaggio non-azoto: «' + V.messaggio({ errore: 'non-azoto' }) + '»');
+vero(/un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/.test(V.messaggio({ errore: 'non-azoto' })), 'messaggio non-azoto: «' + V.messaggio({ errore: 'non-azoto' }) + '»');
+
+/* ---------- YouTube: solo un video, e solo dal player ricostruito ---------- */
+[
+    ['https://www.youtube.com/', 'youtube'],
+    ['https://www.youtube.com/@NextGenerationBusiness/live', 'youtube'],
+    ['https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv', 'youtube'],
+    ['https://www.youtube.com/playlist?list=PL0123456789', 'youtube'],
+    ['https://www.youtube.com/watch?v=troppo-corto', 'youtube'],
+    ['https://youtu.be/dQw4w9WgXcQ!!', 'youtube'],
+    ['https://www.youtube.com/embed/dQw4w9WgXcQ/../../ladro', 'youtube'],
+    ['http://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https'],
+    ['https://www.youtube.com:8443/watch?v=dQw4w9WgXcQ', 'non-azoto'],
+    ['https://youtube.com.ladro.it/watch?v=dQw4w9WgXcQ', 'non-azoto'],
+    ['https://ladro.it/youtube.com/watch?v=dQw4w9WgXcQ', 'non-azoto'],
+    ['https://utente:pw@www.youtube.com/watch?v=dQw4w9WgXcQ', 'credenziali'],
+    ["<iframe src='javascript:alert(1)'></iframe><iframe src='https://youtu.be/dQw4w9WgXcQ'></iframe>", 'formato']
+].forEach(([testo, errore]) => {
+    const r = V.leggi(testo);
+    vero(r && r.errore === errore, 'YouTube non accettato (' + errore + '): ' + testo.slice(0, 80) + ' -> ' + JSON.stringify(r));
+});
+vero(/non porta a un video/.test(V.messaggio({ errore: 'youtube' })), 'messaggio youtube: «' + V.messaggio({ errore: 'youtube' }) + '»');
+{
+    const r = V.leggi('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    vero(r.youtube === true && V.messaggio(r) === 'Video YouTube: si vede dentro la nostra pagina con i comandi di YouTube.', 'un video YouTube si riconosce e lo si dice: «' + V.messaggio(r) + '»');
+    vero(V.eYouTube(YT) && V.eAzoto(YT) && !V.eYouTube(AZOTO) && V.eAzoto(AZOTO) && !V.eYouTube('https://www.youtube.com/watch?v=dQw4w9WgXcQ<x>'),
+        'eYouTube solo per il player di YouTube; eAzoto (player da incorporare) per YouTube e per Azoto');
+    vero(V.perAzoto('https://youtu.be/dQw4w9WgXcQ').valore === YT && V.perFlusso('https://youtu.be/dQw4w9WgXcQ').errore === 'e-azoto',
+        'il link di YouTube va nel campo del player incorporato, non in quello del flusso');
+    vero(V.leggi(YT).valore === YT && V.tipoDi(YT) === 'incorporato', 'il valore salvato si rilegge uguale (idempotente)');
+}
 
 /* ---------- quello che si rifiuta, con il motivo ---------- */
 const cattivi = [
@@ -226,7 +279,7 @@ vero(V.tipoDi('') === '' && V.tipoDi('abcdefghijk') === '' && V.tipoDi('http://x
     vero(h && h.tipo === 'hls' && h.valore === HLS && V.perFlusso('https://dash.webtv.it/live/manifest.mpd').tipo === 'dash', 'perFlusso: HLS e DASH');
     vero(V.perFlusso('') === null, 'perFlusso: vuoto -> null');
     const z = V.perFlusso(AZOTO);
-    vero(z && z.errore === 'e-azoto' && V.messaggio(z) === 'Questo è l\'indirizzo del player Azoto: va nel campo «Player Azoto».', 'perFlusso: l\'indirizzo di Azoto -> e-azoto «' + V.messaggio(z) + '»');
+    vero(z && z.errore === 'e-azoto' && V.messaggio(z) === 'Questo è il link di un player da incorporare (YouTube o Azoto): va nel campo «Player YouTube o Azoto».', 'perFlusso: l\'indirizzo di Azoto -> e-azoto «' + V.messaggio(z) + '»');
     vero(V.perFlusso(CODICE_AZOTO).errore === 'e-azoto', 'perFlusso: il codice di Azoto -> e-azoto');
     const p = V.perFlusso('https://player.webtv.it/embed/1');
     vero(p && p.errore === 'non-flusso' && /\.m3u8/.test(V.messaggio(p)), 'perFlusso: la pagina di un altro sito -> non-flusso «' + V.messaggio(p) + '»');
@@ -241,7 +294,7 @@ vero(V.tipoDi('') === '' && V.tipoDi('abcdefghijk') === '' && V.tipoDi('http://x
 vero(/nostro player/.test(V.descrizione('hls')) && /senza loghi/.test(V.descrizione('hls')), 'descrizione HLS: «' + V.descrizione('hls') + '»');
 vero(/DASH/.test(V.descrizione('dash')) && V.descrizione('incorporato') === 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.' && V.descrizione('altro') === '',
     'descrizioni DASH e del player Azoto, niente per un tipo sconosciuto');
-vero(V.AVVISO_INCORPORATO === 'Con il player Azoto restano i comandi (e l\'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.',
+vero(V.AVVISO_INCORPORATO === 'Con il player incorporato (YouTube o Azoto) restano i suoi comandi e il suo logo: per usare i nostri comandi serve il link .m3u8 di un flusso diretto.',
     'AVVISO_INCORPORATO informativo, come da contratto');
 vero(!/ripiego/i.test(sito.replace(/\/\*[\s\S]*?\*\//g, '')), 'il player di Azoto non e\' piu\' un "ripiego" (e\' la modalita\' predefinita)');
 vero(V.messaggio(V.leggi(HLS)) === V.descrizione('hls') && V.messaggio(V.leggi(AZOTO)) === V.descrizione('incorporato'), 'messaggio di un link valido: la sua descrizione');
@@ -317,8 +370,8 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
             ['https://utente:pw@webtv.it/a.m3u8', /password/], ['https://127.0.0.1/live.m3u8', /interno o privato/],
             ['https://10.1.2.3/live.m3u8', /interno o privato/], ['https://169.254.169.254/latest/meta-data', /non è il link di un flusso diretto/],
             ['https://[::1]/live.m3u8', /interno o privato/],
-            [AZOTO, /^Questo è l'indirizzo del player Azoto: va nel campo «Player Azoto»\.$/],
-            [CODICE_AZOTO, /va nel campo «Player Azoto»/],
+            [AZOTO, /^Questo è il link di un player da incorporare \(YouTube o Azoto\): va nel campo «Player YouTube o Azoto»\.$/],
+            [CODICE_AZOTO, /va nel campo «Player YouTube o Azoto»/],
             ['https://player.webtv.it/embed/1', /non è il link di un flusso diretto/]
         ].forEach(([l, m]) => {
             const x = (() => { try { D.leggiVideo(l, ''); return null; } catch (y) { return y; } })();
@@ -332,10 +385,10 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
         vero(D.leggiAzoto('<script>alert(1)</script>' + CODICE_AZOTO) === AZOTO, 'servizio: uno script prima del codice si ignora, resta l\'indirizzo');
         vero(D.leggiAzoto(' '.repeat(3000) + CODICE_AZOTO) === AZOTO, 'servizio: il codice si legge anche se lungo');
         [
-            ["<iframe src='https://ladro.example.com/player'></iframe>", /solo un indirizzo https di cdn\.azotosolutions\.com/],
-            ["<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO, /solo un indirizzo https di cdn\.azotosolutions\.com/],
-            ['https://azotosolutions.com/cloudtv/livetv91/player', /solo un indirizzo https di cdn\.azotosolutions\.com/],
-            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', /solo un indirizzo https di cdn\.azotosolutions\.com/],
+            ["<iframe src='https://ladro.example.com/player'></iframe>", /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ["<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO, /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ['https://azotosolutions.com/cloudtv/livetv91/player', /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
             ['http://cdn.azotosolutions.com/cloudtv/livetv91/player', /https:\/\//],
             ["<iframe src='javascript:alert(1)'></iframe>", /Non riconosco/],
             ['<img src=x onerror=alert(1)>', /non trovo l'indirizzo del player/],
@@ -432,9 +485,9 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
             ['azotoUrl', "<script>alert(1)</script><iframe src='javascript:alert(1)'></iframe>", /Non riconosco/],
             ['azotoUrl', '<img src=x onerror=alert(1)>', /non trovo l'indirizzo del player/],
             ['azotoUrl', HLS, /va nel campo «Flusso diretto \(\.m3u8\)»/],
-            ['videoUrl', AZOTO, /va nel campo «Player Azoto»/],
-            ['videoUrl', CODICE_AZOTO, /va nel campo «Player Azoto»/],
-            ['riservaUrl', AZOTO, /va nel campo «Player Azoto»/]
+            ['videoUrl', AZOTO, /va nel campo «Player YouTube o Azoto»/],
+            ['videoUrl', CODICE_AZOTO, /va nel campo «Player YouTube o Azoto»/],
+            ['riservaUrl', AZOTO, /va nel campo «Player YouTube o Azoto»/]
         ]) {
             const x = await errore(() => D.salvaEvento(mem.ctx, Object.assign({}, EVENTO, { [campo]: valore })));
             const atteso = campo === 'azotoUrl' ? 'azoto' : 'video';

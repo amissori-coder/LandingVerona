@@ -8,7 +8,8 @@
    versione della diretta che gira TUTTA nel browser, con accessi di
    prova, senza Firebase, senza Vercel e senza Brevo:
    - le pagine VERE (diretta/index.html, reimposta.html,
-     gestione/index.html con i loro diretta.js e gestione.js), con pochi
+     gestione/index.html, relatore/index.html con i loro diretta.js,
+     gestione.js e relatore.js), con pochi
      ritocchi automatici elencati qui sotto (RITOCCHI): da dove si
      caricano l'SDK di Firebase e SheetJS, e la navigazione fra le
      pagine, che nell'anteprima stanno dentro degli iframe;
@@ -23,7 +24,7 @@
      nel browser (player-anteprima.js, anche con la finestra per tornare
      indietro e le qualita', finte);
    - il guscio (guscio.html -> index.html): le schede Guida, Partecipante,
-     Gestione e Posta di prova.
+     Gestione, Relatore e Posta di prova.
    Ogni ritocco controlla di trovare il testo da cambiare: se diretta.js
    o gestione.js cambiano, la costruzione si ferma e dice dove, invece
    di produrre un'anteprima rotta.
@@ -136,6 +137,13 @@ const RITOCCHI_GESTIONE = [
     ['XLSX.writeFile(wb, nome, { compression: true });', 'NGBA_SCARICA_EXCEL(XLSX, wb, nome);', 2]
 ];
 
+// la pagina del relatore: come la gestione, l'SDK dell'anteprima e i parametri tenuti dal guscio
+const RITOCCHI_RELATORE = [
+    ["import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js')", "import(new URL('anteprima/sdk/firebase-app.js', document.baseURI).href)"],
+    ["import('https://www.gstatic.com/firebasejs/' + V + '/firebase-auth.js')", "import(new URL('anteprima/sdk/firebase-auth.js', document.baseURI).href)"],
+    ['new URLSearchParams(location.search)', 'new URLSearchParams(NGBA_RICERCA())']
+];
+
 /* I riferimenti di script, fogli di stile e immagini diventano relativi
    al guscio (index.html sta nella radice dell'anteprima): le pagine
    vivono in iframe srcdoc, che risolvono gli indirizzi rispetto al guscio.
@@ -182,7 +190,11 @@ async function costruisci() {
     RITOCCHI_GESTIONE.forEach(([a, b, n]) => { gestione = ritocca(gestione, 'gestione.js', a, b, n); });
     scrivi('diretta/gestione/gestione.js', gestione);
 
-    ['diretta/diretta.css', 'diretta/gestione/gestione.css'].forEach(f => copia(f));
+    let relatore = leggi('diretta/relatore/relatore.js');
+    RITOCCHI_RELATORE.forEach(([a, b, n]) => { relatore = ritocca(relatore, 'relatore.js', a, b, n); });
+    scrivi('diretta/relatore/relatore.js', relatore);
+
+    ['diretta/diretta.css', 'diretta/gestione/gestione.css', 'diretta/relatore/relatore.css'].forEach(f => copia(f));
     scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
     if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
@@ -194,7 +206,8 @@ async function costruisci() {
     const pagine = {
         diretta: pagina('diretta/index.html', '/diretta/', true, true),
         reimposta: pagina('diretta/reimposta.html', '/diretta/', false),
-        gestione: pagina('diretta/gestione/index.html', '/diretta/gestione/', true)
+        gestione: pagina('diretta/gestione/index.html', '/diretta/gestione/', true),
+        relatore: pagina('diretta/relatore/index.html', '/diretta/relatore/', false)
     };
     scrivi('anteprima/pagine.js', '/* Le pagine vere della diretta, ritoccate da costruisci.js */\nwindow.NGBA_PAGINE = ' + JSON.stringify(pagine) + ';\n'
         + 'window.NGBA_CSV_ESEMPIO = ' + JSON.stringify(leggi('diretta/prove/esempio-partecipanti.csv')) + ';\n');

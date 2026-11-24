@@ -8,7 +8,8 @@
    rete: anteprima/pagina.js intercetta le chiamate.
    Il primo segnale di presenza parte dopo 4 secondi invece che fino
    a 60, cosi' il contatore dei collegati della regia si muove subito;
-   poi uno al minuto, come sul sito.
+   poi uno al minuto, come sul sito. E il partecipante rilegge le sue
+   domande ogni 6-10 secondi invece che ogni minuto circa.
    ============================================================ */
 (function () {
     'use strict';
@@ -26,7 +27,8 @@
         // (nell'anteprima si apre fuori, sul sito vero: vedi anteprima/pagina.js)
         iscrizione: '/napoli_ottobre_2026/#accreditamento',
         emulatori: null,
-        prove: { ritardoPresenzaMs: 4000, intervalloPresenzaMs: null },
+        // le proprie domande si rileggono ogni 6-10 secondi (sul sito 45-75): «Il relatore ha risposto» arriva subito
+        prove: { ritardoPresenzaMs: 4000, intervalloPresenzaMs: null, rileggiDomandeMs: 6000 },
         anteprima: true
     };
 })();

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- La pagina del RELATORE: le domande dei partecipanti e l'elenco di chi
+         segue la diretta. Nessuno script scritto qui dentro (tutto in
+         relatore.js), nessun iframe (frame-src 'none'): qui il video non
+         c'e'. connect-src https: serve a Firebase Auth e al servizio su
+         Vercel; 127.0.0.1 e localhost solo alle prove in locale. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-src 'none'; connect-src 'self' https: http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <title>Pagina del relatore | Next Generation Business</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0A2844">
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <!-- ?v= cambia a ogni modifica: GitHub Pages tiene i file in cache 10 minuti -->
+    <link rel="stylesheet" href="relatore.css?v=20261121a">
+    <script src="../config.js?v=20260926b" defer></script>
+    <script src="relatore.js?v=20261121a" defer></script>
+</head>
+<body data-vista="caricamento">
+    <a class="salta" href="#principale">Vai al contenuto</a>
+
+    <!-- ======== CARICAMENTO ======== -->
+    <div id="vista-caricamento" class="vista-piena" role="status">
+        <span class="rotella" aria-hidden="true"></span>
+        <span>Caricamento…</span>
+    </div>
+
+    <!-- ======== MESSAGGIO (configurazione mancante, browser vecchio, servizio giu') ======== -->
+    <div id="vista-messaggio" class="vista-piena" hidden>
+        <div class="carta-messaggio" role="alert">
+            <h1 id="messaggio-titolo">Pagina non disponibile</h1>
+            <p id="messaggio-testo"></p>
+            <button type="button" id="btn-messaggio-riprova" class="btn btn-primario" hidden>Riprova</button>
+        </div>
+    </div>
+
+    <!-- ======== ACCESSO DEL RELATORE ======== -->
+    <main id="vista-accesso" class="accesso" hidden>
+        <div class="accesso-carta">
+            <div class="accesso-testata">
+                <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="148" height="46">
+                <p class="accesso-occhiello">Next Generation Business</p>
+                <h1>Pagina del relatore</h1>
+                <p class="accesso-sotto">Le domande dei partecipanti e chi segue la diretta.</p>
+            </div>
+            <!-- niente autocomplete="off": il gestore delle password del browser deve poter compilare -->
+            <form id="form-accesso" class="accesso-corpo" novalidate>
+                <div class="campo">
+                    <label for="campo-email">Email</label>
+                    <input type="email" id="campo-email" name="email" autocomplete="username" inputmode="email" required spellcheck="false" autocapitalize="off">
+                </div>
+                <div class="campo">
+                    <label for="campo-password">Password</label>
+                    <div class="campo-password">
+                        <input type="password" id="campo-password" name="password" autocomplete="current-password" required>
+                        <button type="button" id="btn-mostra-password" class="mostra-password" aria-label="Mostra la password" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <p id="msg-accesso" class="msg" role="alert" hidden></p>
+                <button type="submit" id="btn-entra" class="btn btn-primario btn-largo">Entra</button>
+                <button type="button" id="btn-primo-accesso" class="btn-collegamento">Primo accesso o password dimenticata</button>
+                <p class="accesso-nota">Al primo accesso scrivi qui sopra l'email che hai dato alla regia e premi
+                    «Primo accesso o password dimenticata»: ti arriva un collegamento per scegliere la password.</p>
+                <p class="accesso-nota">Segui la diretta come partecipante? La trovi su <a href="/diretta/">nextgenerationbusiness.it/diretta</a>.
+                    · <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a></p>
+            </form>
+        </div>
+    </main>
+
+    <!-- ======== LA PAGINA DEL RELATORE ======== -->
+    <div id="vista-app" hidden>
+        <header class="testata">
+            <div class="testata-riga">
+                <div class="testata-marchio">
+                    <img src="/assets/logo-revilaw-bianco.png" alt="Revilaw S.p.A." width="110" height="34">
+                    <div>
+                        <p class="testata-occhiello">Pagina del relatore</p>
+                        <p id="testata-titolo" class="testata-titolo">La diretta</p>
+                    </div>
+                </div>
+                <div class="testata-evento">
+                    <label for="sel-evento" class="solo-lettori">Diretta</label>
+                    <select id="sel-evento" hidden></select>
+                    <span id="stato-evento" class="pillola-stato" data-stato="" aria-live="polite"></span>
+                </div>
+                <div class="testata-utente">
+                    <span id="utente-connesso" class="utente-connesso"></span>
+                    <button type="button" id="btn-esci" class="btn btn-trasparente">Esci</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- sul telefono una sezione alla volta: Domande oppure Partecipanti -->
+        <nav class="scambio" aria-label="Sezioni della pagina">
+            <button type="button" id="btn-sezione-domande" class="scambio-btn" data-sezione="domande" aria-pressed="true">Domande <span id="scambio-domande" class="scambio-numero"></span></button>
+            <button type="button" id="btn-sezione-partecipanti" class="scambio-btn" data-sezione="partecipanti" aria-pressed="false">Partecipanti <span id="scambio-partecipanti" class="scambio-numero"></span></button>
+        </nav>
+
+        <main id="principale" class="principale" data-sezione="domande" tabindex="-1">
+            <p id="avviso-spente" class="avviso avviso-ambra" hidden>
+                Le domande dei partecipanti non sono attive per questa diretta: la regia le accende dalla gestione
+                (scheda Evento, «Domande al relatore»).
+            </p>
+            <p id="avviso-nessun-evento" class="avviso avviso-ambra" hidden>
+                Non risulti fra i relatori di nessuna diretta. Se pensi che sia un errore, scrivi alla regia.
+            </p>
+
+            <!-- ======== LE DOMANDE ======== -->
+            <section id="sezione-domande" class="riquadro sezione-domande" aria-labelledby="titolo-domande">
+                <div class="riquadro-testa">
+                    <div>
+                        <h2 id="titolo-domande">Domande dei partecipanti</h2>
+                        <p id="conteggi-domande" class="riquadro-sotto" aria-live="polite"></p>
+                    </div>
+                    <div class="comandi-domande">
+                        <div class="filtri" role="group" aria-label="Quali domande mostrare">
+                            <button type="button" class="filtro" data-filtro="aperte" aria-pressed="true">Da rispondere <span class="filtro-numero" id="numero-aperte">0</span></button>
+                            <button type="button" class="filtro" data-filtro="risposte" aria-pressed="false">Con risposta <span class="filtro-numero" id="numero-risposte">0</span></button>
+                            <button type="button" class="filtro" data-filtro="tutte" aria-pressed="false">Tutte <span class="filtro-numero" id="numero-tutte">0</span></button>
+                        </div>
+                        <label class="solo-lettori" for="sel-ordine">Ordine delle domande</label>
+                        <select id="sel-ordine" class="sel-ordine">
+                            <option value="prima">Dalla prima arrivata</option>
+                            <option value="recenti">Dalla più recente</option>
+                        </select>
+                        <button type="button" id="btn-testo-grande" class="btn btn-secondario btn-piccolo" aria-pressed="false" title="Testo più grande, da leggere a distanza">A<span class="a-grande">A</span><span class="solo-lettori"> Testo più grande</span></button>
+                    </div>
+                </div>
+                <p id="nota-nuove" class="nota-nuove" role="status" aria-live="polite" hidden></p>
+                <ol id="elenco-domande" class="elenco-domande" aria-labelledby="titolo-domande"></ol>
+                <p id="vuoto-domande" class="vuoto" hidden></p>
+                <p id="aggiornato-domande" class="aggiornato" aria-live="off"></p>
+            </section>
+
+            <!-- ======== I PARTECIPANTI ======== -->
+            <section id="sezione-partecipanti" class="riquadro sezione-partecipanti" aria-labelledby="titolo-partecipanti">
+                <div class="riquadro-testa">
+                    <div>
+                        <h2 id="titolo-partecipanti">Partecipanti</h2>
+                        <p id="conteggi-partecipanti" class="riquadro-sotto"></p>
+                    </div>
+                </div>
+                <div class="cerca-partecipanti">
+                    <label class="solo-lettori" for="cerca-partecipante">Cerca un partecipante per nome, cognome o azienda</label>
+                    <input type="search" id="cerca-partecipante" placeholder="Cerca per nome o azienda" autocomplete="off" spellcheck="false">
+                    <label class="spunta"><input type="checkbox" id="solo-collegati"> Solo collegati adesso</label>
+                </div>
+                <ul id="elenco-partecipanti" class="elenco-partecipanti" aria-labelledby="titolo-partecipanti"></ul>
+                <p id="vuoto-partecipanti" class="vuoto" hidden></p>
+                <p class="nota-collegati">«Collegato» vuol dire che la pagina della diretta di quella persona è aperta adesso (un segnale negli ultimi due minuti e mezzo).</p>
+                <p id="aggiornato-partecipanti" class="aggiornato"></p>
+            </section>
+        </main>
+    </div>
+
+    <!-- avvisi brevi in basso (letti anche dai lettori di schermo) -->
+    <div id="avvisi" class="avvisi" role="status" aria-live="polite"></div>
+</body>
+</html>

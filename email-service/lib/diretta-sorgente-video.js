@@ -1,11 +1,14 @@
 /* ============================================================
    Il video della diretta: da dove arriva. UNA sola funzione.
    ------------------------------------------------------------
-   Il video arriva SOLO dalla web TV Azoto Solutions, in una delle due
-   modalita' che la gestione sceglie per ogni evento (tipoPlayer):
-     A) 'azoto'  il PLAYER DI AZOTO dentro un iframe della nostra
-                 pagina (la modalita' predefinita, da usare ora): con i
-                 comandi (e l'eventuale logo) di Azoto;
+   Il video arriva da YOUTUBE o dalla web TV Azoto Solutions, in una
+   delle due modalita' che la gestione sceglie per ogni evento
+   (tipoPlayer):
+     A) 'azoto'  un PLAYER INCORPORATO dentro un iframe della nostra
+                 pagina (la modalita' predefinita): il video di YouTube
+                 (dal webinar del 10 dicembre 2026) oppure il player di
+                 Azoto, con i loro comandi (e l'eventuale logo). Il nome
+                 'azoto' resta per i documenti gia' salvati;
      B) 'flusso' il FLUSSO DIRETTO (.m3u8, o .mpd) riprodotto dal
                  NOSTRO player, con i nostri comandi e senza loghi:
                  quando Azoto ci dara' il link.
@@ -38,6 +41,17 @@
        https normale): una pagina di qualunque altro sito non si
        incorpora, perche' dentro la nostra pagina si vedrebbe quello che
        quel sito decide.                                   -> 'incorporato'
+     - YOUTUBE: il link del video o della diretta (youtube.com/watch?v=…,
+       youtu.be/…, youtube.com/live/…, youtube.com/embed/…, anche dal
+       telefono, m.youtube.com) oppure il codice «Incorpora» di YouTube
+       (se ne prende il src del primo <iframe>, come per Azoto). Dal link
+       si tiene SOLO l'identificativo del video (11 caratteri) e il valore
+       e' sempre l'indirizzo del player di YOUTUBE_EMBED, ricostruito qui
+       (https://www.youtube-nocookie.com/embed/<id>?…): niente cookie di
+       YouTube finche' la persona non preme play, niente parametri
+       incollati da altri. Un link di YouTube senza un video (la pagina di
+       un canale, una playlist) e' l'errore 'youtube'.
+                                                           -> 'incorporato'
    Non si accettano, con il motivo: indirizzi http (il browser li
    bloccherebbe in una pagina https), indirizzi con nome utente e
    password dentro, i link RTMP/RTSP/SRT (sono per trasmettere, non
@@ -48,12 +62,17 @@
 
    leggi(testo)    -> { tipo, valore } | { errore } | null (vuoto): tutti
                       e tre i tipi (e' la regola della prova del link);
-   perAzoto(testo) -> il campo «Player Azoto»: solo 'incorporato' (un
-                      flusso qui e' l'errore 'e-flusso');
+   perAzoto(testo) -> il campo del player incorporato («Player YouTube o
+                      Azoto»): solo 'incorporato' (un flusso qui e'
+                      l'errore 'e-flusso');
    perFlusso(testo)-> il campo «Flusso diretto (.m3u8)»: solo 'hls' e
                       'dash' (il player di Azoto qui e' l'errore 'e-azoto');
-   eAzoto(url)     -> true se url e' l'indirizzo di un player di Azoto
-                      (un indirizzo, non il codice da incollare).
+   eAzoto(url)     -> true se url e' l'indirizzo di un player da
+                      incorporare, di Azoto o di YouTube (un indirizzo, non
+                      il codice da incollare): il nome resta quello di
+                      quando c'era solo Azoto;
+   eYouTube(url)   -> true se url e' il player di YouTube (per i nomi a video);
+   oembedYouTube(url) -> l'indirizzo di oEmbed di quel video (la prova del link).
    Il valore e' quello che si salva e che il player riceve: l'indirizzo
    https normalizzato (per HLS e DASH senza il #...).
 
@@ -71,10 +90,19 @@
     var TIPI = ['hls', 'dash', 'incorporato'];
     // i server del player di Azoto che si possono incorporare: SOLO qui
     var HOST_AZOTO = Object.freeze(['cdn.azotosolutions.com']);
+    /* Il player di YouTube: l'unico indirizzo che si incorpora, sempre
+       ricostruito da qui con l'identificativo del video. youtube-nocookie
+       e' il dominio "privacy avanzata" di YouTube: niente cookie finche'
+       la persona non avvia il video. */
+    var YOUTUBE_EMBED = 'www.youtube-nocookie.com';
+    // i nomi dei siti di YouTube da cui si accetta un link (con o senza www., m., music.)
+    var SITI_YOUTUBE = ['youtube.com', 'youtube-nocookie.com', 'youtu.be'];
+    // play solo in linea sul telefono, niente video "correlati" di altri canali alla fine
+    var PARAMETRI_YOUTUBE = '?autoplay=1&playsinline=1&rel=0';
     // file video e segmenti: si possono scaricare, ma non sono una diretta
     var RE_FILE = /\.(mp4|m4v|mov|webm|mkv|avi|flv|ts|m4s)$/;
 
-    var AVVISO_INCORPORATO = 'Con il player Azoto restano i comandi (e l\'eventuale logo) di Azoto: per usare i nostri comandi serve il link .m3u8 del flusso diretto, da chiedere ad Azoto.';
+    var AVVISO_INCORPORATO = 'Con il player incorporato (YouTube o Azoto) restano i suoi comandi e il suo logo: per usare i nostri comandi serve il link .m3u8 di un flusso diretto.';
 
     /* Dal codice incollato si prende l'indirizzo (src) del PRIMO <iframe>,
        e nient'altro. Si leggono gli attributi del tag uno per uno, come
@@ -118,6 +146,23 @@
         return HOST_AZOTO.indexOf(u.hostname.toLowerCase()) >= 0 && u.port === '';
     }
 
+    /* Un link di YouTube? null se non e' di YouTube; '' se e' di YouTube
+       ma non porta a un video (canale, playlist, pagina iniziale);
+       altrimenti l'identificativo del video, 11 caratteri. */
+    function idYouTube(u) {
+        var h = u.hostname.toLowerCase().replace(/^(www|m|music)\./, '');
+        if (SITI_YOUTUBE.indexOf(h) < 0 || u.port !== '') return null;
+        var parti = u.pathname.split('/');
+        var id = '';
+        if (h === 'youtu.be') id = parti[1] || '';
+        else if (parti[1] === 'watch') id = u.searchParams.get('v') || '';
+        else if (['live', 'embed', 'shorts', 'v'].indexOf(parti[1]) >= 0) id = parti[2] || '';
+        return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : '';
+    }
+    function playerYouTube(id) {
+        return 'https://' + YOUTUBE_EMBED + '/embed/' + id + PARAMETRI_YOUTUBE;
+    }
+
     function leggi(v) {
         var s = String(v == null ? '' : v).trim();
         if (!s) return null;
@@ -136,6 +181,10 @@
         if (u.protocol !== 'https:') return { errore: 'https' };
         if (u.username || u.password) return { errore: 'credenziali' };
         if (!hostValido(u.hostname)) return { errore: 'formato' };
+        // YouTube: si tiene solo il video, e il player lo ricostruisce questo file
+        var yt = idYouTube(u);
+        if (yt === '') return { errore: 'youtube' };
+        if (yt) return { tipo: 'incorporato', valore: playerYouTube(yt), youtube: true };
         var percorso = u.pathname.toLowerCase();
         if (/\.m3u8$/.test(percorso)) { u.hash = ''; return { tipo: 'hls', valore: u.href }; }
         if (/\.mpd$/.test(percorso)) { u.hash = ''; return { tipo: 'dash', valore: u.href }; }
@@ -176,6 +225,22 @@
         return !!s && s.tipo === 'incorporato';
     }
 
+    // un valore gia' salvato e' il player di YouTube? (per i nomi a video)
+    function eYouTube(valore) {
+        if (typeof valore !== 'string' || valore.indexOf('<') >= 0) return false;
+        var s = leggi(valore);
+        return !!s && s.youtube === true;
+    }
+
+    /* Per la prova del link del servizio: l'indirizzo di oEmbed, il
+       servizio pubblico con cui YouTube dice se un video c'e', se si puo'
+       incorporare, e come si chiama. '' se il valore non e' YouTube. */
+    function oembedYouTube(valore) {
+        var m = /\/embed\/([A-Za-z0-9_-]{11})\?/.exec(String(valore || ''));
+        if (!m || !eYouTube(valore)) return '';
+        return 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + m[1]);
+    }
+
     // il tipo di un valore gia' salvato (quello che riceve il player)
     function tipoDi(valore) {
         var s = leggi(valore);
@@ -185,7 +250,8 @@
     var DESCRIZIONI = {
         hls: 'Flusso HLS (.m3u8): lo riproduce il nostro player, con i nostri comandi e senza loghi.',
         dash: 'Flusso DASH (.mpd): lo riproduce il nostro player.',
-        incorporato: 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.'
+        incorporato: 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.',
+        youtube: 'Video YouTube: si vede dentro la nostra pagina con i comandi di YouTube.'
     };
     function descrizione(tipo) {
         return DESCRIZIONI[tipo] || '';
@@ -196,17 +262,19 @@
         codice: 'Nel codice incollato non trovo l\'indirizzo del player (<iframe src="https://…">): incolla tutto il codice che vi ha dato Azoto, oppure solo l\'indirizzo del player.',
         rtmp: 'Questo è l\'indirizzo per trasmettere (RTMP/RTSP/SRT), non per guardare: chiedi alla web TV il link HLS (.m3u8) in https.',
         https: 'Serve un indirizzo che comincia con https:// (con http:// il browser non mostra il video in una pagina sicura): chiedi alla web TV il link in https.',
-        formato: 'Non riconosco un link valido: incolla il codice o l\'indirizzo del player Azoto (https://' + HOST_AZOTO[0] + '/…) oppure il link del flusso diretto (…/playlist.m3u8).',
+        formato: 'Non riconosco un link valido: incolla il link del video YouTube, il codice o l\'indirizzo del player Azoto (https://' + HOST_AZOTO[0] + '/…) oppure il link del flusso diretto (…/playlist.m3u8).',
         lungo: 'Il link è troppo lungo (più di ' + LUNGHEZZA_MASSIMA + ' caratteri).',
         credenziali: 'Il link contiene un nome utente e una password: non va usato in una pagina pubblica. Chiedi alla web TV un link senza credenziali.',
         file: 'Questo è un file video (o un pezzo del flusso), non una diretta: chiedi alla web TV il link HLS (.m3u8) del canale.',
-        'non-azoto': 'Per il player Azoto si accetta solo un indirizzo https di ' + HOST_AZOTO.join(' o ') + ' (quello nel codice che vi ha dato Azoto).',
+        'non-azoto': 'Qui si accetta il link di un video YouTube oppure un indirizzo https di ' + HOST_AZOTO.join(' o ') + ' (quello nel codice che vi ha dato Azoto): le pagine di altri siti non si incorporano.',
+        youtube: 'Questo link di YouTube non porta a un video: incolla il link del video o della diretta, per esempio https://www.youtube.com/watch?v=… oppure https://youtu.be/…',
         'non-flusso': 'Questo non è il link di un flusso diretto: serve il link che finisce con .m3u8 (HLS) o .mpd (DASH), da chiedere ad Azoto.',
         'e-flusso': 'Questo è il link di un flusso diretto: va nel campo «Flusso diretto (.m3u8)».',
-        'e-azoto': 'Questo è l\'indirizzo del player Azoto: va nel campo «Player Azoto».'
+        'e-azoto': 'Questo è il link di un player da incorporare (YouTube o Azoto): va nel campo «Player YouTube o Azoto».'
     };
     function messaggio(esito) {
         if (!esito) return MESSAGGI.vuoto;
+        if (!esito.errore && esito.youtube) return DESCRIZIONI.youtube;
         if (!esito.errore && DESCRIZIONI[esito.tipo]) return DESCRIZIONI[esito.tipo];
         return MESSAGGI[esito.errore] || MESSAGGI.formato;
     }
@@ -215,11 +283,14 @@
         LUNGHEZZA_MASSIMA: LUNGHEZZA_MASSIMA,
         TIPI: TIPI,
         HOST_AZOTO: HOST_AZOTO,
+        YOUTUBE_EMBED: YOUTUBE_EMBED,
         AVVISO_INCORPORATO: AVVISO_INCORPORATO,
         leggi: leggi,
         perAzoto: perAzoto,
         perFlusso: perFlusso,
         eAzoto: eAzoto,
+        eYouTube: eYouTube,
+        oembedYouTube: oembedYouTube,
         tipoDi: tipoDi,
         messaggio: messaggio,
         descrizione: descrizione

@@ -182,7 +182,7 @@ function server(usaSostituto) {
 
     const srv = server(usaSostituto);
     await new Promise(r => srv.listen(PORTA, '127.0.0.1', r));
-    const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+    const browser = await chromium.launch({ executablePath: ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p)) });
     const errori = [];
     const inoltri = { n: 0, falliti: 0, bloccati: 0, segmenti: [] };
     let bloccaSegmenti = false;

@@ -569,7 +569,7 @@ async function sheetJSNode() {
         vero(salvato.stato === 200, 'l\'evento di Verona creato con il servizio vero (evento-salva)', JSON.stringify(salvato.dati).slice(0, 300));
 
         browser = await chromium.launch({
-            executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--lang=it-IT'],
+            executablePath: ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p)), args: ['--lang=it-IT'],
             env: Object.assign({}, process.env, { LANG: 'it_IT.UTF-8', LANGUAGE: 'it', LC_ALL: 'it_IT.UTF-8' })
         });
         const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, locale: 'it-IT', timezoneId: 'Europe/Rome', hasTouch: true });

@@ -9,14 +9,16 @@
          player-azoto.js). Nessuno script scritto nella pagina: tutto sta nei
          file .js qui accanto (DECISIONI D3); SheetJS (l'Excel) serve solo alla
          gestione, non qui.
-         frame-src: SOLO il player di Azoto (modalita' A): nessun'altra pagina
-         puo' entrare in un iframe di questa pagina, qualunque cosa arrivi dai dati.
+         frame-src: SOLO i player da incorporare (modalita' A): quello di YouTube
+         (www.youtube-nocookie.com, dal webinar del 10 dicembre 2026) e quello di
+         Azoto; nessun'altra pagina puo' entrare in un iframe di questa pagina,
+         qualunque cosa arrivi dai dati.
          Il flusso diretto (modalita' B, HLS o DASH) puo' arrivare da qualunque
          indirizzo https: media-src e connect-src lo permettono, perche' il dominio
          del flusso di Azoto ancora non si conosce (README: come restringerli
          quando lo si sa); blob: serve al video di hls.js e dash.js (media-src) e
          al lavoro in secondo piano di hls.js (worker-src). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <!-- viewport-fit=cover: su iPhone la pagina usa anche le zone attorno alla tacca
          (le distanze giuste le mette il CSS con env(safe-area-inset-*)) -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -33,16 +35,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20260927a">
+    <link rel="stylesheet" href="diretta.css?v=20261121a">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
     <script src="config.js?v=20260926b" defer></script>
-    <script src="sorgente-video.js?v=20260925a" defer></script>
+    <script src="sorgente-video.js?v=20261121a" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20260927a" defer></script>
+    <script src="diretta.js?v=20261121a" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -219,6 +221,8 @@
                     <p class="aiuto" data-aiuto></p>
                 </div>
             </div>
+            <!-- qui diretta.js mette il riquadro delle domande (#carta-domande), se la regia le ha accese -->
+            <div class="posto-domande" data-posto-domande hidden></div>
         </section>
 
         <!-- ====================== DIRETTA ====================== -->
@@ -332,6 +336,8 @@
                     </p>
                 </div>
             </div>
+            <!-- il riquadro delle domande, subito sotto il video -->
+            <div class="posto-domande" data-posto-domande hidden></div>
             <div class="griglia-carte">
                 <div class="carta carta-programma" id="carta-programma-diretta">
                     <h3>Il programma</h3>
@@ -366,6 +372,7 @@
                 <p id="pausa-testo" class="testo-stato">La diretta riprende a breve.</p>
                 <p class="nota">Resta pure su questa pagina: quando si riprende, il video torna da solo.</p>
             </div>
+            <div class="posto-domande" data-posto-domande hidden></div>
         </section>
 
         <!-- ====================== FINE ====================== -->
@@ -409,6 +416,42 @@
                 <p class="azioni-stato">
                     <a class="btn btn-primario" href="/diretta/gestione/">Vai alla gestione</a>
                 </p>
+            </div>
+        </section>
+        <!-- ====================== DOMANDE AL RELATORE ======================
+             Uno solo per la pagina: diretta.js lo sposta nel posto
+             (.posto-domande) della vista aperta, attesa, diretta o pausa, e
+             lo mostra solo se l'evento ha «Domande al relatore» acceso. Le
+             domande vanno al servizio (api/diretta-domande): le leggono il
+             relatore e la regia, MAI gli altri partecipanti. Qui sotto chi
+             scrive vede solo le proprie, e se hanno avuto risposta. -->
+        <section id="carta-domande" class="carta carta-domande" aria-labelledby="domande-titolo" hidden>
+            <div class="domande-testa">
+                <span class="icona-domande" aria-hidden="true">
+                    <svg class="icona" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 16.5h.01"/></svg>
+                </span>
+                <div>
+                    <h3 id="domande-titolo">Fai una domanda al relatore</h3>
+                    <p id="domande-nota" class="domande-nota">La legge solo il relatore, insieme alla regia: gli altri partecipanti non la vedono.</p>
+                </div>
+            </div>
+            <form id="modulo-domanda" class="modulo-domanda" novalidate>
+                <label for="testo-domanda" class="solo-lettori">La tua domanda per il relatore</label>
+                <textarea id="testo-domanda" name="testo" rows="3" maxlength="600" placeholder="Scrivi qui la tua domanda…" aria-describedby="domande-nota conta-domanda"></textarea>
+                <div class="domande-riga">
+                    <span id="conta-domanda" class="conta-domanda">0/600</span>
+                    <button type="submit" id="btn-invia-domanda" class="btn btn-primario btn-invia-domanda">
+                        <svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                        <span id="btn-invia-domanda-testo">Invia la domanda</span>
+                    </button>
+                </div>
+            </form>
+            <!-- l'esito dell'invio (e perche' non si puo' mandare): una regione
+                 "status", letta dai lettori di schermo -->
+            <p id="esito-domanda" class="esito-domanda" role="status" aria-live="polite"></p>
+            <div id="blocco-mie" class="blocco-mie" hidden>
+                <h4>Le tue domande</h4>
+                <ol id="elenco-mie" class="elenco-mie"></ol>
             </div>
         </section>
     </main>

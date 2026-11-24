@@ -41,7 +41,7 @@ const { chromium } = require('playwright');
 const RADICE = path.resolve(__dirname, '../..');
 const PORTA_API = 3955, PORTA_STATICO = 8955;
 const SITO = 'http://127.0.0.1:' + PORTA_STATICO;
-const CHROMIUM = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const CHROMIUM = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(p => require('fs').existsSync(p));
 const FOTO = path.resolve(__dirname, 'risultati/screenshot-modulo');
 fs.mkdirSync(FOTO, { recursive: true });
 
