@@ -8,7 +8,8 @@
 
    Variabili d'ambiente:
      FIREBASE_SERVICE_ACCOUNT  (obbligatoria) chiave del progetto Firebase
-     GDRIVE_FOLDER_ID          (facoltativa)  id della cartella Backup-NGB
+     GDRIVE_FOLDER_ID          id della cartella Backup-NGB: senza, il backup
+                               non viene conservato (ed e' un ERRORE)
      GDRIVE_CLIENT_ID          \
      GDRIVE_CLIENT_SECRET       > accesso per conto dell'utente: l'unico che
      GDRIVE_REFRESH_TOKEN      /  funziona dentro "Il mio Drive"
@@ -72,6 +73,24 @@ async function passo(descrizione, azione) {
     }
 }
 
+/* Se il backup si blocca, GitHub lo interrompe allo scadere del tempo del
+   lavoro e lo segna "annullato": nessuna mail, e nessuno se ne accorge. E'
+   successo dal 2 settembre al 23 novembre 2026: l'esportazione dei dati non
+   arrivava piu' in fondo e ogni notte il backup risultava annullato.
+   Per questo c'e' un guardiano: passato il suo tempo (meno di quello del
+   lavoro, vedi timeout-minutes nel workflow) scrive il report con quello che
+   c'e' e chiude con un ERRORE, che GitHub segnala. */
+const TEMPO_MASSIMO_MIN = Number(process.env.BACKUP_TEMPO_MASSIMO_MIN) || 100;
+let cartellaInCorso = '';
+const guardiano = setTimeout(() => {
+    const riga = ora() + '  === ESITO: INTERROTTO - il backup non ha finito in ' + TEMPO_MASSIMO_MIN + ' minuti: i dati di stanotte NON sono al sicuro ===';
+    righe.push(riga);
+    console.error(riga);
+    try { if (cartellaInCorso) fs.writeFileSync(path.join(cartellaInCorso, 'report.txt'), righe.join('\n') + '\n'); } catch (_) { /* resta il log dell'esecuzione */ }
+    process.exit(1);
+}, TEMPO_MASSIMO_MIN * 60 * 1000);
+guardiano.unref();
+
 async function principale() {
     const adesso = new Date();
     const stampaData = adesso.toLocaleString('it-IT', { timeZone: FUSO, hour12: false });
@@ -82,6 +101,7 @@ async function principale() {
 
     const uscita = path.resolve(process.env.CARTELLA_BACKUP || path.join(radice, 'backup-uscita'), etichetta);
     fs.mkdirSync(uscita, { recursive: true });
+    cartellaInCorso = uscita;
 
     const deposito = process.env.GITHUB_REPOSITORY || '';
     const commit = comando('git', ['rev-parse', '--short', 'HEAD']);
@@ -104,10 +124,9 @@ async function principale() {
     // La storia completa pesa centinaia di MB: si salva una volta a settimana
     // (domenica), come faceva il backup di prima.
     //
-    // Ma solo se c'e' Drive a conservarla. L'allegato dell'esecuzione la esclude
-    // di proposito - GitHub la storia ce l'ha gia', ricopiarla dentro GitHub non
-    // aggiunge nessuna sicurezza - quindi senza Drive si passerebbe mezzo minuto
-    // a produrre mezzo giga per poi buttarlo via.
+    // Ma solo se c'e' Drive a conservarla: e' l'unico posto dove il backup
+    // viene tenuto, quindi senza Drive si passerebbe mezzo minuto a produrre
+    // mezzo giga per poi buttarlo via.
     const conDrive = !!(process.env.GDRIVE_FOLDER_ID || '').trim();
     const domenica = adesso.getDay() === 0;
     const forzato = String(process.env.INCLUDI_BUNDLE || '').toLowerCase() === 'si';
@@ -169,15 +188,20 @@ async function principale() {
     admin.initializeApp({ credential: admin.credential.cert(cred) });
     const progetto = cred.project_id;
 
-    const esportazione = await passo('esportazione Firestore', async () => {
-        const e = await firestore.esportaTutto(progetto);
-        const destinazione = path.join(uscita, 'firestore-data.json');
-        fs.writeFileSync(destinazione, JSON.stringify(e.contenuto, null, 1));
-        const peso = fs.statSync(destinazione).size;
-        log('  Export OK: ' + e.conteggi.collezioni + ' collezioni, ' + e.conteggi.documenti + ' documenti');
-        JSON.parse(fs.readFileSync(destinazione, 'utf8'));   // rilettura di controllo
-        log('  dati Firebase: OK (JSON valido, ' + mb(peso) + ')');
-        return e;
+    /* Tutti i documenti, a qualunque profondita', scritti man mano in un file
+       compresso (una riga per documento). Ogni collezione di primo livello
+       lascia una riga nel report: se una notte il backup rallenta o si ferma,
+       si vede su quale. */
+    await passo('esportazione Firestore', async () => {
+        const destinazione = path.join(uscita, firestore.NOME_FILE);
+        const c = await firestore.esportaSuFile(progetto, destinazione, {
+            token: () => token(cred, firestore.AMBITI),
+            log: t => log('    ' + t)
+        });
+        log('  Export OK: ' + c.collezioni + ' collezioni, ' + c.documenti + ' documenti');
+        const riletti = await firestore.verificaFile(destinazione);   // rilettura di controllo, riga per riga
+        log('  dati Firebase: OK (' + riletti + ' documenti riletti, ' + mb(c.byte) + ' di dati, ' + mb(fs.statSync(destinazione).size) + ' il file compresso)');
+        return c;
     });
 
     /* ---------- 3-bis) Configurazione Firebase ---------- */
@@ -274,7 +298,9 @@ async function principale() {
     let idBackup = null;
     const idCartella = (process.env.GDRIVE_FOLDER_ID || '').trim();
     if (!idCartella) {
-        log('  saltata: GDRIVE_FOLDER_ID non impostato (il backup resta come artifact di questa esecuzione)');
+        // Una volta la copia restava allegata all'esecuzione. Non piu': il
+        // repository e' pubblico, e gli allegati li scarica chiunque.
+        guasto('copia su Drive non configurata (manca GDRIVE_FOLDER_ID): il backup di questa notte NON e\' stato conservato da nessuna parte');
     } else {
         await passo('copia su Drive', async () => {
             // Si annuncia PRIMA di autenticarsi: se le credenziali non vanno,

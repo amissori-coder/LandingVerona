@@ -560,6 +560,17 @@ newsletter) e finisce nelle firme come `collab`, nel formato `Nome <email>`
 riservata mostra soltanto al riferimento. Un collaboratore senza riferimento
 valido riceve 403 con il motivo.
 
+**Chi e' amministratore.** Il ruolo `viceadmin` (Vice amministratore) ha gli
+stessi poteri del ruolo `admin`, in tutto. Nel servizio il ruolo non si
+confronta mai con `'admin'` a mano: si chiede a `eRuoloAdmin(ruolo)`, esportata
+dallo stesso `lib/utente-effettivo.js`, che vale per tutti e due. Dove questo
+documento dice "amministratore" o "ruolo `admin`" si intende quindi anche il
+vice. Come l'amministratore, il vice non puo' fare da riferimento a un
+collaboratore. La stessa regola sta nell'app (`eRuoloAdmin` in
+`area-riservata/app.js`) e nelle regole Firestore (funzione `admin()` in
+`area-riservata/FIREBASE-SETUP.md`); la prova `prove/vice-amministratore.prove.js`
+controlla che i tre posti restino allineati.
+
 Non passano dall'helper, di proposito: `/api/invia-email` (attivazione e
 recupero password: il collaboratore ha il proprio account e la propria
 scheda) e i lavori programmati (`cron-comunicazioni`, `giro-newsletter`),
@@ -665,6 +676,7 @@ d'ambiente non ne parte nessuno.
 | `/api/conferme-email` | `*/10 * * * *` — ogni dieci minuti | rispedisce la mail di conferma dell'iscrizione a chi non l'ha avuta (mai partita, o rifiutata dal server di posta) e manda UN promemoria, mail e SMS (dalle 8 alle 21), a chi dopo un giorno non ha ancora confermato; fino alla fine dell'evento, un giro alla volta. Vedi "Il giro automatico delle mail di conferma" |
 | `/api/newsletter-bandi` | `4,19,34,49 * * * *` — ogni quarto d'ora | legge i bandi pubblicati sul sito e, quando ce ne sono di nuovi, li manda agli iscritti alla newsletter dei bandi (un'ora dopo l'ultimo bando nuovo, dalle 8 alle 20 ora di Roma), riprendendo un invio lasciato a meta'. Vedi "Newsletter dei bandi" |
 | `/api/promemoria-seconda-persona` | `8,28,48 7-18 * * 1-5` — ogni venti minuti, giorni feriali | "l'invito vale per due persone": UNA mail, solo testo, a chi si e' iscritto con il codice riservato arrivato per PEC quando e' l'unica persona della sua azienda (lavora solo lun-ven, 9-19 ora di Milano). Vedi "L'invito vale per due persone" |
+| `/api/circolarizzazioni` | `*/5 * * * *` — ogni cinque minuti | circolarizzazioni via PEC: legge la casella dedicata (ricevute e risposte), poi spedisce le lettere in coda e i solleciti arrivati alla data, e fa le pulizie. Vedi "Circolarizzazioni via PEC" |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -788,6 +800,7 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/iscrizione-nuova.js` | 30 | **60** | l'iscrizione a Milano spedisce in fila la mail di conferma (con un secondo tentativo se l'errore passa) e l'SMS "conferma la tua email": con i tempi massimi del server di posta (8 s per collegarsi, 15 s di silenzio) e di Brevo (8 s) il caso peggiore sta intorno ai 40 secondi |
 | `api/conferme-email.js` | *(nuova)* | **60** | il giro delle mail di conferma comincia schede nuove solo nei primi 35 s (una scheda nel caso peggiore ne chiede altri venti): quello che resta lo prende il giro dopo, dieci minuti piu' tardi |
 | `api/promemoria-seconda-persona.js` | *(nuova)* | **60** | al piu' 15 mail a giro, cominciate solo nei primi 30 s, e ognuna con 25 s al massimo: quello che resta lo prende il giro dopo, venti minuti piu' tardi |
+| `api/circolarizzazioni.js` | *(nuova)* | **300** | il giro programmato legge la casella (45 s al massimo) e poi spedisce una PEC ogni secondo abbondante, fino a 80 per giro; le azioni dell'area riservata durano pochi secondi, ma "Invia" fa partire subito un giro breve (40 s) |
 
 > **E perche' gli invii programmati non entrano da `presenze.js`**, che pure
 > e' la porta di tutta la sezione aziende. Perche' `presenze.js` ha gia' un
@@ -820,6 +833,740 @@ invece di un solo giro lungo.
 > giro entrerebbe mentre il primo sta ancora spedendo. Alzarne uno solo fa
 > perdere l'ultimo lotto oppure lascia entrare due giri insieme: si toccano
 > tutti e tre o nessuno.
+
+## Circolarizzazioni via PEC (`/api/circolarizzazioni`)
+
+Nell'area riservata, dentro **Strumenti di revisione**, i team mandano le
+lettere di circolarizzazione (richieste di conferma esterna, ISA Italia 505)
+direttamente a mezzo PEC: una PEC per destinatario, con la lettera in PDF, la
+data entro cui rispondere e fino a due solleciti programmati al momento
+dell'invio. Poi seguono le ricevute del gestore e le risposte dei terzi, che
+scaricano e salvano nelle carte di lavoro.
+
+Il codice: `api/circolarizzazioni.js` (la porta: permessi e forma delle
+risposte), `lib/circ-comune.js` (casella, limiti, controlli, **i testi dei tre
+messaggi**), `lib/circ-dati.js` (le schede su Firestore e chi le vede),
+`lib/circ-giro.js` (la coda che spedisce), `lib/circ-lettore.js` (la casella:
+ricevute, risposte, scaricamenti), `lib/circ-bozze.js` (la bozza delle nuove
+lettere, salvata sul portale), `lib/circ-registro.js` (il registro delle
+operazioni: chi ha fatto che cosa). La parte a video e' in
+`area-riservata/app.js`, blocco "CIRCOLARIZZAZIONI VIA PEC".
+
+### Le variabili da impostare su Vercel
+
+La casella e' **un'altra** rispetto a quella degli inviti agli eventi
+(`PEC_SMTP_*`): le risposte dei terzi sono elementi probativi della revisione e
+non devono mescolarsi con altra posta. Finche' le prime due variabili mancano
+la funzione risponde "non ancora attiva" e non spedisce niente.
+
+| Nome | Valore |
+|---|---|
+| `CIRC_PEC_USER` | la casella PEC delle circolarizzazioni, per esempio `circolarizzazionirevilaw@pec.it` |
+| `CIRC_PEC_PASS` | la sua password (con la verifica in due passaggi: la "password per i programmi di posta" di Aruba, che **scade ogni sei mesi**) |
+| `CIRC_PEC_FROM_NAME` | *(facoltativa)* il nome del mittente. Senza: `Revilaw S.p.A.` |
+| `CIRC_PEC_FROM_EMAIL` | *(facoltativa)* da lasciare vuota: il gestore accetta come mittente solo la casella stessa |
+| `CIRC_PEC_SMTP_HOST`, `CIRC_PEC_SMTP_PORT` | *(facoltative)* senza: `smtps.pec.aruba.it`, `465` |
+| `CIRC_PEC_IMAP_HOST`, `CIRC_PEC_IMAP_PORT`, `CIRC_PEC_IMAP_CARTELLA` | *(facoltative)* senza: `imaps.pec.aruba.it`, `993`, `INBOX` |
+| `CIRC_PEC_IMAP_USER`, `CIRC_PEC_IMAP_PASS` | *(facoltative)* solo se la lettura ha credenziali diverse dall'invio |
+| `CIRC_PDF_MAX_MB` | *(facoltativa)* quanto puo' pesare la lettera in PDF. Senza: `5` |
+| `CIRC_PDF_GIORNI` | *(facoltativa)* per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale. Senza: `365` |
+| `CIRC_BOZZA_GIORNI` | *(facoltativa)* per quanti giorni dall'ultima modifica una bozza di nuove lettere non inviata (righe e PDF) resta sul portale. Senza: `30` |
+| `CIRC_RISPOSTA_MAX_MB` | *(facoltativa)* fino a che peso un allegato di risposta si scarica dall'area riservata; oltre, si apre dalla casella. Senza: `20` |
+| `CIRC_MAX_ORA` | *(facoltativa)* tetto di PEC all'ora, per tutti insieme. Senza: `400` |
+| `CIRC_MAX_GIRO` | *(facoltativa)* quante PEC per giro. Senza: `80` |
+| `CIRC_PAUSA_MS` | *(facoltativa)* pausa fra una PEC e la successiva. Senza: `1200` |
+| `CIRC_LETTORE_RECUPERO` | *(facoltativa)* se il gestore rigenera la cartella, quanti messaggi rileggere all'indietro. Senza: `200`. Alla prima accensione non si guarda indietro: la posta gia' presente non entra fra le "non associate" |
+| `CIRC_PEC_PROXY` | *(facoltativa: serve se il gestore non autorizza la casella a spedire dal servizio)* Il "ponte": `http://utente:password@indirizzo:porta` di un proxy con indirizzo di rete italiano da cui passano gli invii. Senza, il gestore respinge gli invii perche' arrivano dall'estero (`554 5.7.1`). La riga la stampa `strumenti/ponte-pec.sh`. Vedi "Quando il gestore sospende gli invii" |
+| `CIRC_AVVISI_EMAIL` | *(facoltativa)* la casella che riceve l'email degli errori del portale e quella delle PEC da associare; piu' indirizzi separati da virgola (al massimo cinque). Senza, o con un valore scritto male: `revilawlazio@revilaw.it`. Vedi "Il registro degli errori" e "Le PEC da associare" |
+| `CIRC_EMAIL_ALLEGATI_MB` | *(facoltativa)* quanti megabyte di file (ricevute, PEC da associare) possono stare in una email del servizio, da 1 a 18. Senza: `10`. Oltre, le email diventano piu' d'una |
+| `CIRC_IP_SERVIZI` | *(facoltativa)* a chi chiedere l'indirizzo di rete da cui e' uscito il servizio quando il gestore lo respinge, separati da virgola. Senza: `https://checkip.amazonaws.com/` e `https://api.ipify.org/`. Vuota: non si chiede |
+
+Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
+ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
+`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze`, `circRegistro` e i documenti
+`meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` non hanno un
+`match`, quindi dal browser non si leggono e non si scrivono (stessa scelta di
+`sbloccoIncarichi`). Le interrogazioni usano solo uguaglianze, o un intervallo
+sullo stesso campo su cui si ordina: **nessun indice da creare a mano**.
+
+### Chi vede che cosa
+
+Lo decide il servizio a ogni chiamata (`profilo` in `lib/circ-dati.js`),
+leggendo `archivio/incarichi` e `archivio/persone` con le stesse regole
+dell'area riservata per riconoscere le persone dalle etichette:
+
+- chi e' nel **team**, il **responsabile dell'incarico** e il **responsabile
+  della qualita'** vedono i propri incarichi e nient'altro (la persona si
+  riconosce dall'indirizzo email della sua scheda in anagrafica);
+- l'**amministratore**, il titolare e i **supervisori** vedono tutto: il
+  riepilogo, ogni incarico e le risposte non associate. I supervisori li
+  indica l'amministratore dalla scheda "Impostazioni" della sezione (stanno
+  in `meta/circolarizzazioni`);
+- gli **equity partner** e i **founding partner** vedono invii e risposte di
+  **tutti** gli incarichi: su quelli in cui hanno un ruolo (team, responsabile
+  dell'incarico o della qualita') lavorano come gli altri, gli altri li hanno in
+  **sola visualizzazione** (`soloLettura` sull'incarico). Leggono l'elenco, la
+  scheda di ogni lettera, ricevute e risposte, il registro dell'incarico,
+  scaricano e stampano il report; non preparano lettere, non toccano solleciti,
+  non annullano, non reinviano, non segnano risposte. Non sono "chi vede
+  tutto": risposte non associate, errori, registro generale e impostazioni
+  restano ad amministratore e supervisori. Partner e' chi ha la qualifica in
+  anagrafica (la scheda in Aderenti Revilaw collegata all'indirizzo con cui
+  entra, attiva: la stessa regola dei controlli qualita') oppure un ruolo di
+  accesso il cui identificativo dice "equity" o "founding";
+- solo l'amministratore nomina i supervisori, cancella i dati di un incarico,
+  cancella una lettera o una risposta e ne cambia l'associazione (vedi
+  "L'amministratore: cancellare e riassociare").
+
+Nell'elenco ognuno trova i propri incarichi **divisi per ruolo**: prima quelli
+di cui e' responsabile dell'incarico, poi quelli di cui e' responsabile della
+qualita', poi quelli in cui e' nel team, con un filtro in alto e il conteggio
+di ciascun gruppo. Chi ha piu' ruoli sullo stesso incarico lo trova una volta
+sola, sotto il piu' alto, con tutti i ruoli scritti nella riga. Chi vede tutto
+ha in fondo anche gli "altri incarichi", quelli su cui non ha un ruolo; per i
+partner quel gruppo si chiama "Altri incarichi · sola visualizzazione".
+
+Ogni azione che cambia qualcosa passa da `incaricoScrivibile()` o
+`letteraDaModificare()` (`api/circolarizzazioni.js`): su un incarico in sola
+visualizzazione il servizio risponde 403, qualunque cosa mostri la pagina.
+
+Ogni azione su una lettera ricontrolla che il suo incarico sia fra quelli di
+chi chiama, e un messaggio della casella si apre solo se e' elencato su quella
+lettera: senza, basterebbe un numero a caso per leggere la posta di un altro
+incarico. Gli incarichi in stato "proposta" o "non accettato" non compaiono.
+
+### Quanto ci mette ad aprirsi
+
+Ogni lettura di Firestore e' un viaggio dal servizio al database, e una dopo
+l'altra i viaggi si sommano. Per questo la pagina degli incarichi (azione
+`stato`) ne fa pochi, e **sempre gli stessi qualunque sia il numero degli
+incarichi** di chi entra:
+
+- le impostazioni e le due anagrafiche (`leggiBase`) partono insieme, mentre
+  si controlla l'utenza;
+- i conteggi si leggono con **una lettura sola** della raccolta
+  `circIncarichi`, dove c'e' un documento solo per gli incarichi che hanno
+  lettere. Chiederli incarico per incarico voleva dire, per chi ne segue
+  duecento, duecento viaggi in fila prima di vedere la pagina;
+- stato del giro, della casella, errori e risposte non associate partono
+  insieme ai conteggi;
+- i conteggi si rifanno solo per gli incarichi toccati (`sporco`) e, al cambio
+  di giorno, solo per quelli con lettere ancora senza risposta ("oltre il
+  termine" e' l'unico numero che dipende dal calendario), a gruppi di dieci.
+
+Nell'area riservata chi torna all'elenco (da un incarico, da un'altra sezione)
+rivede subito quello di poco fa, mentre il servizio lo rilegge.
+
+Se le pagine restano lente, la cosa da guardare e' **dove gira il servizio
+rispetto al database**. Con Firestore in Europa (`europe-west8`, `eur3`) e le
+funzioni nella regione predefinita di Vercel (Washington), ogni lettura
+attraversa due volte l'oceano. La funzione delle circolarizzazioni gira gia' a
+Francoforte: lo dice `vercel.json` (`"regions": ["fra1"]` sulla sola
+`api/circolarizzazioni.js`: non risolve il blocco del gestore PEC, che vuole un
+indirizzo italiano, ma la avvicina alla casella e al ponte, vedi piu' sotto).
+Le altre funzioni restano nella regione del progetto, che si cambia su
+Vercel in Settings -> Functions -> Function Regions: portarle a Francoforte
+conviene solo se Firestore e' in Europa.
+
+### Due aree, e dentro ogni area le tipologie di lettera
+
+Le lettere stanno in **due aree** (`AMBITI` in `lib/circ-comune.js`), le
+stesse due attivita' del piano in Strumenti di revisione, ognuna con il suo
+pulsante "Invia le PEC" accanto ad "Apri":
+
+- **Circolarizzazioni obbligatorie**: istituti di credito, consulenti legali,
+  consulenti fiscali e le altre tipologie senza saldo;
+- **Circolarizzazione clienti e fornitori**: clienti e fornitori, con il
+  **saldo** alla data di bilancio.
+
+L'area di una lettera la decide la sua tipologia (`CATEGORIE`, campo `ambito`):
+non si sceglie a mano e non puo' essere sbagliata. Ogni scheda porta anche il
+`saldo` (solo dove la tipologia lo prevede) e una `nota` libera di 200
+caratteri (il conto, la pratica, la fattura): servono al report, **non entrano
+nel testo della PEC**. I conteggi di ogni incarico sono tenuti anche per area
+(`perAmbito` in `circIncarichi`): l'elenco di un'area mostra solo i suoi numeri.
+
+**La pagina dell'incarico mostra sempre tutte le tabelle.** Invii, solleciti e
+risposte hanno una tabella per tipologia, e la tabella si vede anche quando per
+quella tipologia non c'e' ancora niente: l'intestazione, i conteggi a zero e
+una riga che lo dice. E' la struttura del lavoro, e si deve leggere tutta anche
+prima del primo invio. Solo con un filtro attivo le tabelle senza righe
+spariscono. Lo stesso vale per il report: tutte le tipologie dell'area, anche
+quelle senza lettere, nel riepilogo e nelle tabelle, e si stampa anche prima
+del primo invio.
+
+**"Nuove lettere" e' in evidenza, e serve anche a integrare gli invii.** Il
+pulsante sta in testa alla pagina e in una fascia sopra le tabelle, che dice a
+che cosa serve: prima del primo invio a preparare le lettere, dopo ad
+aggiungere altri destinatari o altre tipologie (le lettere partite restano
+nelle tabelle). Ogni tabella ha il suo "Aggiungi", che apre la finestra gia'
+su quella tipologia. Chi ha l'incarico in sola visualizzazione non vede ne'
+l'uno ne' l'altro.
+
+**Preparare l'invio.** Nella finestra "Nuove lettere" le tabelle delle
+tipologie sono **tutte gia' pronte**, fatte come fogli di calcolo: una cella
+per dato, griglia sottile, numeri di riga, larghe quanto le loro colonne e
+non quanto la pagina (su uno schermo stretto scorrono di lato, con la
+denominazione ferma). Ogni tabella ha sempre in fondo una riga libera, e
+"Aggiungi una riga" e "Incolla da Excel" nella testata. In ogni riga si scrive
+tutto quello che serve alla lettera: denominazione, PEC, saldo dove previsto,
+nota, **la sua lettera in PDF (una per riga: non si caricano piu' PDF
+insieme)** e poi **quando**: il giorno entro cui rispondere e, per ciascuno
+dei due solleciti, giorno, ora e nuovo termine. Il giorno si sceglie dal
+calendario (si apre appena si tocca la cella), l'ora da un elenco, ogni
+mezz'ora dalle 6 alle 21. Sopra le tabelle resta solo "Bilancio al", che vale
+per tutto l'incarico.
+
+**Le stesse date per piu' lettere.** Una riga nuova (aggiunta o incollata)
+parte dalle date dell'ultima riga toccata, e cambiando il termine i solleciti
+lo seguono finche' non li si sceglie a mano. Per chi ha gia' compilato piu'
+righe c'e' **"Copia date"**, in ogni riga: copia il termine e i solleciti di
+QUELLA riga su tutte le altre ancora da inviare, in tutte le tabelle. Prima
+di farlo dice quali date sono, quante righe cambiano e che le lettere gia'
+inviate non cambiano. Un sollecito senza giorno non parte.
+
+**Le lettere gia' inviate restano in tabella**, in grigio, sopra le righe
+nuove: subito dopo l'invio e anche tornando in un secondo momento. Quello che
+e' gia' stato fatto non si tocca: destinatario, PEC, lettera e termine della
+prima PEC sono fermi, e cosi' un sollecito gia' partito. Si possono cambiare
+**solo i solleciti che non sono ancora partiti** (giorno, ora, nuovo termine;
+anche aggiungerne o toglierne uno), e non quando la lettera e' annullata, non
+consegnata o ha gia' avuto risposta. La modifica non vale finche' non si
+preme "Salva" nella riga: fino ad allora le celle cambiate restano colorate,
+"Annulla" rimette le date di prima, e chiudendo la finestra si viene avvisati.
+"Salva" chiama l'azione `solleciti`, quindi la modifica finisce nel registro
+delle operazioni con il prima e il dopo.
+
+Le tabelle a video e quelle del report hanno la stessa divisione: quello che
+si inserisce qui e' quello che si ritrova stampato.
+
+**La bozza sta sul portale.** Mentre si compila, righe (ognuna con le sue date) e PDF si
+salvano da soli nella raccolta `circBozze` (`lib/circ-bozze.js`, azioni
+`bozza-leggi`, `bozza-salva`, `bozza-pdf`, `bozza-pdf-leggi`, `bozza-togli`):
+chi ha cominciato su un computer riapre "Nuove lettere" da un altro e ritrova
+tutto, lettere comprese, e puo' riaprire ogni PDF per controllarlo.
+
+- **Una bozza per persona, incarico e area.** E' di chi la scrive: un collega
+  dello stesso team ha la sua. Due persone sulla stessa bozza si
+  sovrascriverebbero a vicenda senza accorgersene.
+- **La stessa persona su due computer.** Ogni salvataggio dice da quale
+  versione parte (`base`): se sul portale ce n'e' un'altra, la bozza e' stata
+  cambiata altrove e il servizio risponde `conflitto` senza toccare niente.
+  L'area riservata smette di salvare sul portale, lo dice, e alla riapertura
+  chiede quale delle due tenere.
+- **I PDF salgono una volta sola.** Salgono a pezzi da 600 kB appena scelti,
+  uno per volta, in sottofondo; ogni riga dice dove sta il suo ("sul portale",
+  in salita, "per ora solo su questo computer"). All'invio non risalgono: la
+  lettera prende il PDF dalla bozza (`allegato-da-bozza`) e la riga ne esce.
+  Quelli non ancora saliti partono direttamente con la lettera, come prima.
+- **Se la connessione cade mentre si scrive.** Resta anche una copia nel
+  browser (righe in `localStorage`, PDF in IndexedDB, base `rvCircBozze`): e'
+  la rete di sicurezza, non l'archivio. L'area riservata avvisa che il portale
+  non risponde, continua a salvare li' e riprova da sola ogni quindici secondi.
+  Alla riapertura vale la bozza del portale, a meno che sul computer ci siano
+  modifiche che non hanno fatto in tempo a salire.
+- **Non resta per sempre.** Una bozza ferma da `CIRC_BOZZA_GIORNI` (30) si
+  toglie con le pulizie del giro, PDF compresi; se ne va anche quando le sue
+  lettere sono in coda, quando la si svuota e quando l'amministratore cancella
+  i dati dell'incarico. Al massimo 500 destinatari per bozza.
+
+**Il report degli invii.** Dalla pagina dell'incarico, "Stampa il report" apre
+per l'area aperta l'**anteprima** di un foglio A4 orizzontale: testata con il
+marchio, societa' e responsabili, i numeri, il **riepilogo per tipologia**
+(lettere, consegnate, risposte e, per clienti e fornitori, saldo circolarizzato
+e saldo con risposta, con le percentuali) e poi **una tabella per tipologia**:
+destinatario e PEC, riferimento, saldo, invio, recapito, primo e secondo
+sollecito, risposta, note, con i totali. In fondo le firme di chi prepara e di
+chi verifica. Dall'anteprima si stampa, o si salva in PDF scegliendo "Salva
+come PDF" fra le stampanti: il nome proposto e' gia' quello del report. I
+colori di fondo escono anche con "Grafica di sfondo" spenta, l'intestazione
+delle tabelle si ripete a ogni foglio e in fondo c'e' "Pagina N di M" (nei
+browser che lo sanno fare: Chrome ed Edge). E' la carta di lavoro che
+sostituisce il vecchio "Report del team" in Excel, tolto dagli allegati delle
+due attivita'. Il riepilogo in Excel resta, con le stesse colonne.
+
+### Dalla lettera alla PEC
+
+1. `crea`: i dati passano i controlli (`controllaRichiesta`) e nasce una
+   scheda **in bozza**, con il suo riferimento `RVL-XXXXXX`. Se per lo stesso
+   incarico c'e' gia' una lettera a quell'indirizzo, il servizio lo dice e
+   aspetta una conferma esplicita (`forza`).
+2. `allegato`: il PDF sale a pezzi da 600 kB (una richiesta al servizio non
+   supera 4,5 MB, un documento Firestore 1 MB). Con l'ultimo il file si
+   ricompone, si controlla che sia intero e che sia davvero un PDF, e solo
+   allora la scheda entra **in coda**. Una lettera non parte senza allegato.
+3. Il **giro** (`lib/circ-giro.js`) prende le schede che hanno qualcosa di
+   dovuto adesso e le spedisce, una per volta, dalla stessa connessione.
+
+**Piu' persone che inviano insieme.** Nessuno spedisce dal proprio clic:
+ognuno aggiunge schede alla coda, e chi spedisce e' sempre **un giro solo**
+(lucchetto su `meta/circGiro`), ogni cinque minuti e subito quando qualcuno
+preme "Invia". Ogni scheda viene poi presa in carico in transazione (`prendi`),
+quindi due giri partiti insieme non spediscono due volte la stessa PEC. Il
+tetto orario vale per tutti insieme.
+
+**Se il giro si ferma a meta'.** Il Message-ID si annota *prima* di spedire. Un
+passo rimasto "in invio" non si rispedisce alla cieca: dopo venti minuti lo si
+riguarda, e si rispedisce solo se nel frattempo la casella e' stata letta e la
+ricevuta di accettazione non c'e'. Se la ricevuta c'e', la PEC era partita e la
+scheda si aggiorna da sola.
+
+**Se il server PEC rifiuta.** Un rifiuto del solo destinatario segna quella
+scheda "non partita" e si va avanti. Un rifiuto che puo' riguardare noi (tetto
+superato, indirizzo bloccato, password, server irraggiungibile) rimette la
+scheda in coda; **una PEC bloccata pero' non tiene ferme le altre**: vedi qui
+sotto.
+
+### Una PEC bloccata non tiene ferme le altre
+
+Quando il gestore respinge una lettera con un "bloccato" o un "abuso", da quel
+solo rifiuto non si sa se il problema sia di quella lettera o di tutto il
+servizio. Lo dice la lettera dopo (`lib/circ-giro.js`):
+
+- **si prova la successiva.** Se parte, il problema era della prima: il giro
+  va avanti con tutte le altre, e non c'e' nessuna pausa ne' avviso di
+  sospensione. Se viene respinta anche lei, e' il servizio a essere bloccato:
+  il giro si ferma e parte la pausa (sezione seguente);
+- **la lettera respinta mentre le altre partono si ritenta da sola** dopo un
+  quarto d'ora, senza toccare la coda. Qui il tentativo conta: al terzo rifiuto
+  va in "non partita" con il motivo ("Il server PEC ha rifiutato questa lettera
+  3 volte mentre le altre partivano: ..."), compare nel registro degli errori e
+  chi l'ha preparata riceve l'avviso. In tabella si legge "Respinta, si
+  ritenta", con il numero del tentativo e l'ora del prossimo;
+- **vale anche da un giro all'altro**: una lettera respinta, poi un'altra PEC
+  che parte, poi la stessa lettera respinta di nuovo -> il problema e' suo;
+- **respinta quando e' sola in coda**, non c'e' un'altra lettera che lo dica:
+  si tratta come un blocco di tutti (pausa, tentativo non contato). Ma **in
+  pausa una lettera nuova si prova subito** (chi preme Invia non aspetta la
+  fine della pausa): se parte, la pausa finisce li'; se viene respinta, il
+  blocco e' confermato e la pausa resta quella di prima, senza allungarsi. Le
+  lettere gia' respinte in pausa non si ritentano;
+- **non si prova la lettera dopo** quando il rifiuto riguarda di certo tutti:
+  il collegamento non si apre, le credenziali non passano, il gestore chiede di
+  rallentare (`421`, `45x`, "too many"), il ponte non risponde
+  (`bloccoCerto()`).
+
+Con il blocco per indirizzo estero descritto qui sotto vengono respinte tutte:
+in quel caso ogni giro fa due tentativi invece di uno, poi si ferma.
+
+### Quando il gestore sospende gli invii (`554 5.7.1 Indirizzo IP bloccato`)
+
+E' successo al primo invio vero: Aruba ha risposto `554 5.7.1 Indirizzo IP
+bloccato temporaneamente per sospetto abuso. Contattare assistenza e utilizzare
+la Webmail`. **La causa e' che il servizio si collega dall'estero.** Lo dice la
+guida di Aruba agli errori della PEC: l'errore compare quando si spedisce da un
+programma di posta collegandosi dall'estero via SMTP, e nell'attesa si puo'
+usare la webmail. Le funzioni Vercel girano fuori dall'Italia (Stati Uniti; la
+funzione delle circolarizzazioni ora a Francoforte, `vercel.json`), e Vercel
+non ha una regione italiana: cambiare regione non basta, e infatti da
+Francoforte il rifiuto e' lo stesso. La lettura della casella (IMAP) dall'estero
+invece passa. Non c'entrano le lettere ne' la password.
+
+**Primo rimedio: farsi autorizzare dal gestore.** Per la casella degli inviti
+agli eventi (`revilawngb@pec.it`), che spedisce dallo stesso servizio, il
+titolare ha gia' ottenuto l'autorizzazione dall'assistenza del gestore: la
+stessa richiesta va fatta per la casella delle circolarizzazioni, citando quel
+precedente. Non costa e non richiede altro; ottenuta l'autorizzazione basta
+"Riprova adesso".
+
+L'assistenza ha risposto che il rifiuto viene dai controlli automatici di
+sicurezza delle caselle PEC, e che per autorizzare la casella le servono:
+l'indirizzo IP pubblico della connessione, se e' statico o dinamico, data e ora
+esatta dell'ultimo invio fallito, le caselle coinvolte. **L'indirizzo non e'
+quello del computer di chi usa l'area riservata**: a spedire e' il servizio. Per
+questo, quando il gestore respinge l'indirizzo, il servizio lo rileva subito
+dopo il rifiuto (`indirizzoUscita()`: lo chiede a `checkip.amazonaws.com`, poi
+a `api.ipify.org`; una lettura, non esce nessun dato) e l'avviso mostra a chi
+vede tutto il riquadro "Dati da comunicare all'assistenza del gestore", con il
+pulsante Copia: indirizzo e regione, tipo di connessione (dinamico: l'indirizzo
+cambia a ogni collegamento), data e ora al secondo, casella. Al team
+l'indirizzo non viene mandato. Con un indirizzo dinamico il gestore apre la
+casella "verso tutte le reti": le sue protezioni automatiche si riducono,
+quindi raccomanda una password complessa, cambiata periodicamente, e la
+verifica in due passaggi. Con la verifica in due passaggi il servizio deve
+usare la password per i programmi di posta (`CIRC_PEC_PASS`), che scade ogni
+sei mesi.
+
+**Secondo rimedio: il ponte (`CIRC_PEC_PROXY`).** Se il gestore non autorizza,
+gli invii devono arrivargli da un indirizzo di rete italiano. Il servizio sa
+farli passare da un proxy HTTP con credenziali:
+
+    CIRC_PEC_PROXY=http://utente:password@indirizzo:porta
+
+Con la variabile impostata la connessione a `smtps.pec.aruba.it` parte dal
+ponte. Dentro il passaggio resta cifrata e verificata contro il nome del server
+del gestore: il ponte vede solo traffico cifrato, non la password della casella
+ne' le lettere. La lettura della casella continua a collegarsi direttamente.
+Nell'area riservata, accanto alla casella, compare "invii dal ponte italiano"
+(l'indirizzo solo a chi vede tutto; le credenziali non escono mai dal
+servizio). Se la variabile e' scritta male il servizio non spedisce affatto e
+lo segnala: senza ponte tornerebbe il rifiuto del gestore, e non si capirebbe
+perche'.
+
+**Come si prepara il ponte.** Serve un piccolo server Linux (Ubuntu o Debian)
+con indirizzo pubblico italiano, per esempio il taglio piu' piccolo di un
+fornitore italiano, in un data center in Italia. Sul server, da amministratore:
+
+    sudo bash ponte-pec.sh
+
+Lo script e' `strumenti/ponte-pec.sh`: installa `tinyproxy`, crea utente e
+password, ammette **solo** `smtps.pec.aruba.it` e `imaps.pec.aruba.it` sulle
+porte 465 e 993, e alla fine stampa la riga `CIRC_PEC_PROXY=...` da mettere
+nelle variabili d'ambiente di Vercel (poi serve un nuovo deployment). Va aperta
+la porta 8443 anche nel firewall del fornitore, se ce n'e' uno. Rilanciarlo non
+cambia la password.
+
+Provato qui con `tinyproxy` 1.11 e un server di posta finto: con le credenziali
+giuste la PEC (con un PDF di 3 MB) passa; password sbagliata, nessuna
+credenziale, un'altra destinazione o un'altra porta vengono rifiutate. **Non
+provato contro Aruba**: che un indirizzo italiano basti lo dice la guida del
+gestore, e si vede solo al primo invio dal ponte.
+
+**Che cosa fa il servizio quando il gestore (o il ponte) rifiuta**
+(`lib/circ-giro.js`):
+
+- **le lettere restano in coda e il tentativo non conta.** Quando il blocco e'
+  di tutti, il rifiuto non consuma i tre tentativi della lettera: un blocco di
+  ore non manda nessuna lettera in "non partita" e non fa partire avvisi a chi
+  l'ha preparata;
+- **gli invii si fermano per un po', per tutta la coda**: dieci minuti dopo il
+  primo rifiuto, poi venti, quaranta, un'ora (e un'ora per i successivi). In
+  pausa il giro programmato non apre connessioni di invio; la prima PEC
+  accettata azzera tutto;
+- **lo dice**: nell'area riservata un avviso riporta la risposta del server, che
+  cosa vuol dire e a che ora si riprova (lo vede anche il team, nella pagina
+  dell'incarico), e nel registro degli errori c'e' la riga "Il server PEC ha
+  sospeso gli invii". L'avviso resta finche' una PEC non parte davvero
+  (`meta/circGiro.rifiuto`). La spiegazione cambia con la causa: indirizzo
+  estero, ponte che non risponde o con credenziali sbagliate, password della
+  casella, troppi invii;
+- **il ponte che non risponde e' trattato allo stesso modo** (la lettera non
+  c'entra): pausa, avviso, niente "non partita". L'indirizzo del ponte non
+  compare nel testo dell'avviso;
+- **chi vede tutto puo' riprovare subito** con "Riprova adesso" (azione
+  `riprova-invii`): il tentativo resta nel registro delle operazioni.
+
+Un'altra strada, piu' cara e meno diretta: gli "Static IPs" di Vercel (a
+pagamento, per progetto) per avere indirizzi fissi da far autorizzare al
+gestore; restano indirizzi esteri.
+
+### I solleciti
+
+Si programmano con la lettera: giorno e **orario** di partenza e nuovo termine
+per rispondere, per il primo e per il secondo. Partono il giorno e all'ora
+indicati (ora italiana; senza orario valgono le 9:00), con un testo diverso
+dalla richiesta e fra loro (`paragrafi` in `lib/circ-comune.js`), e riallegano
+la lettera. Il giro passa ogni cinque minuti: un sollecito delle 10:30 parte
+fra le 10:30 e le 10:35. Giorno e orario si cambiano anche dopo, lettera per
+lettera ("Date dei solleciti"), finche' il sollecito non e' partito.
+
+**Un sollecito non parte se la risposta e' arrivata.** Quando il lettore
+abbina una risposta a una lettera, i solleciti non ancora partiti diventano
+"bloccati"; e il giro lo ricontrolla nella transazione che prende il passo. Per
+questo il giro programmato legge la casella *prima* di spedire. Si fermano
+anche se la prima PEC non e' stata consegnata (c'e' da correggere l'indirizzo e
+reinviare) e se il team segna a mano una risposta arrivata per altra via.
+
+### Ricevute e risposte
+
+Il lettore (`lib/circ-lettore.js`) fa le stesse scelte di `lib/lettore-pec.js`:
+casella aperta in **sola lettura**, lettura incrementale con il segnaposto su
+Firestore, nessun testo copiato nel database. Le ricevute si agganciano per
+Message-ID (quello imposto all'invio, che il gestore ricopia in
+`X-Riferimento-Message-ID` e in `daticert.xml`).
+
+**A chi appartiene una risposta.** Con migliaia di lettere a soggetti diversi
+(e la stessa banca che riceve lettere per piu' societa') l'abbinamento deve
+essere sicuro prima che comodo. Si prova in quest'ordine:
+
+1. il messaggio a cui si risponde (`In-Reply-To` / `References`, sulla busta e
+   dentro `postacert.eml`): la nostra PEC, o l'identificativo che il gestore
+   le ha dato (annotato all'accettazione);
+2. il riferimento `RVL-XXXXXX` nell'oggetto;
+3. l'indirizzo di chi scrive, se a quell'indirizzo e' partita una sola lettera,
+   oppure piu' lettere di cui una sola ha la societa' revisionata citata
+   nell'oggetto.
+
+Se nessuna strada porta a **una** lettera, la risposta non si abbina a caso:
+resta fra le **non associate** (`circMessaggi`, stato `non-associato`) con le
+lettere candidate, e la associa chi vede tutto. Una risposta automatica ("sono
+assente") si elenca sulla lettera ma non ferma i solleciti.
+
+**Quando si legge la casella.** Sempre prima di spedire (un sollecito non deve
+partire se la risposta e' gia' arrivata), a richiesta con "Aggiorna ricevute e
+risposte", e altrimenti ogni dieci minuti (ogni cinque finche' qualche lettera
+partita aspetta ancora le ricevute); mai se nessun incarico ha lettere.
+La primissima lettura la fa il giro degli invii *prima* di spedire la prima
+PEC: fissa il punto di partenza (da li' in poi) e verifica che la lettura
+funzioni. Se la casella non si legge, le lettere restano in coda: spedire senza
+poter leggere le ricevute vorrebbe dire non sapere se sono arrivate.
+
+**Aprire e scaricare.** Il testo di una risposta si legge dalla casella al
+momento (`leggi`). Ricevute e risposte si scaricano come file `.eml` (il
+messaggio intero, con la firma del gestore) e gli allegati come file loro
+(`scarica`): il servizio da' i byte a tratti di 2 MB, cosi' come stanno nella
+casella, e li ricompone l'area riservata. "Scarica ricevute e risposte" mette
+tutto in un archivio ZIP con il riepilogo in Excel.
+
+### L'amministratore: cancellare e riassociare
+
+Una lettera o una risposta finita sul portale per errore si toglie; una
+risposta abbinata alla lettera sbagliata si sposta su quella giusta. Lo fa solo
+l'amministratore, dalla scheda della lettera, e **ogni azione resta nel
+registro delle operazioni** con quello che c'era: dopo, e' l'unica traccia.
+
+| Azione | Che cosa fa |
+|---|---|
+| `cancella-lettera` | toglie dal portale UNA lettera: scheda, PDF, date dei solleciti, indice dei riferimenti, ricevute e risposte abbinate. Vuole la conferma. Nel registro resta il riepilogo della lettera (destinatario, PEC, stato, date di invio, consegna e risposta) e il motivo scritto da chi cancella. Se la PEC era gia' partita, le risposte che arriveranno finiranno fra le non associate |
+| `risposta-cancella` | toglie una risposta dalla lettera; il messaggio resta nella casella PEC e non torna fra le non associate |
+| `risposta-sposta` | sposta la risposta su un'altra lettera, dello stesso incarico o di un altro (per riferimento `RVL-XXXXXX`). Due voci nel registro: lo spostamento sull'incarico di partenza (da quale lettera a quale), l'arrivo su quello di destinazione |
+| `risposta-dissocia` | rimette la risposta fra le "non associate", da dove si associa o si scarta come le altre |
+
+Quando una risposta esce da una lettera, la lettera resta "con risposta" se ne
+ha un'altra vera; altrimenti **torna senza risposta e i solleciti che la
+risposta aveva fermato ripartono**, se la loro data non e' passata. Sulla
+lettera di arrivo i solleciti in programma si fermano, come per ogni risposta,
+e chi l'ha preparata riceve l'avviso. Una lettera con una PEC che sta partendo
+in quel momento non si cancella: si riprova un minuto dopo.
+
+### Il registro degli errori
+
+Tutto quello che va storto finisce in un posto solo (`lib/circ-errori.js`,
+raccolta `circErrori`), e la casella dello studio viene avvisata per email:
+
+| Tipo | Che cosa |
+|---|---|
+| Recapito | la PEC non e' stata accettata dal gestore o non e' stata consegnata (un preavviso di mancata consegna entra come "da tenere d'occhio") |
+| Invio | la lettera non e' partita: rifiuto del server per quel destinatario, PDF non piu' leggibile, tre tentativi rimasti senza esito |
+| Server PEC | il server ha sospeso gli invii (tetto superato, indirizzo bloccato, password): le lettere restano in coda, con l'ora del prossimo tentativo e la spiegazione |
+| Casella PEC | la casella rifiuta la password (subito), non si legge per due giri di fila, o un messaggio non si e' potuto leggere |
+| Servizio | un errore imprevisto di un'azione dell'area riservata o del giro programmato |
+
+**Una riga per problema.** Ogni errore ha una chiave (la lettera e il passo,
+oppure "casella", "server"): se si ripresenta mentre la riga e' aperta si
+aggiornano il conteggio e la data, senza un'altra email. Nell'area riservata
+(scheda "Errori", per l'amministratore e i supervisori) si **spunta** quando e'
+risolto; se lo stesso problema torna *dopo* la spunta, la riga si riapre da
+sola e l'avviso riparte. Togliendo la spunta si riapre a mano.
+
+**L'email** parte dal giro programmato, quindi entro cinque minuti, ed e' **una
+sola** per tutti gli errori nuovi: cinquanta lettere non consegnate non
+diventano cinquanta messaggi. Parte dalla posta ordinaria del servizio
+(`SMTP_*`, mittente `SMTP_FROM_EMAIL`), non dalla casella PEC. Arriva sempre
+alla **casella dello studio**, `revilawlazio@revilaw.it` (si cambia con
+`CIRC_AVVISI_EMAIL`, anche piu' indirizzi separati da virgola); ai supervisori
+se l'amministratore lo sceglie dalle "Impostazioni" (`avvisaSupervisori` in
+`meta/circolarizzazioni`). Non arriva piu' al titolare. Se l'email non parte,
+gli errori restano da avvisare e ci riprova il giro dopo.
+
+Quello che il registro **non** puo' dire: se e' il giro programmato a non
+partire affatto (per esempio `CRON_SECRET` mancante) non c'e' nessuno che
+scriva l'errore. Si vede dai Request Logs di Vercel, dove `/api/circolarizzazioni`
+deve comparire ogni cinque minuti.
+
+### Il registro delle operazioni: chi ha fatto che cosa
+
+Ogni azione che cambia qualcosa lascia una voce nella raccolta `circRegistro`
+(`lib/circ-registro.js`), con **chi** l'ha fatta (la persona entrata davvero
+e, se lavora come collaboratore, l'utente per conto del quale ha agito),
+**quando**, su quale incarico, area e lettera, e **che cosa e' cambiato**:
+
+| Operazione | Che cosa resta scritto |
+|---|---|
+| Lettera preparata e messa in coda | destinatario, PEC, tipologia, date, saldo e nota; il nome, il peso e l'**impronta SHA-256** del PDF; se il PDF e' salito dal computer o dalla bozza |
+| Solleciti modificati / annullati | le date di prima e quelle di dopo |
+| Lettera annullata | che la PEC non era ancora partita |
+| Risposta segnata a mano / tolta | la nota scritta da chi l'ha segnata, e i solleciti che si fermano o ripartono |
+| Lettera reinviata | l'indirizzo di prima e quello di dopo |
+| Risposta associata / messaggio scartato | mittente, data e oggetto del messaggio, e a quale lettera e' stato associato |
+| Errore segnato come risolto / riaperto | quali errori, e la nota |
+| Supervisori e destinatari degli avvisi | l'elenco di prima e quello di dopo |
+| Bozza svuotata | quante righe non inviate sono state tolte |
+| Dati dell'incarico cancellati | il **riepilogo di ogni lettera tolta**: a chi, da chi e quando e' stata preparata, quando e' partita, se e' stata consegnata, i solleciti, la risposta |
+| Pulizie automatiche | quanti PDF scaduti e quante bozze ferme sono stati tolti (a nome del servizio) |
+
+Tre regole:
+
+- **Le voci non si cancellano e non si modificano.** La raccolta non ha regole
+  Firestore: dal browser non si scrive, e il servizio sa solo aggiungere. Il
+  registro resta anche quando l'amministratore toglie dal portale i dati di un
+  incarico: e' li' apposta, con il riepilogo delle lettere tolte.
+- **Un'azione rifiutata non lascia voci**; i salvataggi automatici della bozza
+  nemmeno. Quello che il servizio fa da solo lettera per lettera (la PEC che
+  parte, le ricevute, la risposta abbinata) sta sulla scheda della lettera, e
+  finisce nel riepilogo quando l'incarico viene cancellato.
+- **Se la voce non si riesce a scrivere** l'azione vale lo stesso (a quel
+  punto e' gia' avvenuta), ma nasce un errore nel registro degli errori, cosi'
+  chi amministra lo viene a sapere per email.
+
+Si legge con l'azione `registro`: quello **di un incarico** chi lo segue
+(scheda "Registro" nella pagina dell'incarico, con le operazioni dell'area
+aperta e quelle che riguardano tutto l'incarico); quello **generale**, con
+anche impostazioni ed errori, l'amministratore e i supervisori (scheda
+"Registro" della sezione, duecento voci per volta dalla piu' recente). Tutti e
+due si filtrano per persona, operazione e periodo e si scaricano in Excel.
+
+Non ha una scadenza: ogni voce pesa meno di un kilobyte (di piu' solo quelle
+delle cancellazioni, che portano il riepilogo), quindi 5.000 lettere fanno
+pochi megabyte. Contiene denominazioni e indirizzi PEC dei destinatari: se un
+giorno servisse un termine di conservazione, va aggiunto alle pulizie.
+
+### Le email a chi ha inviato la lettera: ricevute, risposte, PEC non partite
+
+Chi prepara una lettera riceve per email (`lib/circ-avvisi.js`, raccolta
+`circAvvisi`), al suo indirizzo:
+
+- **ogni ricevuta della sua PEC, buona o cattiva**: accettazione, consegna,
+  non accettazione, mancata consegna, preavviso di mancata consegna; vale anche
+  per i solleciti. **Con il file della ricevuta allegato**, cosi' com'e' nella
+  casella PEC (un `.eml` con la firma del gestore): e' la prova da tenere nelle
+  carte di lavoro, e non serve piu' andarla a scaricare. Per una PEC non
+  accettata o non consegnata l'email dice anche di controllare l'indirizzo su
+  INI-PEC e di reinviare;
+- la notizia che la PEC **non e' partita** (non c'e' ricevuta: non e' uscita);
+- la notizia che **e' arrivata la risposta**, anche quando l'ha associata a
+  mano chi amministra: con mittente, data e nomi degli allegati, e il
+  promemoria di salvarla nelle carte di lavoro. Una risposta automatica ("sono
+  assente") non avvisa nessuno.
+
+Vale per tutti allo stesso modo, amministratore compreso: gli errori del
+portale vanno alla casella dello studio, le ricevute a chi ha inviato.
+
+Le notizie si mettono in coda e le spedisce il giro programmato: **una email
+per persona a ogni giro**, con tutte le sue novita' (trenta ricevute lette
+insieme non diventano trenta messaggi). Dalla coda si toglie solo quello che e'
+partito: il resto ci riprova al giro dopo. Stessa posta ordinaria degli errori
+(`SMTP_*`). Una ricevuta riletta (il gestore la rimanda, la cartella viene
+rigenerata) non dice niente di nuovo e non fa partire una seconda email.
+
+**I file allegati.** Nel database non c'e' il testo dei messaggi: il file si va
+a prendere nella casella PEC al momento di spedire, con un collegamento solo
+per tutto il giro (`LETTORE.sessione`).
+
+- In una email stanno al massimo 25 file e `CIRC_EMAIL_ALLEGATI_MB` megabyte
+  di file (di base 10: in base64 pesano un terzo in piu', e i server di posta
+  di norma si fermano a 20-25 MB). Se le ricevute di un giro pesano di piu', le
+  email diventano due o piu'. Una ricevuta di consegna contiene la lettera
+  originale: con PDF grandi, poche per email.
+- Una ricevuta che **da sola** supera il tetto parte senza file, con
+  l'indicazione di scaricarla dall'area riservata.
+- Se la casella in quel momento **non risponde**, la ricevuta aspetta il giro
+  dopo, fino a mezz'ora; poi parte senza file. Le notizie senza file (risposte,
+  PEC non partite) non aspettano.
+- Se il server di posta **respinge l'email per il peso** (552), dopo tre
+  tentativi la notizia parte senza file. Un guasto qualunque della posta non
+  conta come tentativo: quando la posta riparte, il file c'e'.
+
+### Le PEC da associare, alla casella dello studio
+
+Un messaggio arrivato nella casella PEC che il portale non sa attribuire a una
+lettera (vedi "A chi appartiene una risposta") resta fra le "non associate", e
+finche' resta li' **i solleciti di quella lettera partono lo stesso**. Per
+questo viene segnalato per email (`AVVISI.spedisciDaAssociare`): alla stessa
+casella degli errori (`CIRC_AVVISI_EMAIL`, di base `revilawlazio@revilaw.it`) e
+ai supervisori se ricevono anche gli errori.
+
+- Una email per giro con tutti i messaggi nuovi: da chi arrivano, se sono PEC o
+  posta ordinaria, oggetto, nomi degli allegati e le lettere a cui potrebbero
+  riferirsi (societa', destinatario, riferimento). **Con il messaggio
+  allegato** (`.eml`), con gli stessi limiti di peso e la stessa attesa delle
+  ricevute.
+- Per lo stesso messaggio l'avviso parte una volta sola (`avvisato` su
+  `circMessaggi`); nell'area riservata, accanto alla data, si legge quando e'
+  stato segnalato.
+- Non si segnala una risposta che l'amministratore ha **rimesso a mano** fra le
+  non associate (lo sa gia'), ne' un messaggio rimasto li' da piu' di trenta
+  giorni.
+- L'associazione si fa sempre dall'area riservata (amministratore o
+  supervisori): l'email serve a saperlo subito e a leggere il messaggio.
+
+### I dati non restano sul portale
+
+Ai team l'area riservata lo dice in ogni pagina: ricevute e risposte vanno
+salvate nelle carte di lavoro, perche' a lavoro concluso i dati si cancellano.
+
+- **Il PDF** della lettera si toglie da solo **365 giorni dopo che la lettera
+  e' stata preparata** (`CIRC_PDF_GIORNI`), e comunque mai prima dell'ultimo
+  sollecito in programma. La scheda resta, con ricevute e risposte; il PDF
+  resta anche nella ricevuta di consegna, dentro la casella PEC.
+- **Le schede** di un incarico le cancella l'amministratore dalla pagina
+  dell'incarico ("Cancella i dati di questo incarico", azione
+  `cancella-incarico`): schede, PDF, indice dei riferimenti. I solleciti ancora
+  in programma non partono piu'.
+- **I messaggi** restano nella casella PEC, che e' l'archivio con valore legale.
+- **Il registro delle operazioni** resta: chi ha fatto che cosa non si
+  cancella con i dati dell'incarico (vedi sopra).
+- Le lettere rimaste a meta' (caricamento del PDF interrotto) si tolgono dopo
+  un giorno.
+- **Le bozze** delle nuove lettere non inviate si tolgono, righe e PDF, dopo
+  `CIRC_BOZZA_GIORNI` (30) dall'ultima modifica.
+
+### Quanto spazio occupa, e che cosa costa
+
+Su **Firestore** pesano quasi solo i PDF delle lettere, tenuti a pezzi sotto
+ogni scheda per `CIRC_PDF_GIORNI`: 5.000 lettere da mezzo megabyte sono circa
+2,5 GB per un anno. Tutto il resto (schede, indice, segnaposto dei messaggi)
+sta in poche decine di megabyte: il testo e gli allegati delle risposte non
+vengono mai copiati, restano nella casella PEC. Le **bozze** occupano spazio
+solo finche' non si inviano: il PDF di una riga passa dalla bozza alla lettera,
+non resta in due posti. Costano invece qualche scrittura in piu': una per ogni
+salvataggio automatico (pochi secondi dopo l'ultima modifica) e, per ogni PDF,
+i suoi pezzi piu' due di servizio, alla salita e di nuovo all'invio.
+
+> **Il piano gratuito di Firebase (Spark) non basta per questi volumi.** Ha un
+> tetto di 1 GiB di dati e di 20.000 scritture al giorno, e sono tetti di
+> TUTTO il database, cioe' di tutta l'area riservata: superati, si ferma ogni
+> salvataggio, non solo le circolarizzazioni. Ogni lettera costa una ventina
+> di scritture fra preparazione, invio e ricevute: mille lettere in un giorno
+> esauriscono da sole la quota. Prima di usare la funzione a pieno regime il
+> progetto va portato sul piano a consumo (Blaze), dove quelle quote restano
+> gratuite e si paga solo l'eccedenza: qualche euro l'anno per lo spazio dei
+> PDF, centesimi per le operazioni. Conviene impostare un avviso di spesa.
+
+Su **Vercel** non resta niente: il giro programmato a riposo dura un secondo,
+legge poche righe e non scrive. La **casella PEC** invece si riempie: ogni
+ricevuta di consegna completa contiene la lettera con il suo PDF, e a quelle si
+aggiungono le risposte. Va tenuta d'occhio (e svuotata o archiviata): a casella
+piena le risposte dei terzi vengono respinte.
+
+### Le prove
+
+    node prove/circolarizzazioni.prove.js
+
+Firestore, il server di posta e la casella sono finti (`prove/circ-finti.js`),
+il codice provato e' quello vero: permessi, PDF, invii concorrenti, ricevute,
+solleciti e blocco alla risposta, abbinamento delle risposte, giro interrotto,
+tetto orario, registro degli errori (una riga per problema, una sola email,
+spunta e riapertura), avvisi a chi ha inviato la lettera, aree con i loro
+conteggi, saldo e note, la bozza sul portale (ripresa da un altro computer,
+conflitto fra due computer, PDF preso dalla bozza all'invio, scadenza),
+l'orario dei solleciti (parte all'ora scelta e non prima, senza orario alle
+9:00, le date di ogni riga nella bozza), il
+registro delle operazioni (una voce per ogni azione riuscita, nessuna per
+quelle rifiutate, chi lo legge, che resta dopo la cancellazione), le letture
+della pagina degli incarichi (poche, e non crescono con gli incarichi), il
+gestore che respinge il servizio (pausa che cresce, nessun tentativo in pausa,
+la lettera che non consuma i tentativi, ripresa a mano, avviso che resta
+finche' una PEC non parte), una PEC bloccata che non tiene ferme le altre (le
+altre partono nello stesso giro, la respinta si ritenta da sola e al terzo
+rifiuto va in "non partita", la lettera nuova provata in pausa, il blocco di
+tutti che non allunga la pausa), il ponte (gli invii passano di li', il ponte
+spento o con credenziali sbagliate, la variabile scritta male, l'indirizzo che
+non esce dal servizio), i dati per l'assistenza del gestore (indirizzo di
+uscita rilevato al rifiuto, non mandato al team), l'amministratore che
+cancella e riassocia (solo lui, solleciti che ripartono, registro con il
+riepilogo), equity e founding partner in sola visualizzazione (leggono tutto,
+ogni modifica rifiutata), cancellazione.
+
+Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
+banco di prova locale, con lo stesso codice e gli stessi finti:
+
+    node prove/circolarizzazioni.banco.js 8790
+
+L'area riservata in modalita' dimostrativa lo usa se prima di caricarla si
+imposta `window.RV_CIRCOLARIZZAZIONI_URL = 'http://127.0.0.1:8790/api/circolarizzazioni'`.
+In quella modalita' si presenta con `demo:<indirizzo della sessione>`, che solo
+il banco accetta: il servizio vero verifica il gettone Firebase e lo rifiuta.
 
 ## Nuova iscrizione dal sito (`/api/iscrizione-nuova`)
 
@@ -4827,7 +5574,7 @@ per serata (`{cena}~{email}`).
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
-Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta
+Riservato all'**amministratore** (ID token verificato, ruolo `admin` o `viceadmin`). Porta
 dentro la collezione `iscrizioni` le iscrizioni raccolte finora, in due modi:
 
 - senza `csv` nel corpo: legge il foglio con l'API Google (serve il foglio

@@ -22,10 +22,51 @@ manuale resta sempre disponibile e non dipende dalla coda.
 | 1 | `repo-full.bundle` — storia git completa, **solo la domenica** (pesa centinaia di MB) |
 | 1-bis | I video allegati alle release: inventario sempre, copia su Drive incrementale |
 | 2 | Verifica dello zip e `node --check` sui file critici |
-| 3 | `firestore-data.json` — tutti i dati, sottocollezioni comprese |
+| 3 | `firestore-data.jsonl.gz` — tutti i dati, sottocollezioni comprese: una riga per documento, compressi |
 | 3-bis | `auth-users.json` + parametri di cifratura, regole di sicurezza, indici |
 | 4 | Verifica che sito e API rispondano; `dns.txt` con i record del dominio |
 | 5 | Stato del repository, TODO/FIXME, dipendenze del servizio email |
+
+### Come si salvano i dati (e perché dal 2 settembre al 23 novembre 2026 non si salvavano)
+
+Il passo 3 legge **tutti i documenti del database, a qualunque profondità**:
+una interrogazione per ogni collezione di primo livello che chiede "tutto
+quello che sta sotto, a pagine" (`lib/firestore.cjs`). Costa una lettura per
+documento. I documenti si scrivono man mano in `firestore-data.jsonl.gz`, una
+riga ciascuno: il database non sta mai tutto in memoria e non c'è un limite
+alla sua grandezza. Ogni collezione lascia una riga nel report (quanti
+documenti, quanti MB, quanti secondi), poi il file viene riletto per intero
+per controllo. Ci sono dentro anche le circolarizzazioni via PEC: lettere,
+PDF a pezzi, bozze, registro delle operazioni.
+
+Prima si faceva diversamente: letta una collezione, per **ogni** documento si
+chiedeva a Firestore se avesse sottocollezioni, una chiamata alla volta. Con
+2.500 documenti erano sette minuti; cresciuto il database (iscrizioni, inviti
+alle aziende, invii) l'esportazione ha superato le due ore concesse al lavoro,
+e GitHub la interrompeva. **Un lavoro interrotto per tempo scaduto risulta
+"annullato", non "fallito": non parte nessuna mail.** L'ultimo backup completo
+dei dati è stato quello del 1° settembre 2026; fino al 23 novembre ogni notte
+si è salvato solo il codice. Nessuno se n'è accorto perché niente lo diceva.
+
+Due cose perché non succeda più:
+
+- la lettura nuova non dipende dal numero di documenti in quel modo: decine di
+  migliaia di documenti sono minuti;
+- **il guardiano** (`esegui-backup.cjs`): se dopo 100 minuti il backup non ha
+  finito, scrive il report con quello che c'è e chiude con un **errore**, che
+  GitHub segnala per mail. Il tempo del lavoro nel workflow (120 minuti) deve
+  restare più lungo di quello del guardiano.
+
+Le prove dell'esportazione e del ripristino, senza rete e senza chiavi:
+
+```
+node scripts/backup/prove/firestore.prove.cjs
+```
+
+**Che cosa NON c'è nel backup dei dati**: i messaggi delle caselle PEC
+(ricevute e risposte restano nella casella del gestore; sul portale c'è solo
+l'elenco), e le variabili d'ambiente di Vercel e i segreti di GitHub, che per
+loro natura non si esportano: vanno rimessi a mano (i nomi sono nei README).
 
 Ogni cartella contiene `RIPRISTINO.txt` (istruzioni passo-passo),
 `import-firestore.cjs` (lo strumento che rimette dentro i dati) e `report.txt`.
@@ -48,12 +89,21 @@ L'account predefinito `firebase-adminsdk-*` ha già i permessi che servono. Se
 regole o parametri di cifratura risultassero vuoti nel report, aggiungi i ruoli
 *Firebase Authentication Admin*, *Firebase Rules Viewer* e *Cloud Datastore User*.
 
-### 2. Copia su Google Drive (facoltativo ma consigliato)
+### 2. Copia su Google Drive (obbligatoria)
 
-Senza questa parte il backup funziona lo stesso: le copie restano allegate
-all'esecuzione (artifact, 90 giorni) invece di finire in `Backup-NGB`.
+`Backup-NGB` su Drive è **l'unico posto** dove il backup viene conservato. Senza
+questa parte, o se una notte la copia su Drive non riesce, il backup risulta in
+ERRORE e GitHub manda la mail.
 
-In ogni caso serve il segreto:
+> **Il backup non allega niente all'esecuzione, e non deve farlo mai.** Questo
+> repository è pubblico, e gli allegati (*artifact*) delle esecuzioni di un
+> repository pubblico li può scaricare chiunque abbia un account GitHub. La
+> cartella del backup contiene i dati e gli accessi: non va allegata nemmeno in
+> parte. Il report si legge nel riepilogo dell'esecuzione. Se dovessero esserci
+> allegati `backup-...`, li cancella *Actions* → *Pulizia degli allegati delle
+> esecuzioni* → *Run workflow* (scrivendo `CANCELLA` nel campo di conferma).
+
+Serve il segreto:
 
 - `GDRIVE_FOLDER_ID` = `1mDoyhjZUX_3OogUu9LX-cJA7a9IhV0c-`
 
@@ -135,9 +185,77 @@ Il report distingue due livelli:
 
 ```
 npm install firebase-admin
-node import-firestore.cjs <chiave-service-account.json> firestore-data.json
+node import-firestore.cjs <chiave-service-account.json> firestore-data.jsonl.gz
 ```
 
 Così fa solo una prova a vuoto e dice cosa scriverebbe. Per scrivere davvero si
 aggiunge `--conferma`. Gli utenti e le password si reimportano a parte, con il
 comando che sta in `auth-parametri-hash.txt`.
+
+## Prova di ripristino
+
+Un backup che non è mai stato ripristinato è una speranza, non un backup. La
+prova lo ripristina **davvero**, ma in un progetto Firebase di appoggio che non
+c'entra niente con quello vero:
+
+1. scarica da `Backup-NGB` l'ultimo `firestore-data.jsonl.gz` e lo controlla da
+   cima a fondo;
+2. controlla che il progetto di appoggio sia vuoto;
+3. ci ripristina i dati con `import-firestore.cjs`, lo stesso strumento che si
+   userebbe il giorno del guaio;
+4. rilegge tutto quello che ha scritto;
+5. lo confronta con il backup, documento per documento e campo per campo;
+6. ripulisce il progetto di appoggio.
+
+Workflow: [`.github/workflows/prova-ripristino.yml`](../../.github/workflows/prova-ripristino.yml).
+Parte da sola il 2 di ogni mese e ogni volta che cambia lo strumento di
+ripristino; a mano da *Actions* → *Prova di ripristino* → *Run workflow*. L'esito
+sta nel riepilogo dell'esecuzione: una tabella con, per ogni collezione, quanti
+documenti nel backup, quanti ripristinati e quanti identici. Se anche un solo
+documento non torna identico l'esecuzione fallisce e GitHub manda la mail.
+
+**Campione o tutto.** Di base ripristina un campione: i primi 200 documenti di
+ogni collezione di primo livello, sottocollezioni comprese (circa novemila
+scritture, sta nel piano gratuito di Firebase). Scegliendo *tutto* ripristina
+l'intero backup: sono centinaia di migliaia di scritture, serve il piano a
+consumo sul progetto di appoggio e ci vuole un paio d'ore.
+
+### Preparare il progetto di appoggio (una volta sola)
+
+1. [console.firebase.google.com](https://console.firebase.google.com) → *Aggiungi
+   progetto* → un nome che non si confonda con quello vero, per esempio
+   `revilaw-ripristino-prova`. Google Analytics non serve.
+2. Nel progetto nuovo: *Firestore Database* → *Crea database* → modalità
+   **produzione** (regole chiuse), una sede europea. Va lasciato **vuoto**.
+3. ⚙ → *Impostazioni progetto* → *Account di servizio* → *Genera nuova chiave
+   privata*: scarica un file JSON.
+4. Su GitHub: *Settings* → *Secrets and variables* → *Actions* → *New repository
+   secret*, nome `FIREBASE_SERVICE_ACCOUNT_APPOGGIO`, valore tutto il contenuto
+   del file JSON. Poi il file si può cancellare dal computer.
+
+Finché il segreto manca, la prova si salta da sola senza dare errore.
+
+### Perché non può toccare il progetto vero
+
+- Il lavoro non riceve la chiave del progetto vero (`FIREBASE_SERVICE_ACCOUNT`):
+  ha solo quella di appoggio.
+- Si rifiuta di partire se la chiave di appoggio è del progetto vero, o dello
+  stesso progetto da cui viene il backup.
+- Scrive e cancella solo in un progetto trovato **vuoto**, oppure che porta il
+  contrassegno lasciato da una sua prova precedente (il documento
+  `_provaRipristino/stato`). Il progetto vero non è vuoto e quel contrassegno
+  non ce l'ha: anche con la chiave sbagliata si fermerebbe lì, senza scrivere.
+
+### Cosa prova e cosa no
+
+Prova che il file del backup è leggibile e completo, che lo strumento di
+ripristino funziona, e che i dati tornano identici: testi, numeri, date con
+l'orario intero, allegati PDF, sottocollezioni. **Non** prova il ripristino
+degli account (`auth-users.json`), delle regole e degli indici, né quello del
+sito: quelli seguono `RIPRISTINO.txt`.
+
+Il registro dell'esecuzione è pubblico come il repository: per questo la prova
+non scrive mai il contenuto né il percorso di un documento, solo nomi di
+collezione, conteggi e impronte.
+
+Prove senza rete: `node scripts/backup/prove/prova-ripristino.prove.cjs`.

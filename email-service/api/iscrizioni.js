@@ -18,7 +18,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
-const { utenteEffettivo } = require('../lib/utente-effettivo');
+const { utenteEffettivo, eRuoloAdmin } = require('../lib/utente-effettivo');
 const { JWT } = require('google-auth-library');
 // la frase che racconta uno spostamento di azienda: la stessa che presenze.js
 // restituisce a chi ha appena spostato
@@ -356,7 +356,7 @@ module.exports = async (req, res) => {
         // L'elenco condiviso si legge SOLO se serve: per l'amministratore e per chi ha
         // il contrassegno e' una lettura in meno a ogni richiesta, e le richieste sono
         // tante (ogni utente interroga la sezione ogni pochi minuti).
-        if (ruolo !== 'admin' && uDoc.data().eventi !== true) {
+        if (!eRuoloAdmin(ruolo) && uDoc.data().eventi !== true) {
             let abilitati = [];
             try {
                 const cfgDoc = await admin.firestore().collection('archivio').doc('eventiConfig').get();

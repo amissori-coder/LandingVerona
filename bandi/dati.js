@@ -78,10 +78,12 @@
         'investimenti': 'Investimenti produttivi',
         'startup': 'Start up e nuove imprese',
         'ricerca': 'Ricerca e sviluppo',
-        'proprieta-industriale': 'Brevetti e marchi',
+        'proprieta-industriale': 'Brevetti, marchi e disegni',
         'credito': 'Accesso al credito',
         'certificazioni': 'Certificazioni e parità di genere',
-        'commercio-artigianato': 'Commercio e artigianato'
+        'commercio-artigianato': 'Commercio e artigianato',
+        'turismo': 'Turismo e ricettività',
+        'lavoro': 'Lavoro e competenze'
     };
 
     var BANDI = [
@@ -143,6 +145,36 @@
             ],
             pdf: 'mimit-marchi-piu.pdf',
             aggiornata: '2026-11-15'
+        },
+        {
+            id: 'mimit-disegni-piu',
+            titolo: 'Disegni+',
+            ente: 'MIMIT · gestito da Unioncamere',
+            regione: 'Nazionale',
+            tipologie: ['fondo-perduto'],
+            finalita: ['proprieta-industriale'],
+            beneficiari: 'PMI titolari di un disegno o modello registrato',
+            importo: 'Fino a 60.000 €, 80% delle spese',
+            sintesi: 'Contributo a fondo perduto per portare in produzione e sul mercato prodotti innovativi nel design: servizi specialistici esterni che valorizzano un disegno o modello registrato.',
+            apertura: '2026-12-17',
+            scadenza: 'Sportello dal 17 dicembre 2026, ore 12:00-18:00; nei giorni lavorativi successivi solo se restano risorse',
+            procedura: 'sportello',
+            sezioni: [
+                { t: 'Cos\'è', p: ['È un contributo a fondo perduto, in conto capitale, del Ministero delle Imprese e del Made in Italy, gestito da Unioncamere, che sostiene le micro, piccole e medie imprese nella valorizzazione economica di disegni e modelli registrati. L\'obiettivo è favorire la messa in produzione e l\'offerta sul mercato di prodotti innovativi sotto il profilo del design, attraverso l\'acquisizione di servizi specialistici esterni.'] },
+                { t: 'Beneficiari', p: ['PMI con sede legale e operativa in Italia, iscritte al Registro delle imprese da almeno due anni; le start up innovative possono partecipare anche se costituite da meno tempo. Servono inoltre DURC regolare, assenza di procedure concorsuali liquidatorie, polizza catastrofale obbligatoria e assenza delle cause di divieto previste dalla normativa antimafia.', 'Il requisito chiave è la titolarità di un disegno o modello registrato presso UIBM, EUIPO o OMPI (con l\'Italia tra i Paesi designati), con registrazione a decorrere dal 1° gennaio 2024 e in corso di validità alla data della domanda. Non sono ammessi i disegni o modelli già agevolati nelle precedenti edizioni di Disegni+.'] },
+                { t: 'Importi e dotazione', p: ['Dotazione complessiva: 10.000.000 di euro. Il contributo copre fino all\'80% delle spese ammissibili, con un massimo di 60.000 euro per impresa. La percentuale sale all\'85% per le imprese con certificazione della parità di genere.'] },
+                { t: 'Spese ammissibili', p: ['Solo servizi specialistici esterni, sostenuti dopo la presentazione della domanda, ciascuno con il suo massimale:'], l: [
+                    'realizzazione di prototipi: fino a 13.000 euro;',
+                    'realizzazione di stampi: fino a 35.000 euro;',
+                    'consulenza tecnica sulla catena produttiva o sui materiali innovativi: fino a 4.000 euro;',
+                    'consulenza per certificazioni di prodotto o di sostenibilità, esclusa la marcatura CE: fino a 5.000 euro;',
+                    'business plan e/o piano di marketing: fino a 3.000 euro;',
+                    'progettazione grafica e testi per la comunicazione offline e online: fino a 3.000 euro.'
+                ] },
+                { t: 'Come e quando presentare domanda', p: ['Esclusivamente online sulla piattaforma www.disegnipiu2026.it, con SPID o CIE e firma digitale. Lo sportello apre il 17 dicembre 2026 alle 12:00 e chiude alle 18:00 dello stesso giorno; se restano risorse riapre dalle 12:00 alle 18:00 dei giorni lavorativi successivi, fino a esaurimento. Procedura a sportello, in ordine cronologico di presentazione, senza graduatoria.', 'Conviene preparare prima la documentazione (preventivi dei fornitori, visura camerale, attestazione del titolo di proprietà industriale, DURC, polizza catastrofale): lo sportello può chiudersi in fretta per esaurimento dei fondi.'] }
+            ],
+            pdf: 'mimit-disegni-piu.pdf',
+            aggiornata: '2026-11-22'
         },
         {
             id: 'mimit-mini-contratti-sviluppo-automotive',
@@ -280,6 +312,44 @@
             aggiornata: '2026-11-15'
         },
         {
+            id: 'emilia-romagna-strutture-ricettive',
+            titolo: 'Riqualificazione delle strutture ricettive 2027',
+            ente: 'Regione Emilia-Romagna · PR FESR 2021-2027',
+            regione: 'Emilia-Romagna',
+            tipologie: ['fondo-perduto'],
+            finalita: ['turismo', 'investimenti'],
+            beneficiari: 'PMI proprietarie o gestori di alberghi, campeggi, case vacanza e affittacamere',
+            importo: 'Dal 40% al 50% della spesa, fino a 250.000 €',
+            sintesi: 'Contributo a fondo perduto per riqualificare, ammodernare e rendere più accessibili e sostenibili alberghi, campeggi e strutture extralberghiere dell\'Emilia-Romagna.',
+            apertura: '2027-01-27',
+            chiusura: '2027-02-16',
+            scadenza: 'Invio delle domande dal 27 gennaio al 16 febbraio 2027, ore 13:00; compilazione dal 14 gennaio',
+            procedura: 'graduatoria',
+            sezioni: [
+                { t: 'Cos\'è', p: ['È un contributo a fondo perduto della Regione Emilia-Romagna, finanziato dal PR FESR 2021-2027, che sostiene gli investimenti delle imprese turistiche per riqualificare, ammodernare e rendere più accessibili e sostenibili le strutture ricettive del territorio. L\'obiettivo è migliorare la qualità dell\'accoglienza, ridurre i consumi di energia e di acqua e rafforzare la competitività delle destinazioni sui mercati nazionali e internazionali.'] },
+                { t: 'Beneficiari', p: ['PMI di qualunque forma giuridica, proprietarie e/o gestori di una di queste attività ricettive, con strutture in Emilia-Romagna:'], l: [
+                    'strutture alberghiere: alberghi, residenze turistico-alberghiere (RTA), condhotel;',
+                    'strutture all\'aria aperta: campeggi, villaggi turistici, marina resort;',
+                    'settore extralberghiero, con una dotazione dedicata fino a 1 milione di euro: case e appartamenti per vacanze e affittacamere, solo se gestiti in forma imprenditoriale e con la proprietà dell\'immobile. Sono esclusi B&B, locazioni turistiche e affitti non imprenditoriali.'
+                ] },
+                { t: 'Importi', p: ['Contributo a fondo perduto pari al 40% della spesa ammessa, elevabile fino al 50% con le premialità (per esempio nuova occupazione stabile, presenza femminile o giovanile, interventi per l\'accessibilità).'], l: [
+                    'alberghi e campeggi: investimento minimo di 250.000 euro, contributo massimo di 250.000 euro (50.000 euro in più rispetto al bando precedente);',
+                    'extralberghiero (case vacanza e affittacamere): investimento minimo di 50.000 euro, contributo massimo di 40.000 euro per impresa.'
+                ] },
+                { t: 'Interventi ammissibili', l: [
+                    'riqualificazione, ammodernamento e ampliamento delle strutture esistenti;',
+                    'rinnovo di attrezzature e arredi;',
+                    'introduzione o miglioramento di servizi con soluzioni innovative e digitali;',
+                    'interventi per l\'accessibilità, la sicurezza e la sostenibilità ambientale: riduzione dei consumi di energia e di acqua, fonti rinnovabili;',
+                    'nuove strutture ricettive solo all\'interno di immobili esistenti, anche oggetto di demolizione e ricostruzione: sono escluse le nuove costruzioni su terreni non edificati.'
+                ] },
+                { t: 'Vincoli', p: ['Per il settore extralberghiero c\'è un vincolo di destinazione di 5 anni dal pagamento del contributo: per tutto il periodo vanno mantenute sia la proprietà degli immobili sia l\'attività ricettiva.'] },
+                { t: 'Come e quando presentare domanda', p: ['Sulla piattaforma regionale dedicata, accessibile dal portale FESR dell\'Emilia-Romagna, con SPID o CIE e firma digitale. La domanda si può compilare e validare dalle 10:00 del 14 gennaio 2027; l\'invio è aperto dalle 10:00 del 27 gennaio 2027 alle 13:00 del 16 febbraio 2027, salvo chiusura anticipata al raggiungimento delle soglie. Procedura valutativa a graduatoria.'] }
+            ],
+            pdf: 'emilia-romagna-strutture-ricettive.pdf',
+            aggiornata: '2026-11-22'
+        },
+        {
             id: 'lazio-voucher-internazionalizzazione',
             titolo: 'Voucher Internazionalizzazione 2027',
             ente: 'Regione Lazio · PR FESR Lazio 2021-2027',
@@ -376,6 +446,45 @@
             aggiornata: '2026-11-15'
         },
         {
+            id: 'lazio-voucher-capacita-manageriali',
+            titolo: 'Voucher per il rafforzamento delle capacità manageriali delle imprese',
+            ente: 'Regione Lazio · PR FSE+ 2021-2027',
+            regione: 'Lazio',
+            tipologie: ['voucher', 'fondo-perduto'],
+            finalita: ['lavoro'],
+            beneficiari: 'Imprese dei servizi e dell\'industria con sede nel Lazio',
+            importo: 'Voucher fino a 30.000 € per assunzione o consulenza',
+            sintesi: 'Voucher a fondo perduto per inserire in azienda una figura manageriale qualificata: con l\'assunzione di un quadro o dirigente, oppure con una consulenza di almeno 12 mesi.',
+            chiusura: '2026-12-22',
+            scadenza: 'Sportello aperto fino al 22 dicembre 2026, salvo esaurimento risorse',
+            procedura: 'sportello',
+            sezioni: [
+                { t: 'Cos\'è', p: ['È un contributo a fondo perduto della Regione Lazio, a valere sul PR FSE+ 2021-2027, che sostiene le imprese del Lazio nell\'inserimento di figure manageriali qualificate. L\'obiettivo è rafforzare la competitività aziendale attraverso l\'acquisizione di competenze manageriali. Dotazione complessiva: 5.000.000 di euro.'] },
+                { t: 'Beneficiari', p: ['Imprese dei settori Servizi e Industria, con priorità per i servizi di accoglienza, turismo, arredamento e informatica, con sede legale e/o operativa nel Lazio. Sono ammesse anche le imprese con sede legale fuori regione, purché abbiano almeno una sede operativa nel Lazio.'] },
+                { t: 'Importi', p: ['Il voucher dipende dalla dimensione dell\'impresa, con una premialità se il manager inserito è una donna o ha più di 55 anni:'], l: [
+                    'fino a 10 dipendenti: fino a 26.000 euro, 30.000 euro con la premialità;',
+                    'da 11 a 50 dipendenti: fino a 22.000 euro, 26.000 euro con la premialità;',
+                    'oltre 50 dipendenti: fino a 20.000 euro, 24.000 euro con la premialità.'
+                ] },
+                { t: 'Le due linee di intervento', p: ['Due voucher distinti e cumulabili tra loro: una domanda per ciascuna linea, al massimo due per impresa.'], l: [
+                    'Voucher Assunzioni: assunzione con inquadramento da quadro o dirigente secondo il CCNL vigente, con contratto subordinato a tempo pieno e indeterminato, oppure determinato di almeno 12 mesi. Con il tempo determinato il voucher è ridotto del 50%; con l\'indeterminato va mantenuto un saldo occupazionale positivo a 12 mesi dall\'assunzione;',
+                    'Voucher Consulenze: acquisto di consulenze specialistiche per attività manageriali, della durata di almeno 12 mesi e con almeno 100 giornate di lavoro, a un costo massimo di 50 euro l\'ora (IVA esclusa). Non sono ammessi consulenti già impiegati in azienda come quadri o dirigenti.'
+                ] },
+                { t: 'Requisiti del manager', p: ['Il professionista da inserire, con l\'assunzione o con la consulenza, deve avere:'], l: [
+                    'almeno 5 anni di esperienza complessiva in ruoli di quadro o dirigente (con contratto subordinato) e/o in ruoli manageriali svolti senza vincolo di subordinazione, come consulenza o coordinamento di gruppi di lavoro;',
+                    'residenza o domicilio nel Lazio;',
+                    'per la linea Assunzioni, lo stato di disoccupazione alla data di assunzione.'
+                ] },
+                { t: 'Spese ammissibili', l: [
+                    'Voucher Assunzioni: il costo del personale (retribuzione lorda) per i primi 12 mesi di attività; il voucher non può superare il costo lordo effettivamente sostenuto dall\'impresa;',
+                    'Voucher Consulenze: il compenso del consulente, calcolato sulle giornate effettive (almeno 100) e nel rispetto del massimale orario.'
+                ] },
+                { t: 'Come e quando presentare domanda', p: ['Procedura a sportello, in ordine cronologico di presentazione, fino a esaurimento delle risorse. Lo sportello chiude il 22 dicembre 2026. Sia l\'assunzione sia il contratto di consulenza devono essere stipulati dopo la pubblicazione dell\'Avviso: non sono ammessi assunzioni o incarichi già in essere.'] }
+            ],
+            pdf: 'lazio-voucher-capacita-manageriali.pdf',
+            aggiornata: '2026-11-22'
+        },
+        {
             id: 'lombardia-parita-di-genere',
             titolo: 'Verso la certificazione della parità di genere',
             ente: 'Regione Lombardia · Unioncamere Lombardia',
@@ -437,6 +546,50 @@
             ],
             pdf: 'lombardia-pacchetto-investimenti.pdf',
             aggiornata: '2026-11-15'
+        },
+        {
+            id: 'molise-step',
+            titolo: 'STEP - Strategic Technologies for Europe Platform',
+            ente: 'Regione Molise · gestito da Sviluppo Italia Molise',
+            regione: 'Molise',
+            tipologie: ['fondo-perduto'],
+            finalita: ['investimenti', 'ricerca'],
+            beneficiari: 'Imprese di ogni dimensione, singole o aggregate, con sede produttiva in Molise',
+            importo: 'Investimenti da 1 milione €, contributo fino a 8 milioni €',
+            sintesi: 'Contributo a fondo perduto per investimenti produttivi, con una quota di ricerca e sviluppo, nelle tecnologie critiche ed emergenti: digitale e deep tech, biotecnologie, tecnologie pulite.',
+            apertura: '2026-10-26',
+            chiusura: '2027-04-30',
+            scadenza: 'Sportello dal 26 ottobre 2026 alle 12:00 del 30 aprile 2027, salvo esaurimento risorse',
+            procedura: 'sportello',
+            sezioni: [
+                { t: 'Cos\'è', p: ['È un contributo a fondo perduto della Regione Molise, gestito da Sviluppo Italia Molise S.p.A. e finanziato dal PR Molise FESR-FSE+ 2021-2027, che sostiene investimenti d\'impresa per lo sviluppo e la produzione di tecnologie critiche ed emergenti, in coerenza con la piattaforma europea STEP. L\'obiettivo è ridurre le dipendenze strategiche dell\'Unione europea e rafforzare le catene del valore nei settori digitale, deep tech, biotecnologie e tecnologie pulite.'] },
+                { t: 'Beneficiari', p: ['Imprese di qualsiasi dimensione, PMI e grandi imprese, in forma singola o aggregata: ATI o ATS già formalmente costituite, consorzi, società consortili e contratti di rete dotati di soggettività giuridica. Gli organismi di ricerca possono partecipare solo all\'interno di un\'ATI o ATS, e solo se il progetto comprende attività di ricerca industriale e sviluppo sperimentale: non possono candidarsi da soli.', 'La sede produttiva destinataria dell\'investimento deve trovarsi in Molise, o essere attivata entro la richiesta del saldo. Ogni impresa può presentare un solo progetto, riferito a una sola delle due linee di intervento.'] },
+                { t: 'Le due linee di intervento', p: ['Due azioni autonome, con dotazioni separate e non trasferibili dall\'una all\'altra:'], l: [
+                    'Azione 1.6.1 - Tecnologie digitali, deep tech e biotecnologie (25.699.725,80 euro): semiconduttori avanzati, intelligenza artificiale, tecnologie quantistiche, connettività avanzata, sistemi digitali di nuova generazione, biotecnologie industriali, della salute e verdi, bioinformatica, nanobiotecnologie;',
+                    'Azione 2.9.1 - Tecnologie pulite ed efficienti sotto il profilo delle risorse (18.130.000 euro): economia circolare, materiali sostenibili, energie rinnovabili, efficienza energetica, reti intelligenti, cattura, utilizzo e stoccaggio della CO2, decarbonizzazione dei processi industriali.'
+                ] },
+                { t: 'Intensità del contributo', p: ['Contributo in conto capitale, a fondo perduto. L\'intensità dipende dalla dimensione dell\'impresa e dal tipo di attività:'], l: [
+                    'investimenti produttivi (art. 14 GBER): 60% per micro e piccole imprese, 50% per le medie, 40% per le grandi;',
+                    'ricerca industriale: 80% per micro e piccole imprese, 75% per le medie, 65% per le grandi;',
+                    'sviluppo sperimentale: 60% per micro e piccole imprese, 50% per le medie, 40% per le grandi.'
+                ] },
+                { t: 'Soglie di investimento e contributo massimo', l: [
+                    'piccole imprese singole: investimento minimo 1.000.000 di euro, contributo massimo 4.000.000 di euro;',
+                    'medie imprese singole: investimento minimo 2.000.000 di euro, contributo massimo 6.000.000 di euro;',
+                    'grandi imprese singole: investimento minimo 5.000.000 di euro, contributo massimo 8.000.000 di euro;',
+                    'raggruppamenti di sole PMI: investimento minimo 2.000.000 di euro, contributo massimo 6.000.000 di euro;',
+                    'raggruppamenti con una grande impresa: investimento minimo 5.000.000 di euro, contributo massimo 8.000.000 di euro.'
+                ] },
+                { t: 'Spese ammissibili', p: ['Investimenti produttivi iniziali (nuovo stabilimento, ampliamento della capacità, diversificazione della produzione, cambiamento fondamentale del processo) e, in via facoltativa, attività di ricerca industriale e sviluppo sperimentale fino al 25% dell\'investimento produttivo, con l\'obbligo di concluderle con la realizzazione di un prototipo. Le voci principali:'], l: [
+                    'attivi materiali: macchinari, impianti e attrezzature nuovi di fabbrica;',
+                    'attivi immateriali: brevetti, licenze, know-how e diritti di proprietà intellettuale, con perizia tecnica asseverata sulla congruità (per le grandi imprese entro il 50% dei costi totali);',
+                    'ricerca e sviluppo: personale dedicato, strumenti e attrezzature per la ricerca, ricerca contrattuale, consulenze scientifiche, materiali direttamente imputabili.'
+                ] },
+                { t: 'Esclusioni e vincoli', p: ['Sono escluse le spese di formazione, i mezzi di trasporto, i beni usati e i documenti di spesa inferiori a 500 euro. Le spese sono ammissibili solo se sostenute dopo la presentazione della candidatura. Il progetto va concluso entro 30 mesi dalla concessione del contributo, e comunque non oltre il 30 aprile 2030; il termine si può prorogare al massimo di 6 mesi, con richiesta motivata approvata dalla Regione. I contributi non sono cumulabili con altri aiuti pubblici, nazionali, regionali o comunitari, per le stesse spese ammissibili, compresi benefici fiscali e garanzie.'] },
+                { t: 'Come e quando presentare domanda', p: ['Esclusivamente via PEC all\'indirizzo sviluppoitaliamolise@legalmail.it, in un unico plico in formato .zip e con un unico invio dalla casella del proponente o del capofila: invii multipli o separati rendono irricevibile l\'intera candidatura. Lo sportello è aperto dalle 12:00 del 26 ottobre 2026 alle 12:00 del 30 aprile 2027, salvo chiusura anticipata per esaurimento delle risorse. Procedura valutativa a sportello: l\'istruttoria segue l\'ordine cronologico di arrivo, distinto per ciascuna linea di intervento.'] }
+            ],
+            pdf: 'molise-step.pdf',
+            aggiornata: '2026-11-23'
         },
         {
             id: 'piemonte-energie-rinnovabili',
@@ -516,6 +669,47 @@
             ],
             pdf: 'piemonte-digitalizzazione-efficientamento.pdf',
             aggiornata: '2026-11-15'
+        },
+        {
+            id: 'puglia-nidi',
+            titolo: 'NIDI - Nuove Iniziative d\'Impresa',
+            ente: 'Regione Puglia · gestito da Puglia Sviluppo',
+            regione: 'Puglia',
+            tipologie: ['fondo-perduto', 'finanziamento'],
+            finalita: ['startup', 'investimenti'],
+            beneficiari: 'Nuove microimprese di giovani, donne e soggetti svantaggiati, con sede in Puglia',
+            importo: 'Investimenti da 10.000 a 150.000 €, agevolati dall\'80% al 100%',
+            sintesi: 'Fondo perduto, prestito a tasso zero e assistenza rimborsabile per avviare una nuova microimpresa in Puglia: per giovani, donne, disoccupati e altre persone in svantaggio lavorativo.',
+            scadenza: 'Sportello sempre aperto, fino a esaurimento risorse',
+            procedura: 'sportello',
+            sezioni: [
+                { t: 'Cos\'è', p: ['È un incentivo della Regione Puglia, gestito da Puglia Sviluppo S.p.A., che sostiene l\'avvio di nuove microimprese da parte di persone in condizioni di svantaggio lavorativo. Combina contributo a fondo perduto, prestito a tasso zero e assistenza rimborsabile, per programmi di investimento compresi tra 10.000 e 150.000 euro. Lo sportello è sempre aperto, senza una scadenza fissa.'] },
+                { t: 'Beneficiari', p: ['Persone fisiche che intendono avviare una nuova impresa e non l\'hanno ancora costituita, e imprese costituite da meno di 6 mesi, con sede operativa in Puglia. La compagine, per capitale e per numero di soci, deve rientrare in una di queste forme:'], l: [
+                    'Compagini Giovanili: interamente composte da giovani tra 18 e 35 anni;',
+                    'Imprese Femminili: interamente composte da donne maggiorenni;',
+                    'Nuove Imprese: partecipate per almeno il 50% da soggetti svantaggiati (giovani tra 18 e 35 anni, donne, disoccupati nell\'ultimo mese, lavoratori in procinto di perdere il posto, titolari di partita IVA con fatturato inferiore a 15.000 euro nei 12 mesi precedenti);',
+                    'Imprese Turistiche (B&B e affittacamere): con gli stessi requisiti delle Nuove Imprese.'
+                ] },
+                { t: 'Importi', p: ['L\'aiuto copre una quota dell\'investimento che dipende dal suo importo:'], l: [
+                    'fino a 50.000 euro: 100%;',
+                    'da 50.001 a 100.000 euro: 90% (100% per le Imprese Femminili);',
+                    'da 100.001 a 150.000 euro: 80%.'
+                ] },
+                { t: 'Forma dell\'agevolazione', l: [
+                    'contributo a fondo perduto: 50% degli investimenti agevolati;',
+                    'prestito rimborsabile a tasso zero: 50%, ridotto al 25% per Compagini Giovanili e Imprese Femminili;',
+                    'assistenza rimborsabile: 25%, solo per Compagini Giovanili e Imprese Femminili.'
+                ], p: ['Le agevolazioni in conto impianti arrivano al massimo a 120.000 euro. Si aggiunge un contributo a fondo perduto in conto esercizio per le spese di gestione: fino a 10.000 euro, 15.000 euro per Compagini Giovanili e Imprese Femminili.'] },
+                { t: 'Spese ammissibili', p: ['Investimenti: macchinari di produzione, impianti, attrezzature e automezzi commerciali; programmi informatici non personalizzati; opere edili e assimilate; per Compagini Giovanili e Imprese Femminili anche lo sviluppo di piattaforme B2B e B2C, e-commerce e app mobile, fino a 5.000 euro.', 'Spese di gestione, entro il 20% del programma e fino a 15.000 euro: materie prime, semilavorati e materiali di consumo; locazione di immobili e affitto di attrezzature; utenze (energia, acqua, riscaldamento, telefono, connettività); premi assicurativi; canoni per servizi cloud, banche dati e web marketing; dispositivi di protezione individuale e collettiva.'] },
+                { t: 'Settori ammessi', p: ['Manifatturiero, costruzioni, riparazione di auto e moto, B&B e affittacamere, ristorazione, ICT, attività professionali, agenzie di viaggio, servizi alle imprese, istruzione, sanità e assistenza sociale, attività artistiche e sportive, servizi alla persona, commercio elettronico. Esclusi: agricoltura, commercio al dettaglio e all\'ingrosso (salvo le imprese confiscate).'] },
+                { t: 'Come e quando presentare domanda', p: ['Online sul portale Sistema Puglia (www.sistema.puglia.it), con accesso SPID, CIE o CNS. Procedura a sportello, senza scadenza: le domande preliminari sono istruite in ordine cronologico di protocollazione, fino a esaurimento delle risorse. Le spese devono essere sostenute dopo la presentazione della domanda. Chi non ha ancora costituito l\'impresa deve farlo entro 30 giorni dalla richiesta che arriva al termine dell\'esame di ammissibilità, pena la decadenza. L\'iter ha tre passaggi:'], l: [
+                    'domanda preliminare (Allegato 1): descrive il progetto, i profili dei proponenti e gli investimenti previsti; servono i preventivi e l\'individuazione della sede operativa, non ancora il contratto;',
+                    'colloquio di tutoraggio: verifica dei requisiti e assistenza nella definizione dell\'istanza definitiva;',
+                    'istanza di accesso definitiva: si sottoscrive durante il colloquio.'
+                ] }
+            ],
+            pdf: 'puglia-nidi.pdf',
+            aggiornata: '2026-11-22'
         },
         {
             id: 'sardegna-ricerca-transizione-energetica',

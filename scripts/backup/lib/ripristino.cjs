@@ -15,7 +15,8 @@ COSA C'E' IN QUESTA CARTELLA
 ----------------------------
  code-snapshot.zip        tutto il sito, al commit indicato sopra
  repo-full.bundle         storia git completa (clonabile: e' un repo intero)
- firestore-data.json      i dati (incarichi, persone, iscrizioni, archivio...)
+ firestore-data.jsonl.gz  i dati (incarichi, persone, iscrizioni, archivio...),
+                          una riga per documento, compressi
  import-firestore.cjs     lo strumento che rimette dentro i dati qui sopra
  auth-users.json          gli account di accesso, gia' nel formato di importazione
  auth-parametri-hash.txt  il comando pronto per reimportarli con le password attuali
@@ -82,10 +83,11 @@ COSA NON C'E' (e va tenuto altrove)
          nextgenerationbusiness.it e www.nextgenerationbusiness.it.
  2. Regole: copia il contenuto di regole-cloud.firestore-firestore.rules
     in Firestore > Regole, e pubblica.
- 3. Dati: il file firestore-data.json ha un formato nostro, la console Firebase
-    non lo sa leggere. Si reimporta con lo strumento che trovi qui accanto:
+ 3. Dati: il file firestore-data.jsonl.gz ha un formato nostro, la console
+    Firebase non lo sa leggere. Si reimporta con lo strumento che trovi qui
+    accanto (non serve decomprimerlo):
         npm install firebase-admin
-        node import-firestore.cjs <chiave-service-account.json> firestore-data.json
+        node import-firestore.cjs <chiave-service-account.json> firestore-data.jsonl.gz
     Lanciato cosi' fa solo una prova a vuoto e ti dice cosa scriverebbe.
     Per scrivere davvero aggiungi in fondo    --conferma
     ATTENZIONE: incarichi, persone, fatture e audit NON sono collezioni: stanno

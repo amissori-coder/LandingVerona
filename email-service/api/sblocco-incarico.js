@@ -37,7 +37,7 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
-const { utenteEffettivo, firmaCollaboratore } = require('../lib/utente-effettivo');
+const { utenteEffettivo, firmaCollaboratore, eRuoloAdmin } = require('../lib/utente-effettivo');
 const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
 
 const COLL = 'sbloccoIncarichi';
@@ -354,7 +354,7 @@ async function azioneAnnulla(body, res) {
     const db = admin.firestore();
     const trovate = await db.collection(COLL).where('incaricoId', '==', incaricoId).get();
     const doc = trovate.docs.find(d => (d.data() || {}).stato === 'attesa');
-    const potere = ue.email === PROPRIETARIO || String(ue.ruolo || '') === 'admin';
+    const potere = ue.email === PROPRIETARIO || eRuoloAdmin(ue.ruolo);
     if (doc && !potere && String((doc.data() || {}).richiedenteEmail || '') !== ue.email) {
         res.status(403).json({ ok: false, msg: 'La richiesta l\'ha fatta un\'altra persona: può ritirarla lei, oppure un amministratore.' });
         return;

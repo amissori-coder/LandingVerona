@@ -1,0 +1,64 @@
+name: Pulizia degli allegati delle esecuzioni
+
+# Questo repository e' pubblico: gli allegati (artifact) delle esecuzioni li puo'
+# scaricare chiunque abbia un account GitHub. Nessun lavoro deve allegare la
+# cartella di un backup; questo cancella gli allegati "backup-..." che dovessero
+# esserci. Si lancia a mano: Actions > Pulizia degli allegati > Run workflow.
+#
+# Senza scrivere CANCELLA nel campo di conferma si limita a contarli.
+# Gli allegati "github-pages" non si toccano: sono il sito, che e' gia' pubblico.
+
+on:
+  workflow_dispatch:
+    inputs:
+      conferma:
+        description: "Scrivi CANCELLA per cancellare davvero (altrimenti li conta soltanto)"
+        type: string
+        default: ''
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: pulizia-allegati
+  cancel-in-progress: false
+
+jobs:
+  pulizia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Cancella gli allegati dei backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFERMA: ${{ inputs.conferma }}
+        run: |
+          set -euo pipefail
+          elenca() {
+            gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.name | startswith("backup-")) | [.id, .created_at, .size_in_bytes] | @tsv'
+          }
+          elenca > prima.tsv
+          QUANTI=$(wc -l < prima.tsv | tr -d ' ')
+          PESO=$(awk -F'\t' '{ s += $3 } END { printf "%.1f", s / 1073741824 }' prima.tsv)
+          {
+            echo "### Pulizia degli allegati"
+            echo "Allegati dei backup trovati: **$QUANTI** ($PESO GB)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$QUANTI" = "0" ]; then echo "Niente da cancellare."; exit 0; fi
+          echo "Dal $(cut -f2 prima.tsv | sort | head -1) al $(cut -f2 prima.tsv | sort | tail -1)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CONFERMA" != "CANCELLA" ]; then
+            echo "Solo conteggio: per cancellarli rilancia scrivendo CANCELLA." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          FATTI=0
+          while IFS=$'\t' read -r ID QUANDO BYTE; do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$ID" > /dev/null
+            FATTI=$((FATTI + 1))
+          done < prima.tsv
+          sleep 5
+          RIMASTI=$(elenca | wc -l | tr -d ' ')
+          echo "Cancellati: **$FATTI**. Rimasti: **$RIMASTI**." >> "$GITHUB_STEP_SUMMARY"
+          echo "Cancellati $FATTI, rimasti $RIMASTI."
+          [ "$RIMASTI" = "0" ]
