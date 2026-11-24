@@ -284,8 +284,20 @@
        (le regioni coordinate spuntate sulla scheda; la Regione della scheda e' la sede
        e da sola non assegna alcun territorio). */
     const RUOLO_MARKETING = 'marketing';
+    /* Vice amministratore: ha gli STESSI poteri dell'amministratore, in tutto: ogni sezione
+       in scrittura, Utenti, Ruoli e permessi, Eventi, Newsletter e i comandi riservati.
+       Come l'amministratore non si configura (accesso sempre pieno) e i suoi poteri non si
+       delegano a un collaboratore. Lo riconoscono allo stesso modo le regole Firestore
+       (FIREBASE-SETUP.md) e il servizio email (email-service/lib/utente-effettivo.js):
+       i tre posti vanno tenuti allineati. "Dati e backup" resta del solo titolare, come
+       gia' per l'amministratore. */
+    const RUOLO_VICE_ADMIN = 'viceadmin';
+    const NOME_RUOLO_VICE_ADMIN = 'Vice amministratore';
+    // i ruoli con i poteri dell'amministratore: lui e il suo vice
+    function eRuoloAdmin(ruolo) { return ruolo === 'admin' || ruolo === RUOLO_VICE_ADMIN; }
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
+        { id: RUOLO_VICE_ADMIN, nome: NOME_RUOLO_VICE_ADMIN, builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'qualita', nome: 'Responsabile qualità', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'procuratore', nome: 'Procuratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
@@ -324,11 +336,12 @@
     /* Un utente puo' fare da riferimento a un collaboratore solo se e' un utente pieno
        dello staff, attivo: non un altro collaboratore (niente catene), non un invitato
        "solo sondaggio" (il server gli nega gli archivi, il collaboratore non vedrebbe
-       nulla) e nemmeno l'amministratore o il titolare: i poteri su utenti, ruoli e dati
-       non si delegano a nessuno. Stessa regola nelle regole Firestore e nel servizio email. */
+       nulla) e nemmeno l'amministratore, il suo vice o il titolare: i poteri su utenti,
+       ruoli e dati non si delegano a nessuno. Stessa regola nelle regole Firestore e nel
+       servizio email. */
     function puoAvereCollaboratori(u) {
         return !!u && u.attivo !== false && !eRuoloCollaboratore(u.ruolo) && !eRuoloSoloSondaggio(u.ruolo)
-            && u.ruolo !== 'admin' && String(u.email || '').toLowerCase() !== PROPRIETARIO;
+            && !eRuoloAdmin(u.ruolo) && String(u.email || '').toLowerCase() !== PROPRIETARIO;
     }
 
     const Store = {
@@ -393,6 +406,14 @@
         tutti() {
             const l = Store.leggi(CHIAVI.ruoli, null);
             const lista = Array.isArray(l) && l.length ? l.slice() : RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } }));
+            /* Il vice amministratore c'e' sempre, subito dopo l'amministratore, anche negli
+               elenchi salvati prima che esistesse, e ha sempre il profilo del programma
+               (accesso pieno): il suo id e' riservato, quindi un eventuale ruolo su misura che
+               lo occupasse viene riportato a questo profilo, che e' comunque quello applicato
+               a chi ha quel ruolo. */
+            const vice = RUOLI_DEFAULT.find(d => d.id === RUOLO_VICE_ADMIN);
+            for (let i = lista.length - 1; i >= 0; i--) { if (lista[i] && lista[i].id === RUOLO_VICE_ADMIN) lista.splice(i, 1); }
+            lista.splice(lista.findIndex(r => r && r.id === 'admin') + 1, 0, { ...vice, sezioni: { ...vice.sezioni } });
             // i ruoli di sistema (coordinatore e vice) ci sono sempre, anche negli elenchi
             // salvati prima che esistessero, e i loro id sono riservati. Se un vecchio ruolo
             // personalizzato occupava per caso uno di quegli id (possibile con le versioni
@@ -1338,7 +1359,8 @@
             if (Cloud.attivo) Cloud.esci();
         },
 
-        eAdmin() { return this.utenteCorrente && this.utenteCorrente.ruolo === 'admin'; },
+        // l'amministratore e il suo vice: stessi poteri, ovunque si chieda "e' admin?"
+        eAdmin() { return this.utenteCorrente && eRuoloAdmin(this.utenteCorrente.ruolo); },
         // "Dati e backup" e riservato al titolare dello studio
         eProprietario() {
             return this.utenteCorrente && this.utenteCorrente.email && this.utenteCorrente.email.toLowerCase() === PROPRIETARIO;
@@ -1356,6 +1378,9 @@
         ruoloCorrente() {
             const u = this.utenteCorrente;
             if (!u) return null;
+            // il vice amministratore ha lo stesso profilo dell'amministratore; cambia solo il nome
+            // (il titolare resta "Amministratore" qualunque cosa dica la sua scheda)
+            if (u.ruolo === RUOLO_VICE_ADMIN && !this.eProprietario()) return { id: RUOLO_VICE_ADMIN, nome: NOME_RUOLO_VICE_ADMIN, admin: true, builtin: true, sezioni: sezioniTutte('scrittura') };
             if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, sezioni: sezioniTutte('scrittura') };
             // ruoli "solo sondaggio": vedono unicamente la sezione Sondaggi (compilazione o risultati)
             if (eRuoloSoloSondaggio(u.ruolo)) {
@@ -2350,10 +2375,10 @@
                         } catch (e) { locale = null; }
                     }
                     if (locale) {
-                        // archivio/ruoli e scrivibile solo dall'amministratore (regole Firestore):
-                        // un non-admin NON deve tentare questo bootstrap, altrimenti il permission-denied
-                        // farebbe fallire tutta la sincronizzazione e lo bloccherebbe al login.
-                        const sonoAdmin = ruolo === 'admin' || String(email || '').toLowerCase() === PROPRIETARIO;
+                        // archivio/ruoli e scrivibile solo dall'amministratore e dal suo vice (regole
+                        // Firestore): un non-admin NON deve tentare questo bootstrap, altrimenti il
+                        // permission-denied farebbe fallire tutta la sincronizzazione e lo bloccherebbe al login.
+                        const sonoAdmin = eRuoloAdmin(ruolo) || String(email || '').toLowerCase() === PROPRIETARIO;
                         if (!(chiave === CHIAVI.ruoli && !sonoAdmin)) {
                             try { await setDoc(rif, { json: locale, aggiornato: serverTimestamp(), da: 'bootstrap' }); this._baseRemoto[chiave] = locale; }
                             catch (e) { /* scrittura non consentita: si prosegue, i dati arrivano via onSnapshot */ }
@@ -40965,6 +40990,7 @@
     // etichetta di un ruolo per id (compresi i ruoli personalizzati)
     function nomeRuolo(id) {
         if (id === 'admin') return 'Amministratore';
+        if (id === RUOLO_VICE_ADMIN) return NOME_RUOLO_VICE_ADMIN;
         if (eRuoloCollaboratore(id)) return NOME_RUOLO_COLLABORATORE;
         if (Object.prototype.hasOwnProperty.call(NOMI_RUOLO_SOND, id)) return NOMI_RUOLO_SOND[id];
         const r = Ruoli.trova(id);
@@ -41030,7 +41056,7 @@
         if (!di) { toast('Indica di quale utente è collaboratore.', 'rosso'); return null; }
         if (di === String(emailUtente || '').toLowerCase()) { toast('Un utente non può essere collaboratore di sé stesso.', 'rosso'); return null; }
         const p = (lista || []).find(u => String(u.email || '').toLowerCase() === di);
-        if (!p || !puoAvereCollaboratori(p)) { toast('L\'utente scelto non può avere collaboratori: serve un utente attivo dello staff, che non sia l\'amministratore o il titolare, un altro collaboratore o un invitato al solo sondaggio.', 'rosso'); return null; }
+        if (!p || !puoAvereCollaboratori(p)) { toast('L\'utente scelto non può avere collaboratori: serve un utente attivo dello staff, che non sia l\'amministratore, il vice amministratore o il titolare, un altro collaboratore o un invitato al solo sondaggio.', 'rosso'); return null; }
         return di;
     }
     // i collaboratori che dipendono da un utente: prima di disabilitarlo o eliminarlo va detto
@@ -41120,11 +41146,12 @@
                 <div class="ruolo-testa">
                     <h2>${esc(r.nome)}${r.sistema ? ' <span class="badge ambra">di sistema</span>' : (r.builtin ? ' <span class="badge neutro">predefinito</span>' : '')}</h2>
                     <div class="ruolo-azioni">
-                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">${r.id === 'admin' ? 'Dettagli' : 'Modifica'}</button>
-                        ${r.id === 'admin' || r.sistema ? '' : '<button class="btn btn-sm btn-danger r-del" data-id="' + esc(r.id) + '">Elimina</button>'}
+                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">${eRuoloAdmin(r.id) ? 'Dettagli' : 'Modifica'}</button>
+                        ${eRuoloAdmin(r.id) || r.sistema ? '' : '<button class="btn btn-sm btn-danger r-del" data-id="' + esc(r.id) + '">Elimina</button>'}
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
+                ${r.id === RUOLO_VICE_ADMIN ? '<div class="ruolo-reg">Può fare <strong>tutto quello che può fare l\'amministratore</strong>: ogni sezione in scrittura, Eventi e Newsletter, e anche <strong>Utenti</strong> e <strong>Ruoli e permessi</strong>. Non è modificabile e non può avere collaboratori. «Dati e backup» resta del solo titolare.</div>' : ''}
                 ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw più le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
                 ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non è limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
@@ -41134,14 +41161,14 @@
                     <div class="ruolo-azioni"><button class="btn btn-sm btn-secondary" id="r-collab-utenti">Abilita un collaboratore</button></div>
                 </div>
                 <div class="ruolo-sez"><span class="badge collegio">Nessun permesso proprio: eredita tutto dall'utente di riferimento</span></div>
-                <div class="ruolo-reg">Si assegna dalla sezione <strong>Utenti</strong>, indicando <strong>di quale utente</strong> è collaboratore. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo, sezioni, territorio, Eventi e Newsletter comprese; se il riferimento viene disabilitato, anche il collaboratore resta fuori. <strong>Amministratore e titolare non possono avere collaboratori</strong>, e nemmeno un altro collaboratore o un invitato al solo sondaggio. Le sue modifiche compaiono a tutti con il <strong>nome dell'utente di riferimento</strong>; solo quest'ultimo vede anche quale collaboratore le ha fatte.</div>
+                <div class="ruolo-reg">Si assegna dalla sezione <strong>Utenti</strong>, indicando <strong>di quale utente</strong> è collaboratore. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo, sezioni, territorio, Eventi e Newsletter comprese; se il riferimento viene disabilitato, anche il collaboratore resta fuori. <strong>Amministratore, vice amministratore e titolare non possono avere collaboratori</strong>, e nemmeno un altro collaboratore o un invitato al solo sondaggio. Le sue modifiche compaiono a tutti con il <strong>nome dell'utente di riferimento</strong>; solo quest'ultimo vede anche quale collaboratore le ha fatte.</div>
             </div>
             </div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
         document.getElementById('r-collab-utenti').addEventListener('click', apriNuovoCollaboratore);
         $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
         $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
-            const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin' || r.sistema) return;
+            const r = Ruoli.trova(b.dataset.id); if (!r || eRuoloAdmin(r.id) || r.sistema) return;
             // conteggio utenti col ruolo: in cloud gli utenti stanno su Firestore, non in locale
             let n = 0, contato = true;
             if (Cloud.attivo) {
@@ -41181,17 +41208,21 @@
 
     function modaleRuolo(id) {
         const esistente = id ? Ruoli.normalizza(Ruoli.trova(id) || { id: id }) : null;
-        // Del tutto immodificabile e' solo l'amministratore. I ruoli di sistema (Coordinatore e
-        // Vice) hanno nome e filtro per regione fissi, ma l'admin ne sceglie i permessi per
-        // sezione, anche la scrittura, esattamente come per un ruolo su misura.
-        const soloAdmin = !!(esistente && esistente.id === 'admin');
+        // Del tutto immodificabili sono solo l'amministratore e il suo vice (accesso sempre
+        // pieno). I ruoli di sistema (Coordinatore e Vice coordinatore) hanno nome e filtro per
+        // regione fissi, ma l'admin ne sceglie i permessi per sezione, anche la scrittura,
+        // esattamente come per un ruolo su misura.
+        const soloAdmin = !!(esistente && eRuoloAdmin(esistente.id));
+        const eVice = !!(esistente && esistente.id === RUOLO_VICE_ADMIN);
         const diSistema = !!(esistente && esistente.sistema);
         // profilo Marketing: niente territorio e ruolo speciale sulle richieste, va spiegato a parte
         const profiloMarketing = !!(esistente && esistente.id === RUOLO_MARKETING);
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
-            ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non è modificabile.</p>' : `
+            ${soloAdmin ? (eVice
+                ? '<p class="descrizione">Il vice amministratore può fare tutto quello che può fare l\'amministratore: ha sempre accesso completo a tutte le sezioni, comprese Utenti e Ruoli e permessi. Non è modificabile. Si assegna dalla sezione Utenti, come ogni altro ruolo.</p>'
+                : '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non è modificabile.</p>') : `
             ${profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove può anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si può concedere</strong> sezione per sezione. Non è limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
                 : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa può modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioè la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) più le eventuali <strong>altre regioni coordinate</strong> spuntate lì. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa può toccare</h3>
@@ -41217,8 +41248,8 @@
             let nid = r.id;
             if (!nid) {
                 const base = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'ruolo';
-                // gli id riservati (admin, collaboratore, solo sondaggio) non si occupano
-                nid = base; let k = 2; while (nid === 'admin' || eRuoloCollaboratore(nid) || eRuoloSoloSondaggio(nid) || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
+                // gli id riservati (admin, vice admin, collaboratore, solo sondaggio) non si occupano
+                nid = base; let k = 2; while (eRuoloAdmin(nid) || eRuoloCollaboratore(nid) || eRuoloSoloSondaggio(nid) || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
             }
             if (!diSistema && lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste già un ruolo con questo nome.'); return; }
             const sezioni = {};

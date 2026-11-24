@@ -83,18 +83,19 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
            && esisteScheda(mia())
            && schedaDi(mia()).attivo == true
            // un collaboratore entra solo se il suo riferimento e' indicato, esiste,
-           // e' attivo e non e' l'amministratore o il titolare (i loro poteri non si
-           // delegano), un altro collaboratore (niente catene) o un invitato "solo
-           // sondaggio" (le stesse regole dell'app e del servizio email)
+           // e' attivo e non e' l'amministratore, il vice amministratore o il titolare
+           // (i loro poteri non si delegano), un altro collaboratore (niente catene) o
+           // un invitato "solo sondaggio" (le stesse regole dell'app e del servizio email)
            && (!eCollaboratore()
                || (emailEffettiva() != ''
                    && emailEffettiva() != 'a.missori@emvas.tax'
                    && esisteScheda(emailEffettiva())
                    && schedaDi(emailEffettiva()).attivo == true
-                   && !(schedaDi(emailEffettiva()).get('ruolo', '') in ['admin', 'collaboratore', 'sondaggio_compila', 'sondaggio_risultati'])));
+                   && !(schedaDi(emailEffettiva()).get('ruolo', '') in ['admin', 'viceadmin', 'collaboratore', 'sondaggio_compila', 'sondaggio_risultati'])));
        }
+       // amministratore e vice amministratore ('viceadmin'): stessi poteri, in tutto
        function admin() {
-         return abilitato() && ruoloUtente() == 'admin';
+         return abilitato() && ruoloUtente() in ['admin', 'viceadmin'];
        }
        // utente "solo sondaggio" (invitato esterno): accede SOLO ai dati del sondaggio
        function soloSondaggio() {
@@ -107,7 +108,7 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
        // elenco degli utenti abilitati: lo legge lo STAFF (ogni utente attivo puo
        // comunque leggere la PROPRIA scheda, serve al login: anche un collaboratore
        // rimasto senza riferimento, cosi' la schermata di accesso gli dice perche'
-       // non entra); lo modifica solo l'admin; ogni utente puo aggiornare soltanto
+       // non entra); lo modifica solo l'admin (o il suo vice); ogni utente puo aggiornare soltanto
        // il proprio "ultimoAccesso". Cosi gli invitati esterni "solo sondaggio" non
        // vedono l'elenco dello staff.
        match /utenti/{email} {
@@ -172,6 +173,21 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
    }
    ```
 
+   > **Vice amministratore.** Il ruolo `viceadmin` (sezione Utenti: "Vice
+   > amministratore") ha gli **stessi poteri** del ruolo `admin`: la funzione
+   > `admin()` qui sopra li accetta tutti e due, quindi anche il vice scrive in
+   > `utenti`, in `archivio/ruoli` e in `modelli`. Come per l'amministratore, i
+   > suoi poteri non si delegano: `abilitato()` non fa entrare un collaboratore
+   > il cui riferimento sia un vice amministratore. **Finche' non pubblichi
+   > queste regole aggiornate**, un vice amministratore entra e vede le sezioni
+   > Utenti e Ruoli e permessi, ma il server gli rifiuta i salvataggi (abilitare
+   > un utente, cambiare un ruolo, modificare i permessi, caricare un modello
+   > PDF): l'app lo dice con l'errore dei permessi. Se hai gia' pubblicato le
+   > regole in passato, bastano le due righe con `'viceadmin'` (in `abilitato()`
+   > e in `admin()`). Lo stesso ruolo e' riconosciuto dall'app (`eRuoloAdmin` in
+   > `app.js`) e dal servizio email (`eRuoloAdmin` in
+   > `email-service/lib/utente-effettivo.js`): i tre posti vanno tenuti uguali.
+
    > **Sezione Eventi in tempo reale.** Il blocco `match /meta/iscrizioni` e'
    > quello che permette all'area riservata di accorgersi subito quando un
    > collega segna una presenza o arriva un'iscrizione. Senza, non compare
@@ -185,8 +201,8 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
    > lato server: le funzioni `eCollaboratore()`, `emailEffettiva()` e
    > `ruoloUtente()` qui sopra leggono il ruolo dalla scheda del riferimento, e
    > `abilitato()` pretende che il riferimento sia indicato, esista, sia attivo e
-   > non sia l'amministratore o il titolare (i poteri su utenti, ruoli e dati
-   > non si delegano: un collaboratore non e' mai `admin()`), ne' a sua volta un
+   > non sia l'amministratore, il vice amministratore o il titolare (i poteri su
+   > utenti, ruoli e dati non si delegano: un collaboratore non e' mai `admin()`), ne' a sua volta un
    > collaboratore, ne' un invitato "solo sondaggio"; la propria scheda resta
    > pero' leggibile a ogni utente attivo, cosi' l'app puo' spiegare il blocco
    > alla porta (la scheda del riferimento, invece, si legge solo da staff). Le
@@ -263,9 +279,9 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
    > `archivio/{documento}` lascia scrivere a *tutto* lo staff, quindi
    > `archivio/newsletterConfig` (l'elenco di chi vede la sezione) lo potrebbe
    > riscrivere chiunque, anche dagli strumenti per sviluppatori. Per questo il
-   > servizio **non** lo guarda: decide in base a `ruolo == 'admin'` oppure al
-   > campo `newsletter` sulla scheda in `utenti/<email>`, che solo
-   > l'amministratore puo' scrivere. L'elenco condiviso resta, ma vale solo per
+   > servizio **non** lo guarda: decide in base al ruolo `admin` o `viceadmin`
+   > oppure al campo `newsletter` sulla scheda in `utenti/<email>`, che solo
+   > l'amministratore (o il suo vice) puo' scrivere. L'elenco condiviso resta, ma vale solo per
    > far comparire la voce di menu. Lo stesso ragionamento varrebbe per
    > `archivio/eventiConfig`, che `/api/iscrizioni` invece consulta: se un giorno
    > si vuole chiudere anche quello, la strada e' una regola dedicata
@@ -296,6 +312,12 @@ primo documento va creato a mano dalla console:
    sono condivisi e sincronizzati in tempo reale tra gli utenti.
 
 ## Ruoli e permessi: cosa e blindato dal server e cosa no
+
+Il **vice amministratore** (ruolo `viceadmin`) puo' fare tutto quello che puo'
+fare l'amministratore: dove qui sotto si legge "amministratore" o "admin" vale
+anche per lui. Non ha permessi da configurare (accesso sempre pieno) e, come
+l'amministratore, non puo' avere collaboratori. "Dati e backup" resta del solo
+titolare.
 
 L'amministratore crea ruoli su misura (sezione "Ruoli e permessi") e per ogni
 ruolo sceglie, sezione per sezione, se e nascosta, in sola lettura o in
@@ -350,8 +372,8 @@ scheda in `utenti`). Il collaboratore:
   riferimento collegato in prima persona. Come per il filtro per regione, e'
   una riservatezza lato browser: il campo sta nei documenti condivisi.
 
-Non possono avere collaboratori l'amministratore e il titolare (i poteri su
-utenti, ruoli e dati non si delegano: un collaboratore non vede mai Utenti,
+Non possono avere collaboratori l'amministratore, il vice amministratore e il
+titolare (i poteri su utenti, ruoli e dati non si delegano: un collaboratore non vede mai Utenti,
 Ruoli e permessi o Dati e backup), un altro collaboratore e un invitato "solo
 sondaggio". La tendina "Collaboratore di" propone solo chi puo'.
 

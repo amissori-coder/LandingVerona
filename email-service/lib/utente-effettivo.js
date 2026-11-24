@@ -7,10 +7,16 @@
    utente, con i suoi stessi permessi. Qui si risolve la scheda che
    conta: per un utente normale la sua; per un collaboratore quella del
    suo utente di riferimento, purche' esista, sia attiva e non sia
-   l'amministratore o il titolare (i loro poteri non si delegano), un altro
-   collaboratore o un invitato "solo sondaggio". Sono le stesse regole
-   dell'app (area-riservata/app.js) e delle regole Firestore
+   l'amministratore, il suo vice o il titolare (i loro poteri non si
+   delegano), un altro collaboratore o un invitato "solo sondaggio". Sono le
+   stesse regole dell'app (area-riservata/app.js) e delle regole Firestore
    (area-riservata/FIREBASE-SETUP.md).
+
+   CHI E' AMMINISTRATORE. Il ruolo 'viceadmin' (Vice amministratore) ha gli
+   stessi poteri del ruolo 'admin', in tutto. Per questo nel servizio non si
+   confronta mai il ruolo con 'admin' a mano: si chiede a eRuoloAdmin(ruolo),
+   che vale per tutti e due. E' la stessa regola dell'app (eRuoloAdmin in
+   app.js) e delle regole Firestore (funzione admin()).
 
    Risultato, se va bene:
      { ok: true, email, dati, ruolo, sessione: { email, nome }, collaboratore }
@@ -25,6 +31,12 @@
 
 const RUOLO_COLLABORATORE = 'collaboratore';
 const RUOLI_SOLO_SONDAGGIO = ['sondaggio_compila', 'sondaggio_risultati'];
+// il vice amministratore: stessi poteri dell'amministratore (vedi sopra)
+const RUOLO_VICE_ADMIN = 'viceadmin';
+function eRuoloAdmin(ruolo) {
+    const r = String(ruolo || '');
+    return r === 'admin' || r === RUOLO_VICE_ADMIN;
+}
 // il titolare dello studio: come in area-riservata/app.js (PROPRIETARIO), ha sempre i
 // poteri dell'amministratore anche se la sua scheda dice altro
 const PROPRIETARIO = 'a.missori@emvas.tax';
@@ -45,7 +57,7 @@ async function utenteEffettivo(db, email) {
     if (!pDoc.exists || pDoc.data().attivo === false) return { ok: false, msg: 'L\'utente a cui il tuo accesso è associato non risulta abilitato: chiedi all\'amministratore.' };
     const p = pDoc.data() || {};
     const ruoloP = String(p.ruolo || '');
-    if (ruoloP === RUOLO_COLLABORATORE || RUOLI_SOLO_SONDAGGIO.indexOf(ruoloP) >= 0 || ruoloP === 'admin' || di === PROPRIETARIO) {
+    if (ruoloP === RUOLO_COLLABORATORE || RUOLI_SOLO_SONDAGGIO.indexOf(ruoloP) >= 0 || eRuoloAdmin(ruoloP) || di === PROPRIETARIO) {
         return { ok: false, msg: 'L\'utente a cui il tuo accesso è associato non può avere collaboratori: chiedi all\'amministratore.' };
     }
     return { ok: true, email: di, dati: p, ruolo: ruoloP, sessione: sessione, collaboratore: true };
@@ -60,4 +72,4 @@ function firmaCollaboratore(ue) {
     return (s.nome || s.email || '') + (s.email ? ' <' + s.email + '>' : '');
 }
 
-module.exports = { utenteEffettivo, firmaCollaboratore, RUOLO_COLLABORATORE };
+module.exports = { utenteEffettivo, firmaCollaboratore, eRuoloAdmin, RUOLO_COLLABORATORE, RUOLO_VICE_ADMIN };

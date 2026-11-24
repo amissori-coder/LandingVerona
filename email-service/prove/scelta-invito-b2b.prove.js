@@ -87,7 +87,8 @@ const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (nome === 'firebase-admin') return admin;
     if (nome === 'google-auth-library') return { JWT: function () { } };
-    if (nome === '../lib/utente-effettivo') return { utenteEffettivo: async () => ({ ok: true, ruolo: 'admin' }) };
+    // solo "chi chiama" e' finto: il resto del modulo (eRuoloAdmin) e' quello vero
+    if (nome === '../lib/utente-effettivo') return Object.assign({}, veroRequire.apply(this, arguments), { utenteEffettivo: async () => ({ ok: true, ruolo: 'admin' }) });
     return veroRequire.apply(this, arguments);
 };
 process.env.FIREBASE_SERVICE_ACCOUNT = '{"client_email":"x@y.z","private_key":"k"}';
