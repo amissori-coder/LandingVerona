@@ -673,13 +673,15 @@ async function applicaRicevuta(db, dove, fatto, coordinate) {
         const p = Object.assign({}, inv.passi[n]);
         const ora = Date.now();
         let cambiato = false;
-        if (fatto.genere === 'accettata' && !p.accettata) { p.accettata = { quando: fatto.quando, gestore: fatto.gestore || '', identificativo: fatto.identificativo || '' }; cambiato = true; }
-        if (fatto.genere === 'consegnata' && !p.consegnata) { p.consegnata = { quando: fatto.quando, destinatario: fatto.destinatario || '' }; cambiato = true; }
+        // `nuovo`: la ricevuta dice una cosa che la scheda non sapeva ancora (non e' una rilettura)
+        let nuovo = false;
+        if (fatto.genere === 'accettata' && !p.accettata) { p.accettata = { quando: fatto.quando, gestore: fatto.gestore || '', identificativo: fatto.identificativo || '' }; cambiato = nuovo = true; }
+        if (fatto.genere === 'consegnata' && !p.consegnata) { p.consegnata = { quando: fatto.quando, destinatario: fatto.destinatario || '' }; cambiato = nuovo = true; }
         if (fatto.genere === 'problema') {
             const vecchio = p.problema;
             if (!vecchio || (Number(fatto.gravita) || 0) > (Number(vecchio.gravita) || 0)) {
                 p.problema = { quando: fatto.quando, tipo: fatto.tipo, motivo: String(fatto.motivo || '').slice(0, 300), definitivo: !!fatto.definitivo, gravita: Number(fatto.gravita) || 1 };
-                cambiato = true;
+                cambiato = nuovo = true;
             }
         }
         // la ricevuta dice che la PEC era partita, anche se la funzione si era fermata prima di annotarlo
@@ -700,7 +702,7 @@ async function applicaRicevuta(db, dove, fatto, coordinate) {
         chiudi(inv, ora);
         tx.set(rif, inv);
         segnaSporco(tx, db, inv);
-        return { ok: true, cambiato: true, incaricoId: inv.incaricoId, scheda: inv, problema: fatto.genere === 'problema' ? inv.passi[n].problema : null };
+        return { ok: true, cambiato: true, nuovo: nuovo, incaricoId: inv.incaricoId, scheda: inv, problema: fatto.genere === 'problema' ? inv.passi[n].problema : null };
     });
     // una PEC non accettata o non consegnata va nel registro degli errori; un preavviso, come cosa da tenere d'occhio
     if (esito.problema) {
@@ -710,13 +712,20 @@ async function applicaRicevuta(db, dove, fatto, coordinate) {
             titolo: pr.definitivo ? (pr.tipo === 'non-accettazione' ? 'PEC non accettata dal gestore' : 'PEC non consegnata') : 'Consegna della PEC in dubbio',
             dettaglio: pr.motivo
         });
-        // e, se e' definitivo, lo viene a sapere chi ha preparato la lettera
-        if (pr.definitivo) {
-            await AVVISI.accoda(db, esito.scheda, String(dove.invio), {
-                tipo: 'recapito', chiave: 'recapito~' + dove.invio + '~' + dove.passo, passo: dove.passo, quando: pr.quando,
-                titolo: titoloGuasto(dove.passo, pr.tipo === 'non-accettazione' ? 'accettata' : 'consegnata'), dettaglio: pr.motivo
-            });
-        }
+    }
+    /* OGNI ricevuta nuova, buona o cattiva, arriva per email a chi ha preparato
+       la lettera, con il file della ricevuta allegato (lo va a prendere nella
+       casella lib/circ-avvisi.js, al momento di spedire). Una ricevuta riletta
+       non dice niente di nuovo, e non parte una seconda email. */
+    if (esito.nuovo) {
+        const pr = fatto.genere === 'problema' ? esito.problema : null;
+        const definitivo = !!(pr && pr.definitivo);
+        await AVVISI.accoda(db, esito.scheda, String(dove.invio), {
+            tipo: 'ricevuta', chiave: 'ricevuta~' + dove.invio + '~' + dove.passo + '~' + ((coordinate && coordinate.chiave) || fatto.etichetta || fatto.genere),
+            passo: dove.passo, quando: fatto.quando, ricevuta: fatto.etichetta || fatto.genere, definitivo: definitivo,
+            titolo: definitivo ? titoloGuasto(dove.passo, pr.tipo === 'non-accettazione' ? 'accettata' : 'consegnata') : '',
+            dettaglio: pr ? pr.motivo : '', msg: coordinate
+        });
     }
     delete esito.scheda; delete esito.problema;
     return esito;
@@ -961,7 +970,9 @@ function rimettiNonAssociata(db, chiave, tolta, prof) {
         uid: tolta.uid, uidValidity: tolta.uidValidity, quando: tolta.quando || Date.now(),
         da: tolta.da || '', oggetto: tolta.oggetto || '', certificata: !!tolta.certificata,
         allegati: tolta.allegati || [], dimensione: Number(tolta.dimensione) || 0, candidati: [],
-        dissociataDa: prof.firma, dissociataIl: Date.now()
+        dissociataDa: prof.firma, dissociataIl: Date.now(),
+        // l'ha rimessa li' una persona, che lo sa: niente email "c'e' una PEC da associare"
+        avvisato: Date.now()
     }, { merge: true });
 }
 async function dissociaRisposta(db, idInvio, chiave, prof) {

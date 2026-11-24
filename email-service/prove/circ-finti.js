@@ -105,15 +105,19 @@ const adminFinto = {
 // ---------- server di posta finto ----------
 const posta = [];
 const stato = { rifiuta: null, prossimoUid: 1 };       // rifiuta: funzione (msg) -> Error | null
-const avvisi = [];         // le email ordinarie degli errori (a chi amministra): partono dal server SMTP_HOST, non dalla PEC
-const notizie = [];        // le email ordinarie a chi ha preparato le lettere (risposte arrivate, PEC non consegnate)
+const avvisi = [];         // le email ordinarie degli errori (alla casella dello studio): partono dal server SMTP_HOST, non dalla PEC
+const notizie = [];        // le email ordinarie a chi ha preparato le lettere (ricevute, risposte arrivate, PEC non partite)
+const associare = [];      // le email ordinarie "c'e' una PEC da associare" (alla casella dello studio)
 const trasporti = [];       // le opzioni con cui il codice ha aperto ogni collegamento di posta
 const nodemailerFinto = {
     createTransport: o => (trasporti.push(o), {
         sendMail: async msg => {
             if (o && o.host === process.env.SMTP_HOST) {
                 if (stato.rifiutaAvvisi) throw new Error('posta ordinaria giu\'');
-                (msg.headers && msg.headers['X-Circolarizzazioni'] === 'avviso-utente' ? notizie : avvisi).push(msg);
+                // rifiutaPosta: funzione (msg) -> Error | null, per respingere solo certe email ordinarie
+                const no = stato.rifiutaPosta ? stato.rifiutaPosta(msg) : null; if (no) throw no;
+                const quale = msg.headers && msg.headers['X-Circolarizzazioni'];
+                (quale === 'avviso-utente' ? notizie : quale === 'da-associare' ? associare : avvisi).push(msg);
                 return { response: '250 ok' };
             }
             const e = stato.rifiuta ? stato.rifiuta(msg) : null; if (e) throw e; posta.push(msg); return { response: '250 ok' };
@@ -194,5 +198,5 @@ Module.prototype.require = function (nome) {
 Object.assign(process.env, { CIRC_IP_SERVIZI: process.env.CIRC_IP_SERVIZI || '', CIRC_PEC_USER: 'circolarizzazionirevilaw@pec.it', CIRC_PEC_PASS: 'segreta', CIRC_PAUSA_MS: '0', CRON_SECRET: 'cron', FIREBASE_SERVICE_ACCOUNT: '{}',
     SMTP_HOST: 'posta-ordinaria.finta', SMTP_PORT: '587', SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_FROM_EMAIL: 'noreply@nextgenerationbusiness.it', APP_BASE_URL: 'https://nextgenerationbusiness.it' });
 
-module.exports = { dati, db, posta, trasporti, avvisi, notizie, casella, stato, letture, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
+module.exports = { dati, db, posta, trasporti, avvisi, notizie, associare, casella, stato, letture, ricevuta, risposta, metti, orologioFinto, avanti, alle, adesso, DateVera };
 

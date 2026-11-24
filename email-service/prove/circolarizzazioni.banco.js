@@ -27,6 +27,8 @@
                        con { alle: <istante ISO> } prima sposta l'orologio
      /banco/avvisi     le email degli errori partite finora
      /banco/notizie    le email a chi ha preparato le lettere partite finora
+                       (ricevute con i nomi dei file allegati, risposte, PEC non partite)
+     /banco/associare  le email "PEC da associare" alla casella dello studio
      /banco/posta      le PEC partite finora
    ============================================================ */
 'use strict';
@@ -115,7 +117,8 @@ http.createServer((req, res) => {
                 if (b.alle) F.orologioFinto(b.alle);
                 out = await chiama('GET', {}, { authorization: 'Bearer ' + process.env.CRON_SECRET });
             }
-            else if (req.url === '/banco/notizie') out = { stato: 200, corpo: { ok: true, notizie: F.notizie.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html })) } };
+            else if (req.url === '/banco/notizie') out = { stato: 200, corpo: { ok: true, notizie: F.notizie.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegati: (m.attachments || []).map(f => ({ nome: f.filename, byte: f.content.length })) })) } };
+            else if (req.url === '/banco/associare') out = { stato: 200, corpo: { ok: true, associare: F.associare.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegati: (m.attachments || []).map(f => ({ nome: f.filename, byte: f.content.length })) })) } };
             else if (req.url === '/banco/avvisi') out = { stato: 200, corpo: { ok: true, avvisi: F.avvisi.map(m => ({ a: m.to, da: m.from, oggetto: m.subject, testo: m.text, html: m.html })) } };
             else if (req.url === '/banco/posta') out = { stato: 200, corpo: { ok: true, posta: F.posta.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegato: m.attachments[0].filename })) } };
             else out = await chiama('POST', b);

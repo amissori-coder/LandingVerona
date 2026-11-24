@@ -2,7 +2,7 @@
    Circolarizzazioni via PEC: il registro degli errori
    ------------------------------------------------------------
    Tutto quello che va storto finisce qui, in un posto solo, e
-   chi amministra viene avvisato per email:
+   la casella dello studio viene avvisata per email:
 
      recapito   la PEC non e' stata accettata o consegnata
      invio      la lettera non e' partita (rifiuto del server per
@@ -26,6 +26,12 @@
    non devono diventare cinquanta messaggi. Usa la posta ordinaria
    dello studio (SMTP_*), non la casella PEC.
 
+   A CHI ARRIVA. Alla casella dello studio (revilawlazio@revilaw.it,
+   si cambia con CIRC_AVVISI_EMAIL) e, se l'amministratore lo vuole,
+   ai supervisori. Alla stessa casella arrivano le PEC che il portale
+   non ha saputo associare a una lettera (lib/circ-avvisi.js). Chi ha
+   inviato la lettera riceve per conto suo le ricevute e le risposte.
+
    segna() non lancia mai: un registro che fa fallire l'operazione
    che sta registrando sarebbe peggio del problema.
    ============================================================ */
@@ -36,7 +42,8 @@ const nodemailer = require('nodemailer');
 const { avvolgi, senzaTrattiniLunghi } = require('./mail-layout');
 
 const ERR = 'circErrori';
-const PROPRIETARIO = 'a.missori@emvas.tax';
+const CASELLA_STUDIO = 'revilawlazio@revilaw.it';
+const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 const TIPI = { recapito: 'Recapito', invio: 'Invio', server: 'Server PEC', casella: 'Casella PEC', servizio: 'Servizio' };
 const PASSI = { primo: 'invio', sollecito1: 'primo sollecito', sollecito2: 'secondo sollecito' };
 const MAX_PER_EMAIL = 40;
@@ -147,10 +154,17 @@ function dove(e) {
     const parti = [e.cliente, e.destinatario && (e.destinatario + (e.pec ? ' (' + e.pec + ')' : '')), e.codice, e.passo && e.passo !== 'primo' && PASSI[e.passo]].filter(Boolean);
     return parti.join(' · ');
 }
+/* La casella dello studio che riceve gli errori e le PEC da associare. Con
+   CIRC_AVVISI_EMAIL se ne indica un'altra (o piu' d'una, separate da virgola);
+   un valore scritto male non lascia gli avvisi senza destinatario. */
+function casellaAvvisi() {
+    const scelte = String(process.env.CIRC_AVVISI_EMAIL || '').split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(x => EMAIL_RE.test(x));
+    return scelte.length ? Array.from(new Set(scelte)).slice(0, 5) : [CASELLA_STUDIO];
+}
 async function destinatari(db) {
     let imp = {};
     try { const s = await db.collection('meta').doc('circolarizzazioni').get(); imp = s.exists ? (s.data() || {}) : {}; } catch (_) { imp = {}; }
-    const lista = [PROPRIETARIO];
+    const lista = casellaAvvisi();
     if (imp.avvisaSupervisori && Array.isArray(imp.supervisori)) imp.supervisori.forEach(x => { const m = String(x || '').toLowerCase(); if (m && lista.indexOf(m) < 0) lista.push(m); });
     return { lista: lista, supervisori: !!imp.avvisaSupervisori };
 }
@@ -171,7 +185,7 @@ function messaggio(nuovi, totaleAperti) {
         + '<p style="' + P + '">Li trovi tutti nell\'area riservata, in <strong>Strumenti di revisione, Circolarizzazioni via PEC, scheda «Errori»</strong>' + (totaleAperti > n ? ' (in tutto ' + totaleAperti + ' aperti)' : '') + ': quando un errore è risolto, spuntalo.</p>'
         + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr><td style="background:#164068;border-radius:6px;">'
         + '<a href="' + esc(base + '/area-riservata/') + '" style="display:inline-block;padding:12px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">Apri l\'area riservata</a></td></tr></table>'
-        + '<p style="' + P + 'font-size:13px;color:#475569;">Ricevi questo messaggio perché amministri le circolarizzazioni. Per lo stesso errore non arriva un secondo avviso finché resta aperto.</p>';
+        + '<p style="' + P + 'font-size:13px;color:#475569;">Questo messaggio arriva alla casella che segue gli errori delle circolarizzazioni. Per lo stesso errore non arriva un secondo avviso finché resta aperto.</p>';
     const testo = (n === 1 ? 'Nelle circolarizzazioni via PEC c\'è un errore nuovo da controllare.' : 'Nelle circolarizzazioni via PEC ci sono ' + n + ' errori nuovi da controllare.') + '\n\n'
         + mostrati.map(e => '- ' + quando(e.ultimo || e.primo) + ' | ' + (TIPI[e.tipo] || e.tipo) + ' | ' + e.titolo + (dove(e) ? ' | ' + dove(e) : '') + (e.dettaglio ? '\n  ' + e.dettaglio : '')).join('\n')
         + '\n\nLi trovi nell\'area riservata: Strumenti di revisione, Circolarizzazioni via PEC, scheda "Errori". Quando un errore è risolto, spuntalo.\n' + base + '/area-riservata/';
@@ -181,9 +195,10 @@ function messaggio(nuovi, totaleAperti) {
     };
 }
 /* Una email di posta ordinaria (SMTP_*), impaginata come le altre dello studio.
-   `interno` e' l'HTML del messaggio; torna true se e' partita. La usano anche
+   `interno` e' l'HTML del messaggio; `allegati` (facoltativo) e' un elenco di
+   { filename, content, contentType }. Torna { ok, errore }. La usano anche
    gli avvisi a chi ha inviato le lettere (lib/circ-avvisi.js). */
-async function manda(a, oggetto, interno, testo, etichetta) {
+async function mandaConEsito(a, oggetto, interno, testo, etichetta, allegati) {
     try {
         const porta = Number(process.env.SMTP_PORT) || 465;
         const posta = nodemailer.createTransport({
@@ -195,13 +210,19 @@ async function manda(a, oggetto, interno, testo, etichetta) {
             from: '"' + String(process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n"]/g, ' ') + '" <' + (process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER) + '>',
             to: a, subject: senzaTrattiniLunghi(oggetto).replace(/[\r\n]/g, ' ').slice(0, 200),
             text: senzaTrattiniLunghi(testo), html: avvolgi(senzaTrattiniLunghi(interno)),
-            headers: { 'X-Circolarizzazioni': etichetta || 'avviso' }
+            headers: { 'X-Circolarizzazioni': etichetta || 'avviso' },
+            attachments: (allegati || []).map(f => ({ filename: f.filename, content: f.content, contentType: f.contentType || 'application/octet-stream' }))
         });
-        return true;
+        return { ok: true, errore: '' };
     } catch (x) {
-        console.error('Circolarizzazioni, email non partita (' + (etichetta || 'avviso') + '):', String((x && x.message) || x).slice(0, 200));
-        return false;
+        const errore = String((x && (x.response || x.message)) || x).slice(0, 200);
+        console.error('Circolarizzazioni, email non partita (' + (etichetta || 'avviso') + '):', errore);
+        return { ok: false, errore: errore };
     }
+}
+/* Come sopra, ma dice solo se e' partita. */
+async function manda(a, oggetto, interno, testo, etichetta, allegati) {
+    return (await mandaConEsito(a, oggetto, interno, testo, etichetta, allegati)).ok;
 }
 /* Manda UNA email con gli errori aperti non ancora avvisati, e li segna come
    avvisati solo se e' partita: altrimenti ci riprova il giro dopo. */
@@ -219,4 +240,4 @@ async function avvisa(db) {
     return { ok: true, avvisati: nuovi.length, a: d.lista };
 }
 
-module.exports = { ERR, TIPI, segna, diLettera, aperti, elenco, conta, risolvi, riapri, dimenticaIncarico, dimenticaLettera, avvisa, manda, destinatari, postaConfigurata, _interni: { messaggio, idDa } };
+module.exports = { ERR, TIPI, CASELLA_STUDIO, segna, diLettera, aperti, elenco, conta, risolvi, riapri, dimenticaIncarico, dimenticaLettera, avvisa, manda, mandaConEsito, destinatari, casellaAvvisi, postaConfigurata, _interni: { messaggio, idDa } };
