@@ -463,8 +463,8 @@
           <dt>Iscrizioni Eventi NGB</dt><dd>Gli iscritti agli eventi, con conferme, presenze e note.</dd>
           <dt>Sondaggi</dt><dd>I questionari interni: compilazione e risultati.</dd>
           <dt>Registro modifiche</dt><dd>Il registro di tutte le operazioni: chi ha fatto cosa e quando. Non si può cancellare.</dd>
-          <dt>Utenti</dt><dd>Chi può entrare e con quale ruolo. Riservata all'amministratore e al titolare.</dd>
-          <dt>Ruoli e permessi</dt><dd>La configurazione dei ruoli, sezione per sezione. Riservata all'amministratore e al titolare.</dd>
+          <dt>Utenti</dt><dd>Chi può entrare e con quale ruolo. Riservata all'amministratore, al vice amministratore e al titolare.</dd>
+          <dt>Ruoli e permessi</dt><dd>La configurazione dei ruoli, sezione per sezione. Riservata all'amministratore, al vice amministratore e al titolare.</dd>
           <dt>Dati e backup</dt><dd>Importazione, esportazione e copie di sicurezza dell'archivio. Riservata al titolare.</dd>
         </dl>
 
@@ -498,9 +498,9 @@
           <p>Sei sezioni hanno regole proprie, indipendenti dal ruolo, perché toccano la sicurezza, l'invio di messaggi a nome dello studio oppure, al contrario, devono restare aperte a tutti.</p>
         </div>
         <dl class="voci">
-          <dt>Utenti, Ruoli e permessi</dt><dd>Solo amministratore o titolare. Nessun ruolo personalizzato può concederle.</dd>
-          <dt>Dati e backup</dt><dd>Solo il titolare. Nemmeno un amministratore la vede.</dd>
-          <dt>Iscrizioni Eventi NGB</dt><dd>Amministratore, titolare o le singole persone abilitate a mano.</dd>
+          <dt>Utenti, Ruoli e permessi</dt><dd>Solo amministratore, vice amministratore o titolare. Nessun ruolo personalizzato può concederle.</dd>
+          <dt>Dati e backup</dt><dd>Solo il titolare. Nemmeno un amministratore o un vice amministratore la vede.</dd>
+          <dt>Iscrizioni Eventi NGB</dt><dd>Amministratore, vice amministratore, titolare o le singole persone abilitate a mano.</dd>
           <dt>Newsletter commerciali</dt><dd>Come sopra. I ruoli «solo sondaggio» restano sempre esclusi.</dd>
           <dt>Richieste di correzione</dt><dd>Aperta a <b>tutti</b>, e non si può togliere: è la via con cui chi non ha la scrittura fa correggere un dato. Restano fuori solo i ruoli «solo sondaggio». Chi vede quali richieste non dipende dal ruolo ma dalla scheda in Aderenti Revilaw: vedi il capitolo <a href="#p-correzioni">Chiedere la correzione di un dato</a>.</dd>
         </dl>
@@ -515,7 +515,7 @@
         <div class="prosa">
           <p>Un <b>collaboratore</b> non ha permessi propri: è un accesso che <b>eredita tutto</b> da un altro utente, il suo <b>utente di riferimento</b>, scelto dall'amministratore quando lo abilita nella sezione Utenti. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo e sezioni, filtro per territorio, abilitazioni a Eventi e Newsletter, qualifiche della scheda in Aderenti Revilaw (responsabile qualità, equity partner), verifiche di rating e richieste di correzione. Se il riferimento viene disabilitato o eliminato, anche il collaboratore resta fuori, e la schermata di accesso gli dice il perché.</p>
           <p><b>Con quale nome compaiono le sue modifiche.</b> Tutto ciò che il collaboratore fa (incarichi, Registro modifiche, Controlli qualità, verifiche, comunicazioni ed email) porta nome e indirizzo dell'<b>utente di riferimento</b>: per tutti gli altri utenti è come se avesse operato lui, e le risposte alle email tornano a lui. <b>Solo l'utente di riferimento</b>, entrando in prima persona, vede accanto all'autore l'etichetta <b>«tramite <i>nome del collaboratore</i>»</b>: né l'amministratore né gli altri colleghi, e nemmeno il collaboratore stesso. Lo stesso vale per l'elenco «Connessi ora» e per i messaggi tra colleghi.</p>
-          <p>Nella barra laterale il collaboratore vede il proprio nome e, sotto, «A nome di» con l'utente di riferimento e il suo ruolo. Non possono avere collaboratori l'<b>amministratore</b> e il <b>titolare</b> (i poteri su utenti, ruoli e dati non si delegano), un altro collaboratore e un invitato «solo sondaggio». Come si abilita è spiegato al capitolo <a href="#p-utenti">Utenti, ruoli e registro</a>.</p>
+          <p>Nella barra laterale il collaboratore vede il proprio nome e, sotto, «A nome di» con l'utente di riferimento e il suo ruolo. Non possono avere collaboratori l'<b>amministratore</b>, il <b>vice amministratore</b> e il <b>titolare</b> (i poteri su utenti, ruoli e dati non si delegano), un altro collaboratore e un invitato «solo sondaggio». Come si abilita è spiegato al capitolo <a href="#p-utenti">Utenti, ruoli e registro</a>.</p>
         </div>
 
         <div class="nota attenzione">
@@ -537,7 +537,7 @@
             <thead>
               <tr>
                 <th>Sezione</th>
-                <th>Amministratore</th>
+                <th>Amministratore e Vice amministratore</th>
                 <th>Titolare</th>
                 <th>Resp. qualità</th>
                 <th>Procuratore</th>
@@ -570,6 +570,7 @@
         </div>
         <p class="passo-testo"><b>Marketing</b> non è in tabella perché la sua riga di partenza sarebbe tutta uguale: <b>sola lettura</b> in ogni sezione che l'amministratore gli lascia visibile. Da Ruoli e permessi l'amministratore può però dargli la <b>scrittura</b>, sezione per sezione, come per Coordinatore e Vice. Vede gli incarichi di tutte le regioni e tutte le richieste di correzione, senza poterle ricevere né lavorare.</p>
         <p class="passo-testo">I livelli indicati per Responsabile qualità e Procuratore sono quelli <b>di partenza</b>: entrambi nascono con la scrittura ovunque e vanno ristretti dalla sezione Ruoli e permessi se lo studio vuole limitarli.</p>
+        <p class="passo-testo">Il <b>Vice amministratore</b> condivide la colonna dell'amministratore perché ha gli stessi poteri, riga per riga: nessun livello da configurare.</p>
         <p class="passo-testo">Il <b>Collaboratore</b> non ha una colonna sua: prende, riga per riga, la colonna del suo <b>utente di riferimento</b>, territorio compreso. Vedi <a href="#collaboratori">Il profilo Collaboratore</a>.</p>
       </section>
 
@@ -592,6 +593,17 @@
               <dt>Non può</dt><dd>Entrare in Dati e backup: importazioni, esportazioni e copie di sicurezza restano al titolare.</dd>
             </dl>
             <div class="rimandi"><a href="#amministratore">Capitolo 7</a> <a href="#p-utenti">Utenti e ruoli</a> <a href="#p-incarico">Creare un incarico</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-piena">
+            <h4>Vice amministratore</h4>
+            <div class="ruolo-id">viceadmin</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Esattamente quello che vede l'amministratore: tutte le sezioni tranne Dati e backup, tutti gli incarichi di ogni regione, Eventi e Newsletter senza abilitazione a parte.</dd>
+              <dt>Può fare</dt><dd>Tutto quello che può fare l'amministratore: incarichi (eliminazione definitiva compresa), utenti, ruoli e permessi, e ogni comando riservato all'amministratore nelle altre sezioni.</dd>
+              <dt>Non può</dt><dd>Entrare in Dati e backup, che resta al titolare. Avere collaboratori. Il ruolo non si configura: ha sempre accesso pieno.</dd>
+            </dl>
+            <div class="rimandi"><a href="#amministratore">Capitolo 7</a> <a href="#p-utenti">Utenti e ruoli</a></div>
           </div>
 
           <div class="scheda-ruolo tinta-piena">
@@ -666,7 +678,7 @@
             <dl class="voce-elenco">
               <dt>Vede</dt><dd>Tutto ciò che vede il suo <b>utente di riferimento</b>: stesse sezioni, stessi livelli, stesso territorio, stesse abilitazioni a Eventi e Newsletter.</dd>
               <dt>Può fare</dt><dd>Quello che può fare il riferimento, a nome suo: le modifiche compaiono a tutti con il nome dell'utente di riferimento. Solo quest'ultimo vede anche «tramite <i>collaboratore</i>».</dd>
-              <dt>Non può</dt><dd>Entrare se il riferimento è disabilitato o eliminato. Essere collaboratore dell'amministratore o del titolare, né riferimento di un altro collaboratore.</dd>
+              <dt>Non può</dt><dd>Entrare se il riferimento è disabilitato o eliminato. Essere collaboratore dell'amministratore, del vice amministratore o del titolare, né riferimento di un altro collaboratore.</dd>
             </dl>
             <div class="rimandi"><a href="#collaboratori">Capitolo 4</a> <a href="#p-utenti">Abilitare un collaboratore</a></div>
           </div>
@@ -706,8 +718,8 @@
         <span class="numero">Capitolo 7, ruolo</span>
         <div class="ruolo-testata tinta-piena">
           <h2>Amministratore e Titolare</h2>
-          <div class="ruolo-id">admin, proprietario</div>
-          <p class="ruolo-riassunto">Accesso completo a tutte le sezioni e a tutti gli incarichi, senza limiti di territorio. Sono gli unici che possono creare utenti, configurare i ruoli ed eliminare definitivamente un incarico. Il <b>Titolare</b> ha in più la sezione Dati e backup, che nemmeno un amministratore vede.</p>
+          <div class="ruolo-id">admin, viceadmin, proprietario</div>
+          <p class="ruolo-riassunto">Accesso completo a tutte le sezioni e a tutti gli incarichi, senza limiti di territorio. Sono gli unici che possono creare utenti, configurare i ruoli ed eliminare definitivamente un incarico. Il <b>Vice amministratore</b> può fare tutto quello che può fare l'amministratore: è un ruolo a sé, che si assegna dalla sezione Utenti, e dove questo manuale dice «amministratore» vale anche per lui. Il <b>Titolare</b> ha in più la sezione Dati e backup, che nemmeno un amministratore vede.</p>
           <div class="etichette">
             <span class="etichetta et-piena">Scrittura su tutto</span>
             <span class="etichetta et-piena">Nessun limite di territorio</span>
@@ -720,6 +732,7 @@
 
         <div class="prosa">
           <p>Il menu dell'amministratore contiene tutte le voci. Le sezioni riservate (Utenti, Ruoli e permessi e, per il solo titolare, Dati e backup) stanno in fondo, separate dal lavoro quotidiano.</p>
+          <p><b>Il vice amministratore.</b> Per affiancare all'amministratore una persona con gli stessi poteri, nella sezione <b>Utenti</b> le si assegna il ruolo <b>Vice amministratore</b>. Da quel momento vede lo stesso menu e gli stessi comandi dell'amministratore, comprese Utenti e Ruoli e permessi; in Eventi e Newsletter entra senza bisogno di essere abilitata a parte. In <b>Ruoli e permessi</b> il ruolo ha la sua scheda, ma non si modifica e non si elimina: come l'amministratore ha sempre accesso pieno. Nemmeno il vice amministratore può avere collaboratori, e nemmeno lui vede Dati e backup.</p>
         </div>
       </section>
 
@@ -1320,7 +1333,7 @@
           <li>
             <div class="passo-titolo">Abilita un collaboratore</div>
             <div class="passo-testo">
-              <p>Nella finestra <b>Abilita utente</b> scegli il ruolo <b>«Collaboratore (eredita i permessi di un utente)»</b>: compare il campo <b>Collaboratore di</b>, in cui indichi l'utente di riferimento. Senza quel campo il collaboratore non si salva. La tendina propone solo gli utenti attivi dello staff: non l'amministratore né il titolare, non altri collaboratori, non gli invitati al solo sondaggio.</p>
+              <p>Nella finestra <b>Abilita utente</b> scegli il ruolo <b>«Collaboratore (eredita i permessi di un utente)»</b>: compare il campo <b>Collaboratore di</b>, in cui indichi l'utente di riferimento. Senza quel campo il collaboratore non si salva. La tendina propone solo gli utenti attivi dello staff: non l'amministratore, il vice amministratore o il titolare, non altri collaboratori, non gli invitati al solo sondaggio.</p>
               <p>Lo stesso si fa con un utente già presente, cambiandogli ruolo dalla tendina della tabella: si apre la finestra per scegliere di chi è collaboratore. Sotto la tendina resta scritto <b>di</b> chi lo è, con il pulsante <b>Cambia</b> per spostarlo su un altro riferimento. Nella tabella un collaboratore il cui riferimento non va più bene (disabilitato, eliminato) ha un'etichetta rossa: finché non lo associ a un utente valido non può entrare.</p>
               <p>Disabilitando, eliminando o cambiando ruolo a un utente che ha collaboratori il programma avvisa prima: quei collaboratori resterebbero fuori. La scheda del profilo, con la spiegazione, è anche nella sezione <b>Ruoli e permessi</b> (pulsante «Abilita un collaboratore»). Che cosa vede e con quale nome compare è spiegato al capitolo <a href="#collaboratori">Il profilo Collaboratore</a>.</p>
             </div>
@@ -1329,7 +1342,7 @@
             <div class="passo-titolo">Configura il ruolo</div>
             <div class="passo-testo">
               <p>Nella sezione <b>Ruoli e permessi</b> ogni ruolo è una scheda che riepiloga i livelli assegnati sezione per sezione. Il pulsante Modifica apre la finestra con una tendina per ciascuna delle otto sezioni configurabili, con i tre valori Nascosta, Sola lettura e Scrittura.</p>
-              <p>Si possono creare ruoli nuovi con il pulsante in alto. Ricorda che Utenti, Ruoli e permessi e Dati e backup non compaiono fra le sezioni configurabili: restano ad amministratore e titolare per costruzione, e nessun ruolo personalizzato può concederle.</p>
+              <p>Si possono creare ruoli nuovi con il pulsante in alto. Ricorda che Utenti, Ruoli e permessi e Dati e backup non compaiono fra le sezioni configurabili: restano ad amministratore, vice amministratore e titolare per costruzione, e nessun ruolo personalizzato può concederle. Le schede <b>Amministratore</b> e <b>Vice amministratore</b> hanno solo il pulsante Dettagli: i due ruoli hanno sempre accesso pieno e non si modificano.</p>
               <p>Modificare un ruolo ha effetto su tutti gli utenti che lo hanno assegnato, dal loro accesso successivo.</p>
             </div>
             <figure><img src="manuale/27-admin-ruoli.jpg" alt="Sezione Ruoli e permessi"><figcaption><b>Ruoli e permessi.</b> I ruoli di sistema riportano in chiaro che vedono solo gli incarichi delle proprie regioni.</figcaption></figure>
@@ -1373,6 +1386,7 @@
           <dt>Piano di fatturazione</dt><dd>L'insieme delle rate generate dal compenso e dalla periodicità scelta. Si consulta nella sezione Fatturazione.</dd>
           <dt>Gruppo di fatturazione</dt><dd>Un'etichetta che raccoglie più incarichi fatturati insieme, per esempio le società di uno stesso gruppo.</dd>
           <dt>Registro modifiche</dt><dd>Il diario delle operazioni: chi, quando, che cosa. Non modificabile.</dd>
+          <dt>Vice amministratore</dt><dd>Ruolo di accesso con gli stessi poteri dell'amministratore, in tutto: sezioni, utenti, ruoli e comandi riservati. Si assegna dalla sezione Utenti; non si configura e non può avere collaboratori. Non vede Dati e backup, che resta al titolare.</dd>
           <dt>Titolare</dt><dd>Il proprietario dello studio, individuato dal suo indirizzo email. Ha i poteri dell'amministratore più la sezione Dati e backup.</dd>
           <dt>Equity partner</dt><dd>Il riferimento a cui si chiedono modifiche e correzioni dei dati. È una spunta sulla scheda dell'aderente: solo chi ce l'ha compare nella tendina dei destinatari delle richieste di correzione, e vede tutte le richieste dello studio.</dd>
           <dt>Founding partner</dt><dd>Un'altra spunta sulla scheda dell'aderente: non riceve le richieste di correzione, ma le vede tutte, come gli equity partner.</dd>
