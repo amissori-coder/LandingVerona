@@ -57,7 +57,8 @@
 
 const F = require('./circ-finti');
 F.orologioFinto('2027-01-11T10:00:00+01:00');
-const { dati, db, posta, avvisi, notizie, ricevuta, risposta, avanti, alle, DateVera } = F;
+const { dati, db, posta, avvisi, notizie, associare, ricevuta, risposta, avanti, alle, DateVera } = F;
+const STUDIO = 'revilawlazio@revilaw.it';        // la casella che riceve gli errori e le PEC da associare
 const MIN = 60000, ORA = 60 * MIN, GIORNO = 24 * ORA;
 
 const C = require('../lib/circ-comune');
@@ -362,7 +363,7 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('nel registro: la PEC non consegnata, quella non partita e il server che ha sospeso', reg.ok && reg.aperti.length === 3 && tipi === 'invio,recapito,server', reg.aperti.map(x => x.tipo + ':' + x.titolo));
     const eRec = reg.aperti.find(x => x.tipo === 'recapito');
     verifica('l\'errore di recapito dice quale lettera', eRec.titolo === 'PEC non consegnata' && eRec.cliente === 'ALFA MECCANICA SRL' && eRec.destinatario === 'Studio Legale Bruni' && eRec.pec === 'bruni@pec.it' && /^RVL-/.test(eRec.codice) && eRec.incaricoId === 'inc-alfa' && /indirizzo non valido/.test(eRec.dettaglio), eRec);
-    verifica('la prima email e\' partita col primo giro dopo l\'errore, al titolare', avvisi.length === 1 && avvisi[0].to === 'a.missori@emvas.tax' && /PEC non consegnata/.test(avvisi[0].subject) && avvisi[0].html.indexOf('Studio Legale Bruni') > 0 && avvisi[0].from.indexOf('noreply@nextgenerationbusiness.it') > 0, avvisi.map(m => m.subject));
+    verifica('la prima email e\' partita col primo giro dopo l\'errore, alla casella dello studio (non al titolare)', avvisi.length === 1 && avvisi[0].to === STUDIO && /PEC non consegnata/.test(avvisi[0].subject) && avvisi[0].html.indexOf('Studio Legale Bruni') > 0 && avvisi[0].from.indexOf('noreply@nextgenerationbusiness.it') > 0, avvisi.map(m => m.subject));
     verifica('la stessa lettera reinviata e non consegnata di nuovo non fa una seconda riga', reg.aperti.filter(x => x.tipo === 'recapito').length === 1);
     let giroAvv = await cronGiro();
     verifica('i due errori nuovi arrivano in UNA sola email', giroAvv.avvisi.avvisati === 2 && avvisi.length === 2 && /2 errori da controllare/.test(avvisi[1].subject) && avvisi[1].text.indexOf('Cliente Cinque') > 0 && avvisi[1].text.indexOf('sospeso gli invii') > 0, avvisi.slice(1).map(m => m.subject));
@@ -415,18 +416,27 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     const perChi = a => notizie.filter(m => m.to === a);
     const nLuca = perChi('luca@studio.it'), nMarta = perChi('marta@studio.it');
     verifica('a Luca, che aveva preparato le lettere: PEC non consegnata e risposte, in una email a giro',
-        nLuca.length === 2 && /2 novità|3 novità/.test(nLuca[0].subject) && nLuca[0].text.indexOf('PEC NON ARRIVATE') > 0 && nLuca[0].text.indexOf('Studio Legale Bruni') > 0 && nLuca[0].text.indexOf('non è stata consegnata') > 0
+        nLuca.length === 2 && /7 novità/.test(nLuca[0].subject) && nLuca[0].text.indexOf('PEC NON ARRIVATE') > 0 && nLuca[0].text.indexOf('Studio Legale Bruni') > 0 && nLuca[0].text.indexOf('non è stata consegnata') > 0
         && nLuca[0].text.indexOf('RISPOSTE ARRIVATE') > 0 && nLuca[0].text.indexOf('Banca di Prova S.p.A. (BETA TESSILE SPA') > 0, nLuca.map(m => m.subject + ' | ' + m.text.slice(0, 400)));
-    verifica('la risposta automatica ("sono assente") non genera un avviso', nLuca[0].text.indexOf('assente') < 0 && nLuca[0].text.split('\n').filter(r => /^- Studio Legale Bruni/.test(r)).length === 1, nLuca[0].text);
+    verifica('la risposta automatica ("sono assente") non genera un avviso', nLuca[0].text.indexOf('assente') < 0 && nLuca[0].text.split('PEC NON ARRIVATE')[0].indexOf('Studio Legale Bruni') < 0, nLuca[0].text);
+    // le ricevute: tutte, buone e cattive, a chi ha preparato la lettera, con il file allegato
+    const fileLuca = nLuca[0].attachments || [];
+    verifica('a Luca anche TUTTE le ricevute delle sue PEC: tre accettazioni e due consegne', nLuca[0].text.indexOf('RICEVUTE') > 0 && (nLuca[0].text.match(/Ricevuta di accettazione, /g) || []).length === 3 && (nLuca[0].text.match(/Ricevuta di consegna, /g) || []).length === 2 && nLuca[0].html.indexOf('5 ricevute') > 0, nLuca[0].text);
+    verifica('ogni ricevuta e\' allegata come file .eml, con un nome che dice che cos\'e\' e di quale lettera', fileLuca.length === 6 && fileLuca.every(f => /\.eml$/.test(f.filename) && Buffer.isBuffer(f.content) && f.content.length > 50)
+        && fileLuca.filter(f => /^Ricevuta di accettazione - RVL-[A-Z0-9]{6} - /.test(f.filename)).length === 3 && fileLuca.filter(f => /^Ricevuta di consegna - RVL-/.test(f.filename)).length === 2, fileLuca.map(f => f.filename));
+    verifica('anche la ricevuta cattiva e\' allegata: l\'avviso di mancata consegna, accanto alla PEC non arrivata', fileLuca.filter(f => /^Avviso di mancata consegna - RVL-[A-Z0-9]{6} - Studio Legale Bruni\.eml$/.test(f.filename)).length === 1
+        && /non è stata consegnata - 5\.1\.1 - indirizzo non valido \[In allegato: Avviso di mancata consegna/.test(nLuca[0].text), nLuca[0].text);
+    verifica('il file allegato e\' il messaggio cosi\' com\'e\' nella casella PEC, byte per byte', fileLuca.every(f => F.casella.some(m => m.sorgente.equals(f.content))) && /X-Ricevuta: accettazione/.test(fileLuca.find(f => /accettazione/.test(f.filename)).content.toString()));
+    verifica('l\'email dice che le ricevute sono allegate e vanno salvate nelle carte', /allegate a questa email/.test(nLuca[0].text) && /Salvale nelle carte di lavoro/.test(nLuca[0].html));
     verifica('la risposta arrivata dopo arriva con il giro successivo, da sola', /risposta di Studio Legale Bruni \(ALFA MECCANICA SRL\)/.test(nLuca[1].subject) && nLuca[1].html.indexOf('(posta ordinaria)') > 0 && nLuca[1].text.indexOf('PEC NON ARRIVATE') < 0, nLuca[1].subject);
     verifica('a Marta le sue: la risposta del fornitore e quella associata a mano dall\'amministratore',
-        nMarta.length === 1 && /2 novità/.test(nMarta[0].subject) && nMarta[0].text.indexOf('Fornitore Zeta') > 0 && nMarta[0].text.indexOf('Banca di Prova S.p.A. (ALFA MECCANICA SRL') > 0 && nMarta[0].html.indexOf('Risposta firmata.pdf') > 0, nMarta.map(m => m.subject));
+        nMarta.length === 1 && /4 novità/.test(nMarta[0].subject) && (nMarta[0].attachments || []).length === 2 && nMarta[0].text.indexOf('Fornitore Zeta') > 0 && nMarta[0].text.indexOf('Banca di Prova S.p.A. (ALFA MECCANICA SRL') > 0 && nMarta[0].html.indexOf('Risposta firmata.pdf') > 0, nMarta.map(m => m.subject));
     verifica('ognuno riceve solo le notizie delle lettere che ha preparato', nMarta[0].text.indexOf('BETA TESSILE') < 0 && nLuca[0].text.indexOf('Fornitore Zeta') < 0 && notizie.every(m => m.to.indexOf(',') < 0));
     verifica('le email partono dalla posta ordinaria dello studio, con il collegamento all\'area', nLuca[0].from.indexOf('noreply@nextgenerationbusiness.it') > 0 && nLuca[0].html.indexOf('https://nextgenerationbusiness.it/area-riservata/') > 0);
     const nAnna = perChi('anna@studio.it');
-    verifica('la lettera non partita (indirizzo rifiutato) avvisa chi l\'aveva preparata', nAnna.length === 1 && /la PEC non è partita: Cliente Cinque \(BETA TESSILE SPA\)/.test(nAnna[0].subject) && nAnna[0].text.indexOf('Correggi la PEC e reinvia') > 0, nAnna.map(m => m.subject));
+    verifica('la lettera non partita (indirizzo rifiutato) avvisa chi l\'aveva preparata', nAnna.length === 1 && /- Cliente Cinque \(BETA TESSILE SPA, RVL-[A-Z0-9]{6}, [^)]*\): La PEC non è partita/.test(nAnna[0].text) && nAnna[0].text.indexOf('Correggi la PEC e reinvia') > 0, nAnna.map(m => m.subject + ' | ' + m.text));
     verifica('la coda degli avvisi e\' vuota: niente arriva due volte', ![...dati.keys()].some(k => /^circAvvisi\//.test(k)) && (await cronGiro()).avvisiUtenti.inviate === 0);
-    // chi amministra prepara una lettera che non arriva: ha gia' l'email degli errori, non ne riceve una seconda
+    // chi amministra, quando e' lui a inviare, riceve le sue ricevute come tutti (gli errori ora vanno alla casella dello studio)
     dati.set('archivio/persone', { json: JSON.stringify(persone.concat([{ id: 'p0', nome: 'Missori', nomeProprio: 'Andrea', email: 'a.missori@emvas.tax', attivo: true }])) });
     const h1 = await nuova('a.missori@emvas.tax', 'inc-beta', { destinatario: 'Cliente Otto', pec: 'otto@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
     await GIRO.giro(db, {});
@@ -437,7 +447,9 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     await LETTORE.giro(db, { forza: true });
     await cronGiro();
     const nAdmin = perChi('a.missori@emvas.tax');
-    verifica('all\'amministratore che ha inviato: solo la risposta (l\'errore gli arriva con l\'email degli errori)', h1.ok && nAdmin.length === 1 && /risposta di Cliente Otto/.test(nAdmin[0].subject) && nAdmin[0].text.indexOf('PEC NON ARRIVATE') < 0, nAdmin.map(m => m.subject));
+    verifica('all\'amministratore che ha inviato, come a tutti: la ricevuta di accettazione, la PEC non consegnata e la risposta', h1.ok && nAdmin.length === 1 && /3 novità/.test(nAdmin[0].subject) && nAdmin[0].text.indexOf('PEC NON ARRIVATE') > 0 && nAdmin[0].text.indexOf('RISPOSTE ARRIVATE') > 0
+        && /Ricevuta di accettazione, /.test(nAdmin[0].text) && (nAdmin[0].attachments || []).map(f => f.filename.replace(/RVL-\w+/, 'RVL')).sort().join('|') === 'Avviso di mancata consegna - RVL - Cliente Otto.eml|Ricevuta di accettazione - RVL - Cliente Otto.eml', [nAdmin.map(m => m.subject), (nAdmin[0] || {}).attachments]);
+    verifica('gli errori del portale non arrivano piu\' al titolare ma alla casella dello studio', avvisi.every(m => m.to.indexOf('a.missori@emvas.tax') < 0 && m.to.indexOf(STUDIO) === 0));
     F.stato.rifiutaAvvisi = true;
     const i1 = await nuova('anna@studio.it', 'inc-beta', { destinatario: 'Cliente Nove', pec: 'nove@pec.it', categoria: 'cliente', sollecito1: null, sollecito2: null });
     await GIRO.giro(db, {});
@@ -461,10 +473,10 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     verifica('supervisore nominato', (await chiama('a.missori@emvas.tax', { azione: 'supervisori', supervisori: ['Sara@studio.it'] })).supervisori.join() === 'sara@studio.it');
     verifica('solo l\'amministratore decide chi riceve gli avvisi', (await chiama('sara@studio.it', { azione: 'avvisi-errori', supervisori: true })).http === 403);
     const av = await chiama('a.missori@emvas.tax', { azione: 'avvisi-errori', supervisori: true });
-    verifica('avvisi anche ai supervisori', av.ok && av.avvisiErrori.destinatari.join() === 'a.missori@emvas.tax,sara@studio.it');
+    verifica('avvisi anche ai supervisori', av.ok && av.avvisiErrori.destinatari.join() === STUDIO + ',sara@studio.it');
     await require('../lib/circ-errori').segna(db, { chiave: 'prova~supervisori', tipo: 'servizio', titolo: 'Errore di prova' });
     await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
-    verifica('l\'email arriva al titolare e al supervisore', avvisi.length === nAvvisi + 1 && avvisi[avvisi.length - 1].to === 'a.missori@emvas.tax, sara@studio.it');
+    verifica('l\'email arriva alla casella dello studio e al supervisore', avvisi.length === nAvvisi + 1 && avvisi[avvisi.length - 1].to === STUDIO + ', sara@studio.it');
     verifica('il supervisore vede il registro e spunta', (await chiama('sara@studio.it', { azione: 'errori' })).aperti.length === 1
         && (await chiama('sara@studio.it', { azione: 'errore-risolvi', ids: (await chiama('sara@studio.it', { azione: 'errori' })).aperti.map(x => x.id) })).risolti === 1);
     st = await chiama('sara@studio.it', { azione: 'stato' });
@@ -974,6 +986,188 @@ const rifDi = m => String(m.messageId).replace(/[<>]/g, '');
     avanti(31 * GIORNO);
     const giroPulizie = await chiama('x', {}, 'GET', { authorization: 'Bearer cron' });
     verifica('pulizie automatiche: nel registro, a nome del servizio', giroPulizie.bozzeTolte === 1 && registro('pulizie').length === primaPulizie + 1 && registro('pulizie').slice(-1)[0].da === 'servizio' && /1 bozza ferma/.test(registro('pulizie').slice(-1)[0].dettaglio), [giroPulizie.bozzeTolte, registro('pulizie').length]);
+
+    // ---------- 14. le email: ogni ricevuta a chi ha inviato, le PEC da associare alla casella dello studio ----------
+    {   // in un blocco suo: i nomi delle lettere di prova non si pestano con quelli delle sezioni di prima
+    const AVVISI = require('../lib/circ-avvisi');
+    const ERR = require('../lib/circ-errori');
+    await cronGiro();                                   // quello che era in coda parte adesso: da qui si conta da capo
+    await chiama(AD, { azione: 'errore-risolvi', ids: (await chiama(AD, { azione: 'errori' })).aperti.map(x => x.id) });
+    let n0 = notizie.length;
+    const aLuca = () => notizie.slice(n0).filter(m => m.to === 'luca@studio.it');
+    const senzaSolleciti = { categoria: 'fornitore', sollecito1: null, sollecito2: null };
+    const gonfia = (m, kb) => { m.sorgente = Buffer.concat([m.sorgente, Buffer.alloc(kb * 1024, 66)]); m.size = m.sorgente.length; return m; };
+    const letta = async () => { await LETTORE.giro(db, { forza: true }); };
+    const r1 = await nuova('luca@studio.it', 'inc-beta', { destinatario: 'Fornitore Uno S.r.l.', pec: 'ric1@pec.it', categoria: 'fornitore', sollecito2: null });
+    await GIRO.giro(db, {});
+    const mUno = posta[posta.length - 1];
+    const ricAcc = ricevuta('accettazione', rifDi(mUno));
+    await letta(); await cronGiro();
+    let nl = aLuca();
+    verifica('la ricevuta di accettazione arriva subito a chi ha inviato, da sola, con il suo file', r1.ok && nl.length === 1 && nl[0].subject === 'Circolarizzazioni PEC: ricevuta di accettazione: Fornitore Uno S.r.l. (BETA TESSILE SPA)'
+        && nl[0].attachments.length === 1 && /^Ricevuta di accettazione - RVL-[A-Z0-9]{6} - Fornitore Uno S\.r\.l\.eml$/.test(nl[0].attachments[0].filename) && nl[0].attachments[0].content.equals(ricAcc.sorgente)
+        && nl[0].attachments[0].contentType === 'application/octet-stream' && nl[0].text.indexOf('PEC NON ARRIVATE') < 0, nl.map(m => [m.subject, (m.attachments || []).map(f => f.filename)]));
+    verifica('una ricevuta sola: l\'email ne parla al singolare, e dice di salvarla nelle carte', /La ricevuta è allegata a questa email/.test(nl[0].text) && /Salvala nelle carte di lavoro/.test(nl[0].html) && /Una ricevuta</.test(nl[0].html));
+    const ricCons = ricevuta('avvenuta-consegna', rifDi(mUno), { consegna: 'ric1@pec.it' });
+    await letta(); await cronGiro();
+    nl = aLuca();
+    verifica('poi quella di consegna, quando arriva', nl.length === 2 && /ricevuta di consegna: Fornitore Uno/.test(nl[1].subject) && nl[1].attachments.length === 1 && nl[1].attachments[0].content.equals(ricCons.sorgente) && /^Ricevuta di consegna - /.test(nl[1].attachments[0].filename), nl.map(m => m.subject));
+    ricevuta('avvenuta-consegna', rifDi(mUno), { consegna: 'ric1@pec.it' });      // il gestore la rimanda: non dice niente di nuovo
+    await letta(); await cronGiro();
+    verifica('la stessa ricevuta arrivata due volte non fa una seconda email', aLuca().length === 2 && ![...dati.keys()].some(k => /^circAvvisi\//.test(k)));
+    const nErr = avvisi.length;
+    const r2 = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: 'Fornitore Due', pec: 'ric2@pec.it' }, senzaSolleciti));
+    await GIRO.giro(db, {});
+    const ricNo = ricevuta('non-accettazione', rifDi(posta[posta.length - 1]), { errore: 'altro', erroreEsteso: 'destinatario non valido' });
+    await letta(); await cronGiro();
+    nl = aLuca();
+    verifica('una PEC NON accettata: lo sa chi ha inviato, con l\'avviso del gestore allegato', r2.ok && nl.length === 3 && nl[2].subject === 'Circolarizzazioni PEC: la PEC non è stata accettata dal gestore: Fornitore Due (BETA TESSILE SPA)'
+        && nl[2].text.indexOf('PEC NON ARRIVATE') > 0 && nl[2].text.indexOf('Correggi la PEC e reinvia') > 0 && nl[2].attachments.length === 1 && /^Avviso di non accettazione - RVL-[A-Z0-9]{6} - Fornitore Due\.eml$/.test(nl[2].attachments[0].filename) && nl[2].attachments[0].content.equals(ricNo.sorgente), nl.slice(2).map(m => [m.subject, m.text]));
+    verifica('e lo stesso guaio, come errore del portale, arriva alla casella dello studio', avvisi.length === nErr + 1 && avvisi[nErr].to.indexOf(STUDIO) === 0 && /PEC non accettata dal gestore/.test(avvisi[nErr].subject) && !(avvisi[nErr].attachments || []).length, avvisi.slice(nErr).map(m => [m.to, m.subject]));
+    const r3 = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: 'Fornitore Tre', pec: 'ric3@pec.it' }, senzaSolleciti));
+    await GIRO.giro(db, {});
+    const mTre = posta[posta.length - 1];
+    ricevuta('accettazione', rifDi(mTre));
+    ricevuta('preavviso-errore-consegna', rifDi(mTre), { errore: 'altro', erroreEsteso: 'casella piena, nuovo tentativo in corso' });
+    await letta(); await cronGiro();
+    nl = aLuca();
+    verifica('due ricevute della stessa lettera in una email sola; il preavviso (non definitivo) e\' una ricevuta, non una PEC non arrivata', r3.ok && nl.length === 4 && nl[3].subject === 'Circolarizzazioni PEC: 2 ricevute delle tue lettere' && nl[3].attachments.length === 2
+        && /Preavviso di mancata consegna, [^\n]* - casella piena, nuovo tentativo in corso \[In allegato: Preavviso di mancata consegna - /.test(nl[3].text) && nl[3].text.indexOf('PEC NON ARRIVATE') < 0, nl.slice(3).map(m => [m.subject, m.text]));
+    // le ricevute dei solleciti: stesso giro, e il nome dice che sono del sollecito
+    avanti(12 * GIORNO);
+    await GIRO.giro(db, {});
+    const mSoll = posta[posta.length - 1];
+    ricevuta('accettazione', rifDi(mSoll));
+    await letta(); await cronGiro();
+    nl = aLuca();
+    verifica('anche le ricevute dei solleciti arrivano, e si riconoscono', (await scheda(r1.id)).passi.sollecito1.stato === 'inviato' && nl.length === 5 && /ricevuta di accettazione \(primo sollecito\): Fornitore Uno/.test(nl[4].subject)
+        && /^Ricevuta di accettazione \(primo sollecito\) - RVL-/.test(nl[4].attachments[0].filename), nl.slice(4).map(m => [m.subject, (m.attachments || []).map(f => f.filename)]));
+    verifica('ognuno riceve solo le ricevute delle sue lettere, una persona per email', notizie.slice(n0).every(m => m.to === 'luca@studio.it'));
+
+    // i file pesano: piu' email invece di una troppo grossa, e senza file quello che non ci sta proprio
+    process.env.CIRC_EMAIL_ALLEGATI_MB = '1';
+    const pesanti = [];
+    for (const [nome, kb] of [['Peso A', 600], ['Peso B', 600], ['Peso C', 600], ['Peso D', 1500]]) {
+        const l = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: nome, pec: nome.toLowerCase().replace(' ', '') + '@pec.it' }, senzaSolleciti));
+        await GIRO.giro(db, {});
+        pesanti.push(gonfia(ricevuta('accettazione', rifDi(posta[posta.length - 1])), kb));
+        verifica('lettera ' + nome + ' preparata', l.ok);
+    }
+    n0 = notizie.length;
+    await letta();
+    const giroPesi = await cronGiro();
+    nl = aLuca();
+    verifica('quattro ricevute pesanti, con il tetto a 1 MB per email: tre email, ognuna con un file', giroPesi.avvisiUtenti.inviate === 3 && giroPesi.avvisiUtenti.allegati === 3 && nl.length === 3
+        && nl.every(m => m.attachments.length === 1 && m.attachments[0].content.length <= 1024 * 1024) && pesanti.slice(0, 3).every(p => nl.some(m => m.attachments[0].content.equals(p.sorgente))), [giroPesi.avvisiUtenti, nl.map(m => [m.subject, m.attachments.map(f => f.content.length)])]);
+    verifica('la ricevuta che da sola supera il tetto arriva lo stesso, senza file, e dice dove prenderla', nl.filter(m => /Peso D[^\n]*\[Il file è troppo pesante per l'email: scaricalo dall'area riservata\.\]/.test(m.text)).length === 1 && ![...dati.keys()].some(k => /^circAvvisi\//.test(k)), nl.map(m => m.text.split('RICEVUTE')[1]));
+    delete process.env.CIRC_EMAIL_ALLEGATI_MB;
+    verifica('il tetto di base e\' 10 MB, e un valore senza senso non lo cambia', AVVISI._interni.tettoByte() === 10 * 1024 * 1024 && (process.env.CIRC_EMAIL_ALLEGATI_MB = '900', AVVISI._interni.tettoByte()) === 10 * 1024 * 1024 && delete process.env.CIRC_EMAIL_ALLEGATI_MB);
+
+    // la casella PEC non risponde proprio quando si va a prendere il file: si aspetta, poi parte senza
+    const r4 = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: 'Fornitore Quattro', pec: 'ric4@pec.it' }, senzaSolleciti));
+    await GIRO.giro(db, {});
+    const mQuattro = posta[posta.length - 1];
+    ricevuta('accettazione', rifDi(mQuattro));
+    risposta({ da: 'ric4@pec.it', oggetto: 'Riscontro', inRisposta: 'opec-' + rifDi(mQuattro) });
+    await letta();
+    n0 = notizie.length;
+    const rotta = async () => ({ sorgente: async () => ({ ok: false, perche: 'guasto' }), chiudi: async () => { } });
+    let sp = await AVVISI.spedisci(db, { sessione: rotta });
+    nl = aLuca();
+    verifica('casella PEC che non risponde: la risposta arrivata parte lo stesso, la ricevuta aspetta il suo file', r4.ok && sp.inviate === 1 && sp.rimandate === 1 && nl.length === 1 && /risposta di Fornitore Quattro/.test(nl[0].subject) && !nl[0].attachments.length
+        && [...dati.keys()].filter(k => /^circAvvisi\//.test(k)).length === 1, [sp, nl.map(m => m.subject)]);
+    sp = await AVVISI.spedisci(db, { sessione: async () => { throw new Error('casella giu\''); } });
+    verifica('anche se la casella non si apre affatto', sp.inviate === 0 && sp.rimandate === 1 && aLuca().length === 1);
+    avanti(31 * MIN);
+    sp = await AVVISI.spedisci(db, { sessione: rotta });
+    nl = aLuca();
+    verifica('dopo mezz\'ora non si aspetta piu\': la ricevuta parte senza file, e dice dove scaricarlo', sp.inviate === 1 && sp.rimandate === 0 && nl.length === 2 && /ricevuta di accettazione: Fornitore Quattro/.test(nl[1].subject) && !nl[1].attachments.length
+        && /\[Il file non è allegato: scaricalo dall'area riservata\.\]/.test(nl[1].text) && nl[1].text.indexOf('allegate a questa email') < 0, [sp, nl.slice(1).map(m => m.text)]);
+
+    // il server di posta respinge l'email perche' pesa troppo: dopo tre volte parte senza file. Un guasto qualunque invece non conta
+    const r5 = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: 'Fornitore Cinque', pec: 'ric5@pec.it' }, senzaSolleciti));
+    await GIRO.giro(db, {});
+    const ricCinque = ricevuta('accettazione', rifDi(posta[posta.length - 1]));
+    await letta();
+    n0 = notizie.length;
+    F.stato.rifiutaAvvisi = true;
+    for (let i = 0; i < 4; i++) await cronGiro();
+    F.stato.rifiutaAvvisi = false;
+    F.stato.rifiutaPosta = m => ((m.attachments || []).length ? Object.assign(new Error('Message failed'), { response: '552 5.3.4 Message size exceeds fixed maximum message size' }) : null);
+    const giriNo = [];
+    for (let i = 0; i < 3; i++) giriNo.push((await cronGiro()).avvisiUtenti);
+    verifica('email respinta per il peso: tre tentativi con il file', r5.ok && giriNo.every(g => g.ok === false && g.inviate === 0) && aLuca().length === 0 && [...dati.keys()].filter(k => /^circAvvisi\//.test(k)).map(k => dati.get(k).provato).join() === '3', giriNo);
+    await cronGiro();
+    nl = aLuca();
+    verifica('poi la notizia parte senza il file', nl.length === 1 && /ricevuta di accettazione: Fornitore Cinque/.test(nl[0].subject) && !nl[0].attachments.length && /troppo pesante per l'email/.test(nl[0].text), nl.map(m => [m.subject, m.text]));
+    F.stato.rifiutaPosta = null;
+    const r6 = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: 'Fornitore Sei', pec: 'ric6@pec.it' }, senzaSolleciti));
+    await GIRO.giro(db, {});
+    const ricSei = ricevuta('accettazione', rifDi(posta[posta.length - 1]));
+    await letta();
+    n0 = notizie.length;
+    F.stato.rifiutaAvvisi = true;
+    for (let i = 0; i < 5; i++) await cronGiro();
+    F.stato.rifiutaAvvisi = false;
+    sp = await AVVISI.spedisci(db, { scadenza: Date.now() - 1, sessione: LETTORE.sessione });
+    verifica('finito il tempo del giro non si comincia un\'altra email: resta in coda', sp.inviate === 0 && sp.restanti === true && aLuca().length === 0);
+    await cronGiro();
+    nl = aLuca();
+    verifica('la posta ordinaria ferma per cinque giri non fa perdere il file: quando riparte, la ricevuta arriva con l\'allegato', r6.ok && nl.length === 1 && nl[0].attachments.length === 1 && nl[0].attachments[0].content.equals(ricSei.sorgente) && ricCinque.sorgente.length > 0, nl.map(m => [m.subject, m.attachments.length]));
+
+    // le PEC che il portale non sa di chi sono: alla casella dello studio, con il messaggio allegato
+    const d1 = await nuova('luca@studio.it', 'inc-beta', Object.assign({ destinatario: 'Doppia Uno', pec: 'doppia@pec.it' }, senzaSolleciti));
+    // la stessa PEC per due società diverse: da sola non basta a dire di quale lettera sia la risposta
+    const d2 = await nuova('luca@studio.it', 'inc-alfa', Object.assign({ destinatario: 'Doppia Due', pec: 'doppia@pec.it' }, senzaSolleciti));
+    await GIRO.giro(db, {});
+    await cronGiro();
+    const a0 = associare.length;
+    n0 = notizie.length;
+    const naUno = risposta({ da: 'doppia@pec.it', oggetto: 'Riscontro alla Vostra richiesta' });
+    const naDue = risposta({ da: 'mai.sentito@esempio.it', oggetto: 'Documenti in allegato', ordinaria: true });
+    const giroNa = await cronGiro();
+    const eNa = associare.slice(a0);
+    verifica('due messaggi che il portale non sa associare: UNA email alla casella dello studio', d1.ok && d2.ok && giroNa.lettore.nonAssociate === 2 && giroNa.daAssociare.inviate === 1 && giroNa.daAssociare.messaggi === 2 && eNa.length === 1
+        && eNa[0].to.indexOf(STUDIO) === 0 && eNa[0].to.indexOf('a.missori@emvas.tax') < 0 && eNa[0].subject === 'Circolarizzazioni PEC: 2 messaggi da associare', [giroNa.lettore, giroNa.daAssociare, eNa.map(m => [m.to, m.subject])]);
+    verifica('con i due messaggi allegati, cosi\' come sono nella casella', eNa[0].attachments.length === 2 && eNa[0].attachments.some(f => f.content.equals(naUno.sorgente) && /^PEC da associare - doppia@pec\.it - \d\d-\d\d-\d{4} \d\d\.\d\d\.eml$/.test(f.filename))
+        && eNa[0].attachments.some(f => f.content.equals(naDue.sorgente) && /^Messaggio da associare - mai\.sentito@esempio\.it - /.test(f.filename)), eNa[0].attachments.map(f => f.filename));
+    verifica('dice da chi arrivano, le lettere a cui potrebbero riferirsi, e che finche\' non sono associati i solleciti partono', /da doppia@pec\.it \(PEC\) \| Riscontro alla Vostra richiesta/.test(eNa[0].text) && /Lettere a cui potrebbe riferirsi: (ALFA MECCANICA SRL|BETA TESSILE SPA) · Doppia (Uno|Due) · RVL-[A-Z0-9]{6}; (ALFA MECCANICA SRL|BETA TESSILE SPA) · Doppia (Uno|Due) · RVL-/.test(eNa[0].text)
+        && /da mai\.sentito@esempio\.it \(posta ordinaria\)/.test(eNa[0].text) && /Nessuna lettera è stata inviata a questo indirizzo/.test(eNa[0].text) && /i solleciti di quella lettera partono lo stesso/.test(eNa[0].text) && /Risposte non associate/.test(eNa[0].html) && /Risposta firmata\.pdf/.test(eNa[0].text), eNa[0].text);
+    verifica('a chi ha inviato le lettere non arriva niente: non si sa di chi sia', notizie.length === n0);
+    await cronGiro();
+    verifica('per lo stesso messaggio non parte un secondo avviso', associare.length === a0 + 1 && [...dati.keys()].filter(k => /^circMessaggi\//.test(k)).map(k => dati.get(k)).filter(m => m.stato === 'non-associato').every(m => m.avvisato > 0));
+    // l'amministratore associa, poi ci ripensa e la rimette fra le non associate: lo sa gia', niente email
+    const chiaveNa = (await chiama(AD, { azione: 'non-associate' })).messaggi.find(m => m.da === 'doppia@pec.it').chiave;
+    verifica('associata a mano dalla scheda delle non associate', (await chiama(AD, { azione: 'associa', chiave: chiaveNa, id: d1.id })).ok);
+    verifica('e rimessa fra le non associate', (await chiama(AD, { azione: 'risposta-dissocia', id: d1.id, chiave: chiaveNa })).ok && (await chiama(AD, { azione: 'non-associate' })).messaggi.some(m => m.chiave === chiaveNa));
+    await cronGiro();
+    verifica('una risposta rimessa a mano fra le non associate non fa partire l\'email', associare.length === a0 + 1);
+    risposta({ da: 'un.altro@esempio.it', oggetto: 'Buongiorno', ordinaria: true });
+    await cronGiro();
+    verifica('un messaggio solo: l\'oggetto dice di chi e\', e il testo e\' al singolare', /Va associato alla sua lettera/.test((associare[a0 + 1] || {}).text || '') && /Il messaggio è allegato a questa email/.test((associare[a0 + 1] || {}).html || '') && associare.length === a0 + 2 && associare[a0 + 1].subject === 'Circolarizzazioni PEC: una posta ordinaria da associare, da un.altro@esempio.it' && associare[a0 + 1].attachments.length === 1, associare.slice(a0 + 1).map(m => m.subject));
+    dati.set('circMessaggi/777_99999', { stato: 'non-associato', quando: Date.now() - 40 * GIORNO, uid: 99999, uidValidity: '777', da: 'vecchio@pec.it', oggetto: 'di quaranta giorni fa', certificata: true });
+    await cronGiro();
+    verifica('un messaggio non associato rimasto li\' da piu\' di trenta giorni non si segnala piu\'', associare.length === a0 + 2);
+    dati.delete('circMessaggi/777_99999');
+    // casella che non risponde: si aspetta mezz'ora anche qui
+    risposta({ da: 'tardi@esempio.it', oggetto: 'Risposta', ordinaria: true });
+    await letta();
+    let spNa = await AVVISI.spedisciDaAssociare(db, { sessione: rotta });
+    verifica('PEC da associare con la casella che non risponde: aspetta', spNa.inviate === 0 && spNa.rimandate === 1 && associare.length === a0 + 2, spNa);
+    avanti(31 * MIN);
+    spNa = await AVVISI.spedisciDaAssociare(db, { sessione: rotta });
+    verifica('poi parte senza il file', spNa.inviate === 1 && associare.length === a0 + 3 && !associare[a0 + 2].attachments.length && /Il file non è allegato: scaricalo dall'area riservata/.test(associare[a0 + 2].text), spNa);
+
+    // a chi: la casella dello studio, si cambia con una variabile; i supervisori restano una scelta dell'amministratore
+    verifica('la casella di base e\' revilawlazio@revilaw.it', ERR.casellaAvvisi().join() === 'revilawlazio@revilaw.it' && ERR.CASELLA_STUDIO === STUDIO);
+    process.env.CIRC_AVVISI_EMAIL = ' Altra@Studio.it; sbagliato, seconda@studio.it altra@studio.it';
+    verifica('CIRC_AVVISI_EMAIL la cambia: piu\' indirizzi, senza doppioni, saltando quelli scritti male', ERR.casellaAvvisi().join() === 'altra@studio.it,seconda@studio.it' && (await ERR.destinatari(db)).lista.slice(0, 2).join() === 'altra@studio.it,seconda@studio.it');
+    process.env.CIRC_AVVISI_EMAIL = 'niente di valido';
+    verifica('un valore tutto sbagliato non lascia gli avvisi senza destinatario', ERR.casellaAvvisi().join() === STUDIO);
+    delete process.env.CIRC_AVVISI_EMAIL;
+    const stAvv = await chiama(AD, { azione: 'stato' });
+    verifica('l\'amministratore vede nell\'area a chi arrivano gli avvisi; gli altri no', stAvv.avvisiErrori.destinatari[0] === STUDIO && stAvv.avvisiErrori.destinatari.indexOf('a.missori@emvas.tax') < 0 && (await chiama('luca@studio.it', { azione: 'stato' })).avvisiErrori === undefined);
+    }
 
     console.log('\ncircolarizzazioni: ' + passate + ' verifiche passate' + (fallite ? ', ' + fallite + ' FALLITE' : ''));
     process.exit(fallite ? 1 : 0);

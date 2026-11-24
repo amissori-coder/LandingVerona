@@ -397,6 +397,8 @@ const AZIONI = {
             ok: true,
             messaggi: lista.map(m => ({
                 chiave: m.id, quando: m.quando, da: m.da || '', oggetto: m.oggetto || '', certificata: !!m.certificata, dimensione: m.dimensione || 0,
+                // quando e' stata segnalata per email alla casella dello studio (0: non ancora, o rimessa qui a mano)
+                segnalata: m.dissociataIl ? 0 : (Number(m.avvisato) || 0),
                 allegati: (m.allegati || []).map(a => ({ nome: a.nome, dimensione: a.dimensione, parte: a.parte, tipo: a.tipo })),
                 candidati: m.candidati || []
             }))
@@ -454,7 +456,8 @@ const AZIONI = {
         await traccia(db, prof, 'errore-riaperto', { dettaglio: (titoli || 'Errore') + '.' });
         return r;
     },
-    /* A chi arriva l'email degli errori: sempre al titolare; ai supervisori se l'amministratore lo vuole. */
+    /* A chi arrivano l'email degli errori e quella delle PEC da associare: sempre alla casella dello studio
+       (CIRC_AVVISI_EMAIL); ai supervisori se l'amministratore lo vuole. */
     async 'avvisi-errori'(db, prof, b) {
         soloAdmin(prof);
         const primaAv = await ERRORI.destinatari(db);
@@ -591,6 +594,7 @@ async function nonAssociata(db, prof, chiave, parte) {
    gestore li conta. */
 async function giroProgrammato(db) {
     const out = { ok: true };
+    const partito = Date.now();
     const [inCoda, sg] = await Promise.all([GIRO.inAttesa(db, 1), GIRO.stato(db)]);
     /* Il gestore ha appena respinto il servizio: fino alla fine della pausa non
        c'e' niente da spedire, e quindi nemmeno da leggere in fretta la casella.
@@ -618,10 +622,22 @@ async function giroProgrammato(db) {
             await traccia(db, null, 'pulizie', { dettaglio: [out.pulizie ? out.pulizie + ' fra PDF di lettere preparate da più di ' + C.LIMITI.pdfGiorni + ' giorni e lettere rimaste senza allegato' : '', out.bozzeTolte ? out.bozzeTolte + (out.bozzeTolte === 1 ? ' bozza ferma' : ' bozze ferme') + ' da più di ' + C.LIMITI.bozzaGiorni + ' giorni' : ''].filter(Boolean).join('; ') + '.' });
         }
     }
-    // gli errori nuovi, tutti in una sola email
+    // gli errori nuovi, tutti in una sola email, alla casella dello studio
     out.avvisi = await ERRORI.avvisa(db);
-    // e a chi ha preparato le lettere: risposte arrivate e PEC non consegnate, una email a testa
-    out.avvisiUtenti = await AVVISI.spedisci(db);
+    /* Poi le email che portano in allegato i messaggi della casella PEC: alla
+       casella dello studio le PEC che il portale non ha saputo associare, e a
+       chi ha preparato le lettere le sue ricevute (tutte), le risposte arrivate
+       e le PEC non partite. La casella si apre una volta sola per tutte, e solo
+       se c'e' un file da prendere. Quello che non sta nel tempo del giro parte
+       al giro dopo. */
+    const casella = AVVISI.cassetto(LETTORE.sessione);
+    const scadenza = partito + 265000;
+    try {
+        out.daAssociare = await AVVISI.spedisciDaAssociare(db, { casella: casella, scadenza: scadenza });
+        out.avvisiUtenti = await AVVISI.spedisci(db, { casella: casella, scadenza: scadenza });
+    } finally {
+        await casella.chiudi();
+    }
     return out;
 }
 

@@ -37870,7 +37870,7 @@
         'mancata-consegna': 'Avviso di mancata consegna', 'preavviso-errore-consegna': 'Preavviso di mancata consegna',
         'non-accettazione': 'Avviso di non accettazione', 'rilevazione-virus': 'Avviso di virus'
     };
-    const PC_AVVISO = 'Salva le ricevute degli invii e le risposte nelle carte di lavoro dell\'incarico: a lavoro concluso i dati vengono cancellati dal portale.';
+    const PC_AVVISO = 'Salva le ricevute degli invii e le risposte nelle carte di lavoro dell\'incarico: a lavoro concluso i dati vengono cancellati dal portale. Le ricevute arrivano anche per email a chi ha inviato la lettera, con il file allegato.';
     function pcDisponibile() { return (typeof Cloud !== 'undefined' && Cloud.attivo) || !!window.RV_CIRCOLARIZZAZIONI_URL; }
     function pcChiama(azione, corpo) { return Cloud.circolarizzazioni(Object.assign({ azione: azione }, corpo || {})); }
     function pcPeso(n) {
@@ -38317,14 +38317,14 @@
             if (!dentro.isConnected) return;
             if (!r.ok) { dentro.innerHTML = '<div class="card"><p class="descrizione">' + esc(r.msg) + '</p></div>'; return; }
             const righe = r.messaggi.map((m, i) => '<tr data-i="' + i + '">'
-                + '<td data-label="Ricevuta il">' + esc(fmtDataOra(m.quando)) + '</td>'
+                + '<td data-label="Ricevuta il">' + esc(fmtDataOra(m.quando)) + (m.segnalata ? '<span class="pc-nota" title="Email alla casella che segue le circolarizzazioni, con il messaggio allegato">segnalata per email il ' + esc(fmtDataOra(m.segnalata)) + '</span>' : '') + '</td>'
                 + '<td data-label="Da"><strong>' + esc(m.da || 'mittente non indicato') + '</strong><span class="pc-nota">' + (m.certificata ? 'PEC' : 'posta ordinaria') + '</span></td>'
                 + '<td data-label="Oggetto">' + esc(m.oggetto || '(senza oggetto)') + '</td>'
                 + '<td data-label="Allegati">' + (m.allegati.length ? m.allegati.map(a => '<button type="button" class="pc-link pc-na-all" data-parte="' + esc(a.parte) + '">' + esc(a.nome) + '</button> <span class="pc-muto">' + esc(pcPeso(a.dimensione / 1.37)) + '</span>').join('<br>') : '<span class="pc-muto">nessuno</span>') + '</td>'
                 + '<td data-label="Lettere possibili">' + (m.candidati.length ? m.candidati.length + (m.candidati.length === 1 ? ' lettera' : ' lettere') + ' a questo indirizzo' : '<span class="pc-muto">nessuna a questo indirizzo</span>') + '</td>'
                 + '<td data-label=""><span class="pc-azioni"><button type="button" class="btn btn-sm btn-ghost pc-na-leggi">Leggi</button><button type="button" class="btn btn-sm btn-primary pc-na-associa">Associa</button><button type="button" class="btn btn-sm btn-ghost pc-na-scarta">Non pertinente</button></span></td></tr>').join('');
             dentro.innerHTML = '<div class="card"><h2>Risposte non associate</h2>'
-                + '<p class="hint">Messaggi arrivati nella casella che non riportano il riferimento della lettera e che non si è potuto attribuire con certezza. Finché non sono associati, i solleciti delle lettere interessate restano in programma.</p>'
+                + '<p class="hint">Messaggi arrivati nella casella che non riportano il riferimento della lettera e che non si è potuto attribuire con certezza. Finché non sono associati, i solleciti delle lettere interessate restano in programma. Ogni messaggio nuovo viene anche segnalato per email, con il messaggio allegato, alla casella che segue le circolarizzazioni.</p>'
                 + (r.messaggi.length ? '<div class="tabella-wrap"><table class="dati pc-tab"><thead><tr><th>Ricevuta il</th><th>Da</th><th>Oggetto</th><th>Allegati</th><th>Lettere possibili</th><th></th></tr></thead><tbody>' + righe + '</tbody></table></div>'
                     : '<p class="descrizione">Nessuna risposta da associare: tutte quelle arrivate sono state attribuite alla loro lettera.</p>')
                 + '</div>';
@@ -38437,11 +38437,12 @@
             + '<p class="hint">Devono avere un accesso attivo all\'area riservata.</p></div>'
             + '<p class="msg-errore" id="pc-sup-err" hidden></p>'
             + '<button type="button" class="btn btn-primary" id="pc-sup-salva">Salva</button></div>'
-            + '<div class="card"><h2>Avvisi degli errori</h2>'
-            + '<p class="hint">Per ogni errore nuovo parte un\'email (una sola anche se gli errori sono tanti, entro cinque minuti). Gli errori si vedono e si spuntano nella scheda «Errori».</p>'
+            + '<div class="card"><h2>Avvisi per email</h2>'
+            + '<p class="hint"><strong>Errori del portale e PEC da associare.</strong> Per ogni errore nuovo parte un\'email (una sola anche se gli errori sono tanti, entro cinque minuti): gli errori si vedono e si spuntano nella scheda «Errori». Allo stesso indirizzo arrivano, con il messaggio allegato, le PEC che il portale non è riuscito ad associare a una lettera (scheda «Risposte non associate»).</p>'
             + (av.posta === false ? '<div class="pc-avviso pc-problema" role="alert">La posta ordinaria del servizio non è configurata: gli errori si vedono qui, ma l\'email non parte.</div>' : '')
-            + '<p class="pc-casella">L\'email arriva a <strong id="pc-av-dest">' + esc((av.destinatari || []).join(', ')) + '</strong></p>'
-            + '<label class="pc-spunta"><input type="checkbox" id="pc-av-sup"' + (av.supervisori ? ' checked' : '') + '> <span>Avvisa anche i supervisori</span></label></div>'
+            + '<p class="pc-casella">Queste email arrivano a <strong id="pc-av-dest">' + esc((av.destinatari || []).join(', ')) + '</strong></p>'
+            + '<label class="pc-spunta"><input type="checkbox" id="pc-av-sup"' + (av.supervisori ? ' checked' : '') + '> <span>Avvisa anche i supervisori</span></label>'
+            + '<p class="hint" style="margin-top:12px"><strong>Ricevute e risposte.</strong> Chi invia una lettera riceve per conto suo, al suo indirizzo, tutte le ricevute della sua PEC (accettazione, consegna, oppure non accettazione e mancata consegna) con il file della ricevuta allegato, e l\'avviso quando arriva la risposta.</p></div>'
             + '<div class="card"><h2>La casella e i limiti</h2><table class="sr-dove"><tbody>'
             + [['Casella PEC di invio e di risposta', st.casella], ['Dimensione massima della lettera in PDF', pcPeso(st.limiti.pdfMaxByte)], ['Il PDF della lettera resta sul portale', (st.limiti.pdfGiorni || 365) + ' giorni dalla preparazione'], ['Dimensione massima di un allegato di risposta scaricabile da qui', pcPeso(st.limiti.rispostaMaxByte)], ['PEC all\'ora, al massimo', String(st.limiti.perOra)], ['Orario dei solleciti', 'lo sceglie chi invia, riga per riga (senza indicarlo: alle 9:00)']]
                 .map(([a, b]) => '<tr><td>' + esc(a) + '</td><td class="sr-dove-carta">' + esc(b) + '</td></tr>').join('')
@@ -39725,7 +39726,8 @@
                 const fermi = (((PC.stato || {}).giro || {}).sospesoFino || 0) > Date.now();
                 const detto = fermi ? inCoda + ': il gestore della PEC ha sospeso gli invii, ' + (partite === 1 ? 'parte da sola' : 'partono da sole') + ' appena li riapre.'
                     : inCoda + (partite === 1 ? ' e parte' : ' e partono') + ' fra pochi istanti.';
-                esito(detto + restano);
+                // ogni ricevuta (accettazione, consegna, o il loro contrario) arriva per email a chi ha inviato, con il file
+                esito(detto + ' Le ricevute ti arrivano per email, con il file allegato da salvare nelle carte.' + restano);
                 // a video basta «in coda»: se il gestore sospende gli invii lo dice, un attimo dopo, la risposta del giro
                 toast(fermi ? detto : inCoda + '.', fermi ? 'ambra' : 'verde');
             }

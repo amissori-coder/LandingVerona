@@ -877,6 +877,8 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_PAUSA_MS` | *(facoltativa)* pausa fra una PEC e la successiva. Senza: `1200` |
 | `CIRC_LETTORE_RECUPERO` | *(facoltativa)* se il gestore rigenera la cartella, quanti messaggi rileggere all'indietro. Senza: `200`. Alla prima accensione non si guarda indietro: la posta gia' presente non entra fra le "non associate" |
 | `CIRC_PEC_PROXY` | *(facoltativa: serve se il gestore non autorizza la casella a spedire dal servizio)* Il "ponte": `http://utente:password@indirizzo:porta` di un proxy con indirizzo di rete italiano da cui passano gli invii. Senza, il gestore respinge gli invii perche' arrivano dall'estero (`554 5.7.1`). La riga la stampa `strumenti/ponte-pec.sh`. Vedi "Quando il gestore sospende gli invii" |
+| `CIRC_AVVISI_EMAIL` | *(facoltativa)* la casella che riceve l'email degli errori del portale e quella delle PEC da associare; piu' indirizzi separati da virgola (al massimo cinque). Senza, o con un valore scritto male: `revilawlazio@revilaw.it`. Vedi "Il registro degli errori" e "Le PEC da associare" |
+| `CIRC_EMAIL_ALLEGATI_MB` | *(facoltativa)* quanti megabyte di file (ricevute, PEC da associare) possono stare in una email del servizio, da 1 a 18. Senza: `10`. Oltre, le email diventano piu' d'una |
 | `CIRC_IP_SERVIZI` | *(facoltativa)* a chi chiedere l'indirizzo di rete da cui e' uscito il servizio quando il gestore lo respinge, separati da virgola. Senza: `https://checkip.amazonaws.com/` e `https://api.ipify.org/`. Vuota: non si chiede |
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
@@ -1330,7 +1332,7 @@ in quel momento non si cancella: si riprova un minuto dopo.
 ### Il registro degli errori
 
 Tutto quello che va storto finisce in un posto solo (`lib/circ-errori.js`,
-raccolta `circErrori`), e chi amministra viene avvisato per email:
+raccolta `circErrori`), e la casella dello studio viene avvisata per email:
 
 | Tipo | Che cosa |
 |---|---|
@@ -1350,10 +1352,12 @@ sola e l'avviso riparte. Togliendo la spunta si riapre a mano.
 **L'email** parte dal giro programmato, quindi entro cinque minuti, ed e' **una
 sola** per tutti gli errori nuovi: cinquanta lettere non consegnate non
 diventano cinquanta messaggi. Parte dalla posta ordinaria del servizio
-(`SMTP_*`, mittente `SMTP_FROM_EMAIL`), non dalla casella PEC. Arriva sempre al
-titolare; ai supervisori se l'amministratore lo sceglie dalle "Impostazioni"
-(`avvisaSupervisori` in `meta/circolarizzazioni`). Se l'email non parte, gli
-errori restano da avvisare e ci riprova il giro dopo.
+(`SMTP_*`, mittente `SMTP_FROM_EMAIL`), non dalla casella PEC. Arriva sempre
+alla **casella dello studio**, `revilawlazio@revilaw.it` (si cambia con
+`CIRC_AVVISI_EMAIL`, anche piu' indirizzi separati da virgola); ai supervisori
+se l'amministratore lo sceglie dalle "Impostazioni" (`avvisaSupervisori` in
+`meta/circolarizzazioni`). Non arriva piu' al titolare. Se l'email non parte,
+gli errori restano da avvisare e ci riprova il giro dopo.
 
 Quello che il registro **non** puo' dire: se e' il giro programmato a non
 partire affatto (per esempio `CRON_SECRET` mancante) non c'e' nessuno che
@@ -1407,25 +1411,74 @@ delle cancellazioni, che portano il riepilogo), quindi 5.000 lettere fanno
 pochi megabyte. Contiene denominazioni e indirizzi PEC dei destinatari: se un
 giorno servisse un termine di conservazione, va aggiunto alle pulizie.
 
-### Gli avvisi a chi ha inviato la lettera
+### Le email a chi ha inviato la lettera: ricevute, risposte, PEC non partite
 
-Chi prepara una lettera riceve un'email (`lib/circ-avvisi.js`, raccolta
-`circAvvisi`) quando:
+Chi prepara una lettera riceve per email (`lib/circ-avvisi.js`, raccolta
+`circAvvisi`), al suo indirizzo:
 
-- la PEC **non e' stata accettata**, **non e' stata consegnata** o **non e'
-  partita** (vale anche per un sollecito): con l'indicazione di controllare
-  l'indirizzo su INI-PEC e di reinviare;
-- **e' arrivata la risposta**, anche quando l'ha associata a mano chi
-  amministra: con mittente, data e nomi degli allegati, e il promemoria di
-  salvarla nelle carte di lavoro. Una risposta automatica ("sono assente") non
-  avvisa nessuno.
+- **ogni ricevuta della sua PEC, buona o cattiva**: accettazione, consegna,
+  non accettazione, mancata consegna, preavviso di mancata consegna; vale anche
+  per i solleciti. **Con il file della ricevuta allegato**, cosi' com'e' nella
+  casella PEC (un `.eml` con la firma del gestore): e' la prova da tenere nelle
+  carte di lavoro, e non serve piu' andarla a scaricare. Per una PEC non
+  accettata o non consegnata l'email dice anche di controllare l'indirizzo su
+  INI-PEC e di reinviare;
+- la notizia che la PEC **non e' partita** (non c'e' ricevuta: non e' uscita);
+- la notizia che **e' arrivata la risposta**, anche quando l'ha associata a
+  mano chi amministra: con mittente, data e nomi degli allegati, e il
+  promemoria di salvarla nelle carte di lavoro. Una risposta automatica ("sono
+  assente") non avvisa nessuno.
+
+Vale per tutti allo stesso modo, amministratore compreso: gli errori del
+portale vanno alla casella dello studio, le ricevute a chi ha inviato.
 
 Le notizie si mettono in coda e le spedisce il giro programmato: **una email
-per persona a ogni giro**, con tutte le sue novita' (trenta risposte lette
+per persona a ogni giro**, con tutte le sue novita' (trenta ricevute lette
 insieme non diventano trenta messaggi). Dalla coda si toglie solo quello che e'
 partito: il resto ci riprova al giro dopo. Stessa posta ordinaria degli errori
-(`SMTP_*`). Chi riceve gia' l'email degli errori non riceve una seconda volta
-la stessa PEC non consegnata: a lui qui arrivano solo le risposte.
+(`SMTP_*`). Una ricevuta riletta (il gestore la rimanda, la cartella viene
+rigenerata) non dice niente di nuovo e non fa partire una seconda email.
+
+**I file allegati.** Nel database non c'e' il testo dei messaggi: il file si va
+a prendere nella casella PEC al momento di spedire, con un collegamento solo
+per tutto il giro (`LETTORE.sessione`).
+
+- In una email stanno al massimo 25 file e `CIRC_EMAIL_ALLEGATI_MB` megabyte
+  di file (di base 10: in base64 pesano un terzo in piu', e i server di posta
+  di norma si fermano a 20-25 MB). Se le ricevute di un giro pesano di piu', le
+  email diventano due o piu'. Una ricevuta di consegna contiene la lettera
+  originale: con PDF grandi, poche per email.
+- Una ricevuta che **da sola** supera il tetto parte senza file, con
+  l'indicazione di scaricarla dall'area riservata.
+- Se la casella in quel momento **non risponde**, la ricevuta aspetta il giro
+  dopo, fino a mezz'ora; poi parte senza file. Le notizie senza file (risposte,
+  PEC non partite) non aspettano.
+- Se il server di posta **respinge l'email per il peso** (552), dopo tre
+  tentativi la notizia parte senza file. Un guasto qualunque della posta non
+  conta come tentativo: quando la posta riparte, il file c'e'.
+
+### Le PEC da associare, alla casella dello studio
+
+Un messaggio arrivato nella casella PEC che il portale non sa attribuire a una
+lettera (vedi "A chi appartiene una risposta") resta fra le "non associate", e
+finche' resta li' **i solleciti di quella lettera partono lo stesso**. Per
+questo viene segnalato per email (`AVVISI.spedisciDaAssociare`): alla stessa
+casella degli errori (`CIRC_AVVISI_EMAIL`, di base `revilawlazio@revilaw.it`) e
+ai supervisori se ricevono anche gli errori.
+
+- Una email per giro con tutti i messaggi nuovi: da chi arrivano, se sono PEC o
+  posta ordinaria, oggetto, nomi degli allegati e le lettere a cui potrebbero
+  riferirsi (societa', destinatario, riferimento). **Con il messaggio
+  allegato** (`.eml`), con gli stessi limiti di peso e la stessa attesa delle
+  ricevute.
+- Per lo stesso messaggio l'avviso parte una volta sola (`avvisato` su
+  `circMessaggi`); nell'area riservata, accanto alla data, si legge quando e'
+  stato segnalato.
+- Non si segnala una risposta che l'amministratore ha **rimesso a mano** fra le
+  non associate (lo sa gia'), ne' un messaggio rimasto li' da piu' di trenta
+  giorni.
+- L'associazione si fa sempre dall'area riservata (amministratore o
+  supervisori): l'email serve a saperlo subito e a leggere il messaggio.
 
 ### I dati non restano sul portale
 

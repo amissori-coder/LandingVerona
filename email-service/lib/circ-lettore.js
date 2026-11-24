@@ -418,4 +418,45 @@ function scarica(opz) {
     });
 }
 
-module.exports = { configurato, stato, giro, leggiTesto, scarica, MAX_MESSAGGI, _interni: { lavora, abbina, normale, docMeta } };
+/* Una sessione sulla casella per prendere il file intero (.eml, firma del
+   gestore compresa) di piu' messaggi con un collegamento solo: serve alle
+   email che portano in allegato le ricevute e le PEC da associare
+   (lib/circ-avvisi.js). Il collegamento si apre alla prima richiesta.
+   sorgente() torna { ok: true, dati } oppure { ok: false, perche }:
+     'assente'  il messaggio non c'e' piu' con quel riferimento (cartella
+                rigenerata, messaggio spostato): riprovare non serve;
+     'grande'   pesa piu' di `max`;
+     'guasto'   la casella non risponde: al giro dopo puo' andare. */
+async function sessione() {
+    const client = configurato() ? nuovoClient() : null;
+    let mb = null, guasta = !client, tentata = false;
+    const apri = async () => {
+        if (mb || guasta) return;
+        tentata = true;
+        try { await client.connect(); mb = await client.mailboxOpen(C.configurazione().cartella, { readOnly: true }); }
+        catch (_) { guasta = true; }
+    };
+    return {
+        async sorgente(dove, max) {
+            const uid = Number(dove && dove.uid) || 0;
+            if (!uid) return { ok: false, perche: 'assente' };
+            await apri();
+            if (!mb) return { ok: false, perche: 'guasto' };
+            if (dove.uidValidity && String(mb.uidValidity) !== String(dove.uidValidity)) return { ok: false, perche: 'assente' };
+            try {
+                const tetto = Math.max(1, Number(max) || C.LIMITI.rispostaMaxByte);
+                const r = await client.fetchOne(String(uid), { uid: true, size: true, source: { start: 0, maxLength: tetto + 1 } }, { uid: true });
+                if (!r || !r.source || !r.source.length) return { ok: false, perche: 'assente' };
+                if (r.source.length > tetto || Number(r.size) > tetto) return { ok: false, perche: 'grande' };
+                return { ok: true, dati: Buffer.from(r.source) };
+            } catch (e) {
+                if (client.usable === false) { guasta = true; mb = null; }
+                return { ok: false, perche: 'guasto' };
+            }
+        },
+        // si chiude solo un collegamento che si e' provato ad aprire
+        async chiudi() { if (client && tentata) await chiudi(client); }
+    };
+}
+
+module.exports = { configurato, stato, giro, leggiTesto, scarica, sessione, MAX_MESSAGGI, _interni: { lavora, abbina, normale, docMeta } };
