@@ -30,7 +30,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
-const { utenteEffettivo, firmaCollaboratore } = require('../lib/utente-effettivo');
+const { utenteEffettivo, firmaCollaboratore, eRuoloAdmin } = require('../lib/utente-effettivo');
 const nodemailer = require('nodemailer');
 // firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
 // newsletter: stesso segreto della disiscrizione, contesto diverso)
@@ -529,7 +529,8 @@ module.exports = async (req, res) => {
         const email = ue.email;
         const dati = ue.dati;
         const ruolo = ue.ruolo;
-        const eAdmin = ruolo === 'admin';
+        // amministratore o vice amministratore: stessi poteri
+        const eAdmin = eRuoloAdmin(ruolo);
         // il collaboratore reale, se c'e': va nelle firme delle schede, dove l'area
         // riservata lo mostra soltanto al suo utente di riferimento
         const collab = firmaCollaboratore(ue);

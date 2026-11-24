@@ -560,6 +560,17 @@ newsletter) e finisce nelle firme come `collab`, nel formato `Nome <email>`
 riservata mostra soltanto al riferimento. Un collaboratore senza riferimento
 valido riceve 403 con il motivo.
 
+**Chi e' amministratore.** Il ruolo `viceadmin` (Vice amministratore) ha gli
+stessi poteri del ruolo `admin`, in tutto. Nel servizio il ruolo non si
+confronta mai con `'admin'` a mano: si chiede a `eRuoloAdmin(ruolo)`, esportata
+dallo stesso `lib/utente-effettivo.js`, che vale per tutti e due. Dove questo
+documento dice "amministratore" o "ruolo `admin`" si intende quindi anche il
+vice. Come l'amministratore, il vice non puo' fare da riferimento a un
+collaboratore. La stessa regola sta nell'app (`eRuoloAdmin` in
+`area-riservata/app.js`) e nelle regole Firestore (funzione `admin()` in
+`area-riservata/FIREBASE-SETUP.md`); la prova `prove/vice-amministratore.prove.js`
+controlla che i tre posti restino allineati.
+
 Non passano dall'helper, di proposito: `/api/invia-email` (attivazione e
 recupero password: il collaboratore ha il proprio account e la propria
 scheda) e i lavori programmati (`cron-comunicazioni`, `giro-newsletter`),
@@ -5510,7 +5521,7 @@ per serata (`{cena}~{email}`).
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
-Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta
+Riservato all'**amministratore** (ID token verificato, ruolo `admin` o `viceadmin`). Porta
 dentro la collezione `iscrizioni` le iscrizioni raccolte finora, in due modi:
 
 - senza `csv` nel corpo: legge il foglio con l'API Google (serve il foglio

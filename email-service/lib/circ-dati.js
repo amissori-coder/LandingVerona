@@ -36,6 +36,7 @@ const D = require('./daticert');
 const ERRORI = require('./circ-errori');
 const AVVISI = require('./circ-avvisi');
 const BOZZE = require('./circ-bozze');
+const { eRuoloAdmin } = require('./utente-effettivo');
 
 const INVII = 'circInvii', RIF = 'circRiferimenti', MSG = 'circMessaggi', INC = 'circIncarichi';
 const PEZZI = 'allegato';
@@ -135,7 +136,8 @@ async function profilo(db, ue, base) {
     const sessione = String((ue.sessione && ue.sessione.email) || email).toLowerCase();
     const b = (base && await base) || await leggiBase(db);
     const imp = b.imp, incarichi = b.incarichi, persone = b.persone;
-    const admin = ue.ruolo === 'admin' || email === PROPRIETARIO;
+    // amministratore, vice amministratore (stessi poteri) o titolare
+    const admin = eRuoloAdmin(ue.ruolo) || email === PROPRIETARIO;
     const supervisore = imp.supervisori.indexOf(email) >= 0 || imp.supervisori.indexOf(sessione) >= 0;
     const risolvi = risolutorePersone(persone);
     const mie = new Set(persone.filter(p => p && !p.eliminato && String(p.email || '').trim().toLowerCase() === email).map(p => p.id));
