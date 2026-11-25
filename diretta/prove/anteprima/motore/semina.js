@@ -17,18 +17,22 @@
    4. le credenziali, spedite con "Reinvia credenziali": le email sono
       nella Posta di prova, con l'email per entrare e le password
       elencate nella guida;
-   5. le DOMANDE AL RELATORE accese per l'evento, con il relatore di
-      prova (relatore@anteprima.it): il suo account lo attiva il servizio
-      con «Primo accesso» della pagina del relatore (l'email «Accesso alla
-      pagina del relatore» e' nella Posta di prova), qui si fissa la password della
-      guida; e due domande gia' arrivate da due partecipanti, mandate
-      dalla porta vera (api/diretta-domande, azione 'invia').
+   5. le DOMANDE AL RELATORE accese per l'evento, con la relatrice di
+      prova: Laura Verdi, una partecipante come le altre (le credenziali
+      sono nella Posta di prova), segnata come relatrice dalla regia
+      (azione 'relatore-segna', scheda Partecipanti); e due domande gia'
+      arrivate da due partecipanti, mandate dalla porta vera
+      (api/diretta-domande, azione 'invia').
    ============================================================ */
 'use strict';
 const adm = require('./admin');
 const servizio = require('./servizio');
 
 const ID_EVENTO = 'napoli-anteprima';
+/* La versione della semina: quando cambia (per esempio il relatore che
+   diventa una partecipante segnata), chi ha gia' aperto l'anteprima oggi
+   riparte con i dati nuovi invece di tenere quelli di prima. */
+const VERSIONE_SEMINA = 2;
 // l'indirizzo del player di Azoto (quello del codice che Azoto ci ha dato)
 const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
 /* Il video dell'evento di prova: un video di YouTube, come il webinar del
@@ -36,7 +40,8 @@ const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
    YouTube o Azoto»). Nell'anteprima al suo posto c'e' il riquadro di prova. */
 const YOUTUBE_URL = 'https://www.youtube.com/live/ngbDiretta1';
 const GESTORE = { email: 'gestore@anteprima.it', password: 'Regia-Napoli-26' };
-const RELATORE = { email: 'relatore@anteprima.it', password: 'Relatore-Napoli-26' };
+// la relatrice: una partecipante dell'evento, segnata come relatrice dalla regia
+const RELATORE = { nome: 'Laura', cognome: 'Verdi', email: 'laura.verdi@esempio.it', azienda: 'Studio Verdi', password: 'Scena4Rapt' };
 // le domande gia' arrivate all'apertura: chi le ha scritte (indice in PARTECIPANTI) e il testo
 const DOMANDE = [
     { chi: 1, testo: 'Per una srl che supera i limiti per la prima volta, da quando scatta l\'obbligo di nominare il revisore?' },
@@ -126,25 +131,16 @@ async function semina(archivio, avanzamento) {
             unSoloDispositivo: false,
             // le domande al relatore: il riquadro nella pagina della diretta, la pagina del relatore
             domande: true,
-            relatori: [RELATORE.email],
             promemoria: { giornoPrima: false, oraPrima: false }
         }
     });
 
-    passo('Attivo l\'account del relatore…');
-    const rr = await servizio.chiama('diretta-accesso', {
-        corpo: { azione: 'relatore-accesso', email: RELATORE.email },
-        intestazioni: { origin: 'https://nextgenerationbusiness.it', 'x-forwarded-for': '151.12.3.5' }
-    });
-    if (rr.stato !== 200) throw new Error('semina: relatore-accesso ' + rr.stato);
-    const rel = adm.perEmail(RELATORE.email);
-    if (!rel) throw new Error('semina: account del relatore non creato');
-    await adm.auth.updateUser(rel.uid, { password: RELATORE.password });
-
     passo('Iscrivo i partecipanti di prova…');
+    // i partecipanti e, ultima, la relatrice: un account come gli altri
+    const tutti = PARTECIPANTI.concat([RELATORE]);
     const creati = await gestione({
         azione: 'crea', idEvento: ID_EVENTO,
-        righe: PARTECIPANTI.map((p, i) => ({ riga: i + 2, nome: p.nome, cognome: p.cognome, email: p.email, azienda: p.azienda }))
+        righe: tutti.map((p, i) => ({ riga: i + 2, nome: p.nome, cognome: p.cognome, email: p.email, azienda: p.azienda }))
     });
     const accessi = [];
     for (let i = 0; i < PARTECIPANTI.length; i++) {
@@ -161,6 +157,14 @@ async function semina(archivio, avanzamento) {
         });
     }
 
+    passo('Segno Laura Verdi come relatrice…');
+    const esitoR = (creati.risultati || [])[PARTECIPANTI.length] || {};
+    if (!esitoR.uid) throw new Error('semina: relatrice non creata (' + (esitoR.motivo || esitoR.esito) + ')');
+    globalThis.NGBA_PROSSIMA_PASSWORD = RELATORE.password;
+    await gestione({ azione: 'partecipante', operazione: 'reinvia', uid: esitoR.uid, idEvento: ID_EVENTO });
+    globalThis.NGBA_PROSSIMA_PASSWORD = '';
+    await gestione({ azione: 'relatore-segna', idEvento: ID_EVENTO, uid: esitoR.uid, relatore: true });
+
     passo('Arrivano le prime domande per il relatore…');
     for (const q of DOMANDE) {
         const esito = (creati.risultati || [])[q.chi] || {};
@@ -176,7 +180,7 @@ async function semina(archivio, avanzamento) {
         if (r2.stato !== 200) throw new Error('semina: domanda di prova ' + r2.stato + ' ' + String(r2.corpo || '').slice(0, 160));
     }
 
-    archivio.extra.semina = { giorno: giornoDiOggi(), quando: Date.now(), idEvento: ID_EVENTO, orari, gestore: GESTORE, relatore: RELATORE, accessi };
+    archivio.extra.semina = { versione: VERSIONE_SEMINA, giorno: giornoDiOggi(), quando: Date.now(), idEvento: ID_EVENTO, orari, gestore: GESTORE, relatore: RELATORE, accessi };
     archivio.salva();
     passo('Pronto.');
     return archivio.extra.semina;
@@ -184,7 +188,7 @@ async function semina(archivio, avanzamento) {
 
 function serveSemina(archivio) {
     const s = archivio.extra && archivio.extra.semina;
-    return !s || s.giorno !== giornoDiOggi();
+    return !s || s.giorno !== giornoDiOggi() || s.versione !== VERSIONE_SEMINA;
 }
 
 // gestione(): una chiamata alla gestione come il gestore di prova (la usano anche le prove della diretta)

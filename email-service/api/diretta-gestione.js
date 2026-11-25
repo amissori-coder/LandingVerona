@@ -14,9 +14,10 @@
      connessi, esporta                         -> lib/diretta-dati.js
      prova-link                                -> lib/diretta-prova-link.js
      ascolti                                   -> lib/diretta-ascolti.js
-     relatori-salva, domande, domanda-segna    -> lib/diretta-domande.js
+     relatore-segna, domande, domanda-segna    -> lib/diretta-domande.js
                       (anche 'eventi' ed 'evento-salva' portano i
-                      relatori dell'evento: evento.relatori, le email)
+                      relatori dell'evento: evento.relatori, gli uid dei
+                      partecipanti segnati come relatori)
      email-prova, email-accoda, email-avanza,
      email-stato, email-esiti                  -> lib/diretta-invio.js
 
@@ -240,19 +241,14 @@ const AZIONI = {
         eventi.forEach(e => { e.relatori = rel[e.id] || []; });
         return { eventi: eventi };
     },
-    /* evento.relatori (facoltativo): le email dei relatori; si controllano
-       PRIMA di salvare l'evento, cosi' un indirizzo sbagliato non lascia
-       l'evento salvato a meta'. */
-    'evento-salva': async (ctx, b, g) => {
-        const ev = b.evento || {};
-        const relatori = ev.relatori !== undefined ? Q.leggiRelatori(ev.relatori) : undefined;
-        const evento = await D.salvaEvento(ctx, ev);
-        evento.relatori = relatori !== undefined
-            ? await Q.salvaRelatori(ctx, { idEvento: evento.id, relatori: relatori }, g.email)
-            : await Q.relatoriDi(ctx, evento.id);
+    // l'evento torna con i suoi relatori, come in 'eventi' (si segnano dalla scheda Partecipanti: 'relatore-segna')
+    'evento-salva': async (ctx, b) => {
+        const evento = await D.salvaEvento(ctx, b.evento || {});
+        evento.relatori = await Q.relatoriDi(ctx, evento.id);
         return { evento: evento };
     },
-    'relatori-salva': async (ctx, b, g) => ({ relatori: await Q.salvaRelatori(ctx, { idEvento: b.idEvento, relatori: b.relatori }, g.email) }),
+    // { idEvento, uid, relatore: true|false }: un partecipante dell'evento e' (o non e' piu') un relatore
+    'relatore-segna': async (ctx, b, g) => ({ relatori: await Q.segnaRelatore(ctx, { idEvento: b.idEvento, uid: b.uid, relatore: b.relatore }, g.email) }),
     // le domande dei partecipanti al relatore: la regia le vede e le segna come il relatore
     'domande': async (ctx, b, g) => Q.elenco(ctx, b.idEvento, { email: g.email, ruolo: 'gestore' }),
     'domanda-segna': async (ctx, b, g) => Q.segna(ctx, { idEvento: b.idEvento, idDomanda: b.idDomanda, risposta: b.risposta }, { email: g.email, ruolo: 'gestore' }),

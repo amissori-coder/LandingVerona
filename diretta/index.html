@@ -35,7 +35,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20261121a">
+    <link rel="stylesheet" href="diretta.css?v=20261125a">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
@@ -44,7 +44,7 @@
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20261121a" defer></script>
+    <script src="diretta.js?v=20261125a" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -434,6 +434,13 @@
                     <h3 id="domande-titolo">Fai una domanda al relatore</h3>
                     <p id="domande-nota" class="domande-nota">La legge solo il relatore, insieme alla regia: gli altri partecipanti non la vedono.</p>
                 </div>
+            </div>
+            <!-- per chi e' relatore di questo evento (lo dice il servizio, 'mie'): al posto del
+                 modulo, la strada per la pagina del relatore, con le stesse credenziali -->
+            <div id="box-relatore" class="box-relatore" hidden>
+                <p><strong>Sei relatore di questa diretta.</strong> Le domande dei partecipanti le leggi nella pagina
+                    del relatore: si apre in un'altra scheda e non serve rifare l'accesso.</p>
+                <a id="link-pagina-relatore" class="btn btn-primario" href="/diretta/relatore/" target="_blank" rel="noopener">Apri le domande dei partecipanti</a>
             </div>
             <form id="modulo-domanda" class="modulo-domanda" novalidate>
                 <label for="testo-domanda" class="solo-lettori">La tua domanda per il relatore</label>

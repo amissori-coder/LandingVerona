@@ -132,8 +132,6 @@ const MSG_DISATTIVATO = 'Il tuo accesso è stato disattivato. Scrivi all\'assist
 const MSG_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento per scegliere una nuova password. '
     + 'Controlla anche nella cartella Spam o Promozioni.';
 const MSG_GESTORE = 'Se l\'indirizzo è tra i gestori, ti abbiamo scritto.';
-const MSG_RELATORE = 'Se l\'indirizzo è fra i relatori di una diretta, tra poco ricevi un\'email con il collegamento per scegliere la password. '
-    + 'Controlla anche nella cartella Spam o Promozioni.';
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
@@ -739,8 +737,7 @@ async function gestoreAccesso(ctx, { email, ip }) {
             if (utente.emailVerified !== true || claims.gestore !== true || claims.eventi !== undefined || utente.disabled) {
                 await conLimite(() => ctx.auth.updateUser(utente.uid, { password: passwordSegreta(), emailVerified: true, disabled: false }));
                 await conLimite(() => ctx.auth.revokeRefreshTokens(utente.uid));
-                // un gestore che e' anche relatore resta relatore (vedi relatoreAccesso)
-                await conLimite(() => ctx.auth.setCustomUserClaims(utente.uid, claims.relatore === true && claims.eventi === undefined ? { gestore: true, relatore: true } : { gestore: true }));
+                await conLimite(() => ctx.auth.setCustomUserClaims(utente.uid, { gestore: true }));
             }
         }
         // l'elenco degli account di gestione: il cron li ripulisce quando l'email esce dall'elenco
@@ -749,60 +746,6 @@ async function gestoreAccesso(ctx, { email, ip }) {
         await spedisciReimpostazione(ctx, { a: indirizzo, nome: '', link: link, perGestore: true });
     });
     return { msg: MSG_GESTORE };
-}
-
-/* relatore-accesso: "primo accesso o password dimenticata" della pagina
-   del relatore (/diretta/relatore/). Come per i gestori, ma l'elenco non
-   e' una variabile di Vercel: sono le email scritte dalla gestione nella
-   scheda Evento (relatoriEventi, lib/diretta-domande.js). L'account e'
-   quello della SUA email vera, con l'email verificata e il claim
-   relatore (niente claim "eventi": i partecipanti hanno un altro
-   account, con l'indirizzo tecnico). Chi si era registrato da solo con
-   quell'email perde l'accesso (password nuova, sessioni chiuse). Un
-   gestore che e' anche relatore tiene la sua password: gli si aggiunge
-   solo il claim. Risposta sempre uguale e nello stesso tempo; tetti
-   suoi, per rete, per persona e in tutto. */
-async function relatoreAccesso(ctx, { email, ip }) {
-    const Q = require('./diretta-domande');
-    await aDurataCostante('accesso relatore', async () => {
-        const impIp = C.improntaIp(ip);
-        if (!await contaInFinestra(ctx, 'relatoreip_' + impIp, TETTO_GESTORE_RETE, ORA)) {
-            console.error('[diretta] accesso relatore: limite della rete raggiunto');
-            return;
-        }
-        const indirizzo = String(email == null ? '' : email).trim().toLowerCase().slice(0, 254);
-        if (!indirizzo || C.eEmailTecnica(indirizzo) || !await Q.eRelatore(ctx, indirizzo)) return;
-        if (!await C.consumaGettone(ctx, 'limiti', 'relatore_' + C.impronta(indirizzo), { pausaMs: 2 * MINUTO, maxFinestra: 3, finestraMs: GIORNO })) {
-            console.error('[diretta] accesso relatore: limite della persona raggiunto');
-            return;
-        }
-        if (!await contaInFinestra(ctx, 'relatore_globale', TETTO_GESTORI_ORA, ORA)) {
-            console.error('[diretta] accesso relatore: tetto orario dei relatori raggiunto');
-            return;
-        }
-        let utente = null;
-        try { utente = await ctx.auth.getUserByEmail(indirizzo); } catch (e) {
-            if (!e || e.code !== 'auth/user-not-found') throw e;
-        }
-        if (!utente) {
-            utente = await conLimite(() => ctx.auth.createUser({ email: indirizzo, emailVerified: true, password: passwordSegreta() }));
-            await conLimite(() => ctx.auth.setCustomUserClaims(utente.uid, { relatore: true }));
-        } else {
-            const claims = utente.customClaims || {};
-            const gestoreVero = claims.gestore === true && C.eGestore(indirizzo) && utente.emailVerified === true && !utente.disabled && claims.eventi === undefined;
-            if (gestoreVero) {
-                if (claims.relatore !== true) await conLimite(() => ctx.auth.setCustomUserClaims(utente.uid, { gestore: true, relatore: true }));
-            } else if (utente.emailVerified !== true || claims.relatore !== true || claims.eventi !== undefined || utente.disabled) {
-                await conLimite(() => ctx.auth.updateUser(utente.uid, { password: passwordSegreta(), emailVerified: true, disabled: false }));
-                await conLimite(() => ctx.auth.revokeRefreshTokens(utente.uid));
-                await conLimite(() => ctx.auth.setCustomUserClaims(utente.uid, { relatore: true }));
-            }
-        }
-        await ctx.db.collection('relatoriAccount').doc(utente.uid).set({ email: indirizzo, aggiornato: ctx.adesso() });
-        const link = await linkReimpostazione(ctx, indirizzo, '&per=relatore');
-        await spedisciReimpostazione(ctx, { a: indirizzo, nome: '', link: link, perRelatore: true });
-    });
-    return { msg: MSG_RELATORE };
 }
 
 /* ============================================================
@@ -876,7 +819,7 @@ async function linkVideo(ctx, req, b) {
 }
 
 module.exports = {
-    entra, passwordDimenticata, gestoreAccesso, relatoreAccesso, aggiornaPermessi, linkVideo,
+    entra, passwordDimenticata, gestoreAccesso, aggiornaPermessi, linkVideo,
     attesaDopo, descriviDispositivo, contenutoToken, verificaPassword, aDurataCostante, lasciaFinire, tempoMinimo, contaInFinestra, tettoIp,
-    MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_RELATORE, MSG_DISATTIVATO, TEMPO_FALLITO_MS, CASO_FALLITO_MS
+    MSG_CREDENZIALI, MSG_DIMENTICATA, MSG_GESTORE, MSG_DISATTIVATO, TEMPO_FALLITO_MS, CASO_FALLITO_MS
 };

@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20261121a">
+    <link rel="stylesheet" href="gestione.css?v=20261125a">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -339,17 +339,17 @@
                             <label class="opzione">
                                 <input type="checkbox" id="ev-domande" name="domande">
                                 <span><strong>Domande al relatore.</strong> Nella pagina della diretta compare il riquadro
-                                    «Fai una domanda al relatore». Le domande le leggono solo i relatori qui sotto (nella loro pagina)
+                                    «Fai una domanda al relatore». Le domande le leggono solo i relatori (nella loro pagina)
                                     e la regia (scheda Regia): gli altri partecipanti non le vedono mai.</span>
                             </label>
-                            <div class="campo campo-relatori">
-                                <label for="ev-relatori">Relatori <span class="facoltativo">(email, una per riga; al massimo 10)</span></label>
-                                <textarea id="ev-relatori" name="relatori" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-relatori-aiuto" placeholder="relatore@studio.it"></textarea>
-                                <p id="ev-relatori-aiuto" class="aiuto">Ogni relatore entra in
-                                    <a href="/diretta/relatore/" target="_blank" rel="noopener">nextgenerationbusiness.it/diretta/relatore</a>
-                                    con la sua email: al primo accesso preme «Primo accesso o password dimenticata» e sceglie la password.
-                                    Vede tutte le domande e l'elenco dei partecipanti, e segna quelle a cui ha risposto.
-                                    Togliendo un'email qui, quella persona non entra più.</p>
+                            <!-- i relatori: partecipanti dell'evento segnati nella scheda Partecipanti (gestione.js, disegnaRelatoriEvento) -->
+                            <div class="campo-relatori">
+                                <p class="relatori-elenco"><strong>Relatori:</strong> <span id="ev-relatori-elenco">nessuno, per ora</span></p>
+                                <p class="aiuto">I relatori sono partecipanti dell'evento, anche più d'uno: nella scheda Partecipanti
+                                    «Altro» → «Segna come relatore», oppure «È un relatore» quando lo aggiungi. Ricevono le credenziali
+                                    come tutti e con la stessa email e password entrano in
+                                    <a href="/diretta/relatore/" target="_blank" rel="noopener">nextgenerationbusiness.it/diretta/relatore</a>,
+                                    dove leggono le domande e l'elenco dei partecipanti e segnano quelle a cui hanno risposto.</p>
                             </div>
                             <label class="opzione">
                                 <input type="checkbox" id="ev-promemoria-giorno" name="promemoriaGiorno">
@@ -1049,6 +1049,11 @@
                                 <input type="text" id="agg-azienda" autocomplete="off" maxlength="120">
                             </div>
                         </div>
+                        <label class="opzione opzione-aggiungi-relatore">
+                            <input type="checkbox" id="agg-relatore">
+                            <span><strong>È un relatore di questo evento.</strong> Con le stesse credenziali entra anche nella
+                                pagina del relatore, dove legge le domande dei partecipanti.</span>
+                        </label>
                         <div class="azioni azioni-aggiungi">
                             <button type="submit" id="btn-aggiungi" class="btn btn-primario">Aggiungi</button>
                             <p id="msg-aggiungi" class="msg" role="status" hidden></p>
@@ -1436,6 +1441,6 @@
     <script src="../sorgente-video.js?v=20261121a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20261121a"></script>
+    <script src="gestione.js?v=20261125a"></script>
 </body>
 </html>
