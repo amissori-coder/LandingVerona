@@ -11,7 +11,12 @@
 
      - AGGIUNGERE un utente che ancora non c'e';
      - SOLO con uno di tre ruoli: Revisore, Coordinatore
-       territoriale, Vice coordinatore territoriale.
+       territoriale, Vice coordinatore territoriale;
+     - SOLO una persona che ha gia' una scheda ATTIVA in Aderenti
+       Revilaw con quell'indirizzo email. Non si abilita un
+       indirizzo scritto a mano: prima la persona si inserisce in
+       anagrafica (e la si mette negli incarichi), poi le si da'
+       l'accesso. E' la scheda a dire chi e' e che cosa vedra'.
 
    Nient'altro: non cambiano il ruolo di chi c'e' gia', non
    disabilitano, non eliminano, non creano amministratori. Un
@@ -60,48 +65,64 @@ const DA_AMMINISTRATORE = 'amministratore';
 
 const pulito = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
-/* La scheda in Aderenti Revilaw di un indirizzo: attiva e non eliminata. Con
-   piu' schede per lo stesso indirizzo vale la piu' "qualificata". */
-async function schedaDi(db, email) {
-    let persone = [];
+/* L'anagrafica (archivio/persone): un elenco, vuoto se non si legge. */
+async function leggiPersone(db) {
     try {
         const s = await db.collection('archivio').doc('persone').get();
         const j = s.exists ? (s.data() || {}).json : null;
         const l = typeof j === 'string' ? JSON.parse(j) : j;
-        persone = Array.isArray(l) ? l : [];
-    } catch (_) { persone = []; }
-    const mie = persone.filter(p => p && p.attivo && !p.eliminato && String(p.email || '').trim().toLowerCase() === email);
+        return Array.isArray(l) ? l : [];
+    } catch (_) { return []; }
+}
+/* La scheda in Aderenti Revilaw di un indirizzo: attiva e non eliminata. Con
+   piu' schede per lo stesso indirizzo vale la piu' "qualificata". `persone` e'
+   l'anagrafica gia' letta (facoltativa). */
+async function schedaDi(db, email, persone) {
+    const tutte = persone || await leggiPersone(db);
+    const mie = tutte.filter(p => p && p.attivo && !p.eliminato && String(p.email || '').trim().toLowerCase() === email);
     if (!mie.length) return null;
-    return { equityPartner: mie.some(p => p.equityPartner === true), foundingPartner: mie.some(p => p.foundingPartner === true), qualita: mie.some(p => p.qualita === true) };
+    const p0 = mie[0];
+    return {
+        nome: pulito((p0.nomeProprio ? p0.nomeProprio + ' ' : '') + (p0.nome || ''), 120),
+        equityPartner: mie.some(p => p.equityPartner === true), foundingPartner: mie.some(p => p.foundingPartner === true), qualita: mie.some(p => p.qualita === true)
+    };
 }
 
 /* Con quale qualifica l'utente effettivo `ue` (da utenteEffettivo) puo'
    abilitare nuovi accessi: 'amministratore' | 'equity' | 'founding' | 'qualita',
    oppure '' se non puo'. */
-async function qualifica(db, ue) {
+async function qualifica(db, ue, persone) {
     if (!ue || !ue.ok || ue.collaboratore) return '';
     if (ue.email === PROPRIETARIO || eRuoloAdmin(ue.ruolo)) return DA_AMMINISTRATORE;
     if (ue.ruolo === 'sondaggio_compila' || ue.ruolo === 'sondaggio_risultati') return '';
-    const scheda = await schedaDi(db, ue.email);
+    const scheda = await schedaDi(db, ue.email, persone);
     if (scheda && scheda.equityPartner) return 'equity';
     if (scheda && scheda.foundingPartner) return 'founding';
     if (ue.ruolo === 'qualita' || (scheda && scheda.qualita)) return 'qualita';
     return '';
 }
 
-/* Abilita un nuovo utente. `ue` e' chi chiama; `dati` { email, nome, ruolo }.
-   Torna { ok, stato (HTTP), msg } e, se va bene, { email, ruolo, nomeRuolo }. */
+/* Abilita un nuovo utente. `ue` e' chi chiama; `dati` { email, ruolo }. Il nome
+   e' quello della scheda in Aderenti Revilaw. Torna { ok, stato (HTTP), msg } e,
+   se va bene, { email, nome, ruolo, nomeRuolo }. */
 async function abilita(db, ue, dati) {
     if (ue && ue.ok && ue.collaboratore) return { ok: false, stato: 403, msg: 'Un collaboratore non può abilitare nuovi accessi: lo fa l\'utente a cui è associato.' };
-    const come = await qualifica(db, ue);
+    const persone = await leggiPersone(db);
+    const come = await qualifica(db, ue, persone);
     if (!come) return { ok: false, stato: 403, msg: 'Nuovi accessi li abilitano l\'amministratore, i responsabili della qualità, gli equity partner e i founding partner.' };
 
     const email = pulito(dati && dati.email, 200).toLowerCase();
-    const nome = pulito(dati && dati.nome, 120);
     const ruolo = pulito(dati && dati.ruolo, 40);
     if (!EMAIL_RE.test(email)) return { ok: false, stato: 400, msg: 'Indirizzo email non valido.' };
-    if (!nome) return { ok: false, stato: 400, msg: 'Manca il nome della persona.' };
     if (RUOLI_DELEGABILI.indexOf(ruolo) < 0) return { ok: false, stato: 400, msg: 'Da qui si assegnano solo i ruoli Revisore, Coordinatore territoriale e Vice coordinatore territoriale.' };
+    const rif = db.collection('utenti').doc(email);
+    const GIA = 'Questo indirizzo ha già un accesso (attivo o disabilitato): per cambiarlo serve l\'amministratore.';
+    // chi ha gia' un accesso lo si dice subito, prima di ogni altra cosa (la transazione sotto lo ricontrolla)
+    if ((await rif.get()).exists) return { ok: false, stato: 409, msg: GIA };
+    // solo chi e' gia' in anagrafica: la scheda dice chi e' (e da li' si prende il nome)
+    const persona = await schedaDi(db, email, persone);
+    if (!persona) return { ok: false, stato: 400, msg: 'In Aderenti Revilaw non c\'è una scheda attiva con questo indirizzo email: prima va inserita la persona in anagrafica, poi le si dà l\'accesso.' };
+    const nome = persona.nome || email;
 
     // il freno giornaliero, per chi non e' amministratore
     const rifLimite = db.collection('meta').doc('abilitazioni');
@@ -113,7 +134,6 @@ async function abilita(db, ue, dati) {
         if (recenti.length >= MAX_AL_GIORNO) return { ok: false, stato: 429, msg: 'Hai già abilitato ' + MAX_AL_GIORNO + ' accessi nelle ultime 24 ore: per gli altri rivolgiti all\'amministratore, o riprova domani.' };
     }
 
-    const rif = db.collection('utenti').doc(email);
     const scheda = { nome: nome, ruolo: ruolo, attivo: true, creato: ora, creatoDa: ue.email, delega: come };
     // in transazione: se nel frattempo la scheda e' comparsa, non la si tocca
     const creato = await db.runTransaction(async tx => {
@@ -122,7 +142,7 @@ async function abilita(db, ue, dati) {
         tx.set(rif, scheda);
         return true;
     });
-    if (!creato) return { ok: false, stato: 409, msg: 'Questo indirizzo ha già un accesso (attivo o disabilitato): per cambiarlo serve l\'amministratore.' };
+    if (!creato) return { ok: false, stato: 409, msg: GIA };
 
     if (conFreno) {
         try {
@@ -132,9 +152,9 @@ async function abilita(db, ue, dati) {
             await rifLimite.set({ [k]: (tutti[k] || []).filter(t => ora - t < GIORNO_MS).concat([ora]).slice(-MAX_AL_GIORNO) }, { merge: true });
         } catch (_) { /* il conteggio serve solo da freno */ }
     }
-    return { ok: true, stato: 200, email: email, ruolo: ruolo, nomeRuolo: NOMI_RUOLI[ruolo], come: come };
+    return { ok: true, stato: 200, email: email, nome: nome, ruolo: ruolo, nomeRuolo: NOMI_RUOLI[ruolo], come: come };
 }
 // una chiave di campo senza punti (Firestore li leggerebbe come percorso)
 function chiaveDi(email) { return String(email || '').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 200); }
 
-module.exports = { abilita, qualifica, RUOLI_DELEGABILI, MAX_AL_GIORNO, _interni: { schedaDi, chiaveDi } };
+module.exports = { abilita, qualifica, RUOLI_DELEGABILI, MAX_AL_GIORNO, _interni: { schedaDi, leggiPersone, chiaveDi } };
