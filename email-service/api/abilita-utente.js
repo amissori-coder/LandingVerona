@@ -5,8 +5,8 @@
    Lo chiama la sezione "Nuovi accessi" dell'area riservata. Chi puo'
    e che cosa puo' fare lo decide lib/abilita-utente.js (leggi li'):
    responsabili della qualita', equity partner e founding partner
-   AGGIUNGONO utenti, solo con i ruoli Revisore, Coordinatore
-   territoriale e Vice coordinatore territoriale.
+   AGGIUNGONO utenti, solo con il ruolo Revisore e solo se hanno
+   gia' una scheda attiva in Aderenti Revilaw.
 
    POST { idToken, azione }
      'stato'    -> { ok, puo, come, ruoli }   se chi chiama puo' abilitare

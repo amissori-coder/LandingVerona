@@ -341,13 +341,13 @@ incarichi. Per le regole qui sopra e' un utente dello staff come gli altri:
 
 **Nuovi accessi.** I responsabili della qualita' (ruolo `qualita`, oppure la
 qualifica sulla scheda), gli equity partner e i founding partner possono
-**aggiungere** utenti dalla sezione "Nuovi accessi", ma solo con i ruoli
-Revisore, Coordinatore territoriale e Vice coordinatore territoriale. Le regole
-lasciano creare gli utenti al solo amministratore, e restano cosi': la scheda la
-scrive il servizio email (`email-service/api/abilita-utente.js`), che verifica
-chi chiama, accetta solo quei tre ruoli e rifiuta un indirizzo che ha gia' una
-scheda, anche disabilitata. Cambiare un ruolo, disabilitare ed eliminare restano
-dell'amministratore.
+**aggiungere** utenti dalla sezione "Nuovi accessi", ma solo con il ruolo
+Revisore e solo persone che hanno gia' una scheda attiva in Aderenti Revilaw.
+Le regole lasciano creare gli utenti al solo amministratore, e restano cosi': la
+scheda la scrive il servizio email (`email-service/api/abilita-utente.js`), che
+verifica chi chiama, accetta solo quel ruolo e rifiuta un indirizzo che ha gia'
+una scheda utente, anche disabilitata. Assegnare un altro ruolo, cambiarlo,
+disabilitare ed eliminare restano dell'amministratore.
 
 Cosa succede a livello di sicurezza:
 
@@ -355,7 +355,7 @@ Cosa succede a livello di sicurezza:
   - il campo `ruolo` di ogni utente sta nella collezione `utenti`, che solo
     l'admin puo' scrivere: un utente non puo' cambiarsi il ruolo da solo
     (l'unica altra strada e' il servizio email dei "Nuovi accessi", che crea
-    schede nuove con tre ruoli a bassi privilegi e non tocca quelle esistenti);
+    schede nuove con il solo ruolo Revisore e non tocca quelle esistenti);
   - la **definizione** dei ruoli (`archivio/ruoli`) e scrivibile solo
     dall'admin (regola qui sopra): un utente non puo' allargarsi i permessi
     riscrivendo il proprio ruolo.
