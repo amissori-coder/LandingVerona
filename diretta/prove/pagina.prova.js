@@ -106,7 +106,11 @@
      l'evento, ma le regole (eventiTolti) rifiutano il segnale di
      presenza e la pagina dice «Non sei più iscritto a questa diretta»;
      rientrando, lo stesso messaggio;
-   - 403 'nessun-evento' all'accesso; &e= mandato al servizio; il link
+   - 403 'nessun-evento' e 403 'altro-evento' all'accesso (le credenziali di
+     un altro evento: il messaggio del servizio); collegati con l'account di
+     un evento e il link di un ALTRO (&e=): si esce e si chiede di entrare
+     con le credenziali di quella diretta (nessun altro evento al suo posto);
+     &e= mandato al servizio; il link
      ?dimenticata=1 (un vecchio ?u=<nome utente> non si scrive nel campo
      dell'email, e da collegati si toglie dall'indirizzo); SDK di Firebase non scaricato (rete: nuovo
      tentativo; codice rotto: "browser non aggiornato");
@@ -478,6 +482,10 @@ function eventoIniziale(T) {
                 // password giusta, ma nessun evento (per esempio dopo «Togli da questo evento»)
                 if (corpo.email === 'senza.eventi@esempio.it') {
                     return risposta(403, { ok: false, codice: 'nessun-evento', msg: 'Non risulti iscritto a nessuna diretta. Scrivi all\'assistenza.' });
+                }
+                // le credenziali di un altro evento (un account per evento): come il servizio vero, 403 altro-evento
+                if (corpo.email === 'altro.evento@esempio.it') {
+                    return risposta(403, { ok: false, codice: 'altro-evento', msg: 'Queste credenziali sono per «Evento di Milano», non per questa diretta. Entra con l\'email e la password che hai ricevuto per questa diretta (se non le trovi, usa «Password dimenticata?»).' });
                 }
                 /* Le persone dei casi della revisione: come il servizio vero
                    (lib/diretta-accesso.js), l'evento e' quello chiesto dal link se e'
@@ -1348,6 +1356,28 @@ function eventoIniziale(T) {
             const c2 = chiamate.filter(x => x.azione === 'entra' && x.email === 'mario.rossi@esempio.it').pop();
             vero(!c2.conIdEvento, 'mandato un idEvento non valido: ' + c2.idEvento);
             await esciDa(q);
+        });
+
+        await prova('le credenziali di un altro evento (403 altro-evento): il messaggio del servizio, nessun accesso', async () => {
+            await q.goto(SITO + '/diretta/?e=' + EVENTO);
+            await entraCome('altro.evento@esempio.it', 'una-password-qualsiasi');
+            await q.waitForFunction(() => /Queste credenziali sono per «Evento di Milano», non per questa diretta/.test(document.getElementById('msg-accesso').textContent), null, { timeout: 10000 });
+            vero(!/Errore del servizio/.test(await q.textContent('#msg-accesso')) && await vistaDi(q) === 'accesso', 'messaggio: ' + await q.textContent('#msg-accesso'));
+        });
+
+        await prova('collegato con l\'account di un evento, il link di un ALTRO evento (&e=): nessun altro evento al suo posto, si esce e si chiede di entrare con le credenziali di quella diretta', async () => {
+            await q.goto(SITO + '/diretta/?e=' + EVENTO);
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
+            const dentro = 'body[data-vista="diretta"], body[data-vista="attesa"], body[data-vista="pausa"], body[data-vista="fine"]';
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            await q.goto(SITO + '/diretta/?e=webinar-altro-2026');
+            await vistaE(q, 'accesso', 20000);
+            vero(/eri entrato con le credenziali di un altro evento\. Per questa diretta entra con l'email e la password che hai ricevuto per questo evento/.test(await q.textContent('#msg-accesso')),
+                'il messaggio sopra l\'accesso: «' + await q.textContent('#msg-accesso') + '»');
+            await q.reload();
+            await vistaE(q, 'accesso', 20000);
+            vero(await vistaDi(q) === 'accesso', 'ricaricando resta l\'accesso: la sessione dell\'altro evento e\' chiusa');
+            vero(q.__erroriPagina.length === 0, 'errori: ' + q.__erroriPagina.join(' | '));
         });
 
         await prova('un vecchio collegamento con ?u=<nome utente>, da collegati: nessuna domanda, il parametro si toglie dall\'indirizzo', async () => {

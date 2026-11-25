@@ -11,10 +11,18 @@
    l'email e con la password che generiamo noi. Una regola sola per
    l'indirizzo (lib/diretta-email.js: normalizzaEmail, emailValida).
 
+   OGNI EVENTO, I SUOI PARTECIPANTI (dal 25 novembre 2026). Gli
+   iscritti di un evento sono distinti da quelli degli altri: la stessa
+   email in due eventi sono due account diversi, ognuno con la sua
+   password, il suo nome e le sue credenziali, e un'email gia' usata in
+   un altro evento (anche con un altro nome) non e' mai un problema.
+   Vedi UN EVENTO, I SUOI ACCOUNT (accountDellEvento, uidDellEmail).
+
    LE DUE GARANZIE CONTRO I DOPPIONI (vedi `crea`):
-   1. una email = un account: l'indirizzo si PRENOTA nel documento
-      indirizzi/{emailNormalizzata}, dentro una transazione (tx.create:
-      se c'e' gia', la transazione riparte e trova l'account);
+   1. una email = un account PER EVENTO: l'indirizzo si PRENOTA nel
+      documento indirizzi/{emailNormalizzata} (perEvento.{idEvento}),
+      dentro una transazione (se nel frattempo qualcuno lo ha scritto, la
+      transazione riparte e trova l'account);
    2. l'account Firebase Auth ha come uid quello scritto nella
       prenotazione, generato prima della transazione: se due
       caricamenti arrivano insieme, o se lo stesso file si ricarica
@@ -177,6 +185,71 @@ function listaEventi(eventi, idEvento) {
 }
 function stessaLista(a, b) {
     return JSON.stringify(Array.isArray(a) ? a : []) === JSON.stringify(Array.isArray(b) ? b : []);
+}
+
+/* ============================================================
+   UN EVENTO, I SUOI ACCOUNT (dal 25 novembre 2026)
+   indirizzi/{email normalizzata} resta UNO per indirizzo (e' la
+   prenotazione che evita i doppioni), con:
+     perEvento: { <idEvento>: <uid> }  l'account di quell'evento;
+     uid                               l'account di PRIMA, nato quando
+                                       un'email era un account per tutti
+                                       gli eventi: vale solo per gli
+                                       eventi in cui e' (o e' stato:
+                                       la voce delle credenziali,
+                                       l'annullamento dal sito), mai per
+                                       un evento nuovo.
+   accountDellEvento: l'account di un'email per un evento (o nessuno:
+   allora per quell'evento se ne crea uno nuovo). uidDellEmail: tutti gli
+   account di un'email, per l'accesso e per «Password dimenticata?»
+   (lib/diretta-accesso.js), che li provano uno per uno.
+   ============================================================ */
+const MAX_ACCOUNT_EMAIL = 10;
+function mappaPerEvento(dati) {
+    const m = dati && dati.perEvento;
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+}
+function uidValido(u) { return RE_UID.test(String(u || '')); }
+/* Gli account di un'email (i dati di indirizzi/{email}), quello
+   dell'evento `primo` per primo, poi quello di prima, poi gli altri. */
+function uidDellEmail(dati, primo) {
+    const m = mappaPerEvento(dati);
+    const out = [];
+    const metti = u => { const x = String(u || ''); if (uidValido(x) && out.indexOf(x) < 0) out.push(x); };
+    if (primo && RE_ID_EVENTO.test(String(primo))) metti(m[primo]);
+    if (dati) metti(dati.uid);
+    Object.keys(m).sort().forEach(k => metti(m[k]));
+    return out.slice(0, MAX_ACCOUNT_EMAIL);
+}
+// l'account di prima conta per l'evento? (e' nell'evento, o ci e' stato)
+function vecchioPerEvento(d, idEvento) {
+    if (!d) return false;
+    if (Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0) return true;
+    if (d.invii && d.invii[idEvento]) return true;
+    return !!(d.annullatoDalSito && d.annullatoDalSito[idEvento] !== undefined);
+}
+/* L'account di un'email per un evento: { uid, snap } (snap: il profilo,
+   letto con `leggi`: tx.get dentro una transazione) oppure null. */
+async function accountDellEvento(ctx, dati, idEvento, leggi) {
+    const lettore = leggi || (ref => ref.get());
+    const m = mappaPerEvento(dati);
+    if (uidValido(m[idEvento])) {
+        const uid = String(m[idEvento]);
+        return { uid: uid, snap: await lettore(ctx.db.collection('partecipanti').doc(uid)) };
+    }
+    if (dati && uidValido(dati.uid)) {
+        const uid = String(dati.uid);
+        const snap = await lettore(ctx.db.collection('partecipanti').doc(uid));
+        if (snap.exists && vecchioPerEvento(snap.data(), idEvento)) return { uid: uid, snap: snap };
+    }
+    return null;
+}
+/* Lo stesso a partire dall'email (fuori da una transazione): -> { uid,
+   snap } o null. */
+async function accountDiEmailPerEvento(ctx, emailNorm, idEvento) {
+    if (!E.emailValida(emailNorm)) return null;
+    const ind = await ctx.db.collection('indirizzi').doc(emailNorm).get();
+    return ind.exists ? accountDellEvento(ctx, ind.data(), idEvento) : null;
 }
 
 // nomi e cognomi: niente caratteri di controllo e niente < > (DECISIONI D3)
@@ -839,22 +912,32 @@ async function anteprima(ctx, { idEvento, righe }) {
     const indirizzi = Array.from(new Set(pulite.map(r => E.normalizzaEmail(r.email)).filter(E.emailValida)));
     const db = ctx.db;
 
-    // una email = un account: chi c'e' gia'
-    const uidPerEmail = {};
+    /* una email = un account PER EVENTO: chi c'e' gia' in questo evento
+       (perEvento.{id}, o l'account di prima se conta per l'evento: vedi
+       UN EVENTO, I SUOI ACCOUNT). Le persone con la stessa email in altri
+       eventi non contano: qui sono nuove. */
+    const candidato = {};   // email -> { uid, perEvento: true|false }
     for (const gruppo of C.aGruppi(indirizzi, 100)) {
         const snaps = await db.getAll(...gruppo.map(e => db.collection('indirizzi').doc(e)));
-        snaps.forEach((s, i) => { if (s.exists && s.data().uid) uidPerEmail[gruppo[i]] = String(s.data().uid); });
+        snaps.forEach((s, i) => {
+            if (!s.exists) return;
+            const d = s.data();
+            const m = mappaPerEvento(d);
+            if (uidValido(m[id])) candidato[gruppo[i]] = { uid: String(m[id]), perEvento: true };
+            else if (uidValido(d.uid)) candidato[gruppo[i]] = { uid: String(d.uid), perEvento: false };
+        });
     }
     const profili = {};
-    for (const gruppo of C.aGruppi(Array.from(new Set(Object.values(uidPerEmail))), 100)) {
+    for (const gruppo of C.aGruppi(Array.from(new Set(Object.values(candidato).map(c => c.uid))), 100)) {
         const snaps = await db.getAll(...gruppo.map(u => db.collection('partecipanti').doc(u)));
         snaps.forEach(s => { if (s.exists) profili[s.id] = s.data(); });
     }
     const perEmail = {};
-    Object.keys(uidPerEmail).forEach(e => {
-        const p = profili[uidPerEmail[e]];
-        if (!p) return;
-        perEmail[e] = { uid: uidPerEmail[e], nome: p.nome || '', cognome: p.cognome || '', eventi: Array.isArray(p.eventi) ? p.eventi : [], stato: p.stato || 'attivo' };
+    Object.keys(candidato).forEach(e => {
+        const c = candidato[e];
+        const p = profili[c.uid];
+        if (!p || (!c.perEvento && !vecchioPerEvento(p, id))) return;
+        perEmail[e] = { uid: c.uid, nome: p.nome || '', cognome: p.cognome || '', eventi: Array.isArray(p.eventi) ? p.eventi : [], stato: p.stato || 'attivo' };
     });
     return E.analizzaImport(pulite, { perEmail: perEmail }, id);
 }
@@ -953,16 +1036,20 @@ async function crea(ctx, { idEvento, righe }) {
 }
 
 /* La prenotazione di una persona in una transazione (la usano `crea` e
-   le iscrizioni dal modulo del sito, lib/diretta-iscrizione.js):
-   - indirizzi/{email} c'e' -> la persona esiste. Se il nome e' di
-     un'altra persona ('email-condivisa', solo con `controllaNome`) non
-     si tocca niente; se e' gia' nell'evento -> 'gia-iscritto' (e, con
-     `voceSeGia(voce attuale, profilo)`, che restituisce i campi da
-     cambiare o null, la voce delle credenziali si puo' aggiornare; la
-     risposta porta `voce`, quella risultante); se no la si aggiunge
-     all'evento con la voce `voce` -> 'aggiunto';
-   - indirizzi/{email} non c'e' -> si creano indirizzo, profilo e
-     sessione con l'uid `uidNuovo` e la voce `voce` -> 'creato'.
+   le iscrizioni dal modulo del sito, lib/diretta-iscrizione.js). Conta
+   solo l'account di questa email PER QUESTO EVENTO (accountDellEvento):
+   gli account della stessa email in altri eventi non si toccano e non si
+   guardano (OGNI EVENTO, I SUOI PARTECIPANTI).
+   - c'e' -> la persona esiste. Se il nome e' di un'altra persona
+     ('email-condivisa', solo con `controllaNome`: due persone dello
+     stesso evento con la stessa email) non si tocca niente; se e' gia'
+     nell'evento -> 'gia-iscritto' (e, con `voceSeGia(voce attuale,
+     profilo)`, che restituisce i campi da cambiare o null, la voce delle
+     credenziali si puo' aggiornare; la risposta porta `voce`, quella
+     risultante); se no (tolta dal gestore, annullata dal sito) torna
+     nell'evento con la voce `voce` -> 'aggiunto';
+   - non c'e' -> si creano profilo e sessione con l'uid `uidNuovo` e la
+     voce `voce`, e indirizzi/{email}.perEvento.{idEvento} -> 'creato'.
    dati: { nome, cognome, azienda, emailNorm, origine }
    -> { tipo, uid, dati (il profilo di prima) } */
 async function prenotaPersona(ctx, idEvento, dati, opz) {
@@ -974,10 +1061,11 @@ async function prenotaPersona(ctx, idEvento, dati, opz) {
         const ind = await tx.get(rifInd);
         const ts = adessoTs(ctx);
         const voce = Object.assign({ aggiornato: ts, tentativi: 0 }, o.voce || { stato: 'da inviare' });
-        if (ind.exists) {
-            const uid = String(ind.data().uid || '');
-            const rifP = db.collection('partecipanti').doc(uid || '-');
-            const p = uid ? await tx.get(rifP) : null;
+        const trovato = ind.exists ? await accountDellEvento(ctx, ind.data(), idEvento, ref => tx.get(ref)) : null;
+        if (trovato) {
+            const uid = trovato.uid;
+            const rifP = db.collection('partecipanti').doc(uid);
+            const p = trovato.snap;
             if (!p || !p.exists) return { tipo: 'incoerente', uid: uid };
             const d = p.data();
             if (o.controllaNome && !E.stessaPersona(dati, d)) return { tipo: 'email-condivisa', uid: uid, dati: d };
@@ -1013,7 +1101,9 @@ async function prenotaPersona(ctx, idEvento, dati, opz) {
             tx.set(rifP, campi, { merge: true });
             return { tipo: 'aggiunto', uid: uid, dati: d };
         }
-        tx.create(rifInd, { uid: uidNuovo, creato: ts });
+        // l'account di questa email per questo evento (gli altri eventi hanno i loro)
+        if (ind.exists) tx.update(rifInd, new ctx.FieldPath('perEvento', idEvento), uidNuovo, 'aggiornato', ts);
+        else tx.create(rifInd, { perEvento: { [idEvento]: uidNuovo }, creato: ts });
         tx.create(db.collection('partecipanti').doc(uidNuovo), {
             uid: uidNuovo, nome: dati.nome, cognome: dati.cognome, email: dati.emailNorm, emailNorm: dati.emailNorm,
             azienda: dati.azienda || '', idEvento: idEvento, eventi: [idEvento], stato: 'attivo', authCreato: false,
@@ -1072,7 +1162,7 @@ async function creaRiga(ctx, idEvento, r, opz) {
             codice: 'email-condivisa', nomeRegistrato: E.nomeCompleto(fatto.dati) || '',
             // a quali eventi e' iscritto l'account che ha gia' l'email (l'aggiunta a mano lo dice al gestore)
             eventiRegistrato: Array.isArray((fatto.dati || {}).eventi) ? fatto.dati.eventi.map(String).slice(0, 10) : [],
-            motivo: 'Con questa email è già registrato ' + (E.nomeCompleto(fatto.dati) || 'un altro account') + ': un account è di una persona sola, serve un indirizzo suo.'
+            motivo: 'In questo evento con questa email c\'è già ' + (E.nomeCompleto(fatto.dati) || 'un\'altra persona') + ': in un evento un\'email è di una persona sola, serve un indirizzo suo.'
         });
     }
 
@@ -1112,18 +1202,14 @@ async function aggiungiAMano(ctx, b, chi) {
     console.log('[diretta] aggiunta a mano: ' + JSON.stringify({ idEvento: id, esito: r.esito, codice: r.codice || undefined }));
     if (r.esito === 'errore') {
         if (r.codice === 'email-condivisa') {
-            /* Il gestore deve poter ritrovare quell'account: si dice a quali
-               eventi e' iscritto, e come dargli il nome giusto se e' la stessa
-               persona (per esempio un'iscrizione di prova fatta con il nome di
-               un altro): con il nome registrato l'aggiunta riesce, poi
-               «Correggi» sulla sua riga. */
-            const titoli = await titoliEventi(ctx, r.eventiRegistrato || []);
-            const dove = titoli.length
-                ? ' Quell\'account è iscritto a: ' + titoli.join(', ') + '.'
-                : ' Quell\'account non è iscritto a nessun evento.';
-            throw errorePubblico(409, 'email-condivisa', 'Con questa email è già registrato ' + (r.nomeRegistrato || 'un\'altra persona')
-                + ': se è la stessa persona, scrivi il nome come è registrato; se no, serve un indirizzo suo (un account è di una persona sola).'
-                + dove + ' Per dargli il nome giusto: scrivi qui il nome registrato, premi «Aggiungi», poi «Correggi» sulla sua riga.');
+            /* Succede solo DENTRO questo evento (OGNI EVENTO, I SUOI
+               PARTECIPANTI: la stessa email in un altro evento e' un'altra
+               persona, e non e' mai un problema). Il gestore deve sapere che
+               cosa fare: se e' la stessa persona c'e' gia' (il nome giusto
+               glielo da' «Correggi» sulla sua riga), se no serve un altro
+               indirizzo. */
+            throw errorePubblico(409, 'email-condivisa', 'In questo evento con questa email c\'è già ' + (r.nomeRegistrato || 'un\'altra persona')
+                + '. Se è la stessa persona è già iscritta: per cambiarle il nome usa «Correggi» sulla sua riga. Se è un\'altra persona serve un indirizzo suo: in un evento un\'email è di una persona sola.');
         }
         if (r.codice === 'temporaneo' || r.codice === 'account') {
             throw errorePubblico(503, r.codice, 'Firebase non ha completato l\'account: riprova tra poco (non si creano doppioni).');
@@ -1233,9 +1319,12 @@ async function cambiaAttivazione(ctx, uid, idEvento, attivo) {
    { uid, idEvento, nome, cognome, azienda, email? } -> { partecipante,
    emailCambiata, emailPrecedente }
    - Se cambia l'email, si sposta la prenotazione dell'indirizzo (nella
-     stessa transazione: si prende il nuovo e si libera il vecchio); se
-     la nuova e' gia' di un'altra persona, niente da fare (409
-     'email-occupata'). L'email e' quella con cui si ENTRA: le
+     stessa transazione: l'email nuova porta a questo account per i suoi
+     eventi, perEvento, e quella vecchia non piu'); se la nuova e' gia'
+     di un'altra persona IN UNO DEI SUOI EVENTI, niente da fare (409
+     'email-occupata'; in altri eventi la stessa email puo' essere di
+     altre persone: OGNI EVENTO, I SUOI PARTECIPANTI). L'email e' quella
+     con cui si ENTRA: le
      credenziali per l'evento tornano "da inviare" se erano gia' partite
      (inviata, incerto, respinta, errore), e sul profilo resta quando e'
      cambiata (emailCambiata): gli invii fatti prima sono andati al
@@ -1266,12 +1355,24 @@ async function correggi(ctx, uid, idEvento, b) {
         const precedente = d.emailNorm || E.normalizzaEmail(d.email);
         const cambiaEmail = emailNorm !== precedente;
 
+        /* gli eventi di questo account: e' per questi che l'email nuova deve
+           essere libera (OGNI EVENTO, I SUOI PARTECIPANTI: in altri eventi la
+           stessa email puo' essere di altre persone) */
+        const suoiEventi = Array.from(new Set((Array.isArray(d.eventi) ? d.eventi : []).concat(RE_ID_EVENTO.test(String(idEvento || '')) ? [idEvento] : [])));
+
         // prima tutte le letture...
         let indNuovo = null, indVecchio = null;
         if (cambiaEmail) {
             [indNuovo, indVecchio] = await tx.getAll(db.collection('indirizzi').doc(emailNorm), db.collection('indirizzi').doc(E.emailValida(precedente) ? precedente : '-'));
-            if (indNuovo.exists && indNuovo.data().uid !== uid) {
-                throw C.errore(409, 'Questa email appartiene già a un\'altra persona: non si possono unire due account.', 'email-occupata');
+            if (indNuovo.exists) {
+                const dn = indNuovo.data();
+                const m = mappaPerEvento(dn);
+                let occupata = suoiEventi.some(ev => uidValido(m[ev]) && String(m[ev]) !== uid);
+                if (!occupata && uidValido(dn.uid) && String(dn.uid) !== uid) {
+                    const pv = await tx.get(db.collection('partecipanti').doc(String(dn.uid)));
+                    occupata = pv.exists && suoiEventi.some(ev => vecchioPerEvento(pv.data(), ev));
+                }
+                if (occupata) throw C.errore(409, 'Questa email in questo evento è già di un\'altra persona: non si possono unire due account.', 'email-occupata');
             }
         }
 
@@ -1279,8 +1380,31 @@ async function correggi(ctx, uid, idEvento, b) {
         const ts = adessoTs(ctx);
         const agg = { nome: nome, cognome: cognome, azienda: azienda, email: emailNorm, emailNorm: emailNorm, aggiornato: ts };
         if (cambiaEmail) {
-            if (!indNuovo.exists) tx.create(indNuovo.ref, { uid: uid, creato: ts });
-            if (indVecchio && indVecchio.exists && indVecchio.data().uid === uid) tx.delete(indVecchio.ref);
+            // l'email nuova porta a questo account per i suoi eventi...
+            if (!indNuovo.exists) {
+                const perEvento = {};
+                suoiEventi.forEach(ev => { perEvento[ev] = uid; });
+                tx.create(indNuovo.ref, { perEvento: perEvento, creato: ts });
+            } else if (suoiEventi.length) {
+                const args = [];
+                suoiEventi.forEach(ev => args.push(new ctx.FieldPath('perEvento', ev), uid));
+                tx.update(indNuovo.ref, ...args, 'aggiornato', ts);
+            }
+            // ...e la vecchia non porta piu' qui (se non resta niente, il documento se ne va)
+            if (indVecchio && indVecchio.exists) {
+                const dv = indVecchio.data();
+                const mv = mappaPerEvento(dv);
+                const suoi = Object.keys(mv).filter(k => String(mv[k]) === uid);
+                const vecchioSuo = String(dv.uid || '') === uid;
+                const restano = Object.keys(mv).length - suoi.length + (uidValido(dv.uid) && !vecchioSuo ? 1 : 0);
+                if (!restano) tx.delete(indVecchio.ref);
+                else if (suoi.length || vecchioSuo) {
+                    const args = [];
+                    suoi.forEach(k => args.push(new ctx.FieldPath('perEvento', k), ctx.FieldValue.delete()));
+                    if (vecchioSuo) args.push(new ctx.FieldPath('uid'), ctx.FieldValue.delete());
+                    tx.update(indVecchio.ref, ...args);
+                }
+            }
             agg.emailCambiata = ts;
             const invio = (d.invii || {})[idEvento];
             // anche chi aspettava la conferma: il nuovo indirizzo l'ha scritto il gestore, e le credenziali le manda lui
@@ -1439,6 +1563,7 @@ module.exports = {
     cambiaIscrizioni, iscrizioniDi, percorsoPagina,
     // partecipanti
     partecipanteJSON, elencoPartecipanti, anteprima, crea, aggiungiAMano, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
+    accountDellEvento, accountDiEmailPerEvento, uidDellEmail, mappaPerEvento, vecchioPerEvento, MAX_ACCOUNT_EMAIL, titoliEventi,
     cancellaTentativi, segnaTolto, adessoTs,
     // collegati ed esportazione
     connessi, esporta,

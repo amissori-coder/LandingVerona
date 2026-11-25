@@ -3581,9 +3581,10 @@
        riga torna l'esito:
          nuovo            account nuovo (la password la genera il
                           servizio; nessuna email adesso)
-         gia-presente     c'e' gia' un account con questa email (scritta
-                          in qualunque modo): si aggiunge l'evento, nessun
-                          account nuovo e nessuna password nuova
+         gia-presente     c'era gia' in questo evento (tolta, annullata):
+                          torna con il suo account, nessun account nuovo.
+                          La stessa email in un ALTRO evento non conta: ogni
+                          evento ha i suoi partecipanti, e qui e' 'nuovo'
          gia-iscritto     gia' in questo evento: non cambia niente
          doppia-nel-file  la stessa persona con la stessa email in una
                           riga precedente: non crea niente (non va corretta)
@@ -3602,7 +3603,7 @@
     const ESITI_GRAVI = ['email-mancante', 'email-non-valida', 'nome-mancante', 'nome-non-valido', 'email-condivisa', 'codifica'];
     const ETICHETTE_ESITO = {
         'nuovo': 'Nuovo account',
-        'gia-presente': 'Già registrata',
+        'gia-presente': 'Torna nell\'evento',
         'gia-iscritto': 'Già nell\'evento',
         'doppia-nel-file': 'Doppia nel file',
         'escluso': 'Esclusa',
@@ -3835,7 +3836,7 @@
         svuota(r);
         r.appendChild(gettone(k.totale, plurale(k.totale, 'riga letta', 'righe lette'), ''));
         r.appendChild(gettone(k.nuovi, plurale(k.nuovi, 'nuovo account', 'nuovi account'), 'verde'));
-        if (k.giaPresenti) r.appendChild(gettone(k.giaPresenti, plurale(k.giaPresenti, 'già registrata, da aggiungere', 'già registrate, da aggiungere'), 'blu'));
+        if (k.giaPresenti) r.appendChild(gettone(k.giaPresenti, plurale(k.giaPresenti, 'torna nell\'evento', 'tornano nell\'evento'), 'blu'));
         if (k.giaIscritti) r.appendChild(gettone(k.giaIscritti, 'già nell\'evento', 'blu'));
         if (k.doppie) r.appendChild(gettone(k.doppie, plurale(k.doppie, 'doppia nel file', 'doppie nel file'), ''));
         if (k.esclusi) r.appendChild(gettone(k.esclusi, plurale(k.esclusi, 'esclusa', 'escluse'), ''));
@@ -3866,7 +3867,7 @@
         let testo = 'Crea gli account';
         if (k) {
             testo = 'Crea ' + conNumero(k.nuovi, 'account', 'account');
-            if (k.giaPresenti) testo += ' e aggiungi ' + conNumero(k.giaPresenti, 'persona già registrata', 'persone già registrate');
+            if (k.giaPresenti) testo += ' e rimetti nell\'evento ' + conNumero(k.giaPresenti, 'persona che c\'era già', 'persone che c\'erano già');
         }
         b.textContent = testo;
         motivo.textContent = perche || 'Tutto pronto: nessun problema da sistemare. Creare gli account non manda nessuna email.';
@@ -3947,7 +3948,7 @@
             testo: 'Per l\'evento «' + (stato.evento && stato.evento.titolo || c.idEvento) + '»:',
             dettagli: [
                 conNumero(k.nuovi, 'nuovo account', 'nuovi account') + ': ognuno entrerà con la sua email e una password generata dal servizio',
-                k.giaPresenti ? conNumero(k.giaPresenti, 'persona già registrata aggiunta', 'persone già registrate aggiunte') + ' all\'evento, senza un nuovo account e senza una password nuova' : '',
+                k.giaPresenti ? conNumero(k.giaPresenti, 'persona che c\'era già torna', 'persone che c\'erano già tornano') + ' nell\'evento, con il suo account' : '',
                 'Nessuna email parte adesso: le credenziali partono quando premi «Invia le credenziali» nella scheda Email.'
             ],
             ok: 'Crea gli account'
@@ -4061,10 +4062,10 @@
         riepilogo.appendChild(gettone(k.errore, plurale(k.errore, 'errore', 'errori'), k.errore ? 'rosso' : ''));
 
         /* Qui sotto solo le righe da guardare: gli errori, quelle andate
-           diversamente dall'anteprima (un account con quell'email creato nel
+           diversamente dall'anteprima (la persona aggiunta a questo evento nel
            frattempo, per esempio da un altro caricamento o dal modulo del
-           sito: la persona e' stata aggiunta, senza un secondo account) e le
-           note del servizio (per esempio un account disattivato). */
+           sito: niente di doppio) e le note del servizio (per esempio un
+           account disattivato). */
         const ESITO_RIGA = { creato: 'Creato', aggiunto: 'Aggiunta all\'evento', 'gia-iscritto': 'Già nell\'evento' };
         const diversa = x => {
             const o = cr.previsti.get(x.riga);
@@ -4078,8 +4079,8 @@
             const cambiata = diversa(x);
             const nota = x.esito === 'errore' ? (x.motivo || 'Errore non specificato')
                 : [cambiata ? (x.esito === 'aggiunto'
-                    ? 'Nel frattempo è stato creato un account con questa email (per esempio da un altro caricamento): la persona è stata aggiunta all\'evento, senza un secondo account e senza una password nuova.'
-                    : 'Nel frattempo era già stata aggiunta all\'evento (per esempio da un altro caricamento): niente di doppio.') : '', x.motivo || ''].filter(Boolean).join(' ');
+                    ? 'Nel frattempo era tornata nell\'evento con il suo account (per esempio da un altro caricamento): nessun account nuovo.'
+                    : 'Nel frattempo era già stata aggiunta all\'evento (per esempio da un altro caricamento o dal modulo del sito): niente di doppio.') : '', x.motivo || ''].filter(Boolean).join(' ');
             tb.appendChild(el('tr', { classe: x.esito === 'errore' ? 'riga-errore' : (cambiata ? 'riga-diversa' : 'riga-nota'), dati: { riga: String(x.riga) } }, [
                 el('td', { classe: 'num', 'data-label': 'Riga', testo: x.riga }),
                 el('td', { 'data-label': 'Persona', testo: [o.nome, o.cognome].filter(Boolean).join(' ') }),
@@ -4572,7 +4573,7 @@
                 const chi = p ? nomeEmail(p) : d.email;
                 let testo;
                 if (r.esito === 'creato') testo = 'Aggiunto: ' + chi + '. Account creato, credenziali «da inviare»: non è partita nessuna email.';
-                else if (r.esito === 'aggiunto') testo = 'Aggiunto a questo evento: ' + chi + ' aveva già un account (per un altro evento), nessun account nuovo. Credenziali «da inviare»: non è partita nessuna email.';
+                else if (r.esito === 'aggiunto') testo = 'Di nuovo in questo evento: ' + chi + ' c\'era già, con il suo account (nessun account nuovo). Credenziali «da inviare»: non è partita nessuna email.';
                 else testo = chi + ' è già in questo evento' + (comeRelatore ? '.' : ': non è cambiato niente.');
                 if (r.motivo) testo += ' ' + r.motivo;
                 // «È un relatore»: il segno subito dopo (anche per chi c'era gia')

@@ -338,10 +338,16 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         try { fs.unlinkSync(POSTA); } catch (_) { /* non c'era */ }
         ctx = contesto();
         const studio = () => admin.app().firestore();
-        const profiloDi = async email => {
+        /* Il profilo di un'email. Ogni evento ha i suoi account (la stessa
+           email in due eventi = due account): con `idEvento` quello di
+           quell'evento; senza, il primo (per le email con un account solo). */
+        const profiloDi = async (email, idEvento) => {
             const i = await ctx.db.collection('indirizzi').doc(email).get();
             if (!i.exists) return null;
-            const p = await ctx.db.collection('partecipanti').doc(i.data().uid).get();
+            const d = i.data();
+            const uid = idEvento ? ((d.perEvento || {})[idEvento] || '') : (D.uidDellEmail(d)[0] || '');
+            if (!uid) return null;
+            const p = await ctx.db.collection('partecipanti').doc(uid).get();
             return p.exists ? Object.assign({ uid: p.id }, p.data()) : null;
         };
         /* Le schede del sito di un indirizzo (come l'ha scritto la persona: si
@@ -442,7 +448,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         passwordViste.push(passwordDi(postaA('gemma.doppia@esempio.it', 'credenziali')[0] || {}));
 
         /* ---------- 5 ---------- */
-        titolo('5. Un\'email che ha gia\' un account e una password (Milano)');
+        titolo('5. Un\'email che ha gia\' un account e una password per un altro evento (Milano): per Napoli un account suo');
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Anna', cognome: 'Bianchi', email: 'anna.bianchi@esempio.it', azienda: 'X' }] });
         vero(postaA('anna.bianchi@esempio.it').length === 0, 'l\'import di Milano non manda email');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
@@ -452,21 +458,26 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         passwordViste.push(pwAnna);
         vero(credAnna.length === 1 && !!pwAnna, 'con «Invia le credenziali» Anna riceve la password di Milano');
         const anna = await iscriviEConferma({ nome: 'Anna', cognome: 'Bianchi', email: 'Anna.Bianchi@esempio.it' });
-        const pAnna = await profiloDi('anna.bianchi@esempio.it');
-        vero(anna.corpo.ok && pAnna.eventi.indexOf('napoli-2026') >= 0 && pAnna.eventi.indexOf('milano-2026') >= 0, 'dal modulo di Napoli: Napoli si aggiunge al suo account (lo stesso)');
+        const pAnna = await profiloDi('anna.bianchi@esempio.it', 'napoli-2026');
+        const pAnnaMilano = await profiloDi('anna.bianchi@esempio.it', 'milano-2026');
+        vero(anna.corpo.ok && pAnna && pAnnaMilano && pAnna.uid !== pAnnaMilano.uid && pAnna.eventi.join() === 'napoli-2026' && pAnnaMilano.eventi.join() === 'milano-2026',
+            'dal modulo di Napoli: per Napoli un account suo (ogni evento i suoi partecipanti); quello di Milano resta solo di Milano');
         const credAnnaNapoli = postaA('anna.bianchi@esempio.it', 'credenziali').slice(1);
         const pwAnnaNapoli = credAnnaNapoli.length ? passwordDi(credAnnaNapoli[0]) : '';
         passwordViste.push(pwAnnaNapoli);
         vero(credAnnaNapoli.length === 1 && postaA('anna.bianchi@esempio.it', 'iscritto-anche').length === 0, 'arrivano le credenziali di Napoli (UNA email), nessun avviso «Sei iscritto anche a...»');
         vero(credAnnaNapoli.length === 1 && /^Le tue credenziali per la diretta - Next Generation Business 2026 · Napoli$/.test(credAnnaNapoli[0].oggetto)
-            && !!pwAnnaNapoli && pwAnnaNapoli !== pwAnna && credAnnaNapoli[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0
+            && !!pwAnnaNapoli && pwAnnaNapoli !== pwAnna && credAnnaNapoli[0].testo.indexOf('Avevi già ricevuto') < 0 && credAnnaNapoli[0].testo.indexOf('sostituisce') < 0
             && credAnnaNapoli[0].testo.indexOf('vai su ' + C.linkDiretta() + '?e=napoli-2026, scrivi la tua email anna.bianchi@esempio.it') >= 0,
-        '«Le tue credenziali per la diretta - <Napoli>»: una password nuova, «vai su .../diretta/?e=napoli-2026» e la nota che quella di Milano non vale più');
+        '«Le tue credenziali per la diretta - <Napoli>»: la password del suo account di Napoli, «vai su .../diretta/?e=napoli-2026», nessuna nota su altre password');
         vero(pAnna.invii['napoli-2026'].stato === 'inviata' && pAnna.invii['napoli-2026'].tipo === 'credenziali', 'sulla voce di Napoli: inviata, tipo "credenziali"');
-        vero((await entra('anna.bianchi@esempio.it', pwAnna)).stato === 401 && (await entra('anna.bianchi@esempio.it', pwAnnaNapoli)).stato === 200,
-            'la password di Milano non vale più, quella nuova sì (una password per tutti gli eventi)');
+        const entraMilanoAnna = await entra('anna.bianchi@esempio.it', pwAnna);
+        const entraNapoliAnna = await entra('anna.bianchi@esempio.it', pwAnnaNapoli);
+        vero(entraMilanoAnna.stato === 200 && entraMilanoAnna.idEvento === 'milano-2026' && entraNapoliAnna.stato === 200 && entraNapoliAnna.idEvento === 'napoli-2026',
+            'con la password di Milano entra a Milano, con quella di Napoli a Napoli: due account distinti, nessuna password cambiata');
         const claimsAnna = ((await ctx.auth.getUser(pAnna.uid)).customClaims || {}).eventi || [];
-        vero(claimsAnna.indexOf('napoli-2026') >= 0 && claimsAnna.indexOf('milano-2026') >= 0, 'i permessi del suo account comprendono Napoli e Milano');
+        const claimsAnnaMilano = ((await ctx.auth.getUser(pAnnaMilano.uid)).customClaims || {}).eventi || [];
+        vero(claimsAnna.join() === 'napoli-2026' && claimsAnnaMilano.join() === 'milano-2026', 'i permessi: l\'account di Napoli solo Napoli, quello di Milano solo Milano');
         await iscriviEConferma({ nome: 'Anna', cognome: 'Bianchi', email: 'anna.bianchi@esempio.it' });
         vero(postaA('anna.bianchi@esempio.it').length === 2, 'iscritta e confermata di nuovo: niente (le credenziali di Napoli partono una volta sola)');
 
@@ -474,24 +485,29 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         titolo('6. Un\'email caricata dal file e mai raggiunta');
         await D.crea(ctx, { idEvento: 'napoli-2026', righe: [{ riga: 2, nome: 'Bruno', cognome: 'Verdi', email: 'bruno.verdi@esempio.it' }] });
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Bruno', cognome: 'Verdi', email: 'bruno.verdi@esempio.it' }] });
-        vero((await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'da inviare' && postaA('bruno.verdi@esempio.it').length === 0, 'caricato dal file (Napoli e Milano): "da inviare", nessuna email');
+        const pBrunoN = await profiloDi('bruno.verdi@esempio.it', 'napoli-2026');
+        const pBrunoM = await profiloDi('bruno.verdi@esempio.it', 'milano-2026');
+        vero(pBrunoN.invii['napoli-2026'].stato === 'da inviare' && pBrunoM.invii['milano-2026'].stato === 'da inviare' && pBrunoN.uid !== pBrunoM.uid && postaA('bruno.verdi@esempio.it').length === 0,
+            'caricato dal file (Napoli e Milano): due account, uno per evento, «da inviare», nessuna email');
         await iscrivi({ nome: 'Bruno', cognome: 'Verdi', email: 'bruno.verdi@esempio.it' });
-        vero(postaA('bruno.verdi@esempio.it').length === 0 && (await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'da inviare',
+        vero(postaA('bruno.verdi@esempio.it').length === 0 && (await profiloDi('bruno.verdi@esempio.it', 'napoli-2026')).invii['napoli-2026'].stato === 'da inviare',
             'si iscrive anche dal modulo: ancora niente (aspetta il clic), e per il gestore resta «da inviare»');
         await conferma('bruno.verdi@esempio.it');
         const credBruno = postaA('bruno.verdi@esempio.it', 'credenziali');
         passwordViste.push(passwordDi(credBruno[0] || {}));
-        vero(credBruno.length === 1 && (await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'inviata', 'conferma il suo indirizzo: riceve le credenziali di Napoli (la sua prima password)');
+        vero(credBruno.length === 1 && (await profiloDi('bruno.verdi@esempio.it', 'napoli-2026')).invii['napoli-2026'].stato === 'inviata', 'conferma il suo indirizzo: riceve le credenziali di Napoli (la sua prima password)');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         const credBrunoMilano = postaA('bruno.verdi@esempio.it', 'credenziali').slice(1);
         const pwBrunoMilano = passwordDi(credBrunoMilano[0] || {});
         passwordViste.push(pwBrunoMilano);
         vero(credBrunoMilano.length === 1 && postaA('bruno.verdi@esempio.it', 'iscritto-anche').length === 0
-            && credBrunoMilano[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0 && credBrunoMilano[0].html.indexOf('/diretta/?e=milano-2026"') >= 0,
-            'poi il gestore manda le credenziali di Milano: a lui quelle di Milano, con una password nuova, il collegamento a Milano e la nota che quella di Napoli non vale più');
-        vero((await entra('bruno.verdi@esempio.it', passwordDi(credBruno[0] || {}))).stato === 401 && (await entra('bruno.verdi@esempio.it', pwBrunoMilano)).stato === 200,
-            'la password di Napoli non vale più, quella di Milano sì');
+            && credBrunoMilano[0].testo.indexOf('Avevi già ricevuto') < 0 && credBrunoMilano[0].html.indexOf('/diretta/?e=milano-2026"') >= 0,
+            'poi il gestore manda le credenziali di Milano: a lui quelle del suo account di Milano, con il collegamento a Milano (nessuna nota: quella di Napoli resta valida)');
+        const brunoN = await entra('bruno.verdi@esempio.it', passwordDi(credBruno[0] || {}));
+        const brunoM = await entra('bruno.verdi@esempio.it', pwBrunoMilano);
+        vero(brunoN.stato === 200 && brunoN.idEvento === 'napoli-2026' && brunoM.stato === 200 && brunoM.idEvento === 'milano-2026',
+            'la password di Napoli porta a Napoli, quella di Milano a Milano: account distinti, nessuna password cambiata');
 
         /* ---------- 7 ---------- */
         titolo('7. Quando non si fa niente');
@@ -595,7 +611,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' }] });
         await A.passwordDimenticata(ctx, { email: ' Rita.Reset@esempio.it', ip: '10.62.0.1' });
         const resetRita = postaA('rita.reset@esempio.it', 'reimpostazione');
-        let pRita = await profiloDi('rita.reset@esempio.it');
+        let pRita = await profiloDi('rita.reset@esempio.it', 'milano-2026');
         vero(resetRita.length === 1 && postaA('rita.reset@esempio.it', 'credenziali').length === 0 && pRita.invii['milano-2026'].stato === 'da inviare'
             && pRita.resetInviato && Date.now() - pRita.resetInviato.toMillis() < 60000,
         'caricata a Milano (credenziali non ancora inviate), chiede «Password dimenticata?»: il collegamento parte e sul profilo resta resetInviato');
@@ -606,7 +622,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(sceglie.status === 200 && (await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.2')).stato === 200, 'sceglie la sua password (reimposta.html) ed entra');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
-        pRita = await profiloDi('rita.reset@esempio.it');
+        pRita = await profiloDi('rita.reset@esempio.it', 'milano-2026');
         const credRitaMilano = postaA('rita.reset@esempio.it', 'credenziali');
         const pwRitaMilano = passwordDi(credRitaMilano[0] || {});
         passwordViste.push(pwRitaMilano);
@@ -620,10 +636,12 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const credRitaNapoli = postaA('rita.reset@esempio.it', 'credenziali').slice(1);
         const pwRitaNapoli = passwordDi(credRitaNapoli[0] || {});
         passwordViste.push(pwRitaNapoli);
+        const ritaNapoli = await entra('rita.reset@esempio.it', pwRitaNapoli, '10.62.0.5');
+        const ritaMilano = await entra('rita.reset@esempio.it', pwRitaMilano, '10.62.0.8');
         vero(credRitaNapoli.length === 1 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 0
-            && credRitaNapoli[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0 && credRitaNapoli[0].html.indexOf('/diretta/?e=napoli-2026"') >= 0
-            && (await entra('rita.reset@esempio.it', pwRitaNapoli, '10.62.0.5')).stato === 200,
-        'e dal modulo di Napoli (iscritta e confermata): le credenziali di Napoli, con il loro collegamento e una password nuova (quella di Milano non vale più)');
+            && credRitaNapoli[0].testo.indexOf('Avevi già ricevuto') < 0 && credRitaNapoli[0].testo.indexOf('sostituisce') < 0 && credRitaNapoli[0].html.indexOf('/diretta/?e=napoli-2026"') >= 0
+            && ritaNapoli.stato === 200 && ritaNapoli.idEvento === 'napoli-2026' && ritaMilano.stato === 200 && ritaMilano.idEvento === 'milano-2026',
+        'e dal modulo di Napoli (iscritta e confermata): le credenziali del suo account di Napoli, con il loro collegamento; quella di Milano resta valida per Milano');
         // il "Reinvia" esplicito del gestore (fra due minuti: non e' un doppio clic): di nuovo le credenziali di Milano
         const ctxDopo = Object.assign({}, ctx, { adesso: () => Date.now() + 2 * 60 * 1000 });
         const reRita = await invio.inviaCredenziali(ctxDopo, { uid: pRita.uid, idEvento: 'milano-2026' });
@@ -633,18 +651,19 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(reRita.stato === 'inviata' && credRita.length === 3
             && credRita[2].testo.indexOf('Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.') >= 0,
         '"Reinvia" del gestore: di nuovo le credenziali di Milano, «Questa email sostituisce le precedenti...»');
-        vero((await entra('rita.reset@esempio.it', pwRitaNapoli, '10.62.0.6')).stato === 401 && (await entra('rita.reset@esempio.it', pwRitaNuova, '10.62.0.7')).stato === 200,
-            '...e infatti la password di prima non vale più, quella nuova sì');
+        vero((await entra('rita.reset@esempio.it', pwRitaMilano, '10.62.0.6')).stato === 401 && (await entra('rita.reset@esempio.it', pwRitaNuova, '10.62.0.7')).stato === 200
+            && (await entra('rita.reset@esempio.it', pwRitaNapoli, '10.62.0.9')).stato === 200,
+            '...e infatti la password di Milano di prima non vale più, quella nuova sì; quella di Napoli resta (un altro account)');
 
         /* ---------- 14 ---------- */
-        titolo('14. Email corretta dal gestore, iscrizione dal modulo con quella nuova, poi «Invia le credenziali» di Milano: al nuovo indirizzo, con la nota giusta');
+        titolo('14. Email corretta dal gestore, iscrizione dal modulo con quella nuova, poi «Invia le credenziali» di Milano: al nuovo indirizzo, ogni evento il suo account');
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Ugo', cognome: 'Cambio', email: 'ugo.vecchia@esempio.it' }] });
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         const pUgo = await profiloDi('ugo.vecchia@esempio.it');
         vero(postaA('ugo.vecchia@esempio.it', 'credenziali').length === 1, 'le credenziali di Milano vanno all\'indirizzo vecchio (sbagliato)');
         await D.operazionePartecipante(ctx, { uid: pUgo.uid, idEvento: 'milano-2026', operazione: 'correggi', nome: 'Ugo', cognome: 'Cambio', azienda: '', email: 'ugo.nuova@esempio.it' });
-        vero((await profiloDi('ugo.nuova@esempio.it')).invii['milano-2026'].stato === 'da inviare', 'il gestore corregge l\'email: le credenziali di Milano tornano «da inviare»');
+        vero((await profiloDi('ugo.nuova@esempio.it', 'milano-2026')).invii['milano-2026'].stato === 'da inviare', 'il gestore corregge l\'email: le credenziali di Milano tornano «da inviare»');
         await iscriviEConferma({ nome: 'Ugo', cognome: 'Cambio', email: 'ugo.nuova@esempio.it' });
         const credUgo = postaA('ugo.nuova@esempio.it', 'credenziali');
         const pwUgo = passwordDi(credUgo[0] || {});
@@ -652,19 +671,21 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(credUgo.length === 1 && (await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.1')).stato === 200, 'Ugo si iscrive a Napoli dal modulo con l\'indirizzo nuovo e lo conferma: la password (la prima per quella casella), ed entra');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
-        const pUgoDopo = await profiloDi('ugo.nuova@esempio.it');
+        const pUgoDopo = await profiloDi('ugo.nuova@esempio.it', 'milano-2026');
         const credUgoMilano = postaA('ugo.nuova@esempio.it', 'credenziali').slice(1);
         const pwUgoMilano = passwordDi(credUgoMilano[0] || {});
         passwordViste.push(pwUgoMilano);
         vero(credUgoMilano.length === 1 && postaA('ugo.nuova@esempio.it', 'iscritto-anche').length === 0
             && pUgoDopo.invii['milano-2026'].stato === 'inviata' && pUgoDopo.invii['milano-2026'].tipo === 'credenziali'
-            && credUgoMilano[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0 && credUgoMilano[0].testo.indexOf('Questa email sostituisce le precedenti') < 0,
-        'poi il gestore rimanda le credenziali di Milano: all\'indirizzo nuovo le credenziali di Milano, con la nota sulla password di Napoli (non su quella partita al vecchio indirizzo)');
-        vero((await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.2')).stato === 401 && (await entra('ugo.nuova@esempio.it', pwUgoMilano, '10.63.0.3')).stato === 200,
-            '...la password di Napoli non vale più, quella nuova sì');
+            && credUgoMilano[0].testo.indexOf('Avevi già ricevuto') < 0 && credUgoMilano[0].testo.indexOf('sostituisce') < 0,
+        'poi il gestore rimanda le credenziali di Milano: all\'indirizzo nuovo quelle del suo account di Milano, senza note (quella partita al vecchio indirizzo non conta)');
+        const ugoN = await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.2');
+        const ugoM = await entra('ugo.nuova@esempio.it', pwUgoMilano, '10.63.0.3');
+        vero(ugoN.stato === 200 && ugoN.idEvento === 'napoli-2026' && ugoM.stato === 200 && ugoM.idEvento === 'milano-2026',
+            '...la password di Napoli porta a Napoli, quella di Milano a Milano (due account)');
 
         /* ---------- 15 ---------- */
-        titolo('15. La stessa email per due persone: la seconda non entra nell\'account della prima');
+        titolo('15. La stessa email per due persone dello stesso evento: la seconda non entra nell\'account della prima (in eventi diversi, due account)');
         const INFO = 'info@studio-esempio.it';
         await iscriviEConferma({ nome: 'Carla', cognome: 'Prima', email: INFO });
         const pInfo = await profiloDi(INFO);
@@ -700,13 +721,15 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         passwordViste.push(passwordDi(postaA('segreteria@esempio.it', 'credenziali')[0] || {}));
         await iscrivi({ nome: 'Luisa', cognome: 'Verdi', email: 'segreteria@esempio.it' });
-        const pSegr = await profiloDi('segreteria@esempio.it');
+        const pSegr = await profiloDi('segreteria@esempio.it', 'milano-2026');
+        const pLuisa = await profiloDi('segreteria@esempio.it', 'napoli-2026');
         vero(pSegr.nome === 'Mario' && pSegr.eventi.join() === 'milano-2026' && postaA('segreteria@esempio.it').length === 1
             && ((await ctx.auth.getUser(pSegr.uid)).customClaims || {}).eventi.join() === 'milano-2026',
-        'Luisa Verdi con la segreteria@ di Mario Rossi (Milano): Napoli NON si aggiunge all\'account di Mario, nessuna email, permessi invariati');
+        'Luisa Verdi con la segreteria@ di Mario Rossi (Milano): l\'account di Mario non cambia (solo Milano, permessi invariati), nessuna email');
+        vero(pLuisa && pLuisa.uid !== pSegr.uid && pLuisa.nome === 'Luisa' && pLuisa.eventi.join() === 'napoli-2026' && pLuisa.invii['napoli-2026'].stato === 'da confermare',
+            '...e Luisa ha il suo account di Napoli (ogni evento i suoi partecipanti): «da confermare», la password al clic');
         daVed = await righeNapoli();
-        const rigaLuisa = daVed.find(r => r.nome === 'Luisa');
-        vero(rigaLuisa && rigaLuisa.motivo === 'email-condivisa' && rigaLuisa.esistente === 'Mario Rossi', '...e c\'e\' la sua riga «da verificare» (account di Mario Rossi)');
+        vero(!daVed.some(r => r.nome === 'Luisa'), '...nessuna riga «da verificare» per lei: un\'email di un altro evento non e\' un problema');
         // «Segna come vista»
         const arch = await I.archiviaDaVerificare(ctx, { idEvento: 'napoli-2026', id: rigaLuigi.id }, 'gestore@prova.it');
         const docArch = (await ctx.db.collection('daVerificare').doc(rigaLuigi.id).get()).data();
@@ -715,7 +738,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             '«Segna come vista»: la riga esce dall\'elenco (resta, archiviata, con chi l\'ha segnata)');
         const ancoraArch = await I.archiviaDaVerificare(ctx, { idEvento: 'napoli-2026', id: rigaLuigi.id }, 'altro@prova.it');
         let sbagliato = null, malformato = null;
-        try { await I.archiviaDaVerificare(ctx, { idEvento: 'milano-2026', id: rigaLuisa.id }, 'gestore@prova.it'); } catch (e) { sbagliato = e; }
+        try { await I.archiviaDaVerificare(ctx, { idEvento: 'milano-2026', id: rigaLuigi.id }, 'gestore@prova.it'); } catch (e) { sbagliato = e; }
         try { await I.archiviaDaVerificare(ctx, { idEvento: 'napoli-2026', id: '../indirizzi/x' }, 'gestore@prova.it'); } catch (e) { malformato = e; }
         vero(ancoraArch.id === rigaLuigi.id && sbagliato && sbagliato.stato === 404 && malformato && malformato.stato === 400,
             'segnata due volte: va bene; la riga di un altro evento: 404; un id non valido: 400');

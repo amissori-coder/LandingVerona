@@ -15,8 +15,14 @@
                     dopo lo stesso tempo, per un'email non iscritta e
                     per una password sbagliata),
                     429 'attendi' (con attesaSecondi), 403 'disattivato',
-                    403 'nessun-evento', 503 'riprova'
-     { azione: 'password-dimenticata', email }
+                    403 'nessun-evento', 403 'altro-evento' (la password
+                    e' quella di un account di un altro evento rispetto
+                    a idEvento: il messaggio dice di quale), 503 'riprova'.
+                    Con la stessa email in piu' eventi (un account per
+                    evento) entra l'account di cui e' la password.
+     { azione: 'password-dimenticata', email, idEvento? }
+         (idEvento: l'evento della pagina, ?e=: si reimposta l'account di
+         quell'evento; senza, tutti gli account dell'email, uno per evento)
          (si accetta anche il vecchio nome del campo, identificativo,
          trattato come email)
          -> sempre { ok, msg } uguale, dopo lo stesso tempo (2,5-2,9 s),
@@ -71,7 +77,7 @@ module.exports = async (req, res) => {
             });
         } else if (azione === 'password-dimenticata') {
             const email = b.email != null && b.email !== '' ? b.email : b.identificativo;
-            risposta = await A.passwordDimenticata(ctx, { email: email, ip: ip });
+            risposta = await A.passwordDimenticata(ctx, { email: email, ip: ip, idEvento: b.idEvento });
         } else if (azione === 'gestore-accesso') {
             risposta = await A.gestoreAccesso(ctx, { email: b.email, ip: ip });
         } else if (azione === 'aggiorna-permessi') {

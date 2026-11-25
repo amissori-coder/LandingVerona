@@ -7,9 +7,15 @@
    - ENTRA: email + password -> token personalizzato di Firebase.
      La persona scrive l'email con cui si e' iscritta (maiuscole e spazi
      prima e dopo non contano: lib/diretta-email.js, normalizzaEmail) e la
-     password che le abbiamo mandato. Dietro, l'email porta all'uid
-     (indirizzi/{email}) e l'uid all'email TECNICA dell'account Auth, che
-     nessuno vede e che dall'email NON si ricava (DECISIONI D1). La
+     password che le abbiamo mandato. Dietro, l'email porta agli account
+     (indirizzi/{email}: uno per evento, vedi UN EVENTO, I SUOI ACCOUNT in
+     lib/diretta-dati.js) e ogni uid all'email TECNICA dell'account Auth,
+     che nessuno vede e che dall'email NON si ricava (DECISIONI D1). Con
+     piu' account (la stessa email in piu' eventi) la password si prova
+     su ciascuno, prima su quello dell'evento del link (&e=): entra
+     l'account di cui e' la password. Se e' l'account di un ALTRO evento
+     rispetto al link, non si entra e lo si dice (403 'altro-evento'): la
+     pagina non apre mai un evento diverso da quello dell'invito. La
      password la verifica Google (Identity Toolkit, chiamata dal server):
      noi non la vediamo passare in nessun archivio e non la scriviamo mai.
      Il vecchio campo `nomeUtente` non si accetta piu'.
@@ -131,6 +137,7 @@ const TETTO_LINK_VIDEO = 60;              // link firmati del video all'ora, per
 
 const MSG_CREDENZIALI = 'Email o password non corretti.';
 const MSG_DISATTIVATO = 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
+const RE_ID_EVENTO_ACCESSO = /^[a-z0-9][a-z0-9-]{2,40}$/;
 const MSG_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco ricevi un\'email con il collegamento per scegliere una nuova password. '
     + 'Controlla anche nella cartella Spam o Promozioni.';
 const MSG_GESTORE = 'Se l\'indirizzo è tra i gestori, ti abbiamo scritto.';
@@ -465,9 +472,17 @@ async function verificaEdEntra(ctx, ingresso, { t0, email, chiave, password, rif
     const pren = await prenota(ctx, rif);
     if (pren.bloccatoPerMs) throw attendi(pren.bloccatoPerMs);
 
-    const uid = snapInd && snapInd.exists ? String(snapInd.data().uid || '') : '';
-    // email non iscritta: niente Google (il tempo lo pareggia tempoMinimo)
-    const verifica = uid ? await verificaPassword(ctx, uid, password, chiave) : { esito: 'fallita' };
+    /* Gli account di questa email (uno per evento), quello dell'evento del
+       link per primo: entra quello di cui e' la password. Email non
+       iscritta: niente Google (il tempo lo pareggia tempoMinimo). */
+    const linkEvento = RE_ID_EVENTO_ACCESSO.test(String(ingresso.idEvento || '')) ? String(ingresso.idEvento) : '';
+    const candidati = snapInd && snapInd.exists ? D.uidDellEmail(snapInd.data(), linkEvento) : [];
+    let uid = '';
+    let verifica = { esito: 'fallita' };
+    for (const u of candidati) {
+        verifica = await verificaPassword(ctx, u, password, chiave);
+        if (verifica.esito !== 'fallita') { uid = u; break; }
+    }
 
     if (verifica.esito === 'fallita') {
         await chiudiRete(ctx, rete, true);
@@ -500,6 +515,15 @@ async function verificaEdEntra(ctx, ingresso, { t0, email, chiave, password, rif
     if (!p || p.stato !== 'attivo' || (s && s.stato !== 'attivo')) {
         await chiudiTentativi(ctx, rif);
         throw D.errorePubblico(403, 'disattivato', MSG_DISATTIVATO);
+    }
+    /* La password e' di un account che non e' nell'evento del link (le
+       credenziali di un altro evento): non si apre un altro evento al posto
+       di quello dell'invito. Si dice di quale evento sono. */
+    if (linkEvento && Array.isArray(p.eventi) && p.eventi.length && p.eventi.indexOf(linkEvento) < 0) {
+        await chiudiTentativi(ctx, rif);
+        const titoli = await D.titoliEventi(ctx, p.eventi);
+        throw D.errorePubblico(403, 'altro-evento', 'Queste credenziali sono per ' + (titoli.join(', ') || 'un altro evento')
+            + ', non per questa diretta. Entra con l\'email e la password che hai ricevuto per questa diretta (se non le trovi, usa «Password dimenticata?»).');
     }
     const scelta = await D.scegliEvento(ctx, p.eventi, ingresso.idEvento);
     if (!scelta) {
@@ -660,7 +684,7 @@ async function spedisciReimpostazione(ctx, dati, dopoInvio) {
    lib/diretta-invio.js: 'precedente'). Se proprio
    questa scrittura non riesce, il collegamento e' partito lo stesso: lo
    dice il log (senza dati personali). */
-async function passwordDimenticata(ctx, { email, ip }) {
+async function passwordDimenticata(ctx, { email, ip, idEvento }) {
     await aDurataCostante('reimpostazione', async () => {
         const impIp = C.improntaIp(ip);
         if (!await contaInFinestra(ctx, 'resetip_' + impIp, TETTO_RESET_RETE, ORA)) {
@@ -669,35 +693,56 @@ async function passwordDimenticata(ctx, { email, ip }) {
         }
         const scritta = E.normalizzaEmail(String(email == null ? '' : email).slice(0, 400));
         if (!E.emailValida(scritta)) return;
-        const db = ctx.db;
-        const s = await db.collection('indirizzi').doc(scritta).get();
-        const uid = s.exists ? String(s.data().uid || '') : '';
-        if (!uid) return;
-        const [snapP, snapS] = await db.getAll(db.collection('partecipanti').doc(uid), db.collection('sessioni').doc(uid));
-        const p = snapP.exists ? snapP.data() : null;
-        if (!p || p.stato !== 'attivo' || p.authCreato !== true || (snapS.exists && snapS.data().stato !== 'attivo')) return;
-        // una sola regola per l'indirizzo: quello normalizzato (anche per i profili caricati prima che si salvasse cosi')
-        const indirizzo = p.emailNorm || E.normalizzaEmail(p.email);
-        if (!E.emailValida(indirizzo)) return;
-        if (!await C.consumaGettone(ctx, 'limiti', 'reset_' + uid, { pausaMs: 2 * MINUTO, maxFinestra: 3, finestraMs: GIORNO })) {
-            console.error('[diretta] reimpostazione: limite della persona raggiunto');
-            return;
-        }
-        if (!await contaInFinestra(ctx, 'reset_globale', TETTO_RESET_ORA, ORA)) {
-            console.error('[diretta] reimpostazione: tetto orario complessivo raggiunto');
-            return;
-        }
-        // il collegamento non porta l'email: un indirizzo in un URL finisce nei registri
-        const link = await linkReimpostazione(ctx, C.emailTecnica(uid));
-        await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', email: indirizzo, link: link, perGestore: false }, async () => {
-            try {
-                await db.collection('partecipanti').doc(uid).update({ resetInviato: ctx.Timestamp.fromMillis(ctx.adesso()) });
-            } catch (e) {
-                console.error('[diretta] reimpostazione partita ma non registrata sul profilo: ' + D.perLog(e));
-            }
-        });
+        const s = await ctx.db.collection('indirizzi').doc(scritta).get();
+        if (!s.exists) return;
+        /* Gli account di questa email sono uno per evento (UN EVENTO, I SUOI
+           ACCOUNT in lib/diretta-dati.js): dalla pagina di un evento (&e=) si
+           reimposta quello di quell'evento; senza, o se per quell'evento non
+           ce n'e', tutti, ognuno con la sua email che dice di quale evento e'. */
+        const ev = RE_ID_EVENTO_ACCESSO.test(String(idEvento || '')) ? String(idEvento) : '';
+        const diQuello = ev ? await D.accountDellEvento(ctx, s.data(), ev) : null;
+        const uids = diQuello ? [diQuello.uid] : D.uidDellEmail(s.data()).slice(0, MAX_RESET_EMAIL);
+        for (const uid of uids) await reimpostaAccount(ctx, uid, ev);
     });
     return { msg: MSG_DIMENTICATA };
+}
+const MAX_RESET_EMAIL = 5;
+/* Il collegamento per un account: attivo, completo, entro i suoi limiti
+   (una ogni 2 minuti, 3 al giorno) e nel tetto orario di tutti. L'email
+   dice di quale evento e' l'account (se e' di uno solo, o se e' quello
+   della pagina da cui e' arrivata la richiesta), e il collegamento porta
+   l'evento (&e=), cosi' dopo la nuova password si entra li'. */
+async function reimpostaAccount(ctx, uid, ev) {
+    const db = ctx.db;
+    const [snapP, snapS] = await db.getAll(db.collection('partecipanti').doc(uid), db.collection('sessioni').doc(uid));
+    const p = snapP.exists ? snapP.data() : null;
+    if (!p || p.stato !== 'attivo' || p.authCreato !== true || (snapS.exists && snapS.data().stato !== 'attivo')) return;
+    // una sola regola per l'indirizzo: quello normalizzato (anche per i profili caricati prima che si salvasse cosi')
+    const indirizzo = p.emailNorm || E.normalizzaEmail(p.email);
+    if (!E.emailValida(indirizzo)) return;
+    if (!await C.consumaGettone(ctx, 'limiti', 'reset_' + uid, { pausaMs: 2 * MINUTO, maxFinestra: 3, finestraMs: GIORNO })) {
+        console.error('[diretta] reimpostazione: limite della persona raggiunto');
+        return;
+    }
+    if (!await contaInFinestra(ctx, 'reset_globale', TETTO_RESET_ORA, ORA)) {
+        console.error('[diretta] reimpostazione: tetto orario complessivo raggiunto');
+        return;
+    }
+    const eventi = Array.isArray(p.eventi) ? p.eventi.filter(x => RE_ID_EVENTO_ACCESSO.test(String(x))) : [];
+    const suo = ev && eventi.indexOf(ev) >= 0 ? ev : (eventi.length === 1 ? eventi[0] : '');
+    let titoloEvento = '';
+    if (suo) {
+        try { const e = await db.collection('eventi').doc(suo).get(); titoloEvento = e.exists ? String(e.data().titolo || '') : ''; } catch (_) { titoloEvento = ''; }
+    }
+    // il collegamento non porta l'email: un indirizzo in un URL finisce nei registri
+    const link = await linkReimpostazione(ctx, C.emailTecnica(uid), suo ? '&e=' + encodeURIComponent(suo) : '');
+    await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', email: indirizzo, link: link, perGestore: false, titoloEvento: titoloEvento }, async () => {
+        try {
+            await db.collection('partecipanti').doc(uid).update({ resetInviato: ctx.Timestamp.fromMillis(ctx.adesso()) });
+        } catch (e) {
+            console.error('[diretta] reimpostazione partita ma non registrata sul profilo: ' + D.perLog(e));
+        }
+    });
 }
 
 /* gestore-accesso: "primo accesso o password dimenticata" della gestione.

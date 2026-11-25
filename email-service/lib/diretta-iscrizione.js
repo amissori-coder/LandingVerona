@@ -79,13 +79,13 @@
        nell'email); se non partono (posta bloccata, parte del tetto del
        giorno finita) restano in coda e le manda il cron di ogni 5
        minuti;
-     - email che ha gia' un account DELLA STESSA PERSONA (nome e cognome
-       uguali, E.stessaPersona): si aggiunge l'evento, e partono le
-       credenziali di QUESTO evento, con una password nuova e il
-       collegamento alla sua diretta (OGNI EVENTO, LE SUE CREDENZIALI in
-       diretta-invio.js: la password di prima non vale piu', e l'email
-       lo dice). Una volta sola per evento: dalla seconda iscrizione
-       l'evento c'e' gia';
+     - email che ha gia' un account in UN ALTRO evento (della stessa
+       persona o di un'altra): non conta. Ogni evento ha i suoi
+       partecipanti (OGNI EVENTO, I SUOI PARTECIPANTI in diretta-dati.js):
+       per questo evento nasce un account suo, con le sue credenziali e il
+       collegamento alla sua diretta; quello dell'altro evento non si
+       tocca. Una volta sola per evento: dalla seconda iscrizione l'evento
+       c'e' gia';
      - iscrizione ripetuta (gia' nell'evento): niente di nuovo, ne' una
        seconda password ne' una seconda email. Solo chi era stato
        caricato dal file e aspettava ancora le credenziali ('da
@@ -121,7 +121,9 @@
    scheda Partecipanti: «Iscrizioni dal modulo da verificare»). Due casi
    in cui la diretta NON fa niente da sola, ma non deve nemmeno tacere:
      - 'email-condivisa': l'email ha gia' un account di UN'ALTRA persona
-       (due colleghi con info@studio.it). Unire la seconda persona
+       IN QUESTO EVENTO (due colleghi con info@studio.it iscritti allo
+       stesso evento; in eventi diversi sono due account distinti e non
+       e' un problema: OGNI EVENTO, I SUOI PARTECIPANTI). Unire la seconda persona
        all'account della prima vorrebbe dire darle l'accesso (e le
        presenze, l'esportazione per gli attestati) a nome di un altro:
        l'account esistente non si tocca e non parte niente;
@@ -311,12 +313,10 @@ function pulito(v, max) {
    massimo si conta un'iscrizione in piu' o in meno: la decisione vera la
    prende la transazione. -> { invio, nellEvento, daConfermare } */
 async function situazione(ctx, idEvento, emailNorm, persona) {
-    const ind = await ctx.db.collection('indirizzi').doc(emailNorm).get();
-    const uid = ind.exists ? String(ind.data().uid || '') : '';
-    if (!uid) return { invio: true, nellEvento: false };
-    const p = await ctx.db.collection('partecipanti').doc(uid).get();
-    if (!p.exists) return { invio: true, nellEvento: false };
-    const d = p.data();
+    // solo l'account di questa email PER QUESTO EVENTO (OGNI EVENTO, I SUOI PARTECIPANTI)
+    const acc = await D.accountDiEmailPerEvento(ctx, emailNorm, idEvento);
+    if (!acc || !acc.snap.exists) return { invio: true, nellEvento: false };
+    const d = acc.snap.data();
     if (!E.stessaPersona(persona, d)) return { invio: false, nellEvento: false };
     if (!(Array.isArray(d.eventi) && d.eventi.indexOf(idEvento) >= 0)) return { invio: true, nellEvento: false };
     const v = (d.invii || {})[idEvento];
@@ -654,8 +654,9 @@ async function ritiraDaModulo(ctx, dati) {
     const cognome = pulito(d.cognome, 80);
     const emailNorm = E.normalizzaEmail(String(d.email == null ? '' : d.email).slice(0, 400));
     if (!E.emailValida(emailNorm)) return { esito: 'non-iscritto', idEvento: idEvento };
-    const ind = await ctx.db.collection('indirizzi').doc(emailNorm).get();
-    const uid = ind.exists ? String(ind.data().uid || '') : '';
+    // l'account di questa email per questo evento: quelli degli altri eventi non si toccano
+    const acc = await D.accountDiEmailPerEvento(ctx, emailNorm, idEvento);
+    const uid = acc ? acc.uid : '';
     if (!uid) return { esito: 'non-iscritto', idEvento: idEvento };
     const rifP = ctx.db.collection('partecipanti').doc(uid);
     const rifS = ctx.db.collection('sessioni').doc(uid);

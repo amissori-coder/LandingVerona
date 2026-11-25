@@ -1,5 +1,5 @@
 /* ============================================================
-   PROVE - nessun account doppio: un'email = un account
+   PROVE - nessun account doppio: un'email = un account PER EVENTO
    ------------------------------------------------------------
        node doppioni.prova.js [--firestore 8180] [--auth 9180]
 
@@ -25,17 +25,21 @@
    4. Tre caricamenti CONTEMPORANEI (lo stesso file due volte e un terzo
       file con persone in comune): zero account doppi, controllando
       indirizzi, partecipanti e gli utenti di Firebase Auth (listUsers).
-   5. L'email condivisa da persone diverse: nel file (due colleghi con
-      info@) e rispetto a un account gia' registrato con un altro nome.
-      L'anteprima la segnala da correggere e 'crea' la rifiuta lo stesso
-      (nessun account aggiunto a una persona sbagliata).
-   6. Una persona gia' presente aggiunta a un secondo evento: nessun
-      account nuovo, claims aggiornati con i due eventi, credenziali
-      "da inviare" (nessuna password nuova qui: la decide l'invio).
+   5. L'email condivisa da persone diverse DELLO STESSO EVENTO: nel file
+      (due colleghi con info@) e rispetto a un account gia' nell'evento
+      con un altro nome. L'anteprima la segnala da correggere e 'crea'
+      la rifiuta lo stesso (nessun account aggiunto a una persona
+      sbagliata). La stessa email di un account di UN ALTRO evento non e'
+      un problema: per questo evento e' una persona nuova.
+   6. Le stesse persone in un secondo evento: OGNI EVENTO, I SUOI
+      PARTECIPANTI. Account nuovi per Milano (uid diversi da quelli di
+      Napoli), claims con il solo evento di ognuno, gli account di Napoli
+      intatti; indirizzi/{email}.perEvento porta a tutti e due.
    7. La correzione dell'email: la prenotazione si sposta, i contatori
       dei tentativi del vecchio e del nuovo indirizzo (e solo quelli) si
       cancellano, le credenziali tornano "da inviare"; un'email di
-      un'altra persona e' rifiutata.
+      un'altra persona dello stesso evento e' rifiutata, quella di una
+      persona di un altro evento no.
    8. Un account rimasto a meta' (Auth non creato) si completa
       ricaricando il file, con lo stesso uid; le righe non valide danno
       errori con il codice dell'anteprima.
@@ -44,8 +48,8 @@
       normalizzata, una email = un account, l'email di un'altra persona
       rifiutata con 409 e il suo nome, errori sul campo, account
       disattivato), due aggiunte insieme = un account, una persona di un
-      altro evento aggiunta senza account nuovo; origine «manuale», chi e
-      quando sulla voce dell'evento.
+      altro evento: un account nuovo per questo evento; origine
+      «manuale», chi e quando sulla voce dell'evento.
    E sempre: l'import NON manda email (la posta finta resta vuota), e
    nessuno scrive piu' nomi utente (ne' nomiUtente ne' il campo sul
    profilo). Alla fine: "account creati: N, email uniche: N".
@@ -201,10 +205,17 @@ async function controllaTutto(ctx, titolo) {
     const partecipantiAuth = utenti.filter(u => C.eEmailTecnica(u.email));
     const emailAuth = new Set(partecipantiAuth.map(u => u.email));
     console.log('\n' + titolo);
-    vero(email.size === P.length, 'partecipanti: nessuna email doppia (' + P.length + ' persone, ' + email.size + ' email)');
+    // un account per email PER EVENTO: in ogni evento nessuna email doppia
+    const coppie = P.flatMap(p => (p.eventi || []).map(ev => ev + '|' + p.emailNorm));
+    vero(new Set(coppie).size === coppie.length, 'partecipanti: in ogni evento nessuna email doppia (' + P.length + ' account, ' + email.size + ' email, ' + coppie.length + ' iscrizioni)');
     vero(P.every(p => p.email === p.emailNorm && E.emailValida(p.emailNorm) && p.emailNorm === E.normalizzaEmail(p.emailNorm)), 'ogni profilo ha l\'email normalizzata e valida (email = emailNorm)');
-    vero(indirizzi.size === P.length && indirizzi.docs.every(d => perUid.has(d.data().uid) && perUid.get(d.data().uid).emailNorm === d.id),
-        'indirizzi: uno per persona, ognuno punta alla persona con quella email (' + indirizzi.size + ')');
+    // indirizzi/{email}: uno per email, con perEvento.{evento} -> l'account di quell'evento
+    const perEmailInd = new Map(indirizzi.docs.map(d => [d.id, d.data()]));
+    const portaA = (ind, p) => !!ind && ((ind.perEvento || {})[p.eventi[0]] === p.id || ind.uid === p.id);
+    vero(indirizzi.size === email.size
+        && indirizzi.docs.every(d => Object.values(d.data().perEvento || {}).concat(d.data().uid ? [d.data().uid] : []).every(u => perUid.has(u) && perUid.get(u).emailNorm === d.id))
+        && P.filter(p => (p.eventi || []).length).every(p => portaA(perEmailInd.get(p.emailNorm), p)),
+        'indirizzi: uno per email, e porta all\'account di ogni evento (perEvento) (' + indirizzi.size + ')');
     vero(nomiUtente.size === 0 && P.every(p => p.nomeUtente === undefined), 'nessun nome utente: nomiUtente vuota e nessun profilo con il campo nomeUtente');
     vero(partecipantiAuth.length === P.length && partecipantiAuth.every(u => perUid.has(u.uid) && u.email === C.emailTecnica(u.uid)),
         'Firebase Auth: un account per persona, con l\'email tecnica ricavata dall\'uid (' + partecipantiAuth.length + ' account)');
@@ -319,30 +330,35 @@ async function controllaTutto(ctx, titolo) {
         uguale(dopo.persone - prima.persone, emailNuove.size, 'persone in piu\' = email nuove');
 
         /* 5. l'email condivisa da persone diverse */
-        console.log('\n5. La stessa email per persone diverse: da correggere prima di creare');
+        console.log('\n5. La stessa email per persone diverse dello stesso evento: da correggere prima di creare');
         const condivise = [
             { riga: 2, nome: 'Paolo', cognome: 'Gialli', email: 'info@ufficio-gialli.it', azienda: 'Gialli srl' },
             { riga: 3, nome: 'Pia', cognome: 'Gialli', email: 'INFO@ufficio-gialli.it', azienda: 'Gialli srl' },
-            { riga: 4, nome: 'Dario', cognome: 'Blu', email: 'carla.neri@prova.it', azienda: '' }   // e' l'email di Carla Neri
+            { riga: 4, nome: 'Dario', cognome: 'Blu', email: 'carla.neri@prova.it', azienda: '' }   // e' l'email di Carla Neri (Napoli)
         ];
         const anCond = await dati.anteprima(ctx, { idEvento: 'milano-2026', righe: condivise });
-        uguale(anCond.righe.map(r => r.esito), ['email-condivisa', 'email-condivisa', 'email-condivisa'], 'l\'anteprima segnala tutte e tre le righe come "email-condivisa"');
-        vero(anCond.pronto === false && anCond.conteggi.daCorreggere === 3 && anCond.righe.every(r => !r.crea), 'e non e\' pronta: «Crea gli account» resta spento');
-        vero(/Carla Neri/.test(anCond.righe[2].problemi.find(p => p.codice === 'email-condivisa').testo), 'la riga con l\'email di un altro account dice a chi e\' registrata');
+        uguale(anCond.righe.map(r => r.esito), ['email-condivisa', 'email-condivisa', 'nuovo'],
+            'Milano: le due righe con la stessa email sono "email-condivisa"; Dario Blu con l\'email di Carla Neri (account di NAPOLI) e\' nuovo: ogni evento ha i suoi partecipanti');
+        vero(anCond.pronto === false && anCond.conteggi.daCorreggere === 2 && !anCond.righe[0].crea && !anCond.righe[1].crea, 'e non e\' pronta: «Crea gli account» resta spento');
+        const anNapoli = await dati.anteprima(ctx, { idEvento: 'napoli-2026', righe: [condivise[2]] });
+        vero(anNapoli.righe[0].esito === 'email-condivisa' && /In questo evento con questa email c'è già Carla Neri/.test(anNapoli.righe[0].problemi.find(p => p.codice === 'email-condivisa').testo),
+            'a Napoli (lo stesso evento di Carla Neri) la stessa riga e\' "email-condivisa", e dice chi c\'e\' gia\'');
         const utentiPrimaCond = (await tuttiGliUtenti(ctx)).length;
-        const forzaCond = (await dati.crea(ctx, { idEvento: 'milano-2026', righe: condivise })).risultati;
-        uguale(forzaCond.map(r => r.esito + (r.codice ? ':' + r.codice : '')), ['creato', 'errore:email-condivisa', 'errore:email-condivisa'],
-            'mandate lo stesso al servizio: la prima crea, le altre sono rifiutate (email-condivisa)');
+        const forzaCond = (await dati.crea(ctx, { idEvento: 'milano-2026', righe: condivise.slice(0, 2) })).risultati;
+        uguale(forzaCond.map(r => r.esito + (r.codice ? ':' + r.codice : '')), ['creato', 'errore:email-condivisa'],
+            'mandate lo stesso al servizio: la prima crea, la seconda (stessa email, stesso evento) e\' rifiutata (email-condivisa)');
+        const forzaNapoli = (await dati.crea(ctx, { idEvento: 'napoli-2026', righe: [condivise[2]] })).risultati;
+        uguale(forzaNapoli.map(r => r.esito + (r.codice ? ':' + r.codice : '')), ['errore:email-condivisa'], 'Dario Blu mandato a Napoli: rifiutato (l\'email e\' di Carla Neri in quell\'evento)');
         const pCarlaDopo = (await ctx.db.collection('partecipanti').doc(uidCarla[0]).get()).data();
-        vero(pCarlaDopo.eventi.indexOf('milano-2026') < 0, 'Carla Neri NON e\' stata aggiunta a Milano per la riga di Dario Blu');
+        vero(pCarlaDopo.eventi.join() === 'napoli-2026' && pCarlaDopo.nome === 'Carla', 'l\'account di Carla Neri non e\' stato toccato');
         uguale((await tuttiGliUtenti(ctx)).length - utentiPrimaCond, 1, 'Firebase Auth: un solo account nuovo (Paolo)');
         // corretta l'email di Pia (ognuno il suo indirizzo), si crea
         const piaCorretta = await carica(dati, ctx, [condivise[0], Object.assign({}, condivise[1], { email: 'pia@ufficio-gialli.it' })], 'milano-2026');
         uguale(piaCorretta.analisi.righe.map(r => r.esito), ['gia-iscritto', 'nuovo'], 'con l\'email di Pia corretta: Paolo gia\' iscritto, Pia nuova');
         uguale(piaCorretta.risultati.map(r => r.esito), ['creato'], 'e Pia ha il suo account');
 
-        /* 6. persona gia' presente aggiunta a un secondo evento */
-        console.log('\n6. Persone gia\' presenti aggiunte a un secondo evento (Milano)');
+        /* 6. le stesse persone in un secondo evento: account distinti */
+        console.log('\n6. Le stesse persone in un secondo evento (Milano): account distinti');
         const utentiPrimaMilano = (await tuttiGliUtenti(ctx)).length;
         const fileE = [
             { riga: 2, nome: 'Mario', cognome: 'Rossi', email: 'A.Mario0@PROVA.it ', azienda: '' },
@@ -352,17 +368,19 @@ async function controllaTutto(ctx, titolo) {
             { riga: 6, nome: 'Mario', cognome: 'Rossi', email: 'mario.milano@prova.it', azienda: '' }
         ];
         const milanoRis = await carica(dati, ctx, fileE, 'milano-2026');
-        uguale(milanoRis.analisi.righe.map(r => r.esito), ['gia-presente', 'gia-presente', 'gia-presente', 'nuovo', 'nuovo'], 'l\'anteprima riconosce 3 persone gia\' presenti (per email)');
-        vero(milanoRis.analisi.righe.slice(0, 3).every(r => r.problemi.some(p => /nessuna password nuova/.test(p.testo))), 'e dice che non ricevono una password nuova');
-        uguale(milanoRis.risultati.map(r => r.esito), ['aggiunto', 'aggiunto', 'aggiunto', 'creato', 'creato'], 'esiti: 3 aggiunte, 2 nuove');
-        uguale((await tuttiGliUtenti(ctx)).length - utentiPrimaMilano, 2, 'Firebase Auth: solo 2 account nuovi');
+        uguale(milanoRis.analisi.righe.map(r => r.esito), ['nuovo', 'nuovo', 'nuovo', 'nuovo', 'nuovo'], 'l\'anteprima di Milano: tutte persone nuove (le 3 di Napoli contano solo a Napoli)');
+        uguale(milanoRis.risultati.map(r => r.esito), ['creato', 'creato', 'creato', 'creato', 'creato'], 'esiti: 5 account nuovi per Milano');
+        uguale((await tuttiGliUtenti(ctx)).length - utentiPrimaMilano, 5, 'Firebase Auth: 5 account nuovi');
         const uidMario0 = primo.risultati.find(r => r.riga === 2).uid;
-        vero(milanoRis.risultati[0].uid === uidMario0, 'la persona aggiunta ha lo stesso uid di prima');
-        const u0 = await ctx.auth.getUser(uidMario0);
-        uguale((u0.customClaims || {}).eventi, ['milano-2026', 'napoli-2026'], 'claims aggiornati: ["milano-2026", "napoli-2026"]');
-        const p0 = (await ctx.db.collection('partecipanti').doc(uidMario0).get()).data();
-        vero(p0.idEvento === 'milano-2026' && p0.invii['milano-2026'].stato === 'da inviare' && p0.invii['napoli-2026'].stato === 'da inviare',
-            'profilo: evento piu\' recente Milano, credenziali per Milano "da inviare" (partono solo con «Invia le credenziali»)');
+        const uidMario0Milano = milanoRis.risultati[0].uid;
+        vero(uidMario0Milano && uidMario0Milano !== uidMario0, 'la stessa persona a Milano ha un account suo (uid diverso da quello di Napoli)');
+        const [u0, u0m] = await Promise.all([ctx.auth.getUser(uidMario0), ctx.auth.getUser(uidMario0Milano)]);
+        uguale([(u0.customClaims || {}).eventi, (u0m.customClaims || {}).eventi], [['napoli-2026'], ['milano-2026']], 'claims: l\'account di Napoli solo Napoli, quello di Milano solo Milano');
+        const [p0, p0m] = (await ctx.db.getAll(ctx.db.collection('partecipanti').doc(uidMario0), ctx.db.collection('partecipanti').doc(uidMario0Milano))).map(d => d.data());
+        vero(p0.eventi.join() === 'napoli-2026' && !p0.invii['milano-2026'] && p0m.eventi.join() === 'milano-2026' && p0m.idEvento === 'milano-2026' && p0m.invii['milano-2026'].stato === 'da inviare' && !p0m.invii['napoli-2026'],
+            'profili: Napoli com\'era; Milano con le sue credenziali «da inviare» (partono solo con «Invia le credenziali»)');
+        const indMario0 = (await ctx.db.collection('indirizzi').doc('a.mario0@prova.it').get()).data();
+        vero(indMario0.perEvento['napoli-2026'] === uidMario0 && indMario0.perEvento['milano-2026'] === uidMario0Milano, 'indirizzi/{email}.perEvento: Napoli e Milano, ognuno il suo account', JSON.stringify(indMario0));
         const ancora = await carica(dati, ctx, fileE, 'milano-2026');
         uguale(ancora.risultati.length, 0, 'ricaricando il file di Milano: niente da creare');
 
@@ -388,7 +406,7 @@ async function controllaTutto(ctx, titolo) {
         uguale(corr1.partecipante.invio.stato, 'da inviare', 'credenziali gia\' inviate al vecchio indirizzo: tornano "da inviare"');
         const indVecchio = await ctx.db.collection('indirizzi').doc(emailTre).get();
         const indNuovo = await ctx.db.collection('indirizzi').doc(NUOVA).get();
-        vero(!indVecchio.exists && indNuovo.exists && indNuovo.data().uid === tre.uid, 'la prenotazione dell\'email si sposta (vecchia liberata, nuova presa)');
+        vero(!indVecchio.exists && indNuovo.exists && (indNuovo.data().perEvento || {})['napoli-2026'] === tre.uid, 'la prenotazione dell\'email si sposta (vecchia liberata, nuova presa per Napoli)');
         const restiSuoi = await Promise.all(suoi.map(id => ctx.db.collection('tentativi').doc(id).get()));
         const restiVicini = await Promise.all(vicini.map(id => ctx.db.collection('tentativi').doc(id).get()));
         const restiNome = await Promise.all(chiaviSue.map(k => ctx.db.collection('tentativiNome').doc(k).get()));
@@ -400,7 +418,13 @@ async function controllaTutto(ctx, titolo) {
         vero(u3.displayName === 'Maria Rossi' && u3.email === C.emailTecnica(tre.uid), 'Auth: nome visualizzato aggiornato, email tecnica invariata (nessuna sessione chiusa)');
         let occupata = null;
         try { await dati.operazionePartecipante(ctx, { uid: tre.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Maria', cognome: 'Rossi', azienda: '', email: ' A.MARIO0@prova.it' }); } catch (e) { occupata = e; }
-        vero(occupata && occupata.stato === 409 && occupata.codice === 'email-occupata', 'correggere l\'email con quella di un\'altra persona: rifiutato (409 email-occupata)');
+        vero(occupata && occupata.stato === 409 && occupata.codice === 'email-occupata', 'correggere l\'email con quella di un\'altra persona dello stesso evento: rifiutato (409 email-occupata)');
+        // l'email di una persona di un ALTRO evento (Mario Rossi, solo Milano): si puo'
+        const quattro = primo.risultati.find(r => r.riga === 7);
+        const corrAltro = await dati.operazionePartecipante(ctx, { uid: quattro.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Mario', cognome: 'Rossi', azienda: '', email: 'mario.milano@prova.it' });
+        const indMilano = (await ctx.db.collection('indirizzi').doc('mario.milano@prova.it').get()).data();
+        vero(corrAltro.emailCambiata === true && indMilano.perEvento['napoli-2026'] === quattro.uid && indMilano.perEvento['milano-2026'] === milanoRis.risultati[4].uid,
+            'l\'email di una persona di un altro evento (Milano): si puo\', e l\'indirizzo porta a tutti e due gli account', JSON.stringify(indMilano));
         const soloNome = await dati.operazionePartecipante(ctx, { uid: tre.uid, idEvento: 'napoli-2026', operazione: 'correggi', nome: 'Maria', cognome: 'Rossi Bianchi', azienda: 'X' });
         vero(soloNome.emailCambiata === false && soloNome.partecipante.email === NUOVA && soloNome.partecipante.cognome === 'Rossi Bianchi', 'senza email nella richiesta: l\'email resta quella');
         let vuoto = null;
@@ -461,13 +485,15 @@ async function controllaTutto(ctx, titolo) {
         const elenaMano = await mano({ nome: 'Elena', cognome: 'Milanesi', email: 'Elena.Milanesi@prova.it', azienda: 'Milano spa' });
         const pElena = (await ctx.db.collection('partecipanti').doc(elenaMano.partecipante.uid).get()).data();
         const uElena = await ctx.auth.getUser(elenaMano.partecipante.uid);
-        vero(elenaMano.esito === 'aggiunto' && elenaMano.partecipante.origine === 'manuale' && pElena.origine === 'import' && pElena.invii['milano-2026'].origine === undefined
-            && JSON.stringify((uElena.customClaims || {}).eventi.slice().sort()) === '["milano-2026","napoli-2026"]',
-            'una persona registrata per Milano aggiunta a mano a Napoli: stesso account, «a mano» solo per Napoli, claims con i due eventi');
+        const uidElenaMilano = milanoRis.risultati[3].uid;
+        vero(elenaMano.esito === 'creato' && elenaMano.partecipante.uid !== uidElenaMilano && elenaMano.partecipante.origine === 'manuale' && pElena.origine === 'manuale'
+            && JSON.stringify((uElena.customClaims || {}).eventi) === '["napoli-2026"]'
+            && ((await ctx.db.collection('partecipanti').doc(uidElenaMilano).get()).data().eventi || []).join() === 'milano-2026',
+            'una persona registrata per Milano aggiunta a mano a Napoli: un account nuovo per Napoli («a mano»), quello di Milano intatto');
         const condivisaMano = await mano({ nome: 'Giovanni', cognome: 'Altro', email: 'carla.mano@prova.it' });
         vero(condivisaMano && condivisaMano.stato === 409 && condivisaMano.codice === 'email-condivisa'
-            && /Con questa email è già registrato Carla Mano: se è la stessa persona, scrivi il nome come è registrato/.test(condivisaMano.message),
-            'l\'email di un\'altra persona: 409 «email-condivisa» con il nome registrato, niente toccato', condivisaMano && condivisaMano.message);
+            && /^In questo evento con questa email c'è già Carla Mano\./.test(condivisaMano.message),
+            'l\'email di un\'altra persona dello stesso evento: 409 «email-condivisa» con chi c\'e\' gia\', niente toccato', condivisaMano && condivisaMano.message);
         const erroriMano = [
             [{ nome: 'Senza', cognome: 'Email', email: '  ' }, 'email-mancante'],
             [{ nome: 'Email', cognome: 'Sbagliata', email: 'non-una-email' }, 'email-non-valida'],
@@ -483,7 +509,7 @@ async function controllaTutto(ctx, titolo) {
         const disattMano = await mano({ nome: 'Dario', cognome: 'Doppio', email: 'dario.doppio@prova.it' });
         vero(disattMano.esito === 'gia-iscritto' && /Account disattivato/.test(disattMano.motivo), 'un account disattivato: lo dice');
         await dati.operazionePartecipante(ctx, { uid: mc1.partecipante.uid, idEvento: 'napoli-2026', operazione: 'riattiva' });
-        uguale((await tuttiGliUtenti(ctx)).length - utentiPrimaMano, 2, 'Firebase Auth: solo 2 account nuovi (Carla e Dario)');
+        uguale((await tuttiGliUtenti(ctx)).length - utentiPrimaMano, 3, 'Firebase Auth: 3 account nuovi (Carla, Dario ed Elena per Napoli)');
         const elencoMano = await dati.elencoPartecipanti(ctx, 'napoli-2026');
         uguale(elencoMano.filter(p => p.origine === 'manuale').map(p => p.email).sort(), ['carla.mano@prova.it', 'dario.doppio@prova.it', 'elena.milanesi@prova.it'],
             'nell\'elenco di Napoli le tre persone aggiunte a mano hanno origine «manuale»');
