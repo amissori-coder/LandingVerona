@@ -86,7 +86,6 @@ const PRIVACY = 'https://www.iubenda.com/privacy-policy/40996386';
 const MITTENTE = { nome: 'Revilaw S.p.A.', indirizzo: 'Via XX Settembre 9 - 37129 Verona', cf: 'C.F. 04641610235' };
 const MOTIVO = 'Ricevi questa email perché sei iscritto alla partecipazione online dell\'evento: non è una comunicazione promozionale.';
 const MOTIVO_GESTORE = 'Ricevi questa email perché il tuo indirizzo è tra i gestori della diretta di Next Generation Business.';
-const MOTIVO_RELATORE = 'Ricevi questa email perché il tuo indirizzo è indicato come relatore di una diretta di Next Generation Business.';
 // la forma ammessa per la pagina dell'evento (la stessa che controlla il server al salvataggio)
 const PAGINA_VALIDA = /^\/[a-z0-9_\/-]*\/?$/;
 // l'identificativo di un evento (lo stesso controllo del server): solo cosi' entra nel collegamento
@@ -731,28 +730,21 @@ function promemoria(opz) {
    LA REIMPOSTAZIONE DELLA PASSWORD
    Per i partecipanti ricorda l'email con cui si entra (`email`, se
    arriva); per i gestori e' l'accesso alla gestione (entrano anche loro
-   con la loro email, ma il riquadro non serve); per i relatori
-   (perRelatore) l'accesso alla pagina del relatore, dove arrivano le
-   domande dei partecipanti.
+   con la loro email, ma il riquadro non serve).
    ============================================================ */
 function reimpostazione(opz) {
     const o = opz || {};
     const collegamento = linkReimpostazione(o.link);
     const a = contatti(o.assistenza);
-    const relatore = !!o.perRelatore;
-    const gestore = !!o.perGestore || relatore;
+    const gestore = !!o.perGestore;
     const email = gestore ? '' : emailDi(o);
-    const oggetto = relatore
-        ? 'Accesso alla pagina del relatore - Next Generation Business'
-        : (gestore
-            ? 'Accesso alla gestione della diretta - Next Generation Business'
-            : 'Nuova password per la diretta - Next Generation Business');
-    const titolo = relatore ? 'Accesso alla pagina del relatore' : (gestore ? 'Accesso alla gestione della diretta' : 'Scegli una nuova password');
-    const sommario = relatore
-        ? (unaRiga(o.nome) ? 'Gentile ' + unaRiga(o.nome) + ', per' : 'Per') + ' entrare nella pagina del relatore della diretta di Next Generation Business, dove arrivano le domande dei partecipanti, scegli la tua password dal pulsante qui sotto.'
-        : (gestore
-            ? (unaRiga(o.nome) ? 'Gentile ' + unaRiga(o.nome) + ', per' : 'Per') + ' entrare nella gestione della diretta di Next Generation Business scegli la tua password dal pulsante qui sotto.'
-            : saluto(o.nome, o.cognome) + ' abbiamo ricevuto la richiesta di una nuova password per la diretta di Next Generation Business.');
+    const oggetto = gestore
+        ? 'Accesso alla gestione della diretta - Next Generation Business'
+        : 'Nuova password per la diretta - Next Generation Business';
+    const titolo = gestore ? 'Accesso alla gestione della diretta' : 'Scegli una nuova password';
+    const sommario = gestore
+        ? (unaRiga(o.nome) ? 'Gentile ' + unaRiga(o.nome) + ', per' : 'Per') + ' entrare nella gestione della diretta di Next Generation Business scegli la tua password dal pulsante qui sotto.'
+        : saluto(o.nome, o.cognome) + ' abbiamo ricevuto la richiesta di una nuova password per la diretta di Next Generation Business.';
     const fraseValidita = 'Il collegamento vale un\'ora e si può usare una volta sola.';
     const fraseIgnora = gestore
         ? 'Se non hai chiesto tu l\'accesso, ignora questa email: senza il collegamento nessuno può entrare.'
@@ -775,7 +767,7 @@ function reimpostazione(opz) {
             + spazio(18)
             + notaPiccola(FRASE_SPAM)
         )
-        + piede(relatore ? MOTIVO_RELATORE : (gestore ? MOTIVO_GESTORE : MOTIVO), annoDi(o.adesso)));
+        + piede(gestore ? MOTIVO_GESTORE : MOTIVO, annoDi(o.adesso)));
 
     const testo = [
         titolo.toUpperCase(),
@@ -786,7 +778,7 @@ function reimpostazione(opz) {
         fraseValidita + ' ' + fraseIgnora,
         fraseAssistenza(a),
         FRASE_SPAM
-    ].concat(piedeTesto(relatore ? MOTIVO_RELATORE : (gestore ? MOTIVO_GESTORE : MOTIVO))).filter(Boolean).join('\n\n');
+    ].concat(piedeTesto(gestore ? MOTIVO_GESTORE : MOTIVO)).filter(Boolean).join('\n\n');
     return finisci(oggetto, html, testo);
 }
 

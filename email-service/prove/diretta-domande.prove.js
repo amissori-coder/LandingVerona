@@ -1,16 +1,14 @@
 /* ============================================================
    PROVE - le domande al relatore (lib/diretta-domande.js,
    api/diretta-domande.js, le azioni della regia in
-   api/diretta-gestione.js, relatore-accesso in lib/diretta-accesso.js)
+   api/diretta-gestione.js)
    ------------------------------------------------------------
        node prove/diretta-domande.prove.js
 
    Niente da installare, niente emulatori, niente rete: Firestore e
    Firebase Auth sono finti e stanno qui dentro (filtri ==,
    array-contains e >=, transazioni, conteggi), i token sono oggetti
-   gia' "verificati" e la posta non parte. Esce con 1 se qualcosa e'
-   rosso. Dura una decina di secondi (il primo accesso del relatore
-   risponde sempre dopo lo stesso tempo, come quello dei gestori).
+   gia' "verificati". Esce con 1 se qualcosa e' rosso. Dura un attimo.
 
    COSA DIMOSTRANO.
    - IL PARTECIPANTE manda una domanda dalla porta vera: testo ripulito
@@ -22,29 +20,24 @@
      'domande-spente'.
      Nome, cognome, azienda ed email si copiano dal profilo. «mie» rende
      solo le sue domande di quell'evento, senza i dati di nessuno.
-   - IL RELATORE vede tutte le domande del SUO evento, dalla piu'
-     vecchia, con nome, cognome e azienda ma senza email; un altro
-     evento, un account senza il claim, con l'email non verificata (chi
-     si registra da solo), entrato senza password (il token di un
-     partecipante) -> 403; tolto dall'elenco dei relatori -> 403 da
-     subito. La regia (gestore) vede tutto, anche le email e chi ha
-     segnato la risposta.
+   - IL RELATORE e' un partecipante dell'evento segnato dalla regia
+     (scheda Partecipanti, 'relatore-segna'; anche piu' d'uno, al
+     massimo 10; solo chi e' iscritto all'evento), con il token della
+     diretta. Vede tutte le domande del SUO evento, dalla piu' vecchia,
+     con nome, cognome e azienda ma senza email; un altro evento, un
+     partecipante non segnato, un account con email e password che non
+     e' un gestore vero -> 403; account disattivato, tolto dall'evento o
+     segno tolto -> 403 da subito. «mie» dice alla pagina della diretta
+     se chi chiama e' relatore. La regia (gestore) vede tutto, anche le
+     email e chi ha segnato la risposta.
    - «Risposta data»: si segna e si toglie, con chi e quando; ripeterla
      non riscrive; una domanda di un altro evento -> 404; identificativo
      o valore sbagliati -> 400. Il partecipante vede il segno sulle sue.
    - I PARTECIPANTI per il relatore: solo gli attivi, chi e' collegato
-     (segnale negli ultimi 150 secondi), i conteggi; l'email solo alla
-     regia.
-   - I RELATORI dell'evento (scheda Evento): email ripulite e senza
-     doppie, una non valida -> 400 prima di salvare l'evento, al massimo
-     10, evento inesistente -> 404; 'eventi' e 'evento-salva' della
-     gestione li portano con l'evento; «eventi» del relatore: solo i
-     suoi, del gestore tutti.
-   - IL PRIMO ACCESSO DEL RELATORE: risposta sempre uguale e nello
-     stesso tempo; l'email parte solo se l'indirizzo e' fra i relatori;
-     l'account e' quello della sua email vera, verificata, con il claim
-     relatore; chi si era registrato da solo con quell'email perde
-     password e sessioni; un gestore resta gestore (e tiene la password).
+     (segnale negli ultimi 150 secondi), chi e' relatore, i conteggi;
+     l'email solo alla regia.
+   - 'eventi' e 'evento-salva' della gestione portano i relatori con
+     l'evento; «eventi» del relatore: solo i suoi, del gestore tutti.
    - LA PORTA: OPTIONS, GET, azione sconosciuta, senza token.
    ============================================================ */
 'use strict';
@@ -185,21 +178,14 @@ function creaAuth() {
 
 /* ---------- il servizio vero, con Firebase e la posta finti ---------- */
 let ctx = null;
-const posta = [];
 const veroRequire = Module.prototype.require;
 Module.prototype.require = function (nome) {
     if (/diretta-firebase$/.test(nome)) return { contesto: () => ctx };
-    if (/diretta-invio$/.test(nome)) {
-        return {
-            inviaReimpostazione: async (c, o) => { posta.push(Object.assign({}, o)); return { ok: true }; }
-        };
-    }
     return veroRequire.apply(this, arguments);
 };
 process.env.DIRETTA_ADMIN_EMAILS = 'regia@revilaw.it';
 const RADICE = path.join(__dirname, '..');
 const Q = require(path.join(RADICE, 'lib/diretta-domande.js'));
-const A = require(path.join(RADICE, 'lib/diretta-accesso.js'));
 const PORTA = require(path.join(RADICE, 'api/diretta-domande.js'));
 const GESTIONE = require(path.join(RADICE, 'api/diretta-gestione.js'));
 
@@ -224,9 +210,6 @@ function partecipante(m, uid, p) {
     m.docs.set('partecipanti/' + uid, Object.assign({ nome: 'Mario', cognome: 'Rossi', azienda: 'Rossi Srl', email: uid + '@esempio.it', emailNorm: uid + '@esempio.it', stato: 'attivo', eventi: [WEB] }, p || {}));
     m.docs.set('sessioni/' + uid, { stato: 'attivo' });
     m.auth.token.set('tok-' + uid, { uid: uid, email: 'u-' + uid + '@utenti.diretta.invalid', firebase: { sign_in_provider: 'custom' }, eventi: [WEB] });
-}
-function relatoreTok(m, uid, email, extra) {
-    m.auth.token.set('tok-' + uid, Object.assign({ uid: uid, email: email, email_verified: true, relatore: true, firebase: { sign_in_provider: 'password' } }, extra || {}));
 }
 
 /* La porta, chiamata come Vercel: restituisce { stato, corpo } */
@@ -324,34 +307,38 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         partecipante(m, 'p1', { nome: 'Lia', cognome: 'Libera', azienda: 'Delta Servizi' });
         partecipante(m, 'p2', { nome: 'Ugo', cognome: 'Uno', azienda: 'Epsilon', eventi: [WEB, ALTRO] });
         partecipante(m, 'p3', { nome: 'Zeno', cognome: 'Spento', stato: 'disattivato' });
-        relatoreTok(m, 'r1', 'relatore@studio.it');
-        relatoreTok(m, 'r2', 'altro.relatore@studio.it');
-        relatoreTok(m, 'finto', 'relatore@studio.it', { email_verified: false, relatore: undefined });
-        relatoreTok(m, 'senza', 'relatore@studio.it', { relatore: undefined });
+        // i relatori sono partecipanti anche loro, con le credenziali di tutti
+        partecipante(m, 'r1', { nome: 'Rita', cognome: 'Relatrice', azienda: 'Studio Relatori' });
+        partecipante(m, 'r2', { nome: 'Remo', cognome: 'Secondo', azienda: 'Altro Studio', eventi: [WEB, ALTRO] });
         m.auth.token.set('tok-regia', { uid: 'g1', email: 'regia@revilaw.it', email_verified: true, gestore: true, firebase: { sign_in_provider: 'password' } });
+        m.auth.token.set('tok-finto-gestore', { uid: 'x1', email: 'regia@revilaw.it', email_verified: false, gestore: true, firebase: { sign_in_provider: 'password' } });
+        m.auth.token.set('tok-estraneo', { uid: 'x2', email: 'chiunque@studio.it', email_verified: true, firebase: { sign_in_provider: 'password' } });
 
-        // la regia scrive i relatori nella scheda Evento
-        let g = await gestione({ azione: 'evento-salva', evento: { id: WEB, relatori: 'Relatore@Studio.it\nrelatore@studio.it, ; nonvalida' } });
-        vero(g.stato === 400 && g.corpo.codice === 'relatori' && /nonvalida/.test(g.corpo.msg) && !m.docs.get('relatoriEventi/' + WEB),
-            'un\'email non valida fra i relatori: 400 prima di toccare l\'evento', JSON.stringify(g.corpo));
-        g = await gestione({ azione: 'evento-salva', evento: { id: WEB, domande: true, relatori: 'primo@studio.it' } });
-        vero(g.stato === 200 && m.docs.get('eventi/' + WEB).domande === true && JSON.stringify(g.corpo.evento.relatori) === '["primo@studio.it"]'
-            && g.corpo.evento.domande === true,
-            '«evento-salva» accende «Domande al relatore» e salva i relatori insieme all\'evento', JSON.stringify(g.corpo).slice(0, 300));
-        g = await gestione({ azione: 'evento-salva', evento: { id: WEB, titolo: 'Webinar 10 dicembre' } });
-        vero(g.stato === 200 && m.docs.get('eventi/' + WEB).domande === true && JSON.stringify(g.corpo.evento.relatori) === '["primo@studio.it"]',
-            'un salvataggio che non li tocca lascia com\'erano l\'interruttore e i relatori', JSON.stringify(g.corpo).slice(0, 300));
-        g = await gestione({ azione: 'relatori-salva', idEvento: WEB, relatori: ' Relatore@Studio.it \n relatore@studio.it ; ' });
-        vero(g.stato === 200 && JSON.stringify(g.corpo.relatori) === '["relatore@studio.it"]' && m.docs.get('relatoriEventi/' + WEB).da === 'regia@revilaw.it',
-            'relatori: email ripulite, senza doppie, con chi le ha scritte', JSON.stringify(g.corpo));
-        g = await gestione({ azione: 'relatori-salva', idEvento: WEB, relatori: Array.from({ length: 11 }, (x, i) => 'r' + i + '@studio.it') });
-        vero(g.stato === 400 && g.corpo.codice === 'relatori', 'piu\' di 10 relatori: 400');
-        g = await gestione({ azione: 'relatori-salva', idEvento: 'evento-che-non-ce', relatori: ['a@b.it'] });
-        vero(g.stato === 404, 'relatori di un evento inesistente: 404');
-        g = await gestione({ azione: 'relatori-salva', idEvento: ALTRO, relatori: ['altro.relatore@studio.it'] });
+        // la regia segna i relatori dalla scheda Partecipanti
+        let g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r1', relatore: true });
+        vero(g.stato === 200 && JSON.stringify(g.corpo.relatori) === '["r1"]' && m.docs.get('relatoriEventi/' + WEB).da === 'regia@revilaw.it',
+            'la regia segna un partecipante come relatore, con chi l\'ha segnato', JSON.stringify(g.corpo));
+        g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r2', relatore: true });
+        vero(g.stato === 200 && JSON.stringify(g.corpo.relatori) === '["r1","r2"]', 'i relatori possono essere più d\'uno', JSON.stringify(g.corpo));
+        const primaR = m.scritture.length;
+        g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r1', relatore: true });
+        vero(g.stato === 200 && m.scritture.length === primaR && JSON.stringify(g.corpo.relatori) === '["r1","r2"]', 'segnarlo di nuovo non cambia niente');
+        for (const [corpo, stato, codice, perche] of [
+            [{ idEvento: ALTRO, uid: 'p1', relatore: true }, 404, 'partecipante', 'chi non è iscritto all\'evento non si segna'],
+            [{ idEvento: 'evento-che-non-ce', uid: 'r1', relatore: true }, 404, 'evento', 'un evento inesistente'],
+            [{ idEvento: WEB, uid: 'non/valido', relatore: true }, 400, 'uid', 'un identificativo sbagliato'],
+            [{ idEvento: WEB, uid: 'r1', relatore: 'si' }, 400, 'relatore', 'un valore che non è vero o falso']
+        ]) {
+            g = await gestione(Object.assign({ azione: 'relatore-segna' }, corpo));
+            vero(g.stato === stato && g.corpo.codice === codice, perche + ': ' + stato + ' ' + codice, JSON.stringify(g.corpo));
+        }
+        g = await gestione({ azione: 'relatore-segna', idEvento: ALTRO, uid: 'r2', relatore: true });
         g = await gestione({ azione: 'eventi' });
         const evWeb = (g.corpo.eventi || []).find(e => e.id === WEB) || {};
-        vero(g.stato === 200 && JSON.stringify(evWeb.relatori) === '["relatore@studio.it"]', '«eventi» della gestione porta i relatori di ogni evento', JSON.stringify(evWeb.relatori));
+        vero(g.stato === 200 && JSON.stringify(evWeb.relatori) === '["r1","r2"]', '«eventi» della gestione porta i relatori di ogni evento', JSON.stringify(evWeb.relatori));
+        g = await gestione({ azione: 'evento-salva', evento: { id: WEB, domande: true } });
+        vero(g.stato === 200 && g.corpo.evento.domande === true && JSON.stringify(g.corpo.evento.relatori) === '["r1","r2"]',
+            '«evento-salva» accende «Domande al relatore» e rimanda i relatori', JSON.stringify(g.corpo).slice(0, 300));
 
         // le domande
         m.ora += 1000; await domande({ azione: 'invia', idEvento: WEB, testo: 'Prima domanda di Lia' }, 'tok-p1');
@@ -363,33 +350,43 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         const testi = (r.corpo.domande || []).map(d => d.testo);
         vero(r.stato === 200 && testi.join('|') === 'Prima domanda di Lia|La domanda di Ugo|Seconda domanda di Lia' && r.corpo.conteggi.totale === 3 && r.corpo.conteggi.risposte === 0
             && r.corpo.evento.titolo === 'Webinar 10 dicembre' && r.corpo.evento.stato === 'in_onda',
-            'il relatore vede tutte le domande del suo evento, dalla piu\' vecchia', JSON.stringify(r.corpo).slice(0, 400));
+            'il relatore (un partecipante segnato) vede tutte le domande del suo evento, dalla piu\' vecchia', JSON.stringify(r.corpo).slice(0, 400));
         const d0 = (r.corpo.domande || [])[0] || {};
         vero(d0.nome === 'Lia' && d0.cognome === 'Libera' && d0.azienda === 'Delta Servizi' && !('email' in d0) && !('rispostaDa' in d0) && !('uid' in d0),
             'al relatore nome, cognome e azienda; niente email, niente uid', JSON.stringify(d0));
         r = await domande({ azione: 'elenco', idEvento: ALTRO }, 'tok-r1');
         vero(r.stato === 403 && r.corpo.codice === 'non-relatore', 'il relatore non vede le domande di un evento non suo: 403');
-        for (const [tok, perche] of [['tok-finto', 'email non verificata (registrato da solo)'], ['tok-senza', 'senza il claim relatore'], ['tok-p1', 'il token di un partecipante']]) {
+        r = await domande({ azione: 'elenco', idEvento: ALTRO }, 'tok-r2');
+        vero(r.stato === 200 && r.corpo.domande.length === 1, 'chi è relatore di due eventi vede le domande di tutti e due');
+        for (const [tok, perche] of [['tok-p1', 'un partecipante non segnato'], ['tok-finto-gestore', 'un gestore con l\'email non verificata'], ['tok-estraneo', 'un account qualsiasi con email e password']]) {
             r = await domande({ azione: 'elenco', idEvento: WEB }, tok);
             vero(r.stato === 403 && r.corpo.codice === 'non-relatore', perche + ': 403', JSON.stringify(r.corpo));
         }
         r = await domande({ azione: 'eventi' }, 'tok-r1');
-        vero(r.stato === 200 && r.corpo.ruolo === 'relatore' && (r.corpo.eventi || []).map(e => e.id).join(',') === WEB, '«eventi» del relatore: solo i suoi', JSON.stringify(r.corpo));
+        vero(r.stato === 200 && r.corpo.ruolo === 'relatore' && r.corpo.email === 'r1@esempio.it' && (r.corpo.eventi || []).map(e => e.id).join(',') === WEB,
+            '«eventi» del relatore: solo i suoi, con la sua email', JSON.stringify(r.corpo));
+        r = await domande({ azione: 'eventi' }, 'tok-r2');
+        vero(r.stato === 200 && (r.corpo.eventi || []).map(e => e.id).sort().join(',') === [ALTRO, WEB].sort().join(','), '«eventi» di chi è relatore di due eventi: tutti e due');
+        r = await domande({ azione: 'eventi' }, 'tok-p1');
+        vero(r.stato === 200 && r.corpo.eventi.length === 0, '«eventi» di un partecipante non segnato: nessuno (la pagina lo dice)');
         r = await domande({ azione: 'eventi' }, 'tok-regia');
         vero(r.stato === 200 && r.corpo.ruolo === 'gestore' && (r.corpo.eventi || []).length === 2, '«eventi» di un gestore: tutti', JSON.stringify(r.corpo));
+        r = await domande({ azione: 'mie', idEvento: WEB }, 'tok-r1');
+        const mieP = await domande({ azione: 'mie', idEvento: WEB }, 'tok-p1');
+        vero(r.stato === 200 && r.corpo.relatore === true && mieP.corpo.relatore === false, '«mie» dice alla pagina della diretta chi è relatore (per la strada verso la sua pagina)');
 
         // la regia vede di piu', e segna
         g = await gestione({ azione: 'domande', idEvento: WEB });
         const dg = (g.corpo.domande || [])[1] || {};
         vero(g.stato === 200 && g.corpo.domande.length === 3 && dg.email === 'p2@esempio.it', 'la regia vede le stesse domande, con l\'email di chi le ha scritte', JSON.stringify(dg));
         r = await domande({ azione: 'segna', idEvento: WEB, idDomanda: d0.id, risposta: true }, 'tok-r1');
-        vero(r.stato === 200 && r.corpo.domanda.risposta === true && r.corpo.domanda.rispostaQuando === m.ora && m.docs.get('domande/' + d0.id).rispostaDa === 'relatore@studio.it',
+        vero(r.stato === 200 && r.corpo.domanda.risposta === true && r.corpo.domanda.rispostaQuando === m.ora && m.docs.get('domande/' + d0.id).rispostaDa === 'r1@esempio.it',
             '«Risposta data» dal relatore: con chi e quando', JSON.stringify(r.corpo));
         const prima = m.scritture.length;
         r = await domande({ azione: 'segna', idEvento: WEB, idDomanda: d0.id, risposta: true }, 'tok-r1');
         vero(r.stato === 200 && m.scritture.length === prima, 'ripetere «Risposta data» non riscrive la domanda');
         g = await gestione({ azione: 'domande', idEvento: WEB });
-        vero(g.corpo.conteggi.risposte === 1 && g.corpo.domande[0].rispostaDa === 'relatore@studio.it', 'la regia vede il segno del relatore e chi l\'ha messo');
+        vero(g.corpo.conteggi.risposte === 1 && g.corpo.domande[0].rispostaDa === 'r1@esempio.it', 'la regia vede il segno del relatore e chi l\'ha messo');
         g = await gestione({ azione: 'domanda-segna', idEvento: WEB, idDomanda: d0.id, risposta: false });
         vero(g.stato === 200 && g.corpo.domanda.risposta === false && g.corpo.domanda.rispostaQuando === null && m.docs.get('domande/' + d0.id).rispostaDa === '',
             'la regia toglie il segno', JSON.stringify(g.corpo));
@@ -410,57 +407,40 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         m.docs.set('presenze/' + WEB + '_p1', { uid: 'p1', idEvento: WEB, ultimo: new Ts(m.ora - 60 * 1000) });
         m.docs.set('presenze/' + WEB + '_p2', { uid: 'p2', idEvento: WEB, ultimo: new Ts(m.ora - 10 * 60 * 1000) });
         r = await domande({ azione: 'partecipanti', idEvento: WEB }, 'tok-r1');
-        const nomi = (r.corpo.partecipanti || []).map(p => p.cognome + (p.collegato ? '*' : ''));
-        vero(r.stato === 200 && nomi.join(',') === 'Libera*,Uno' && r.corpo.conteggi.iscritti === 2 && r.corpo.conteggi.collegati === 1
+        const nomi = (r.corpo.partecipanti || []).map(p => p.cognome + (p.collegato ? '*' : '') + (p.relatore ? '(R)' : ''));
+        vero(r.stato === 200 && nomi.join(',') === 'Libera*,Relatrice(R),Secondo(R),Uno' && r.corpo.conteggi.iscritti === 4 && r.corpo.conteggi.collegati === 1
             && r.corpo.partecipanti.every(p => !('email' in p)),
-            'partecipanti: solo gli attivi, chi e\' collegato (ultimi 150 s), i conteggi, niente email', JSON.stringify(r.corpo));
-        g = await gestione({ azione: 'domande', idEvento: WEB });
+            'partecipanti: solo gli attivi, chi e\' collegato (ultimi 150 s), chi e\' relatore, i conteggi, niente email', JSON.stringify(r.corpo));
         r = await domande({ azione: 'partecipanti', idEvento: WEB }, 'tok-regia');
         vero(r.corpo.partecipanti[0].email === 'p1@esempio.it', 'alla regia anche l\'email dei partecipanti');
 
-        // tolto dai relatori: la porta si chiude subito
-        await gestione({ azione: 'relatori-salva', idEvento: WEB, relatori: [] });
+        // la porta si chiude subito: account disattivato, tolto dall'evento, segno tolto
+        m.docs.get('partecipanti/r2').stato = 'disattivato';
+        r = await domande({ azione: 'elenco', idEvento: WEB }, 'tok-r2');
+        vero(r.stato === 403 && r.corpo.codice === 'disattivato', 'relatore con l\'account disattivato: 403 da subito');
+        m.docs.get('partecipanti/r2').stato = 'attivo';
+        m.docs.get('partecipanti/r2').eventi = [ALTRO];
+        r = await domande({ azione: 'elenco', idEvento: WEB }, 'tok-r2');
+        vero(r.stato === 403 && r.corpo.codice === 'non-relatore', 'relatore tolto dall\'evento: 403 da subito, anche se il segno è rimasto');
+        await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r1', relatore: false });
         r = await domande({ azione: 'elenco', idEvento: WEB }, 'tok-r1');
-        vero(r.stato === 403, 'tolto dai relatori dell\'evento: 403 da subito, anche con il token di prima');
+        vero(r.stato === 403 && JSON.stringify(m.docs.get('relatoriEventi/' + WEB).uid) === '["r2"]', 'segno tolto: 403 da subito, anche con il token di prima');
     }
 
-    /* ======================== IL PRIMO ACCESSO DEL RELATORE ======================== */
+    /* ======================== AL MASSIMO 10 RELATORI ======================== */
     {
         const m = nuovoMondo();
-        evento(m, WEB, 'programmato');
-        m.docs.set('relatoriEventi/' + WEB, { email: ['relatore@studio.it', 'regia@revilaw.it'] });
-        const t0 = Date.now();
-        const r1 = await A.relatoreAccesso(ctx, { email: 'nessuno@studio.it', ip: '93.1.1.1' });
-        const d1 = Date.now() - t0;
-        vero(r1.msg === A.MSG_RELATORE && posta.length === 0 && m.auth.utenti.size === 0, 'un indirizzo che non e\' fra i relatori: stessa risposta, nessuna email, nessun account');
-        const t1 = Date.now();
-        const r2 = await A.relatoreAccesso(ctx, { email: '  Relatore@Studio.it ', ip: '93.1.1.1' });
-        const d2 = Date.now() - t1;
-        vero(r2.msg === r1.msg && d1 >= 2400 && d2 >= 2400 && Math.abs(d1 - d2) < 700, 'stessa risposta e stesso tempo, iscritto o no (' + d1 + ' e ' + d2 + ' ms)');
-        const u = Array.from(m.auth.utenti.values()).find(x => x.email === 'relatore@studio.it') || {};
-        vero(u.emailVerified === true && JSON.stringify(u.customClaims) === '{"relatore":true}' && posta.length === 1 && posta[0].perRelatore === true
-            && /\/diretta\/reimposta\.html\?oobCode=.*&per=relatore$/.test(posta[0].link) && posta[0].a === 'relatore@studio.it',
-            'l\'account del relatore: la sua email, verificata, con il claim; il collegamento porta alla pagina del relatore', JSON.stringify({ u, posta }));
-        vero(!!m.docs.get('relatoriAccount/' + u.uid), 'l\'account resta nell\'elenco degli account dei relatori');
-
-        // chi si era registrato da solo con l'email di un relatore perde l'accesso
-        const m2 = nuovoMondo();
-        m2.docs.set('relatoriEventi/' + WEB, { email: ['relatore@studio.it'] });
-        const ladro = await m2.auth.auth.createUser({ email: 'relatore@studio.it', emailVerified: false, password: 'scelta-dal-ladro' });
-        await A.relatoreAccesso(ctx, { email: 'relatore@studio.it', ip: '93.1.1.2' });
-        const dopo = m2.auth.utenti.get(ladro.uid);
-        vero(dopo.password !== 'scelta-dal-ladro' && dopo.emailVerified === true && m2.auth.revocati.has(ladro.uid) && dopo.customClaims.relatore === true,
-            'chi si era registrato da solo: password cambiata, sessioni chiuse, il collegamento va al vero titolare');
-
-        // un gestore che e' anche relatore resta gestore e tiene la sua password
-        const m3 = nuovoMondo();
-        m3.docs.set('relatoriEventi/' + WEB, { email: ['regia@revilaw.it'] });
-        const reg = await m3.auth.auth.createUser({ email: 'regia@revilaw.it', emailVerified: true, password: 'quella-del-gestore' });
-        await m3.auth.auth.setCustomUserClaims(reg.uid, { gestore: true });
-        await A.relatoreAccesso(ctx, { email: 'regia@revilaw.it', ip: '93.1.1.3' });
-        const gg = m3.auth.utenti.get(reg.uid);
-        vero(gg.password === 'quella-del-gestore' && !m3.auth.revocati.has(reg.uid) && gg.customClaims.gestore === true && gg.customClaims.relatore === true,
-            'un gestore che e\' anche relatore: resta gestore, tiene la password, prende il claim', JSON.stringify(gg));
+        evento(m, WEB, 'in_onda');
+        m.auth.token.set('tok-regia', { uid: 'g1', email: 'regia@revilaw.it', email_verified: true, gestore: true, firebase: { sign_in_provider: 'password' } });
+        for (let i = 0; i < 11; i++) partecipante(m, 'q' + i, { nome: 'Q' + i, cognome: 'Tanti' });
+        let g = null;
+        for (let i = 0; i < 10; i++) g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'q' + i, relatore: true });
+        vero(g.stato === 200 && g.corpo.relatori.length === 10, 'dieci relatori si segnano');
+        g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'q10', relatore: true });
+        vero(g.stato === 400 && g.corpo.codice === 'relatori' && m.docs.get('relatoriEventi/' + WEB).uid.length === 10, 'l\'undicesimo no: 400 relatori');
+        g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'q0', relatore: false });
+        g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'q10', relatore: true });
+        vero(g.stato === 200 && g.corpo.relatori.length === 10 && g.corpo.relatori.indexOf('q10') >= 0 && g.corpo.relatori.indexOf('q0') < 0, 'tolto uno, se ne segna un altro');
     }
 
     /* ======================== LA PORTA ======================== */

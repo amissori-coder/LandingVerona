@@ -2569,6 +2569,7 @@
         attive: false,           // l'evento ha «Domande al relatore» acceso
         aperte: false,           // si possono mandare (non dopo «Termina»)
         mie: [],                 // le proprie domande: { id, testo, quando, risposta }
+        relatore: false,         // chi e' collegato e' un relatore dell'evento (lo dice 'mie')
         lette: false,            // 'mie' gia' letto per questo evento
         inLettura: false,
         inInvio: false,
@@ -2596,12 +2597,14 @@
         domande.aperte = false;
         domande.mie = [];
         domande.lette = false;
+        domande.relatore = false;
         domande.attesaFino = 0;
         const campo = $('testo-domanda');
         if (campo) campo.value = '';
         if ($('esito-domanda')) {
             esitoDomanda('');
             aggiornaContaDomanda();
+            disegnaRuoloDomande();
             disegnaMie();
             aggiornaBottoneDomanda();
             posizionaDomande();
@@ -2639,6 +2642,18 @@
         }
         carta.hidden = !visibile;
         if (!visibile) { clearTimeout(domande.timerRilettura); domande.timerRilettura = null; }
+    }
+
+    /* Il relatore non manda domande: al posto del modulo vede la strada per
+       la pagina del relatore (stessa sessione: non rifa' l'accesso). */
+    function disegnaRuoloDomande() {
+        const rel = domande.relatore && !stato.anteprima;
+        mostra('box-relatore', rel);
+        mostra('modulo-domanda', !rel);
+        if (rel) { mostra('blocco-mie', false); esitoDomanda(''); }
+        testo('domande-titolo', rel ? 'Domande dei partecipanti' : 'Fai una domanda al relatore');
+        testo('domande-nota', rel ? 'Le leggete solo tu, gli altri relatori e la regia: gli altri partecipanti non le vedono.'
+            : 'La legge solo il relatore, insieme alla regia: gli altri partecipanti non la vedono.');
     }
 
     function aggiornaContaDomanda() {
@@ -2755,7 +2770,9 @@
         if (r && r.ok && Array.isArray(r.domande)) {
             domande.mie = r.domande.filter(domandaValida).slice(-200);
             domande.lette = true;
+            domande.relatore = r.relatore === true;
             disegnaMie();
+            disegnaRuoloDomande();
         } else if (r && r.codice === 'disattivato') {
             await esciConMessaggio('disattivato');
             return;
@@ -3325,7 +3342,7 @@
        REIMPOSTAZIONE DELLA PASSWORD (/diretta/reimposta.html)
        ---------------------------------------------------------------
        Il collegamento arriva per email: reimposta.html?oobCode=...
-       (&per=gestione per i gestori, &per=relatore per i relatori). Il collegamento non porta l'email della
+       (&per=gestione per i gestori). Il collegamento non porta l'email della
        persona (niente indirizzi negli URL) e l'email tecnica dietro
        l'account, quella che conosce Firebase, non si vede mai (DECISIONI
        D1): il campo «Email» riprende l'ultima email usata su questo
@@ -3337,14 +3354,9 @@
         preparaAssistenza();
         const par = new URLSearchParams(location.search);
         const oob = par.get('oobCode') || '';
-        /* &per=gestione (i gestori) e &per=relatore (i relatori): tutti e due
-           entrano con la loro email vera, scritta nel collegamento; cambia
-           solo la pagina a cui si torna. */
-        const perRelatore = par.get('per') === 'relatore';
-        const perGestione = par.get('per') === 'gestione' || perRelatore;
-        const paginaAccount = perRelatore ? '/diretta/relatore/' : '/diretta/gestione/';
-        const destinazione = perGestione ? paginaAccount : '/diretta/';
-        const nuovoCollegamento = perGestione ? paginaAccount : '/diretta/?dimenticata=1';
+        const perGestione = par.get('per') === 'gestione';
+        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/';
+        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1';
 
         function avviso(t, tipo) { msg('msg-reimposta', t, tipo); }
         function mostraScaduto() {
@@ -3356,7 +3368,7 @@
             a.hidden = false;
         }
 
-        $('link-reimposta-accesso').setAttribute('href', perGestione ? paginaAccount : '/diretta/');
+        $('link-reimposta-accesso').setAttribute('href', perGestione ? '/diretta/gestione/' : '/diretta/');
         $('btn-mostra-nuova').addEventListener('click', () => {
             const b = $('btn-mostra-nuova');
             const visibili = b.getAttribute('aria-pressed') !== 'true';
@@ -3405,8 +3417,8 @@
         } else {
             campoEmail.value = emailRicordata();
         }
-        testo('reimposta-sottotitolo', perRelatore ? 'La userai per entrare nella pagina del relatore.'
-            : (perGestione ? 'La userai per entrare nella gestione della diretta.' : 'La userai per entrare nella diretta, insieme alla tua email.'));
+        testo('reimposta-sottotitolo', perGestione ? 'La userai per entrare nella gestione della diretta.'
+            : 'La userai per entrare nella diretta, insieme alla tua email.');
         mostra('form-reimposta', true);
         try { $('campo-nuova').focus({ preventScroll: true }); } catch (e) { /* niente */ }
 
@@ -3437,12 +3449,11 @@
             testo('reimposta-sottotitolo', 'Password salvata.');
             const vai = $('link-dopo-reimposta');
             vai.setAttribute('href', destinazione);
-            testo(vai, perRelatore ? 'Vai alla pagina del relatore' : (perGestione ? 'Vai alla gestione' : 'Vai alla diretta'));
+            testo(vai, perGestione ? 'Vai alla gestione' : 'Vai alla diretta');
 
             const emailPersona = perGestione ? '' : emailPulita(campoEmail.value);
             if (perGestione || !emailPersona) {
-                avviso(perRelatore ? 'Ora puoi entrare nella pagina del relatore con la nuova password.'
-                    : (perGestione ? 'Ora puoi entrare nella gestione con la nuova password.' : 'Ora puoi entrare nella diretta con la tua email e la nuova password.'), 'ok');
+                avviso(perGestione ? 'Ora puoi entrare nella gestione con la nuova password.' : 'Ora puoi entrare nella diretta con la tua email e la nuova password.', 'ok');
                 mostra('link-dopo-reimposta', true);
                 return;
             }

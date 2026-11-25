@@ -17,9 +17,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= cambia a ogni modifica: GitHub Pages tiene i file in cache 10 minuti -->
-    <link rel="stylesheet" href="relatore.css?v=20261121a">
+    <link rel="stylesheet" href="relatore.css?v=20261125a">
     <script src="../config.js?v=20260926b" defer></script>
-    <script src="relatore.js?v=20261121a" defer></script>
+    <script src="relatore.js?v=20261125a" defer></script>
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -65,10 +65,10 @@
                 </div>
                 <p id="msg-accesso" class="msg" role="alert" hidden></p>
                 <button type="submit" id="btn-entra" class="btn btn-primario btn-largo">Entra</button>
-                <button type="button" id="btn-primo-accesso" class="btn-collegamento">Primo accesso o password dimenticata</button>
-                <p class="accesso-nota">Al primo accesso scrivi qui sopra l'email che hai dato alla regia e premi
-                    «Primo accesso o password dimenticata»: ti arriva un collegamento per scegliere la password.</p>
-                <p class="accesso-nota">Segui la diretta come partecipante? La trovi su <a href="/diretta/">nextgenerationbusiness.it/diretta</a>.
+                <a id="link-dimenticata" class="btn-collegamento" href="/diretta/?dimenticata=1">Password dimenticata?</a>
+                <p class="accesso-nota">Entra con l'email e la password delle credenziali della diretta (l'email che hai
+                    ricevuto): sono le stesse con cui segui la diretta. Se non le hai, chiedile alla regia.</p>
+                <p class="accesso-nota">La regia può aprire questa pagina dopo essere entrata nella gestione con lo stesso browser.
                     · <a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a></p>
             </form>
         </div>
@@ -109,7 +109,8 @@
                 (scheda Evento, «Domande al relatore»).
             </p>
             <p id="avviso-nessun-evento" class="avviso avviso-ambra" hidden>
-                Non risulti fra i relatori di nessuna diretta. Se pensi che sia un errore, scrivi alla regia.
+                Non risulti fra i relatori di nessuna diretta: se sei un relatore, chiedi alla regia di segnarti come
+                relatore (gestione, scheda Partecipanti). Intanto puoi seguire la <a href="/diretta/">diretta</a>.
             </p>
 
             <!-- ======== LE DOMANDE ======== -->

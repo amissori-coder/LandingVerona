@@ -13,8 +13,9 @@
      { azione: 'mie', idEvento, sessione }
          -> { ok, domande: [{ id, testo, quando, risposta }], aperte }
 
-   Dalla pagina del relatore (/diretta/relatore/: il RELATORE di
-   quell'evento, oppure un gestore):
+   Dalla pagina del relatore (/diretta/relatore/: un partecipante segnato
+   come RELATORE di quell'evento, con il suo token della diretta, oppure
+   un gestore):
      { azione: 'eventi' }
          -> { ok, eventi: [{ id, titolo, data, oraInizio, oraFine, stato, ... }], ruolo, email }
      { azione: 'elenco', idEvento }
@@ -25,7 +26,7 @@
      { azione: 'partecipanti', idEvento }
          -> { ok, partecipanti: [{ nome, cognome, azienda, collegato }],
               conteggi: { iscritti, collegati }, aggiornato }
-     errori: 401, 403 'non-relatore', 404 'evento'/'domanda'
+     errori: 401, 403 'non-relatore'/'disattivato', 404 'evento'/'domanda'
 
    La regia vede e segna le stesse domande dalla gestione (azioni
    'domande' e 'domanda-segna' di api/diretta-gestione.js). La logica sta

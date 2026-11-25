@@ -613,6 +613,9 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .carta-domande h3 { margin-bottom: 4px; font-size: 18.5px; }
 .domande-nota { font-size: 14.5px; line-height: 1.5; color: var(--tenue); }
 .modulo-domanda { display: grid; gap: 10px; }
+/* il relatore: al posto del modulo, la strada per la sua pagina */
+.box-relatore { display: grid; gap: 12px; justify-items: start; padding: 14px 16px; border-radius: var(--raggio-piccolo); background: #E7F5EE; border-left: 3px solid var(--verde); color: #14532D; }
+.box-relatore p { line-height: 1.5; }
 .modulo-domanda textarea {
     width: 100%;
     min-height: 104px;

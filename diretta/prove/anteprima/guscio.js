@@ -172,8 +172,8 @@
         var r = M.utenteDi('relatore');
         var cr = $('chi-relatore');
         cr.textContent = '';
-        if (r) { cr.appendChild(document.createTextNode('Relatore collegato come ')); cr.appendChild(crea('b', { testo: r.email || '' })); }
-        else cr.textContent = 'Il relatore non è ancora collegato.';
+        if (r) { cr.appendChild(document.createTextNode('Collegata come ')); cr.appendChild(crea('b', { testo: emailDi(r.uid) || r.email || '' })); }
+        else cr.textContent = 'La relatrice non è ancora collegata.';
     }
     ['telefono', 'regia', 'relatore'].forEach(function (d) {
         M.sdk.auth.onAuthStateChanged({ _dispositivo: d, app: { _finestra: window } }, aggiornaChi);
