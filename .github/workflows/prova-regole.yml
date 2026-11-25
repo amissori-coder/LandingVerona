@@ -1,0 +1,84 @@
+name: Prova delle regole del database
+
+# Quando cambiano le regole di sicurezza di Firestore (area-riservata/firestore.rules,
+# riportate anche nella guida FIREBASE-SETUP.md) le riprova sull'emulatore di
+# Firebase: per ogni tipo di utente tenta una sessantina di operazioni e controlla
+# che l'esito sia quello atteso. In particolare: a chi ha il ruolo Revisore il
+# database non deve consegnare nessun archivio, e per tutti gli altri ruoli non
+# deve cambiare nulla rispetto alla fotografia scripts/regole/attesi.json.
+#
+# Poi apre l'area riservata vera in un browser, con il servizio email vero e il
+# database di prova, e controlla che un revisore riceva solo i dati dei suoi
+# incarichi (scripts/regole/prova-area.cjs).
+#
+# Non tocca il database vero e non usa chiavi: l'emulatore gira sulla macchina di
+# GitHub con dati finti. Se una regola e' sbagliata il controllo risulta fallito,
+# GitHub manda l'avviso via mail e nel registro dell'esecuzione c'e' l'elenco.
+#
+# ATTENZIONE: le regole provate qui sono quelle del repository. Quelle in uso
+# sono quelle PUBBLICATE nella console Firebase: dopo averle incollate si fa la
+# prova vera dall'area riservata (Ruoli e permessi > Prova la protezione).
+
+on:
+  push:
+    paths:
+      - 'area-riservata/firestore.rules'
+      - 'area-riservata/FIREBASE-SETUP.md'
+      - 'scripts/regole/**'
+      - 'email-service/api/revisore.js'
+      - 'email-service/lib/revisore.js'
+      - 'email-service/lib/nomi-incarichi.js'
+      - '.github/workflows/prova-regole.yml'
+  pull_request:
+    paths:
+      - 'area-riservata/firestore.rules'
+      - 'area-riservata/FIREBASE-SETUP.md'
+      - 'scripts/regole/**'
+      - 'email-service/api/revisore.js'
+      - 'email-service/lib/revisore.js'
+      - 'email-service/lib/nomi-incarichi.js'
+      - '.github/workflows/prova-regole.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regole:
+    name: Regole Firestore e dati del revisore
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Scarica il repository
+        uses: actions/checkout@v4
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prepara Java (serve all'emulatore)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Installa l'emulatore e gli strumenti di prova
+        working-directory: scripts/regole
+        run: npm install --no-audit --no-fund
+
+      - name: Prova le regole
+        working-directory: scripts/regole
+        run: npm run prova
+
+      - name: Prova le porte del servizio per il revisore
+        working-directory: email-service
+        run: node prove/revisore.prove.js
+
+      - name: Prepara il browser
+        working-directory: scripts/regole
+        run: npx playwright install --with-deps chromium
+
+      - name: Prova l'area riservata con un revisore
+        working-directory: scripts/regole
+        run: npm run prova-area

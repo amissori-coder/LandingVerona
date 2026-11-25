@@ -13,6 +13,7 @@
 
 const admin = require('firebase-admin');
 const { utenteEffettivo } = require('../lib/utente-effettivo');
+const REVISORE = require('../lib/revisore');
 const nodemailer = require('nodemailer');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
 // e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
@@ -74,6 +75,8 @@ async function consumaGettone(email) {
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_DEST = 100;
+// un riepilogo di richiesta va a chi l'ha scritta, a chi la riceve e a chi e' in copia
+const MAX_DEST_REVISORE = 12;
 
 function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -155,6 +158,21 @@ module.exports = async (req, res) => {
         if (!destinatari.length) { res.status(400).json({ ok: false, msg: 'Nessun destinatario valido.' }); return; }
         if (destinatari.length > MAX_DEST) { res.status(400).json({ ok: false, msg: 'Troppi destinatari (max ' + MAX_DEST + ' per invio).' }); return; }
 
+        // 3-bis) il Revisore non scrive a chi vuole: dall'area gli partono solo i riepiloghi
+        //        delle sue richieste di correzione, quindi gli indirizzi ammessi sono quelli
+        //        delle persone di quelle richieste e degli equity partner a cui si indirizzano
+        //        (lib/revisore.js). Prima, con un accesso da revisore, da qui si poteva
+        //        spedire qualunque email a chiunque con il mittente dello studio.
+        const daRevisore = REVISORE.eRevisore(ue);
+        if (daRevisore) {
+            const ammessi = await REVISORE.destinatariAmmessi(admin.firestore(), ue);
+            const fuori = destinatari.filter(d => !ammessi.has(d.email));
+            if (fuori.length || destinatari.length > MAX_DEST_REVISORE) {
+                res.status(403).json({ ok: false, msg: 'Con il ruolo Revisore dall\'area riservata partono solo i riepiloghi delle richieste di correzione, alle persone che le riguardano.' });
+                return;
+            }
+        }
+
         // 4) rate limit
         const consentito = await consumaGettone(mittente);
         if (!consentito) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati: attendi qualche istante e riprova.' }); return; }
@@ -162,7 +180,9 @@ module.exports = async (req, res) => {
         // 5) invio: mittente autenticato SMTP dello studio, Reply-To = chi scrive.
         // Piu destinatari => in copia nascosta (BCC), per non esporre gli indirizzi.
         const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-        const fromName = String(body.mittenteNome || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+        // il nome del mittente lo sceglie chi scrive, ma non un revisore: il suo e' quello della scheda utente
+        const nomeScelto = daRevisore ? String((ue.dati && ue.dati.nome) || '') : body.mittenteNome;
+        const fromName = String(nomeScelto || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
         const from = '"' + fromName + '" <' + fromEmail + '>';
         const trans = trasporto();
         // il messaggio puo essere HTML (editor formattato) o testo semplice (vecchi client)

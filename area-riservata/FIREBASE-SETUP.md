@@ -101,9 +101,25 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
        function soloSondaggio() {
          return abilitato() && (ruoloUtente() == 'sondaggio_compila' || ruoloUtente() == 'sondaggio_risultati');
        }
-       // "staff pieno" = abilitato che NON e' un utente solo-sondaggio
+       // "interno" = abilitato che NON e' un invitato solo-sondaggio: lo staff pieno piu'
+       // i revisori. Puo' usare i servizi comuni dell'area (messaggi, ruoli, modelli).
+       // NB: abilitato() va valutata UNA volta sola per regola. Per un collaboratore
+       // costa molto (rilegge la sua scheda e quella del suo riferimento) e Firestore
+       // mette un tetto ai calcoli di una regola: ripetuta tre volte nella stessa
+       // regola lo superava, e il collaboratore restava chiuso fuori da tutto (lo si
+       // vede sull'emulatore: scripts/regole/prova-regole.cjs).
+       function interno() {
+         return abilitato() && !(ruoloUtente() in ['sondaggio_compila', 'sondaggio_risultati']);
+       }
+       // "staff pieno" = chi legge e scrive gli archivi: un interno che NON e' un revisore.
+       // Il "Revisore" (ruolo 'revisore') vede solo cio' che riguarda i SUOI incarichi, ma
+       // gli archivi sono salvati in blocco e le regole non sanno aprirli per dargliene una
+       // parte: per questo il database a lui NON consegna nessun archivio, ne' l'elenco
+       // degli utenti. I suoi dati glieli prepara il servizio email (api/revisore.js), che
+       // gli passa solo quelli dei suoi incarichi. Vale anche per il collaboratore di un
+       // revisore (ruoloUtente() e' il ruolo del suo utente di riferimento).
        function staff() {
-         return abilitato() && !soloSondaggio();
+         return interno() && ruoloUtente() != 'revisore';
        }
        // elenco degli utenti abilitati: lo legge lo STAFF (ogni utente attivo puo
        // comunque leggere la PROPRIA scheda, serve al login: anche un collaboratore
@@ -111,9 +127,11 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
        // non entra); lo modifica solo l'admin (o il suo vice); ogni utente puo aggiornare soltanto
        // il proprio "ultimoAccesso". Cosi gli invitati esterni "solo sondaggio" non
        // vedono l'elenco dello staff.
+       // Il revisore NON legge l'elenco: solo la propria scheda (e il suo collaboratore
+       // anche quella del revisore a nome del quale lavora: serve all'accesso).
        match /utenti/{email} {
-         allow read: if staff()
-           || (request.auth != null && request.auth.token.email == email && resource.data.attivo == true);
+         allow read: if (request.auth != null && request.auth.token.email == email && resource.data.attivo == true)
+           || (interno() && (ruoloUtente() != 'revisore' || emailEffettiva() == email));
          allow create, delete: if admin();
          allow update: if admin()
            || (abilitato()
@@ -131,26 +149,26 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
        // cosa puo' vedere ciascuno) ma la scrive SOLO l'admin. Gli utenti "solo
        // sondaggio" non ne hanno bisogno e non devono vederla.
        match /archivio/ruoli {
-         allow read: if staff();
+         allow read: if interno();
          allow write: if admin();
        }
        // risposte del sondaggio: le leggono tutti gli abilitati (staff +
        // compilatori + visualizzatori); le scrivono lo staff e i compilatori
        // (NON i "solo risultati").
        match /archivio/sondaggi {
-         allow read: if abilitato();
+         allow read: if abilitato() && ruoloUtente() != 'revisore';
          allow write: if staff() || (abilitato() && ruoloUtente() == 'sondaggio_compila');
        }
        // configurazione del sondaggio (scadenza, invitati): la leggono tutti gli
        // abilitati, la scrive solo lo staff (l'admin la modifica dall'app).
        match /archivio/sondaggiConfig {
-         allow read: if abilitato();
+         allow read: if abilitato() && ruoloUtente() != 'revisore';
          allow write: if staff();
        }
        // modelli PDF delle lettere di incarico: li leggono gli abilitati,
        // li carica solo l'amministratore
        match /modelli/{documento} {
-         allow read: if staff();
+         allow read: if interno();
          allow write: if admin();
        }
        // messaggi privati tra utenti: OGNUNO legge SOLO il proprio documento
@@ -158,8 +176,8 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
        // recapitare. Cosi le conversazioni NON sono visibili a tutti, ma solo al
        // destinatario (nemmeno via strumenti per sviluppatori o API).
        match /messaggi/{email} {
-         allow read: if staff() && request.auth.token.email == email;
-         allow write: if staff();
+         allow read: if interno() && request.auth.token.email == email;
+         allow write: if interno();
        }
        // contatore delle modifiche all'archivio iscrizioni: solo un numero e una
        // data, nessun dato personale. L'area riservata lo ASCOLTA per aggiornare
@@ -172,6 +190,18 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
      }
    }
    ```
+
+   > **Revisore.** Queste regole tolgono al ruolo `revisore` (e al suo
+   > collaboratore) la lettura e la scrittura degli archivi e l'elenco degli
+   > utenti: i suoi dati glieli prepara il servizio email, che gli passa solo
+   > quelli dei suoi incarichi (sezione "Revisore: i dati li prepara il
+   > servizio", piu' sotto). Rispetto alla versione precedente cambiano le
+   > funzioni `interno()` e `staff()` e le regole di `utenti`, `archivio/ruoli`,
+   > `archivio/sondaggi`, `archivio/sondaggiConfig`, `modelli` e `messaggi`: per
+   > tutti gli altri ruoli l'esito di ogni operazione resta quello di prima.
+   > Il testo pronto da incollare e' anche nel file
+   > `area-riservata/firestore.rules`. Dopo averle pubblicate, fai la prova
+   > dalla sezione Ruoli e permessi ("Prova la protezione").
 
    > **Vice amministratore.** Il ruolo `viceadmin` (sezione Utenti: "Vice
    > amministratore") ha gli **stessi poteri** del ruolo `admin`: la funzione
@@ -334,10 +364,11 @@ Il ruolo di sistema **"Revisore"** (`revisore`) e' per chi lavora sugli
 incarichi: vede solo gli incarichi in cui compare la sua scheda in Aderenti
 Revilaw (team, responsabile dell'incarico o della qualita', agganciata per
 email), sempre in sola visualizzazione. L'amministratore sceglie quali sezioni
-gli compaiono; Aderenti Revilaw, Verifica merito creditizio e Comunicazione
-teams gli restano nascoste, perche' non si possono restringere ai suoi
-incarichi. Per le regole qui sopra e' un utente dello staff come gli altri:
-**non serve ripubblicare le regole** per questo ruolo.
+gli compaiono; Aderenti Revilaw, Verifica merito creditizio, Comunicazione
+teams e Sondaggi gli restano nascoste, perche' non si possono restringere ai
+suoi incarichi. A differenza degli altri ruoli limitati, per il Revisore il
+limite **lo impone il database**: vedi piu' sotto "Revisore: i dati li prepara
+il servizio".
 
 **Nuovi accessi.** I responsabili della qualita' (ruolo `qualita`, oppure la
 qualifica sulla scheda), gli equity partner e i founding partner possono
@@ -347,7 +378,11 @@ Le regole lasciano creare gli utenti al solo amministratore, e restano cosi': la
 scheda la scrive il servizio email (`email-service/api/abilita-utente.js`), che
 verifica chi chiama, accetta solo quel ruolo e rifiuta un indirizzo che ha gia'
 una scheda utente, anche disabilitata. Assegnare un altro ruolo, cambiarlo,
-disabilitare ed eliminare restano dell'amministratore.
+disabilitare ed eliminare restano dell'amministratore. Se chi abilita ha a sua
+volta il ruolo Revisore (un equity partner o un responsabile della qualita'
+entrato cosi'), l'elenco delle persone senza accesso glielo prepara lo stesso
+servizio (azione `candidati`): a lui il database non consegna ne' l'anagrafica
+ne' l'elenco degli utenti.
 
 Cosa succede a livello di sicurezza:
 
@@ -359,19 +394,96 @@ Cosa succede a livello di sicurezza:
   - la **definizione** dei ruoli (`archivio/ruoli`) e scrivibile solo
     dall'admin (regola qui sopra): un utente non puo' allargarsi i permessi
     riscrivendo il proprio ruolo.
+  - il **Revisore** non riceve dal database nessun archivio, ne' l'elenco
+    degli utenti: vede solo cio' che gli passa il servizio, cioe' i dati dei
+    suoi incarichi (sezione qui sotto).
 - **Solo lato browser (NON blindato dal server):** la sola lettura per
-  sezione, il filtro per regione del coordinatore territoriale e il filtro
-  "solo i suoi incarichi" del Revisore. Tengono ognuno nella sua parte e prevengono
-  gli errori, ma un utente abilitato che conosca gli strumenti per
-  sviluppatori del browser potrebbe aggirarli, perche' ogni collezione e
-  salvata come un unico blocco JSON che le regole non sanno leggere al loro
-  interno. Per blindare davvero anche questi due aspetti servirebbe cambiare
-  come sono salvati i dati (un documento per incarico invece di un unico
-  blocco), un intervento a se' stante.
+  sezione e il filtro per regione del coordinatore territoriale. Tengono
+  ognuno nella sua parte e prevengono gli errori, ma un utente abilitato che
+  conosca gli strumenti per sviluppatori del browser potrebbe aggirarli,
+  perche' ogni collezione e salvata come un unico blocco JSON che le regole
+  non sanno leggere al loro interno. Per blindare davvero anche questi due
+  aspetti servirebbe la stessa strada presa per il Revisore (i dati preparati
+  dal servizio) oppure cambiare come sono salvati i dati (un documento per
+  incarico invece di un unico blocco).
 
-In sintesi: nessuno puo' auto-promuoversi (quello e' blindato); il "chi vede
-cosa" per sezione e regione e una divisione organizzativa affidabile per un
-gruppo di lavoro interno, non una barriera contro un uso volutamente ostile.
+In sintesi: nessuno puo' auto-promuoversi (quello e' blindato); il Revisore
+riceve solo i dati dei suoi incarichi (blindato anche questo); per gli altri
+ruoli il "chi vede cosa" per sezione e regione e una divisione organizzativa
+affidabile per un gruppo di lavoro interno, non una barriera contro un uso
+volutamente ostile.
+
+## Revisore: i dati li prepara il servizio
+
+Gli archivi dell'area (incarichi, anagrafica, fatture, registro...) sono
+salvati ognuno in **un solo documento**. Le regole di Firestore sanno dire
+"questo documento si' / questo no", ma non sanno aprirlo per darne una parte.
+Quindi a chi deve vedere solo i propri incarichi il database non puo'
+consegnare l'archivio: con le regole qui sopra, a chi ha il ruolo `revisore`
+(e al suo eventuale collaboratore) Firestore **non consegna nessun documento
+di `archivio/`**, tranne la definizione dei ruoli, e non gli fa leggere
+l'elenco degli utenti (solo la propria scheda). Non puo' nemmeno scriverci.
+
+I suoi dati glieli prepara il servizio email (`email-service/api/revisore.js`,
+la logica e' in `email-service/lib/revisore.js`), che legge gli archivi con la
+chiave di servizio e gli passa soltanto:
+
+- gli **incarichi** in cui compare la sua scheda di Aderenti Revilaw (team,
+  responsabile dell'incarico o della qualita', referente, coordinatore);
+- dell'**anagrafica**: la sua scheda per intero; dei colleghi citati nei suoi
+  incarichi nome, email e qualifiche (niente telefono ne' indirizzo); degli
+  equity partner e dei coordinatori quanto serve a indirizzare una richiesta
+  di correzione; degli omonimi il solo nome;
+- le **fatture** e i **controlli qualita'** dei suoi incarichi;
+- del **Registro modifiche** le voci dei suoi incarichi e le sue;
+- le **richieste di correzione** che ha scritto, quelle indirizzate a lui e
+  quelle in cui e' in copia;
+- la sua **firma email**.
+
+Comunicazioni ai team, merito creditizio, sondaggi, eventi, newsletter e
+l'elenco di chi e' connesso non gli vengono consegnati (per questo non compare
+tra i "connessi ora" e non li vede).
+
+Le tre cose che un revisore scrive passano dallo stesso servizio, che le
+controlla: le voci del Registro (le **firma il servizio** con il suo nome, non
+il browser), le richieste di correzione (ne apre di nuove solo sui suoi
+incarichi e solo verso un equity partner; su quelle esistenti aggiunge la sua
+parte) e la sua firma email. Niente si cancella e nient'altro si modifica.
+
+Anche le altre porte del servizio lo tengono nel suo perimetro: da
+`invia-comunicazione` gli partono solo i riepiloghi delle sue richieste di
+correzione (alle persone che le riguardano e agli equity partner, con il suo
+nome come mittente), e da `sblocco-incarico` chiede lo sblocco solo dei suoi
+incarichi.
+
+I dati del revisore non arrivano in tempo reale: l'area li rilegge
+all'ingresso, ogni dieci minuti e quando si torna sulla scheda dopo un po'.
+
+### Che cosa fare
+
+1. **Pubblica le regole aggiornate**: Firebase console > Firestore Database >
+   scheda Regole, incolla il testo del file `area-riservata/firestore.rules`
+   (e' lo stesso riportato qui sopra) e premi Pubblica.
+2. **Fai la prova**: nell'area riservata, sezione **Ruoli e permessi**, sulla
+   scheda del ruolo Revisore premi **Prova la protezione**. Il servizio crea un
+   revisore di prova (un utente finto, senza scheda e senza incarichi), il tuo
+   browser entra a suo nome su un collegamento separato e tenta di leggere gli
+   archivi direttamente dal database. Deve essere **respinto** ogni volta:
+   l'esito, tentativo per tentativo, compare a video e resta nel Registro
+   modifiche. Il revisore di prova viene tolto alla fine. La prova non legge e
+   non scrive dati veri: in scrittura tenta un documento di prova
+   (`archivio/provaProtezione`), che viene cancellato.
+3. Ripeti la prova **ogni volta che ripubblichi le regole**.
+
+**Finche' non pubblichi le regole aggiornate** l'area funziona lo stesso: al
+revisore il programma chiede comunque i dati al servizio, quindi nel suo
+browser arrivano solo quelli dei suoi incarichi. Ma il database, interrogato a
+mano con gli strumenti per sviluppatori, gli risponderebbe ancora: e' la prova
+a dirtelo ("protezione NON attiva").
+
+Le regole si provano anche senza toccare il database vero, sull'emulatore di
+Firebase: `scripts/regole/prova-regole.cjs` (ruolo per ruolo, operazione per
+operazione; lo esegue anche GitHub a ogni modifica delle regole).
 
 ## Collaboratori: chi lavora a nome di un altro utente
 

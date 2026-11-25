@@ -306,11 +306,14 @@
          ai suoi incarichi (l'anagrafica degli aderenti, il merito creditizio, le
          comunicazioni ai team) gli restano nascoste.
        L'amministratore sceglie solo QUALI delle altre sezioni vede (Ruoli e permessi).
-       Come per i coordinatori, il filtro vale dentro il programma: non e' una regola del
-       server (gli incarichi stanno in un unico documento, vedi FIREBASE-SETUP.md). */
+       A differenza dei coordinatori, per il Revisore il filtro NON e' solo del programma:
+       con l'accesso protetto il database a lui non consegna nessun archivio (regole di
+       FIREBASE-SETUP.md) e i dati dei suoi incarichi glieli prepara il servizio
+       (email-service/api/revisore.js): vedi Cloud._caricaRevisore. Per questo gli
+       restano nascosti anche i Sondaggi, che non riguardano gli incarichi. */
     const RUOLO_REVISORE = 'revisore';
     const NOME_RUOLO_REVISORE = 'Revisore';
-    const SEZIONI_REVISORE_NO = ['persone', 'rating', 'comunicazioni'];
+    const SEZIONI_REVISORE_NO = ['persone', 'rating', 'comunicazioni', 'sondaggi'];
     function eRuoloRevisore(ruolo) { return ruolo === RUOLO_REVISORE; }
     // le sezioni di un Revisore: quelle scelte (o, senza scelte, quelle di partenza), mai
     // in scrittura e mai quelle che non si possono restringere ai suoi incarichi
@@ -1567,6 +1570,9 @@
         incarichiMiei() {
             const r = this.ruoloCorrente();
             if (!r || !r.revisore) return null;
+            // con l'accesso protetto gli incarichi li ha gia' scelti il servizio, che ha
+            // sotto mano l'anagrafica intera: sono tutti e soli quelli che gli ha passato
+            if (typeof Cloud !== 'undefined' && Cloud.attivo && Cloud.revisore) return Cloud._mieiRevisore;
             return idIncarichiDiPersona(this.personaCorrente());
         },
         // il ruolo collegato vede solo una parte degli incarichi (per regione o perche' suoi)
@@ -1636,6 +1642,12 @@
         fb: null, app: null, auth: null, db: null,
         sottoscrizioni: [],
         DOC_SYNC: null,
+        /* Il Revisore: i dati non li legge dal database (che a lui non consegna nessun
+           archivio) ma dal servizio, che gli passa solo quelli dei suoi incarichi. */
+        revisore: false,
+        _mieiRevisore: new Set(),   // gli id dei suoi incarichi, come li ha detti il servizio
+        _caricatoRevisore: 0,       // quando sono arrivati gli ultimi dati
+        _timerRevisore: null,
 
         async init() {
             const config = window.RV_FIREBASE_CONFIG;
@@ -1757,7 +1769,7 @@
                 await this.avviaSync(identita.ruolo, identita.email);
             } catch (e) {
                 try { await signOut(this.auth); } catch (e2) { }
-                return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
+                return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + ((e && e.msgUtente) || this.msgErrore(e)) + '). Riprova tra poco.' };
             }
             Auth.utenteCorrente = identita;
             // l'ultimo accesso e' della sessione reale (per un collaboratore, la sua scheda)
@@ -2401,6 +2413,8 @@
             const chiudi = () => {
                 this.pronto = false;
                 this._sync = null;
+                this.revisore = false;
+                this._mieiRevisore = new Set();
                 // attende le scritture in corso (es. la voce "Uscita" del registro)
                 try { this.fb.fsMod.waitForPendingWrites(this.db).then(eseguiSignOut, eseguiSignOut); }
                 catch (e) { eseguiSignOut(); }
@@ -2433,8 +2447,14 @@
             // archivio/{documento} al solo staff pieno: un "solo sondaggio" verrebbe respinto
             // e si vedrebbe l'avviso dei permessi a ogni accesso. Per abilitarlo agli Eventi
             // va prima cambiato il suo ruolo (la finestra "Gestisci accessi" lo segnala).
+            // Il Revisore: dal database legge SOLO la definizione dei ruoli; tutto il resto
+            // gli arriva dal servizio, gia' ristretto ai suoi incarichi. Se il servizio non
+            // risponde non si entra (meglio di una schermata con dati vecchi o di altri).
+            this.revisore = eRuoloRevisore(ruolo);
+            if (this.revisore) await this._caricaRevisore(true);
             const chiaviSync = eRuoloSoloSondaggio(ruolo)
                 ? [CHIAVI.sondaggi, CHIAVI.sondaggiConfig].filter(k => this.DOC_SYNC[k])
+                : this.revisore ? [CHIAVI.ruoli]
                 : Object.keys(this.DOC_SYNC);
             for (const chiave of chiaviSync) {
                 const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
@@ -2503,6 +2523,7 @@
                 }, () => { });
                 this.sottoscrizioni.push(stacca);
             });
+            if (this.revisore) this._tieniAggiornatoRevisore();
             // Se il server ha negato qualche archivio l'utente deve saperlo: prima restava
             // muto e sembrava semplicemente che una sezione "non ci fosse". Il messaggio
             // DICE QUALI archivi, altrimenti non si riesce a capire cosa correggere.
@@ -2514,6 +2535,121 @@
                     ? 'Il server non consente a questa utenza di leggere: ' + nomi + '. Riferiscilo all\'amministratore (regole di sicurezza da aggiornare).'
                     : 'Non sono stati caricati: ' + nomi + '. Se il problema resta, riferiscilo all\'amministratore.';
                 setTimeout(() => toast(msg, 'rosso'), 1500);
+            }
+        },
+
+        /* ---------- il Revisore: dati dal servizio ----------
+           Gli archivi stanno ognuno in un documento solo, e le regole del database non
+           sanno darne una parte: a chi ha il ruolo Revisore non ne consegnano nessuno.
+           Qui si chiede al servizio (email-service/api/revisore.js), che gli passa solo
+           cio' che riguarda i suoi incarichi; e al servizio vanno le poche cose che un
+           revisore scrive (voci del registro, richieste di correzione, la sua firma). */
+        _urlRevisore() {
+            let url = window.RV_REVISORE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'revisore$1');
+            return url || '';
+        },
+        async _chiamaRevisore(corpo) {
+            const url = this._urlRevisore();
+            if (!url) return { ok: false, msg: 'Servizio dei dati non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const testo = JSON.stringify(Object.assign({ idToken: idToken }, corpo));
+                // un salvataggio piccolo deve arrivare anche se la scheda viene chiusa subito dopo
+                // (la voce "Uscita" del registro): keepalive, che i browser concedono fino a 64 KB
+                const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: testo, keepalive: corpo.azione === 'salva' && testo.length < 60000 });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data || data.ok === false) return { ok: false, stato: r.status, msg: (data && data.msg) || ('Servizio non disponibile (' + r.status + ').') };
+                return data;
+            } catch (e) {
+                return { ok: false, msg: 'Servizio non raggiungibile: controlla la connessione e riprova.' };
+            }
+        },
+        /* Mette nel browser un archivio arrivato dal servizio. Le mie modifiche non ancora
+           partite restano sopra, come per gli archivi letti dal database. */
+        _accogliDalServizio(chiave, remoto) {
+            let nuovoLocale = remoto;
+            if (this._pendenti[chiave] != null) {
+                const forma = _formaDati(chiave);
+                nuovoLocale = _applicaDelta(remoto, _deltaDati(this._baseRemoto[chiave], this._pendenti[chiave], forma), forma);
+                this._pendenti[chiave] = nuovoLocale;
+            }
+            this._baseRemoto[chiave] = remoto;
+            if (nuovoLocale === localStorage.getItem(chiave)) return false;
+            localStorage.setItem(chiave, nuovoLocale);
+            return true;
+        },
+        /* Chiede al servizio i dati del revisore e li mette al posto degli archivi.
+           primo = all'ingresso: se non arrivano si alza un errore (non si entra).
+           Gli archivi che il servizio non passa vengono SVUOTATI: sullo stesso browser
+           potrebbe essere entrato prima un altro utente, e i suoi dati non devono restare. */
+        async _caricaRevisore(primo) {
+            const r = await this._chiamaRevisore({ azione: 'dati' });
+            if (!r.ok) {
+                if (primo) { const e = new Error(r.msg || 'dati non disponibili'); e.msgUtente = String(r.msg || 'servizio dei dati non disponibile').replace(/\.$/, ''); throw e; }
+                return false;
+            }
+            const archivi = r.archivi || {};
+            let cambiato = false;
+            Object.keys(this.DOC_SYNC).forEach(chiave => {
+                if (chiave === CHIAVI.ruoli) return;       // la definizione dei ruoli la legge dal database
+                const nome = this.DOC_SYNC[chiave];
+                const vuoto = _formaDati(chiave) === 'oggetto' ? {} : [];
+                const valore = Object.prototype.hasOwnProperty.call(archivi, nome) && archivi[nome] != null ? archivi[nome] : vuoto;
+                if (this._accogliDalServizio(chiave, JSON.stringify(valore))) cambiato = true;
+            });
+            this._mieiRevisore = new Set(Array.isArray(r.miei) ? r.miei : []);
+            this._caricatoRevisore = Date.now();
+            if (cambiato && !primo) ridisegnaDaSync();
+            return true;
+        },
+        /* I dati del revisore non arrivano in tempo reale: si rileggono ogni dieci minuti
+           e quando si torna sulla scheda dopo un po'. */
+        _tieniAggiornatoRevisore() {
+            const rileggi = () => { if (this.revisore && this.pronto && !document.hidden) this._caricaRevisore(false).catch(() => { }); };
+            this._timerRevisore = setInterval(rileggi, 10 * 60 * 1000);
+            const alRitorno = () => { if (!document.hidden && Date.now() - this._caricatoRevisore > 3 * 60 * 1000) rileggi(); };
+            document.addEventListener('visibilitychange', alRitorno);
+            this.sottoscrizioni.push(() => {
+                if (this._timerRevisore) { clearInterval(this._timerRevisore); this._timerRevisore = null; }
+                document.removeEventListener('visibilitychange', alRitorno);
+            });
+        },
+        /* Manda al servizio le cose che un revisore scrive. Di ogni archivio parte solo
+           la differenza rispetto a quello che il servizio gli aveva dato; il servizio
+           decide che cosa accettare e risponde con l'archivio come lo vede lui adesso. */
+        async _flushRevisore() {
+            this._timerFlush = null;
+            if (!this.pronto) return;
+            const pendenti = this._pendenti;
+            this._pendenti = {};
+            for (const chiave of Object.keys(pendenti)) {
+                const nome = this.DOC_SYNC[chiave], forma = _formaDati(chiave);
+                const delta = _deltaDati(this._baseRemoto[chiave], pendenti[chiave], forma);
+                const vuoto = forma === 'oggetto' ? !Object.keys(delta.upserts).length : !delta.upserts.length;
+                if (vuoto) continue;
+                const r = await this._chiamaRevisore({ azione: 'salva', archivio: nome, upserts: delta.upserts });
+                if (r.ok) {
+                    this._tentativi[chiave] = 0;
+                    delete this.archiviNonScritti[nome];
+                    if (this._accogliDalServizio(chiave, JSON.stringify(r.valore))) ridisegnaDaSync();
+                    continue;
+                }
+                // non partita: resta in coda (se nel frattempo non c'e' gia' una versione piu' nuova)
+                if (this._pendenti[chiave] == null) this._pendenti[chiave] = pendenti[chiave];
+                this.archiviNonScritti[nome] = r.msg || 'errore';
+                this._tentativi[chiave] = (this._tentativi[chiave] || 0) + 1;
+                const rinuncia = r.stato === 403 || r.stato === 400 || this._tentativi[chiave] >= 5;
+                if (!rinuncia && !this._timerFlush && this.pronto) this._timerFlush = setTimeout(() => this._flush(), 2500);
+                if (!this._erroreMostrato[nome]) {
+                    this._erroreMostrato[nome] = true;
+                    toast(!rinuncia ? 'Salvataggio di "' + nomeArchivio(nome) + '" non ancora condiviso, nuovo tentativo in corso.'
+                        : 'Salvataggio di "' + nomeArchivio(nome) + '" non riuscito: ' + (r.msg || 'errore') + ' La modifica resta su questo computer.', 'rosso');
+                    setTimeout(() => { this._erroreMostrato[nome] = false; }, 5000);
+                }
             }
         },
 
@@ -2531,6 +2667,10 @@
             // (es. archivio/audit) che genererebbero errori e tentativi a vuoto in loop.
             const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
             if (rc && rc.soloSondaggio && !(rc.sondaggioRuolo === 'compila' && chiave === CHIAVI.sondaggi)) return;
+            // il Revisore e' in sola visualizzazione: scrive solo il registro, le richieste
+            // di correzione e la sua firma, e le scrive attraverso il servizio (_flushRevisore).
+            // Ogni altra modifica resta nel browser: il database non gliela lascerebbe salvare.
+            if (this.revisore && chiave !== CHIAVI.audit && chiave !== CHIAVI.richieste && chiave !== CHIAVI.firmeEmail) return;
             this._pendenti[chiave] = JSON.stringify(valore);
             if (this._timerFlush) return;
             this._timerFlush = setTimeout(() => this._flush(), 400);
@@ -2539,6 +2679,7 @@
         // mio valore locale con lo stato remoto attuale: due utenti che salvano
         // record diversi non si sovrascrivono piu (niente perdita di dati).
         async _flush() {
+            if (this.revisore) return this._flushRevisore();
             this._timerFlush = null;
             // La coda si svuota SOLO se si puo' davvero scrivere. Prima veniva svuotata
             // comunque e poi ci si fermava: le modifiche in attesa sparivano per sempre,
@@ -2641,6 +2782,10 @@
             this._primoSmista = true;
             this._presenzaAvviata = true;
             const { onSnapshot } = this.fb.fsMod;
+            // Il Revisore non compare tra gli utenti connessi e non li vede: l'elenco sta in
+            // un documento dell'archivio (chi c'e', su che cosa sta lavorando), che il
+            // database a lui non consegna. Gli restano i messaggi privati e l'ultimo accesso.
+            const conElenco = !this.revisore;
             // heartbeat 30s (solo a scheda visibile); ~ogni 5 min rinfresca anche
             // "ultimoAccesso" (visto come Ultimo accesso nella vista Utenti). La reattivita
             // vera arriva dagli eventi (naviga, apertura/chiusura editor, ritorno visibile).
@@ -2662,7 +2807,7 @@
             this._pageShowHandler = () => { if (this._presenzaAvviata) this.pubblicaPresenza(); };
             window.addEventListener('pageshow', this._pageShowHandler);
             const emailKey = email.toLowerCase();
-            const stacca = onSnapshot(this._presenzaRef(), snap => {
+            const stacca = !conElenco ? null : onSnapshot(this._presenzaRef(), snap => {
                 const dati = (snap && snap.data && snap.data()) || {};
                 const stati = dati.stati || {};
                 const ora = Date.now();
@@ -2684,7 +2829,7 @@
                     } catch (e) { }
                 }
             }, () => { });
-            this.sottoscrizioni.push(stacca);
+            if (stacca) this.sottoscrizioni.push(stacca);
             // messaggi privati: ognuno legge SOLO il proprio documento messaggi/<email> (le regole
             // Firestore lo consentono al solo destinatario), cosi le conversazioni non sono visibili a tutti.
             const staccaMsg = onSnapshot(this._msgRef(emailKey), snap => {
@@ -2697,11 +2842,11 @@
             // pulizia una tantum: i messaggi storici stavano nel doc presenza condiviso (leggibile
             // da tutto lo staff). Ora sono privati per destinatario: rimuovo il vecchio campo cosi
             // non resta piu una copia leggibile da tutti. Idempotente (best-effort).
-            try { const { setDoc, deleteField } = this.fb.fsMod; setDoc(this._presenzaRef(), { messaggi: deleteField() }, { merge: true }).catch(() => { }); } catch (e) { }
+            if (conElenco) { try { const { setDoc, deleteField } = this.fb.fsMod; setDoc(this._presenzaRef(), { messaggi: deleteField() }, { merge: true }).catch(() => { }); } catch (e) { } }
         },
         // pubblica il proprio slot di presenza; debounce per accorpare naviga+focus+battito
         pubblicaPresenza() {
-            if (!this._presenzaAvviata || !this.attivo || !this.pronto) return;
+            if (!this._presenzaAvviata || !this.attivo || !this.pronto || this.revisore) return;
             if (this._presenzaPubTimer) return;
             this._presenzaPubTimer = setTimeout(() => {
                 this._presenzaPubTimer = null;
@@ -2733,7 +2878,7 @@
         // lapide: ts=0 mi fa sparire subito dagli altri, senza cancellare la chiave
         _scriviLapide() {
             const u = Auth.utenteCorrente;
-            if (!u || !u.email || !this.attivo || !this.pronto) return;
+            if (!u || !u.email || !this.attivo || !this.pronto || this.revisore) return;
             try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [Auth.emailSessione()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
         },
         // notifica: popup con risposta per i messaggi nuovi a me destinati. Dedup per ID
@@ -2823,7 +2968,7 @@
            Firestore lasciano scrivere l'elenco degli utenti al solo amministratore, quindi
            la scheda la crea il servizio email, che verifica chi chiama e accetta solo i
            ruoli consentiti (email-service/api/abilita-utente.js). */
-        async abilitaUtenteDelegato(dati) {
+        async _chiamaAbilita(corpo) {
             let url = window.RV_ABILITA_UTENTE_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'abilita-utente$1');
             if (!url) return { ok: false, msg: 'Servizio non configurato: chiedi all\'amministratore di abilitare l\'utente.' };
@@ -2834,14 +2979,75 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken: idToken, azione: 'abilita', email: dati.email, ruolo: dati.ruolo })
+                    body: JSON.stringify(Object.assign({ idToken: idToken }, corpo))
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data || data.ok === false) return { ok: false, msg: (data && data.msg) || ('Servizio non disponibile (' + r.status + ').') };
-                return { ok: true };
+                return data;
             } catch (e) {
                 return { ok: false, msg: 'Servizio non raggiungibile: riprova.' };
             }
+        },
+        async abilitaUtenteDelegato(dati) {
+            const r = await this._chiamaAbilita({ azione: 'abilita', email: dati.email, ruolo: dati.ruolo });
+            return r.ok ? { ok: true } : r;
+        },
+        /* L'elenco di "Nuovi accessi" preparato dal servizio: le persone di Aderenti Revilaw
+           senza accesso e gli accessi abilitati da chi chiama. Serve quando chi abilita ha a
+           sua volta il ruolo Revisore: a lui il database non da' ne' l'anagrafica ne' gli utenti. */
+        async candidatiAccessi() {
+            const r = await this._chiamaAbilita({ azione: 'candidati' });
+            return r.ok ? { ok: true, candidati: r.candidati || [], miei: r.miei || [] } : r;
+        },
+        /* La prova della protezione dei revisori (vedi provaProtezioneRevisori piu' sotto):
+           entra come revisore di prova su un collegamento separato, tenta di leggere e di
+           scrivere direttamente nel database e riporta, tentativo per tentativo, se e'
+           stato respinto. Torna { ok, esiti: [{ cosa, atteso, esito, giusto, dettaglio }], pulizia }. */
+        async provaProtezioneRevisori() {
+            const inizio = await this._chiamaRevisore({ azione: 'prova-inizio' });
+            if (!inizio.ok) return { ok: false, msg: inizio.msg };
+            const { initializeApp, deleteApp } = this.fb.appMod;
+            const { getAuth, signInWithCustomToken, signOut } = this.fb.authMod;
+            const { getFirestore, doc, getDoc, getDocs, setDoc, collection } = this.fb.fsMod;
+            const esiti = [];
+            let appProva = null, guasto = '';
+            try {
+                appProva = initializeApp(window.RV_FIREBASE_CONFIG, 'rv-prova-protezione-' + Date.now());
+                const authP = getAuth(appProva);
+                await signInWithCustomToken(authP, inizio.gettone);
+                const dbP = getFirestore(appProva);
+                const tenta = async (cosa, deveRiuscire, fn) => {
+                    let esito = 'riuscito', dettaglio = '';
+                    try { await fn(); }
+                    catch (e) {
+                        const codice = String((e && e.code) || '');
+                        esito = codice.indexOf('permission-denied') >= 0 ? 'respinto' : 'errore';
+                        if (esito === 'errore') dettaglio = codice || String((e && e.message) || '').slice(0, 80);
+                    }
+                    const atteso = deveRiuscire ? 'riuscito' : 'respinto';
+                    esiti.push({ cosa: cosa, atteso: atteso, esito: esito, giusto: esito === atteso, dettaglio: dettaglio });
+                };
+                const archivi = [['incarichi', 'leggere gli incarichi'], ['persone', 'leggere l\'anagrafica (Aderenti Revilaw)'], ['fattureStato', 'leggere le fatture'],
+                    ['audit', 'leggere il Registro modifiche'], ['richieste', 'leggere le richieste di correzione'], ['controlliQualita', 'leggere i controlli qualità'],
+                    ['comunicazioni', 'leggere le comunicazioni ai team'], ['rating', 'leggere le verifiche del merito creditizio'], ['firmeEmail', 'leggere le firme email'],
+                    ['presenza', 'leggere chi è connesso'], ['sondaggi', 'leggere le risposte dei sondaggi'], ['eventiConfig', 'leggere gli accessi agli eventi'],
+                    ['newsletterContatti', 'leggere i contatti della newsletter']];
+                for (const [nome, cosa] of archivi) await tenta(cosa, false, () => getDoc(doc(dbP, 'archivio', nome)));
+                await tenta('leggere l\'elenco degli utenti', false, () => getDocs(collection(dbP, 'utenti')));
+                await tenta('leggere la scheda utente di un\'altra persona', false, () => getDoc(doc(dbP, 'utenti', String(Auth.emailSessione() || '').toLowerCase())));
+                // in scrittura si tenta un documento di prova, MAI un archivio vero
+                await tenta('scrivere nell\'archivio', false, () => setDoc(doc(dbP, 'archivio', inizio.documento), { json: '[]', da: 'prova della protezione' }));
+                await tenta('leggere la propria scheda utente (gli serve per entrare)', true, () => getDoc(doc(dbP, 'utenti', inizio.email)));
+                await tenta('leggere la definizione dei ruoli (gli serve per entrare)', true, () => getDoc(doc(dbP, 'archivio', 'ruoli')));
+                try { await signOut(authP); } catch (e) { }
+            } catch (e) {
+                guasto = String((e && e.code) || (e && e.message) || 'errore').slice(0, 120);
+            }
+            // comunque vada, il revisore di prova si toglie
+            const fine = await this._chiamaRevisore({ azione: 'prova-fine', email: inizio.email });
+            if (appProva) { try { await deleteApp(appProva); } catch (e) { } }
+            if (guasto) return { ok: false, msg: 'non è stato possibile entrare come revisore di prova (' + guasto + ').' };
+            return { ok: true, esiti: esiti, pulizia: !!fine.ok };
         },
         // il valore che, passato a salvaUtente, CANCELLA un campo della scheda (es. collaboratoreDi)
         campoDaTogliere() { return this.fb.fsMod.deleteField(); },
@@ -41265,6 +41471,52 @@
         return l.filter(u => u && (u.ruolo === id || (eRuoloCollaboratore(u.ruolo) && conRuolo.has(String(u.collaboratoreDi || '').toLowerCase())))).length;
     }
 
+    /* ---- Il Revisore e il database ----
+       Per gli altri ruoli limitati (i coordinatori) il filtro vale dentro il programma.
+       Per il Revisore no: le regole del database a lui non consegnano nessun archivio, e
+       i dati dei suoi incarichi glieli prepara il servizio. Che le regole pubblicate
+       siano davvero quelle lo si vede con una PROVA: il servizio crea un revisore finto
+       (senza scheda e senza incarichi), il browser entra a suo nome su un collegamento
+       separato e tenta di leggere gli archivi direttamente dal database. Se viene
+       respinto, la protezione e' attiva. La prova non legge e non scrive dati veri (in
+       scrittura tenta un documento di prova, che viene tolto) e resta nel Registro. */
+    const AZIONE_PROVA_PROTEZIONE = 'Prova della protezione dei revisori';
+    function htmlProtezioneRevisori() {
+        if (!Cloud.attivo) return '';
+        const ultima = Store.leggi(CHIAVI.audit, []).find(v => v && v.azione === AZIONE_PROVA_PROTEZIONE);
+        const esito = ultima && Array.isArray(ultima.dettagli) && ultima.dettagli[0] ? String(ultima.dettagli[0].dopo || '') : '';
+        return '<div class="ruolo-reg" style="margin-top:10px;"><strong>Protezione del database.</strong> A chi ha questo ruolo il database non consegna nessun archivio: riceve dal servizio solo i dati dei suoi incarichi. '
+            + (ultima ? 'Ultima prova: <span class="badge ' + (/^protezione attiva/.test(esito) ? 'verde' : 'rosso') + '">' + esc(esito || 'esito non registrato') + '</span> il ' + fmtDataOra(ultima.ts) + '. '
+                : 'Non è ancora stata fatta una prova. ')
+            + '<div style="margin-top:8px;"><button type="button" class="btn btn-sm btn-secondary" id="r-prova-protezione">Prova la protezione</button></div></div>';
+    }
+    async function provaProtezioneRevisori() {
+        const r = await Cloud.provaProtezioneRevisori();
+        if (!r.ok) { toast('Prova non riuscita: ' + r.msg, 'rosso'); return; }
+        const sbagliati = r.esiti.filter(e => !e.giusto);
+        const aperti = sbagliati.filter(e => e.atteso === 'respinto' && e.esito === 'riuscito');
+        const verdetto = !sbagliati.length ? 'protezione attiva'
+            : aperti.length ? 'protezione NON attiva (' + aperti.length + (aperti.length === 1 ? ' accesso non respinto' : ' accessi non respinti') + ')'
+                : 'prova non conclusiva (' + sbagliati.length + (sbagliati.length === 1 ? ' tentativo con esito inatteso' : ' tentativi con esito inatteso') + ')';
+        Audit.registra(Auth.utenteCorrente, AZIONE_PROVA_PROTEZIONE, 'sistema', null, null,
+            [{ campo: 'Esito', prima: '', dopo: verdetto }].concat(sbagliati.map(e => ({ campo: e.cosa, prima: 'atteso: ' + e.atteso, dopo: e.esito + (e.dettaglio ? ' (' + e.dettaglio + ')' : '') }))));
+        const badge = e => '<span class="badge ' + (e.giusto ? 'verde' : 'rosso') + '">' + esc(e.esito) + '</span>';
+        apriModale(`<h2>Prova della protezione dei revisori</h2>
+            <div class="riquadro-ambito"><div class="etichetta-ambito">Esito</div>
+                <div class="valore-ambito"><span class="badge ${!sbagliati.length ? 'verde' : 'rosso'}" style="font-size:15px;">${esc(verdetto)}</span></div></div>
+            <p class="descrizione" style="text-align:justify;">${!sbagliati.length
+                ? 'Un revisore di prova, entrato con un accesso vero, ha tentato di leggere gli archivi <strong>direttamente dal database</strong> ed è stato respinto ogni volta. I dati degli altri incarichi non possono arrivare al computer di un revisore.'
+                : aperti.length
+                    ? 'Il revisore di prova è riuscito a leggere direttamente dal database: le regole pubblicate sono ancora quelle di prima. Il programma mostra comunque a un revisore solo i suoi incarichi, ma la protezione del database si attiva solo <strong>pubblicando le regole aggiornate</strong> (Firebase console, Firestore Database, scheda Regole: il testo è nel file <strong>area-riservata/firestore.rules</strong>). Poi ripeti la prova.'
+                    : 'Qualche tentativo ha dato un esito che la prova non si aspettava (di solito un problema di collegamento): ripetila tra poco.'}</p>
+            <div class="tabella-wrap"><table class="dati"><thead><tr><th>Il revisore di prova ha tentato di</th><th>Deve essere</th><th>È stato</th></tr></thead><tbody>
+                ${r.esiti.map(e => `<tr><td data-label="Tentativo">${esc(e.cosa)}</td><td data-label="Deve essere">${esc(e.atteso)}</td><td data-label="È stato">${badge(e)}${e.dettaglio && !e.giusto ? ' <span class="hint">' + esc(e.dettaglio) + '</span>' : ''}</td></tr>`).join('')}
+            </tbody></table></div>
+            <p class="hint" style="margin-top:10px;">Il revisore di prova è stato tolto al termine. La prova è registrata nel Registro modifiche.${r.pulizia ? '' : ' <strong>Attenzione:</strong> la rimozione del revisore di prova non è andata a buon fine: verrà tolto alla prossima prova, oppure eliminalo dalla sezione Utenti (si chiama «Prova della protezione»).'}</p>
+            <div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>`, { classe: 'larga' });
+        document.getElementById('m-ok').addEventListener('click', () => { chiudiModale(); if (vistaCorrente === 'ruoli') vistaRuoli(); });
+    }
+
     function vistaRuoli() {
         if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
         // un ruolo su misura creato in passato con l'id 'collaboratore' (lo slug del nome) oggi
@@ -41299,7 +41551,7 @@
                 <div class="ruolo-sez">${riepSez(r)}</div>
                 ${r.id === RUOLO_VICE_ADMIN ? '<div class="ruolo-reg">Può fare <strong>tutto quello che può fare l\'amministratore</strong>: ogni sezione in scrittura, Eventi e Newsletter, e anche <strong>Utenti</strong> e <strong>Ruoli e permessi</strong>. Non è modificabile e non può avere collaboratori. «Dati e backup» resta del solo titolare.</div>' : ''}
                 ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw più le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
-                ${r.id === RUOLO_REVISORE ? '<div class="ruolo-reg">Vede solo gli <strong>incarichi in cui compare</strong> la sua scheda di Aderenti Revilaw (team, responsabile dell\'incarico o della qualità), sempre in <strong>sola visualizzazione</strong>. Qui scegli quali sezioni gli compaiono; Aderenti Revilaw, Verifica merito creditizio e Comunicazione teams gli restano nascoste, perché non si possono restringere ai suoi incarichi. Lo possono assegnare anche responsabili della qualità, equity partner e founding partner, dalla sezione <strong>Nuovi accessi</strong>.</div>' : ''}
+                ${r.id === RUOLO_REVISORE ? '<div class="ruolo-reg">Vede solo gli <strong>incarichi in cui compare</strong> la sua scheda di Aderenti Revilaw (team, responsabile dell\'incarico o della qualità), sempre in <strong>sola visualizzazione</strong>. Qui scegli quali sezioni gli compaiono; Aderenti Revilaw, Verifica merito creditizio, Comunicazione teams e Sondaggi gli restano nascoste, perché non si possono restringere ai suoi incarichi. Lo possono assegnare anche responsabili della qualità, equity partner e founding partner, dalla sezione <strong>Nuovi accessi</strong>.</div>' + htmlProtezioneRevisori() : ''}
                 ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non è limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
             `<div class="ruolo-card ruolo-card-collab">
@@ -41313,6 +41565,7 @@
             </div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
         document.getElementById('r-collab-utenti').addEventListener('click', apriNuovoCollaboratore);
+        { const bp = document.getElementById('r-prova-protezione'); if (bp) bp.addEventListener('click', () => conAttesa(bp, provaProtezioneRevisori, { testo: 'Prova in corso…' })); }
         $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
         $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const r = Ruoli.trova(b.dataset.id); if (!r || eRuoloAdmin(r.id) || r.sistema) return;
@@ -41581,26 +41834,39 @@
             <div id="na-corpo"></div>`;
         const ridisegna = () => { if (vistaCorrente === 'accessi') vistaNuoviAccessi(); };
 
-        let utenti;
-        try { utenti = Cloud.attivo ? await Cloud.listaUtenti() : Auth.utenti(); }
-        catch (e) {
-            const c = document.getElementById('na-caricamento');
-            if (c) c.textContent = 'Elenco non disponibile: ' + Cloud.msgErrore(e);
-            return;
+        // Chi abilita puo' avere a sua volta il ruolo Revisore: a lui il database non consegna
+        // ne' l'anagrafica ne' l'elenco degli utenti, e l'elenco glielo prepara il servizio.
+        let utenti, daServizio = null;
+        if (Cloud.attivo && Cloud.revisore) {
+            daServizio = await Cloud.candidatiAccessi();
+            if (!daServizio.ok) {
+                const c = document.getElementById('na-caricamento');
+                if (c) c.textContent = 'Elenco non disponibile: ' + daServizio.msg;
+                return;
+            }
+            utenti = daServizio.miei;
+        } else {
+            try { utenti = Cloud.attivo ? await Cloud.listaUtenti() : Auth.utenti(); }
+            catch (e) {
+                const c = document.getElementById('na-caricamento');
+                if (c) c.textContent = 'Elenco non disponibile: ' + Cloud.msgErrore(e);
+                return;
+            }
         }
         const caricamento = document.getElementById('na-caricamento'), corpo = document.getElementById('na-corpo');
         if (!caricamento || !corpo || vistaCorrente !== 'accessi') return;     // la vista puo' essere cambiata nel frattempo
         caricamento.classList.add('hidden');
         const conAccesso = new Set(utenti.map(u => String(u.email || '').toLowerCase()));
-        const conta = incarichiPerPersona();
+        const conta = daServizio ? new Map(daServizio.candidati.map(x => [x.id, x.incarichi])) : incarichiPerPersona();
         const visti = new Set();
-        const candidati = Persone.tutte()
+        const candidati = (daServizio ? daServizio.candidati.slice() : Persone.tutte()
             .filter(p => p.attivo && !p.eliminato && p.email && !conAccesso.has(String(p.email).toLowerCase()))
             // due schede con la stessa email darebbero due righe per lo stesso accesso
-            .filter(p => { const e = String(p.email).toLowerCase(); if (visti.has(e)) return false; visti.add(e); return true; })
+            .filter(p => { const e = String(p.email).toLowerCase(); if (visti.has(e)) return false; visti.add(e); return true; }))
             .sort((a, b) => nomeCompletoPersona(a).localeCompare(nomeCompletoPersona(b), 'it'));
         const io = String(Auth.utenteCorrente.email || '').toLowerCase();
-        const miei = utenti.filter(u => String(u.creatoDa || '').toLowerCase() === io).sort((a, b) => (b.creato || 0) - (a.creato || 0));
+        // dal servizio arrivano gia' i soli accessi abilitati da me
+        const miei = (daServizio ? utenti.slice() : utenti.filter(u => String(u.creatoDa || '').toLowerCase() === io)).sort((a, b) => (b.creato || 0) - (a.creato || 0));
         const qualifiche = p => [p.equityPartner && 'Equity partner', p.foundingPartner && 'Founding partner', p.qualita && 'Resp. qualità', p.respIncarico && 'Resp. incarico',
             p.coordinatore && 'Coordinatore', p.viceCoordinatore && 'Vice coordinatore'].filter(Boolean).map(q => '<span class="badge neutro">' + esc(q) + '</span>').join(' ');
         const nIncarichi = p => { const n = conta.get(p.id) || 0; return n ? '<span class="badge verde">' + n + (n === 1 ? ' incarico' : ' incarichi') + '</span>' : '<span class="badge ambra" title="Come Revisore non vedrebbe alcun incarico finché il suo nome non è scritto in un incarico">nessun incarico</span>'; };
@@ -43338,7 +43604,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             </div>
             ${scheda
                 ? `<ul class="elenco-ambito">
-                        <li>Vedi <strong>solo gli incarichi in cui compari</strong>: nel team, come responsabile dell'incarico o della qualità. Gli altri non compaiono in alcuna schermata, nemmeno nei totali del cruscotto.</li>
+                        <li>Vedi <strong>solo gli incarichi in cui compari</strong>: nel team, come responsabile dell'incarico o della qualità. Gli altri non compaiono in alcuna schermata, nemmeno nei totali del cruscotto${Cloud.attivo && Cloud.revisore ? ', e i loro dati non arrivano a questo computer' : ''}.</li>
                         <li>Il tuo accesso è in <strong>sola visualizzazione</strong>: puoi consultare i dati dei tuoi incarichi, non modificarli. Negli <strong>Strumenti di revisione</strong> lavori normalmente sui tuoi incarichi.</li>
                    </ul>`
                 : `<ul class="elenco-ambito">

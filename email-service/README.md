@@ -610,6 +610,7 @@ decide davvero (`lib/abilita-utente.js`).
 |---|---|
 | `stato` | dice se chi chiama puo' abilitare (`puo`), a che titolo (`come`) e con quale ruolo |
 | `abilita` | con `{ email, ruolo }` crea `utenti/<email>` con il nome preso dalla scheda, `attivo: true`, `creatoDa` (chi ha abilitato) e `delega` (a che titolo: `qualita`, `equity`, `founding`, `amministratore`) |
+| `candidati` | l'elenco che mostra la sezione: le persone attive di Aderenti Revilaw con un indirizzo email e senza accesso (con quanti incarichi le citano, senza telefono ne' indirizzo) e gli accessi abilitati da chi chiama. Lo usa l'area quando chi abilita ha a sua volta il ruolo `revisore`: a lui il database non consegna ne' l'anagrafica ne' l'elenco degli utenti |
 
 **Chi puo'.** Equity e founding partner sono qualifiche della scheda in
 Aderenti Revilaw (`archivio/persone`, agganciata per email, scheda attiva);
@@ -635,10 +636,50 @@ poi dall'area riservata, come dalla sezione Utenti (`/api/invia-email`). Dopo
 il deploy l'indirizzo e' quello di `invia-email` con `abilita-utente` al posto
 del nome (l'area lo ricava da sola da `RV_EMAIL_SERVICE_URL`).
 
-Il ruolo `revisore` non cambia niente nel servizio: nelle circolarizzazioni,
-per esempio, ognuno vede gia' solo gli incarichi in cui compare.
+Nelle circolarizzazioni il ruolo `revisore` non cambia niente: ognuno vede
+gia' solo gli incarichi in cui compare. Per il resto vedi il capitolo
+seguente.
 
 Prove: `node prove/abilita-utente.prove.js`.
+
+## I dati del Revisore (`/api/revisore`)
+
+Chi entra con il ruolo `revisore` deve vedere solo cio' che riguarda i suoi
+incarichi. Gli archivi dell'area sono salvati ognuno in un solo documento, e le
+regole di Firestore non sanno darne una parte: con le regole di
+`area-riservata/firestore.rules` a un revisore il database **non consegna
+nessun archivio**, ne' l'elenco degli utenti. I suoi dati glieli prepara questa
+porta, che legge gli archivi con la chiave di servizio e gli passa solo quelli
+dei suoi incarichi (`lib/revisore.js`; le regole dei nomi sono in
+`lib/nomi-incarichi.js`, uguali a quelle dell'app).
+
+`POST { idToken, azione }`:
+
+| Azione | Chi | Che cosa fa |
+|---|---|---|
+| `dati` | revisore (o suo collaboratore) | torna `archivi`: gli **incarichi** in cui compare la sua scheda di Aderenti Revilaw (team, responsabile dell'incarico o della qualita', referente, coordinatore); l'**anagrafica ridotta** (la sua scheda per intero; dei colleghi dei suoi incarichi nome, email e qualifiche; degli equity partner e dei coordinatori quanto serve per una richiesta di correzione; degli omonimi il solo nome); le **fatture** e i **controlli qualita'** dei suoi incarichi; del **registro** le voci dei suoi incarichi e le sue; le **richieste** di cui e' parte; la sua **firma**. Piu' `miei` (gli id dei suoi incarichi) e `scheda` |
+| `salva` | revisore | con `{ archivio, upserts }` salva le sole cose che un revisore scrive: `audit` (voci nuove del registro: la firma e l'ora le mette il servizio, una voce esistente non si riscrive, al massimo 300 in 24 ore), `richieste` (una richiesta nuova solo su un suo incarico o su una funzione dell'area e solo verso un equity partner, con cliente, regione e persone in copia decisi dal servizio; su una esistente di cui e' parte aggiunge messaggi a suo nome, la ritira se e' sua, ne cambia lo stato solo se la riceve), `firmeEmail` (la sua). Ogni altro archivio: 403. Niente si cancella |
+| `prova-inizio` | amministratore, vice, titolare | crea un **revisore di prova** (scheda `utenti/prova-protezione-…@nextgenerationbusiness.it` segnata `provaProtezione`, account con una password casuale) e torna il gettone con cui il browser dell'amministratore entra a suo nome e tenta di leggere il database. Toglie prima le prove rimaste a meta' |
+| `prova-fine` | amministratore, vice, titolare | con `{ email }` toglie il revisore di prova (mai un utente vero) e il documento di prova `archivio/provaProtezione` |
+
+Chi non e' revisore riceve 403 da `dati` e `salva`: questa porta non da'
+niente di piu' a nessuno. Senza scheda in anagrafica con il suo indirizzo, o
+senza incarichi, un revisore non riceve alcun incarico.
+
+**Le altre porte.** `invia-comunicazione` lascia partire a un revisore solo le
+email delle sue richieste di correzione: gli indirizzi ammessi sono quelli
+delle persone di quelle richieste e degli equity partner, al massimo 12, e il
+nome del mittente e' quello della sua scheda utente (prima, con un accesso da
+revisore, da li' si poteva spedire qualunque email a chiunque con il mittente
+dello studio). `sblocco-incarico` gli lascia chiedere o ritirare lo sblocco
+solo dei suoi incarichi. Per gli altri ruoli le due porte non cambiano.
+
+L'indirizzo e' quello di `invia-email` con `revisore` al posto del nome
+(l'area lo ricava da sola da `RV_EMAIL_SERVICE_URL`). Non servono variabili
+nuove.
+
+Prove: `node prove/revisore.prove.js` (servizio, con Firestore finto) e
+`scripts/regole/` (le regole di Firestore, sull'emulatore).
 
 ## Sblocco del calcolo congelato (`/api/sblocco-incarico`)
 
