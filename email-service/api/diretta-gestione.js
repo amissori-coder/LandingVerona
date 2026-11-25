@@ -176,7 +176,7 @@ const Q = require('../lib/diretta-domande');
 const { contesto } = require('../lib/diretta-firebase');
 
 const TIPI_PROVA = ['credenziali', 'iscritto-anche', 'promemoria-giorno', 'promemoria-ora'];
-const CHI_ACCODA = ['da-inviare', 'non-ricevuta', 'da-confermare'];
+const CHI_ACCODA = ['da-inviare', 'non-ricevuta', 'da-confermare', 'solo-avviso'];
 const PROVE_LINK_MINUTO = 30;
 
 function invio() {

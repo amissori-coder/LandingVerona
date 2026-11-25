@@ -24,11 +24,10 @@
       (lib/diretta-iscrizione.js, paginaCorrisponde): l'etichetta di
       oggi ("Napoli 2 Ottobre 2026 - Manifestazione di interesse"), un
       percorso, un indirizzo intero; e le pagine che non corrispondono.
-   5. Una password per persona (lib/diretta-invio.js, tipoInvio e
-      haPassword): chi ha gia' una password riceve l'avviso «anche»,
-      chi non l'ha (o l'ha avuta a un indirizzo poi corretto) le
-      credenziali; il reinvio per lo stesso evento e il "Reinvia" del
-      gestore sempre con la password.
+   5. Ogni evento, le sue credenziali (lib/diretta-invio.js, tipoInvio
+      e sostituzione): parte sempre una password nuova, anche a chi ne
+      aveva gia' una (un altro evento, a voce, un vecchio avviso
+      «anche»), e l'email dice quale password non vale piu'.
    6. Il gancio del modulo del sito con la diretta NON configurata:
       risponde subito 'non-configurata', senza toccare niente.
    ============================================================ */
@@ -138,28 +137,29 @@ function uguale(ottenuto, atteso, descrizione) {
     vero(!I.paginaCorrisponde('Ottobre 2026 - Napoli', P), 'le parole contano solo prima del " - "');
     uguale(D.percorsoPagina('https://x.it/a_b/index.html#z'), '/a_b/', 'percorsoPagina: solo il percorso, con la barra finale');
 
-    /* ---------- 5. una password per persona ---------- */
+    /* ---------- 5. ogni evento, le sue credenziali ---------- */
     const T = invio._interni;
     const ts = ms => ({ toMillis: () => ms });
     const nessuno = { invii: { 'napoli-2026': { stato: 'in coda' } } };
-    vero(T.tipoInvio(nessuno, 'napoli-2026') === 'credenziali', 'mai ricevuta una password: le credenziali');
+    vero(T.tipoInvio(nessuno, 'napoli-2026') === 'credenziali' && T.sostituzione(nessuno, 'napoli-2026') === '', 'mai ricevuta una password: le credenziali, senza la frase della sostituzione');
     const conMilano = { invii: { 'napoli-2026': { stato: 'in coda' }, 'milano-2026': { stato: 'inviata', inviata: ts(1000), tipo: 'credenziali' } } };
-    vero(T.haPassword(conMilano, 'napoli-2026') && T.tipoInvio(conMilano, 'napoli-2026') === 'anche', 'credenziali gia\' partite per un altro evento: l\'avviso «anche», senza password');
-    vero(T.tipoInvio(conMilano, 'napoli-2026', true) === 'credenziali', 'il "Reinvia" del gestore: sempre le credenziali');
+    vero(T.haPassword(conMilano, 'napoli-2026') && T.tipoInvio(conMilano, 'napoli-2026') === 'credenziali', 'credenziali gia\' partite per un altro evento: anche cosi\' le credenziali, con una password nuova');
+    uguale(T.sostituzione(conMilano, 'napoli-2026'), 'altro-evento', 'e l\'email dice che la password dell\'altro evento non vale piu\'');
+    vero(T.tipoInvio(conMilano, 'napoli-2026', true) === 'credenziali', 'il "Reinvia" del gestore: le credenziali');
     const soloAnche = { invii: { 'napoli-2026': { stato: 'in coda' }, 'milano-2026': { stato: 'inviata', inviata: ts(1000), tipo: 'anche' } } };
-    vero(T.tipoInvio(soloAnche, 'napoli-2026') === 'credenziali', 'l\'avviso «anche» non e\' una password: se non c\'e\' altro, le credenziali');
+    vero(T.tipoInvio(soloAnche, 'napoli-2026') === 'credenziali' && T.sostituzione(soloAnche, 'napoli-2026') === 'precedente', 'un vecchio avviso «anche» (di prima): le credenziali, e la password di prima non vale piu\'');
     const respinta = { invii: { 'napoli-2026': { stato: 'in coda' }, 'milano-2026': { stato: 'respinta', inviata: ts(1000), tipo: 'credenziali' } } };
-    vero(T.tipoInvio(respinta, 'napoli-2026') === 'credenziali', 'credenziali di un altro evento respinte: non le ha, riceve le credenziali');
+    vero(T.tipoInvio(respinta, 'napoli-2026') === 'credenziali', 'credenziali di un altro evento respinte: le credenziali');
     const incerta = { invii: { 'napoli-2026': { stato: 'in coda' }, 'milano-2026': { stato: 'incerto', aggiornato: ts(1000) } } };
-    vero(T.tipoInvio(incerta, 'napoli-2026') === 'anche', 'credenziali di un altro evento "incerte" (forse partite): nessuna password nuova');
+    vero(T.tipoInvio(incerta, 'napoli-2026') === 'credenziali', 'credenziali di un altro evento "incerte" (forse partite): le credenziali di questo evento');
     const stessoEvento = { invii: { 'napoli-2026': { stato: 'in coda', inviata: ts(500), tipo: 'credenziali' }, 'milano-2026': { stato: 'inviata', inviata: ts(1000), tipo: 'credenziali' } } };
-    vero(T.tipoInvio(stessoEvento, 'napoli-2026') === 'credenziali', 'reinvio per lo stesso evento (non ricevuta, indirizzo corretto): le credenziali, come sempre');
+    vero(T.tipoInvio(stessoEvento, 'napoli-2026') === 'credenziali' && T.sostituzione(stessoEvento, 'napoli-2026') === 'evento', 'reinvio per lo stesso evento: le credenziali, «sostituisce le precedenti»');
     const cambiata = { emailCambiata: ts(2000), invii: { 'napoli-2026': { stato: 'in coda' }, 'milano-2026': { stato: 'inviata', inviata: ts(1000), tipo: 'credenziali' } } };
-    vero(T.tipoInvio(cambiata, 'napoli-2026') === 'credenziali', 'indirizzo corretto DOPO le credenziali dell\'altro evento: erano andate a un\'altra casella, le credenziali');
+    vero(T.tipoInvio(cambiata, 'napoli-2026') === 'credenziali' && T.sostituzione(cambiata, 'napoli-2026') === '', 'indirizzo corretto DOPO le credenziali dell\'altro evento: le credenziali, senza parlare della casella di prima');
     const aVoce = { passwordAVoce: ts(3000), invii: { 'napoli-2026': { stato: 'in coda' } } };
-    vero(T.tipoInvio(aVoce, 'napoli-2026') === 'anche', 'una password data a voce dal gestore: l\'avviso «anche» (non la si cancella)');
+    vero(T.tipoInvio(aVoce, 'napoli-2026') === 'credenziali' && T.sostituzione(aVoce, 'napoli-2026') === 'precedente', 'una password data a voce: le credenziali, e l\'email dice che quella di prima non vale piu\'');
     const ancheAncora = { invii: { 'napoli-2026': { stato: 'in coda', inviata: ts(500), tipo: 'anche' }, 'milano-2026': { stato: 'inviata', inviata: ts(1000), tipo: 'credenziali' } } };
-    vero(T.tipoInvio(ancheAncora, 'napoli-2026') === 'anche', 'un avviso «anche» da rimandare (respinto e riaccodato): di nuovo l\'avviso');
+    vero(T.tipoInvio(ancheAncora, 'napoli-2026') === 'credenziali', 'un vecchio avviso «anche» da rimandare (respinto e riaccodato): adesso partono le credenziali');
 
     /* ---------- 6. la diretta non configurata ---------- */
     const t0 = Date.now();

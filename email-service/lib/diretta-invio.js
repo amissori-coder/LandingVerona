@@ -4,44 +4,33 @@
    Qui passa ogni email della diretta: le credenziali (in coda, mille
    alla volta, una sola con "Reinvia", o subito a chi si iscrive dal
    modulo del sito con l'interruttore dell'evento acceso: inviaSubito),
-   l'avviso «Sei iscritto anche a...», l'email di prova per il gestore,
+   l'email di prova per il gestore,
    la reimpostazione della password, i promemoria del giorno prima e
    dell'ora prima. E qui gira il lavoro programmato (api/diretta-cron.js,
    ogni 5 minuti), che e' anche la rete di sicurezza degli invii subito:
    chi non e' partito resta 'in coda' e parte al giro dopo.
 
-   UNA PASSWORD PER PERSONA. Si entra con l'email e UNA password, per
-   tutti gli eventi. Quando le credenziali di un evento partono, si
-   decide li' (tipoInvio) che cosa mandare:
-     - la persona non ha ancora ricevuto una password (o l'ha ricevuta
-       a un indirizzo che poi e' stato corretto) -> le credenziali, con
-       una password nuova;
-     - le credenziali di QUESTO evento erano gia' partite, al suo
-       indirizzo di adesso (un reinvio a chi non l'ha ricevuta) -> le
-       credenziali, con una password nuova, come sempre;
-     - la persona ha gia' una password che funziona -> l'avviso «Sei
-       iscritto anche a <evento>: entra con la tua email e la password
-       che hai gia'», SENZA password: quella che ha continua a valere.
-       "Ha gia' una password" (haPassword) vuol dire: le credenziali di
-       un altro evento sono partite, oppure il gestore gliene ha data una
-       a voce, oppure ha chiesto «Password dimenticata?» e il
-       collegamento e' partito (resetInviato: forse se n'e' scelta una
-       lei, e mandarle adesso una password nostra la cancellerebbe senza
-       avviso), oppure e' gia' ENTRATA nella diretta (ultimoAccesso: la
-       password che usa funziona).
+   OGNI EVENTO, LE SUE CREDENZIALI (dal 25 novembre 2026). Si entra con
+   l'email e una password, e l'account e' uno solo per tutti gli eventi;
+   ma ogni evento e' un invito a se': quando le credenziali di un evento
+   partono (in coda, «Invia ora», «Reinvia», il modulo del sito) partono
+   SEMPRE con una password nuova e con il collegamento alla diretta di
+   quell'evento, anche a chi ne aveva gia' una (per un altro evento,
+   detta a voce, scelta con «Password dimenticata?»). La password nuova
+   vale per tutti gli eventi e prende il posto di quella di prima: l'email
+   lo dice (sostituzione(), le frasi in diretta-mail.js). L'avviso «Sei
+   iscritto anche a...» (senza password), che si mandava prima a chi una
+   password l'aveva gia', non parte piu' (tipoInvio da' sempre
+   'credenziali'); sulle voci di prima resta il tipo 'anche', la
+   gestione lo mostra e con «Invia loro le credenziali» (accoda
+   'solo-avviso') manda a quelle persone le credenziali dell'evento.
    L'INDIRIZZO CORRETTO TAGLIA LA STORIA. Quando il gestore corregge
    l'email (emailCambiata sul profilo), tutto quello che e' successo
    prima e' andato a un'altra casella, o e' stato fatto da chi usava
    quella casella: credenziali, reimpostazioni, accessi di prima non
-   dicono che la persona di ADESSO conosce una password. Conta solo
-   quello che e' successo dopo (anche per la voce di QUESTO evento:
-   credenziali partite al vecchio indirizzo non sono "gia' ricevute").
-   Il pulsante "Reinvia" della gestione manda sempre le credenziali con
-   una password nuova (e' quello che chiede il gestore), e l'email dice
-   che la password di prima non vale piu' (sostituzione: anche quella
-   scelta con «Password dimenticata?» o data a voce). Sulla voce resta
-   che cosa e' partito (invii.<idEvento>.tipo: 'credenziali' o
-   'anche').
+   dicono che la persona di ADESSO conosce una password (conta per la
+   frase della sostituzione). Sulla voce resta che cosa e' partito
+   (invii.<idEvento>.tipo).
 
    IL MODULO DEL SITO NON SI PRENDE TUTTO IL TETTO. Le voci messe in
    coda dal modulo pubblico (automatica: true, vedi
@@ -255,9 +244,10 @@ function dopoIlTaglio(valore, dopo) {
                        (resetInviato), data a voce dal gestore
                        (passwordAVoce), gia' usata per entrare
                        (ultimoAccesso), o comunque gia' c'era quando le e'
-                       partito un avviso «anche». Succede con il "Reinvia"
-                       del gestore, che la cambia comunque: l'email dice
-                       che quella di prima non vale piu';
+                       partito un vecchio avviso «anche». Ogni invio di
+                       credenziali la cambia comunque (OGNI EVENTO, LE SUE
+                       CREDENZIALI): l'email dice che quella di prima non
+                       vale piu';
      ''             -> niente: e' la prima.
    Un avviso «anche» non e' una password ricevuta: la voce con tipo
    'anche' non fa dire "la password che avevi ricevuto". Credenziali e
@@ -306,27 +296,14 @@ function haPassword(dati, tranne) {
     });
     return partite || passwordPropriaDopo(d, dopo);
 }
-/* Che cosa parte per questo evento: 'credenziali' (con una password
-   nuova) o 'anche' (l'avviso, senza password). Vedi UNA PASSWORD PER
-   PERSONA in testa al file. `forza`: il "Reinvia" del gestore.
-   Le credenziali di QUESTO evento gia' partite (un reinvio a chi non
-   l'ha ricevuta: respinta, errore) fanno ripartire le credenziali solo
-   se erano andate all'indirizzo di adesso: quelle partite prima di una
-   correzione dell'email non contano, e allora decide haPassword (chi
-   nel frattempo ha ricevuto la password di un altro evento al nuovo
-   indirizzo riceve «anche», e quella password continua a valere).
-   E anche quando erano andate all'indirizzo giusto, se DOPO quell'invio
-   la persona si e' fatta una password sua (reimpostazione, voce,
-   accesso), parte «anche»: rimandare le credenziali la cancellerebbe. */
+/* Che cosa parte per questo evento: sempre 'credenziali', con una
+   password nuova (OGNI EVENTO, LE SUE CREDENZIALI, in testa al file).
+   `forza` (il "Reinvia" del gestore) resta per chi chiama: oggi non fa
+   differenza. haPassword e sostituzione servono ancora, per dire
+   nell'email che la password di prima non vale piu'. */
 function tipoInvio(dati, idEvento, forza) {
-    if (forza) return 'credenziali';
-    const d = dati || {};
-    const dopo = tagliaStoria(d);
-    const v = voce(d, idEvento);
-    if (v.tipo !== 'anche' && partitaDopo(v, dopo)) {
-        return passwordPropriaDopo(d, Math.max(dopo, quandoVoce(v) || 0)) ? 'anche' : 'credenziali';
-    }
-    return haPassword(d, idEvento) ? 'anche' : 'credenziali';
+    void dati; void idEvento; void forza;
+    return 'credenziali';
 }
 /* Nei log mai un indirizzo intero: resta il dominio, che basta a capire
    "e' Gmail che rifiuta" senza scrivere di chi si tratta. */
@@ -686,12 +663,13 @@ async function reclama(ctx, ref, idEvento, opz) {
 }
 
 /* Una persona: le credenziali (nuova password, impostata sull'account e
-   scritta nell'email: esiste solo dentro questa funzione) oppure
-   l'avviso «Sei iscritto anche a...» senza password, secondo tipoInvio.
-   Cambiare la password chiude anche le sessioni aperte con quella
-   vecchia (entro un'ora, alla scadenza del token): e' quello che si
-   vuole quando si reinvia. `opz.forza`: il "Reinvia" del gestore, sempre
-   con una password nuova. -> l'esito, con `tipo`. */
+   scritta nell'email: esiste solo dentro questa funzione). tipoInvio da'
+   sempre 'credenziali' (OGNI EVENTO, LE SUE CREDENZIALI); il ramo
+   dell'avviso «Sei iscritto anche a...» senza password resta, ma non
+   parte piu'. Cambiare la password chiude anche le sessioni aperte con
+   quella vecchia (entro un'ora, alla scadenza del token): e' quello che
+   si vuole quando si reinvia. `opz.forza`: il "Reinvia" del gestore.
+   -> l'esito, con `tipo`. */
 async function inviaUna(ctx, trasporto, idEvento, evento, uid, dati, opz) {
     const tipo = tipoInvio(dati, idEvento, opz && opz.forza);
     const comune = {
@@ -859,24 +837,36 @@ async function lavoraCoda(ctx, idEvento, opz) {
 
 /* Mette in coda: chi: 'da-inviare' (le persone caricate e mai
    raggiunte), 'non-ricevuta' (respinte ed errori di chi non e' mai
-   entrato: chi e' entrato l'email l'ha ricevuta) oppure 'da-confermare'
+   entrato: chi e' entrato l'email l'ha ricevuta), 'da-confermare'
    (iscritte dal modulo del sito che non hanno ancora confermato
-   l'indirizzo: «Invia anche a loro», una scelta del gestore). Mai
-   'incerto': quelli si reinviano uno per uno, con conferma.
-   -> { accodate, saltate } */
-const STATI_ACCODA = { 'da-inviare': ['da inviare'], 'non-ricevuta': ['respinta', 'errore'], 'da-confermare': ['da confermare'] };
+   l'indirizzo: «Invia anche a loro», una scelta del gestore) oppure
+   'solo-avviso' (chi per questo evento ha ricevuto solo l'avviso «Sei
+   iscritto anche a...», senza password, che partiva fino al 25 novembre
+   2026: adesso riceve le credenziali di questo evento, con una password
+   nuova e il collegamento alla sua diretta; OGNI EVENTO, LE SUE
+   CREDENZIALI). Mai 'incerto': quelli si reinviano uno per uno, con
+   conferma. -> { accodate, saltate } */
+const STATI_ACCODA = { 'da-inviare': ['da inviare'], 'non-ricevuta': ['respinta', 'errore'], 'da-confermare': ['da confermare'], 'solo-avviso': ['inviata'] };
 async function accoda(ctx, opz) {
     const idEvento = validaEvento(opz && opz.idEvento);
     const chi = String((opz && opz.chi) || '');
     if (!Object.prototype.hasOwnProperty.call(STATI_ACCODA, chi)) throw C.errore(400, 'Scelta non valida', 'chi');
     await leggiEvento(ctx, idEvento);
     const stati = STATI_ACCODA[chi];
-    const idonea = d => !nonInviabile(d, idEvento) && (chi !== 'non-ricevuta' || !d.ultimoAccesso);
+    /* 'solo-avviso' legge tutte le 'inviata' (un filtro solo: basta
+       l'indice automatico) e tiene quelle con l'avviso: chi ha ricevuto
+       le credenziali non e' affar suo, e non si conta fra le saltate. */
+    const riguarda = d => chi !== 'solo-avviso' || voce(d, idEvento).tipo === 'anche';
+    const idonea = d => riguarda(d) && !nonInviabile(d, idEvento) && (chi !== 'non-ricevuta' || !d.ultimoAccesso);
     const scelti = [];
     let saltate = 0;
     for (const st of stati) {
         const snap = await conStato(ctx, idEvento, st).get();
-        snap.docs.forEach(doc => { if (idonea(doc.data())) scelti.push(doc); else saltate++; });
+        snap.docs.forEach(doc => {
+            const d = doc.data();
+            if (!riguarda(d)) return;
+            if (idonea(d)) scelti.push(doc); else saltate++;
+        });
     }
     let accodate = 0;
     for (const gruppo of C.aGruppi(scelti, 400)) accodate += await passaInCoda(ctx, gruppo, idEvento, stati, idonea);
@@ -965,9 +955,9 @@ async function avanzaCoda(ctx, opz) {
    la sta spedendo adesso). -> { stato, errore? }
    Con `opz.normale` (il «Invia ora le credenziali» dopo un'aggiunta a
    mano): solo da 'da inviare', e parte quello che partirebbe con «Invia
-   le credenziali» (tipoInvio): la password a chi non ne ha una, «Sei
-   iscritto anche a...» senza password a chi ce l'ha gia'. -> { stato,
-   tipo, errore? } */
+   le credenziali» (tipoInvio): le credenziali, con una password nuova
+   (anche a chi ne aveva gia' una: OGNI EVENTO, LE SUE CREDENZIALI).
+   -> { stato, tipo, errore? } */
 async function inviaCredenziali(ctx, opz) {
     const normale = !!(opz && opz.normale);
     const idEvento = validaEvento(opz && opz.idEvento);
@@ -1019,7 +1009,7 @@ async function inviaCredenziali(ctx, opz) {
    presa in carico della coda (reclama: 'in coda' -> 'invio' in una
    transazione, quindi una volta sola anche se il cron o un giro della
    gestione la prendono nello stesso istante), stesso tetto giornaliero,
-   stessa scelta fra credenziali e avviso «anche» (tipoInvio), stessi
+   stessa scelta di che cosa mandare (tipoInvio: le credenziali), stessi
    esiti. Se non parte (server di posta non configurato o bloccato,
    tetto del giorno pieno, un guaio passeggero prima del DATA) resta 'in
    coda' e la manda il cron al giro dopo: code/{idEvento}.attiva l'ha
@@ -1097,7 +1087,8 @@ async function ripristina(ctx, ref, idEvento, prec) {
    Il promemoria di prova e' scritto come se partisse nel suo momento
    vero (un giorno prima, un'ora prima), cosi' le parole sono giuste. */
 const ESEMPIO = { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it', password: 'Esempio7Kq' };
-/* tipo: 'credenziali', 'iscritto-anche' (l'avviso senza password),
+/* tipo: 'credenziali', 'iscritto-anche' (l'avviso senza password: non
+   parte piu' e la gestione non lo offre, ma resta per chi lo chiede),
    'promemoria-giorno', 'promemoria-ora', 'promemoria-extra' (un
    promemoria in piu': opz.oggetto, opz.titolo, opz.nota, opz.quando) */
 async function inviaProva(ctx, opz) {

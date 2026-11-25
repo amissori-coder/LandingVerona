@@ -133,8 +133,10 @@
    finta vuota, tutti «da inviare») e lo dice; elenco senza nome utente
    con ricerca per nome, email e azienda; invio singolo, reinvio
    rifiutato entro un minuto (409 con il testo del servizio), nuova
-   password da comunicare a voce (e poi «Sei iscritto anche a…» senza
-   password), disattivazione, correzioni: il nome, l'email cambiata a
+   password da comunicare a voce (e poi «Invia le credenziali» che la
+   sostituisce con una nuova, e l'email lo dice), chi aveva solo il
+   vecchio avviso «Sei iscritto anche a…» (il riquadro della scheda Email
+   e «Invia loro le credenziali»: credenziali nuove, con ?e=), disattivazione, correzioni: il nome, l'email cambiata a
    credenziali partite (tornano «da inviare», si entra con la nuova
    email, «Invia ora» al nuovo indirizzo), l'email di un'altra persona
    (409 'email-occupata'), l'email respinta corretta (R3); REGIA: in onda con il player
@@ -1128,16 +1130,16 @@ async function sheetJSNode() {
             && !(await interruttore.isChecked()) && !(await interruttore.isDisabled()) && await accesoSulServizio() === false,
             'l\'interruttore «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l\'indirizzo» c\'è (role="switch") ed è SPENTO di base, anche sul servizio (eventiRiservati.iscrizioniAutomatiche false)');
         const aiutoIscrizioni = (await testo('#iscrizioni-aiuto')).replace(/\s+/g, ' ');
-        vero(/Vale per chi si iscrive online dal modulo della «Pagina dell'evento sul sito»/.test(aiutoIscrizioni) && /Sei iscritto anche a…/.test(aiutoIscrizioni)
+        vero(/Vale per chi si iscrive online dal modulo della «Pagina dell'evento sul sito»/.test(aiutoIscrizioni) && /Chi ha già un account per un altro evento riceve lo stesso le credenziali, con una password nuova/.test(aiutoIscrizioni)
             && /appena conferma il suo indirizzo con il pulsante «Conferma il tuo indirizzo email»/.test(aiutoIscrizioni) && /resta «da confermare»/.test(aiutoIscrizioni)
             && /accendilo dopo aver caricato e inviato la prima lista/.test(aiutoIscrizioni) && /^Spento:/.test(await testo('#iscrizioni-stato')),
-            'la spiegazione: vale per le iscrizioni online dal modulo della pagina dell\'evento, la password dopo la conferma dell\'indirizzo, chi ha già un account riceve «Sei iscritto anche a…», da accendere dopo la prima lista — «' + await testo('#iscrizioni-stato') + '»', aiutoIscrizioni);
+            'la spiegazione: vale per le iscrizioni online dal modulo della pagina dell\'evento, la password dopo la conferma dell\'indirizzo, chi ha già un account per un altro evento riceve lo stesso le credenziali (password nuova), da accendere dopo la prima lista — «' + await testo('#iscrizioni-stato') + '»', aiutoIscrizioni);
 
         // 409: la stessa pagina ha gia' l'invio automatico acceso su un altro evento (Roma, preparato con il servizio)
         const romaSullaPagina = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'roma-2026', paginaEvento: '/napoli_ottobre_2026/', iscrizioniAutomatiche: true } }, tokGestore);
         vero(romaSullaPagina.stato === 200 && romaSullaPagina.dati.evento.iscrizioniAutomatiche === true, 'preparato con il servizio: l\'evento di Roma con la stessa pagina e l\'invio automatico acceso', JSON.stringify(romaSullaPagina.dati).slice(0, 200));
         await leva.click();
-        await confermaDialogo(/Mandare la password a chi si iscrive dal sito\?.*\/napoli_ottobre_2026\/.*appena conferma il suo indirizzo.*«da confermare».*Sei iscritto anche a….*seconda password.*prima lista/s, 'Accendi l\'invio automatico');
+        await confermaDialogo(/Mandare la password a chi si iscrive dal sito\?.*\/napoli_ottobre_2026\/.*appena conferma il suo indirizzo.*«da confermare».*per un altro evento riceve lo stesso le credenziali, con una password nuova.*seconda password.*prima lista/s, 'Accendi l\'invio automatico');
         await aspetta(async () => await visibile('#msg-iscrizioni') && await $('#ev-iscrizioni-auto').getAttribute('aria-busy') !== 'true', 10000, 'risposta 409');
         vero(/già acceso per un altro evento con la stessa pagina \(«Next Generation Business 2026 · Roma»\): spegnilo lì prima di accenderlo qui/.test(await testo('#msg-iscrizioni'))
             && /msg-errore/.test(await $('#msg-iscrizioni').getAttribute('class')) && !(await interruttore.isChecked()) && await accesoSulServizio() === false
@@ -1391,7 +1393,7 @@ async function sheetJSNode() {
         await (await rp(ANNA)).locator('button[data-op="rigenera"]').click();
         await confermaDialogo(/Nuova password|nuova password/);
         await $('#dialogo-password').waitFor({ state: 'visible', timeout: 5000 });
-        const pw = await testo('#password-mostrata');
+        let pw = await testo('#password-mostrata');
         vero(RE_PASSWORD.test(pw) && await testo('#password-email') === ANNA && await testo('#password-persona') === 'Anna Maria De Luca',
             'nuova password mostrata una volta, in chiaro solo nella finestra, con l\'email con cui Anna Maria entra');
         const entraAnna = await api('diretta-accesso', { azione: 'entra', email: ' AnnaMaria.DeLuca@Deluca-Figli.example ', password: pw });
@@ -2024,22 +2026,17 @@ async function sheetJSNode() {
         await aspetta(async () => /Email di prova inviata a gestore@prova\.it/.test(await testo('#msg-email-prova')), 10000, 'prova');
         const prova = postaPer(EMAIL_GESTORE, 'prova-credenziali');
         vero(chiamate('email-prova').pop().dati.tipo === 'credenziali' && prova.length === 1 && /EMAIL DI PROVA/.test(prova[0].testo + prova[0].oggetto)
-            && /scrivi la tua email .+ e questa password: /.test(prova[0].testo) && !/nome utente/i.test(prova[0].testo + prova[0].html),
-            '«Invia email di prova a me»: nella casella del gestore arriva l\'email con la scritta EMAIL DI PROVA («… scrivi la tua email … e questa password: …»)');
-        await $('#sel-tipo-prova').selectOption('iscritto-anche');
-        await $('#btn-email-prova').click();
-        await aspetta(async () => postaPer(EMAIL_GESTORE, 'prova-iscritto-anche').length === 1, 10000, 'prova «anche»');
-        const provaAnche = postaPer(EMAIL_GESTORE, 'prova-iscritto-anche')[0];
-        vero(chiamate('email-prova').pop().dati.tipo === 'iscritto-anche' && /^\[PROVA\] Sei iscritto anche a/.test(provaAnche.oggetto) && !/Password:\s*\S/.test(provaAnche.testo)
-            && /entra con la tua email e la password che hai già/.test(provaAnche.testo),
-            'e la prova di «Sei iscritto anche a…» (per chi ha già una password): senza password', provaAnche.oggetto);
-        await $('#sel-tipo-prova').selectOption('credenziali');
+            && /scrivi la tua email .+ e questa password: /.test(prova[0].testo) && !/nome utente/i.test(prova[0].testo + prova[0].html)
+            && new RegExp('vai su \\S+/diretta/\\?e=' + ID + ', scrivi la tua email').test(prova[0].testo),
+            '«Invia email di prova a me»: nella casella del gestore arriva l\'email con la scritta EMAIL DI PROVA («vai su …/diretta/?e=' + ID + ', scrivi la tua email … e questa password: …»)');
+        vero(await $('#sel-tipo-prova option[value="iscritto-anche"]').count() === 0 && await $('#sel-tipo-prova option').count() === 3,
+            'fra le email di prova non c\'è più «Sei iscritto anche a…» (non parte più: ogni evento manda le sue credenziali)');
 
         // Brevo rifiuta l'accesso SMTP (account sospeso, chiave cambiata): per tutti, prima del DATA
         await avviaServer({ DIRETTA_POSTA_ERRORE_ACCOUNT: '1' }, 'server di posta che rifiuta l\'accesso', calma);
         const credenzialiPrima = leggiPosta().filter(m => m.tipo === 'credenziali').length;
         await $('#btn-invia-tutti').click();
-        await confermaDialogo(/Inviare le credenziali a 35 persone.*l'email con cui entrare e una password.*Chi ha già una password.*Sei iscritto anche a…/s);
+        await confermaDialogo(/Inviare le credenziali a 35 persone.*l'email con cui entrare e una password.*Ognuno riceve una password nuova e il collegamento alla diretta di questo evento, anche chi ne aveva già una.*quella di prima non vale più/s);
         await aspetta(async () => await visibile('#btn-riprova-invio') && /Invio fermo/.test(await testo('#coda-bloccata')), 20000, 'blocco di Brevo');
         vero(/535/.test(await testo('#coda-bloccata')) && /35 persone restano in coda/.test(await testo('#coda-bloccata')),
             'blocco del server di posta: la pagina dice il motivo del servizio e che nessuno è stato saltato — «' + await testo('#coda-bloccata') + '»');
@@ -2093,19 +2090,23 @@ async function sheetJSNode() {
         vero(await testo('#conteggi-email li[data-stato="inviata"] .conteggio-num') === '35' && await testo('#conteggi-email li[data-stato="respinta"] .conteggio-num') === '1', 'i conteggi colorati si aggiornano (35 inviate, 1 respinta)');
         const perIndirizzo = {};
         leggiPosta().filter(m => m.tipo === 'credenziali').forEach(m => { perIndirizzo[m.a] = (perIndirizzo[m.a] || 0) + 1; });
-        vero(Object.keys(perIndirizzo).length === 35 && Object.values(perIndirizzo).every(n => n === 1) && !perIndirizzo[ANNA],
-            'nella posta: UNA sola email di credenziali per indirizzo (35: le 33 persone senza password e i due indirizzi di Ivan, prima e dopo la correzione), nonostante blocco, tetto e due giri insieme', JSON.stringify(perIndirizzo).slice(0, 300));
-        /* Anna Maria ha la password detta a voce (Nuova password): per lei «Invia le
-           credenziali» decide di mandare «Sei iscritto anche a...», senza una password
-           che cancellerebbe la sua. */
-        const ancheAnna = postaPer(ANNA, 'iscritto-anche');
+        vero(Object.keys(perIndirizzo).length === 36 && Object.values(perIndirizzo).every(n => n === 1) && perIndirizzo[ANNA] === 1,
+            'nella posta: UNA sola email di credenziali per indirizzo (36: le 33 persone senza password, Anna Maria con la password detta a voce e i due indirizzi di Ivan, prima e dopo la correzione), nonostante blocco, tetto e due giri insieme', JSON.stringify(perIndirizzo).slice(0, 300));
+        /* Anna Maria aveva la password detta a voce (Nuova password): anche a lei «Invia le
+           credenziali» manda le credenziali di questo evento, con una password nuova, e
+           l'email dice che quella di prima non vale piu' (ogni evento, le sue credenziali). */
+        const credAnna = postaPer(ANNA, 'credenziali');
         const annaInvio = ((await partecipante(ANNA)).invii || {})[ID] || {};
-        vero(ancheAnna.length === 1 && !/Password:\s*\S/.test(ancheAnna[0].testo) && ancheAnna[0].testo.indexOf(pw) < 0 && annaInvio.stato === 'inviata' && annaInvio.tipo === 'anche',
-            'Anna Maria (password nuova detta a voce) riceve «Sei iscritto anche a…», senza password: la sua resta buona (invio.tipo «anche»)', JSON.stringify(annaInvio));
+        const pwAnnaNuova = credAnna.length ? passwordDa(credAnna[0]) : '';
+        vero(credAnna.length === 1 && postaPer(ANNA, 'iscritto-anche').length === 0 && RE_PASSWORD.test(pwAnnaNuova) && pwAnnaNuova !== pw
+            && /Questa password sostituisce quella che usavi finora/.test(credAnna[0].testo) && annaInvio.stato === 'inviata' && annaInvio.tipo === 'credenziali',
+            'Anna Maria (password detta a voce) riceve le credenziali con una password nuova, e l\'email dice che quella di prima non vale più (invio.tipo «credenziali»)', JSON.stringify(annaInvio));
         const pAnna = await rp(ANNA);
-        vero(/Sei iscritto anche a…», senza password: usa quella che ha già/.test(await pAnna.locator('td[data-label="Email credenziali"]').textContent()),
-            'e nell\'elenco la sua riga lo dice');
-        vero((await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw })).stato === 200, 'la password detta a voce funziona ancora');
+        vero(!/Sei iscritto anche a/.test(await pAnna.locator('td[data-label="Email credenziali"]').textContent()) && (await pAnna.locator('.stato-email').textContent()) === 'inviata',
+            'e nell\'elenco la sua riga dice «inviata», senza «Sei iscritto anche a…»');
+        vero((await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw })).stato === 401
+            && (await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pwAnnaNuova })).stato === 200, 'la password detta a voce non vale più, quella nuova sì');
+        pw = pwAnnaNuova;
         await aspetta(async () => /\(1\)/.test(await testo('#btn-reinvia-non-ricevute')), 5000, 'non ricevute');
         await foto('email');
         await $('#btn-reinvia-non-ricevute').click();
@@ -2117,6 +2118,41 @@ async function sheetJSNode() {
         await $('#btn-aggiorna-esiti').click();
         await aspetta(async () => /manca BREVO_API_KEY/.test(await testo('#msg-email')), 5000, 'esiti');
         vero(true, 'senza BREVO_API_KEY la gestione lo dice anche quando si chiedono gli esiti (R13)');
+        /* Chi per questo evento aveva ricevuto solo il vecchio avviso «Sei iscritto anche a…»
+           (senza password: partiva fino al 25 novembre 2026). Qui lo si scrive con
+           firebase-admin su una persona che ha le credenziali, per vedere il riquadro della
+           scheda Email e «Invia loro le credenziali» (email-accoda, chi 'solo-avviso'). */
+        const conAvviso = leggiPosta().filter(m => m.tipo === 'credenziali').map(m => m.a).find(a => [ANNA, IVAN, IVAN2, CHLOE].indexOf(a) < 0);
+        const pAvviso = await partecipante(conAvviso);
+        vero(!!pAvviso && (pAvviso.invii || {})[ID].stato === 'inviata', 'una persona con le credenziali di questo evento (' + conAvviso + ')');
+        await db.doc('partecipanti/' + pAvviso.uid).update(new admin.firestore.FieldPath('invii', ID, 'tipo'), 'anche');
+        vero(await $('#blocco-solo-avviso').isHidden(), 'finché nessuno ha solo l\'avviso «Sei iscritto anche a…», il riquadro non c\'è');
+        await page.click('[data-scheda="partecipanti"]');
+        await $('#btn-aggiorna-partecipanti').click();
+        await aspetta(async () => /solo «Sei iscritto anche a…», senza password: le credenziali di questo evento le mandi con «Invia loro le credenziali» \(scheda Email\)/
+            .test(await (await rp(conAvviso)).locator('td[data-label="Email credenziali"]').textContent()), 10000, 'riga con l\'avviso');
+        vero(true, 'nell\'elenco la sua riga dice che ha ricevuto solo «Sei iscritto anche a…» e come mandargli le credenziali');
+        await page.click('[data-scheda="email"]');
+        await aspetta(async () => await visibile('#blocco-solo-avviso'), 10000, 'riquadro dell\'avviso');
+        vero(/^1 persona ha ricevuto per questo evento solo l'avviso «Sei iscritto anche a…», senza password: non ha le credenziali di questo evento\.$/.test(await testo('#testo-solo-avviso'))
+            && await testo('#btn-invia-solo-avviso') === 'Invia loro le credenziali (1)' && !(await $('#btn-invia-solo-avviso').isDisabled()),
+            'il riquadro: «1 persona ha ricevuto per questo evento solo l\'avviso…», con «Invia loro le credenziali (1)»', await testo('#testo-solo-avviso'));
+        const credAvvisoPrima = postaPer(conAvviso, 'credenziali');
+        const pwAvvisoPrima = passwordDa(credAvvisoPrima[credAvvisoPrima.length - 1]);
+        await $('#btn-invia-solo-avviso').click();
+        await confermaDialogo(/Inviare le credenziali a 1 persona\?.*1 persona riceve adesso le credenziali di questo evento: una password nuova e il collegamento alla sua diretta.*solo «Sei iscritto anche a…».*La password di prima non vale più/s, 'Invia a 1 persona');
+        await aspetta(() => chiamate('email-accoda').some(c => c.dati.chi === 'solo-avviso'), 5000, 'accodata solo-avviso');
+        await aspetta(async () => postaPer(conAvviso, 'credenziali').length === credAvvisoPrima.length + 1, 30000, 'credenziali a chi aveva l\'avviso');
+        const credAvviso = postaPer(conAvviso, 'credenziali').pop();
+        const pwAvviso = passwordDa(credAvviso);
+        vero(RE_PASSWORD.test(pwAvviso) && pwAvviso !== pwAvvisoPrima && /non è più valida/.test(credAvviso.testo)
+            && new RegExp('vai su \\S+/diretta/\\?e=' + ID + ', scrivi la tua email').test(credAvviso.testo) && credAvviso.html.indexOf('/diretta/?e=' + ID + '"') >= 0,
+            '«Invia loro le credenziali»: le credenziali di questo evento, con una password nuova, il collegamento alla sua diretta e la nota che quella di prima non vale più');
+        await aspetta(async () => await $('#blocco-solo-avviso').isHidden(), 30000, 'riquadro dell\'avviso sparito');
+        const vAvviso = ((await partecipante(conAvviso)).invii || {})[ID] || {};
+        vero(vAvviso.stato === 'inviata' && vAvviso.tipo === 'credenziali', 'sulla voce: inviata, tipo «credenziali»; il riquadro sparisce', JSON.stringify(vAvviso));
+        // (con la password nuova non si entra qui: il foglio Accessi dell'esportazione conta gli accessi veri)
+        vero((await api('diretta-accesso', { azione: 'entra', email: conAvviso, password: pwAvvisoPrima })).stato === 401, '...e la password di prima non vale più');
         await page.click('[data-scheda="evento"]');
         vero(/Parte da solo giovedì 1 ottobre 2026 dalle 9\.00: oggi lo riceverebbero 35 persone/.test(await testo('#prom-dest-giorno'))
             && /Se lo attivi, oggi lo riceverebbero 35 persone/.test(await testo('#prom-dest-ora')),
@@ -2134,7 +2170,7 @@ async function sheetJSNode() {
 
         /* ---------- 8. esportazione ---------- */
         console.log('\n-- esportazione');
-        // due accessi veri, con l'email: Ivan con la password arrivata al nuovo indirizzo, Anna Maria con quella detta a voce
+        // due accessi veri, con l'email: Ivan con la password arrivata al nuovo indirizzo, Anna Maria con quella delle sue credenziali
         const pwIvan = passwordDa(postaPer(IVAN2, 'credenziali').pop());
         const e1 = await api('diretta-accesso', { azione: 'entra', email: IVAN2, password: pwIvan }, null, { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36' });
         const e2 = await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw }, null, { 'User-Agent': UA_IPHONE });
@@ -2158,8 +2194,9 @@ async function sheetJSNode() {
         vero(fp.slice(1).filter(r => r[2]).every(r => ['file', 'modulo del sito', 'a mano'].indexOf(r[12]) >= 0) && fp.some(r => r[12] === 'file'),
             'la colonna Origine dice da dove arriva ogni persona (file, modulo del sito, a mano)');
         /* cinque accessi veri, tutti con l'email: Anna Maria con la password detta a voce;
-           Ivan con il nuovo indirizzo e la password di prima; di nuovo Anna Maria (la
-           password detta a voce vale ancora); qui sopra Ivan e Anna Maria */
+           Ivan con il nuovo indirizzo e la password di prima; di nuovo Anna Maria (con la
+           password nuova delle credenziali, che ha preso il posto di quella detta a voce);
+           qui sopra Ivan e Anna Maria */
         const conEmailGiuste = fa.slice(1).every(r => /^[^@\s]+@[^@\s]+$/.test(r[1]) && r[1] === r[1].toLowerCase());
         vero(fa[0].join('|') === 'Quando|Email|Nome|Cognome|Azienda|Dispositivo' && fa.length === 6 && conEmailGiuste,
             'foglio Accessi con le sue colonne (l\'email al posto del nome utente) e i 5 accessi veri', fa.length + ' ' + JSON.stringify(fa.slice(0, 3)));
@@ -2301,8 +2338,8 @@ async function sheetJSNode() {
            non valida (con Invio), l'email di un'altra persona, una persona nuova
            (nessuna email parte), il doppio clic, «Invia ora le credenziali» (la
            password), e chi ha gia' una password (Anna Maria, tolta dall'evento e
-           aggiunta di nuovo): riceve «Sei iscritto anche a…» e la sua password
-           vale ancora. */
+           aggiunta di nuovo): riceve le credenziali con una password nuova, e
+           quella di prima non vale piu'. */
         console.log('\n-- aggiungere un partecipante a mano');
         await page.click('[data-scheda="partecipanti"]');
         await $('#riquadro-aggiungi').scrollIntoViewIfNeeded();
@@ -2357,7 +2394,7 @@ async function sheetJSNode() {
         vero(chiamate('partecipante-aggiungi').length - aggPrimaDoppio === 1 && !!(await uidDi('rocco.doppio@esempio.it')), 'doppio clic su «Aggiungi»: una richiesta sola, una persona');
         // «Invia ora le credenziali»: la password
         await $('#btn-invia-aggiunto').click();
-        await confermaDialogo(/Inviare adesso le credenziali\?.*Rocco Doppio \(rocco\.doppio@esempio\.it\) riceve subito un'email.*Se non ha ancora una password, la riceve.*Sei iscritto anche a…/s, 'Invia ora');
+        await confermaDialogo(/Inviare adesso le credenziali\?.*Rocco Doppio \(rocco\.doppio@esempio\.it\) riceve subito un'email.*Riceve una password nuova, con il collegamento alla diretta di questo evento.*quella di prima non vale più/s, 'Invia ora');
         await aspetta(async () => /^Credenziali inviate a Rocco Doppio/.test(await testo('#msg-aggiungi')), 30000, 'credenziali a Rocco');
         const lettereRocco = postaPer('rocco.doppio@esempio.it', 'credenziali');
         vero(lettereRocco.length === 1 && !!passwordDa(lettereRocco[0]) && (await (await rp('rocco.doppio@esempio.it')).locator('.stato-email').textContent()) === 'inviata'
@@ -2373,13 +2410,17 @@ async function sheetJSNode() {
         await $('#btn-aggiungi').click();
         await aspetta(async () => /^Aggiunto a questo evento: Anna Maria De Luca .* aveva già un account/.test(await testo('#msg-aggiungi')), 10000, 'Anna Maria aggiunta di nuovo');
         vero((await partecipante(ANNA)).uid === uidAnna, 'stesso account di prima, nessun account nuovo');
-        const anchePrima = postaPer(ANNA, 'iscritto-anche').length;
+        const credPrima = postaPer(ANNA, 'credenziali').length;
         await $('#btn-invia-aggiunto').click();
         await confermaDialogo(/Inviare adesso le credenziali\?/, 'Invia ora');
-        await aspetta(async () => /^Inviato a Anna Maria De Luca .*«Sei iscritto anche a…», senza password/.test(await testo('#msg-aggiungi')), 30000, 'anche ad Anna Maria');
-        const anche = postaPer(ANNA, 'iscritto-anche').slice(anchePrima);
-        vero(anche.length === 1 && !/Password:\s*\S/.test(anche[0].testo), 'Anna Maria riceve «Sei iscritto anche a…», senza password');
-        vero((await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw })).stato === 200, 'e la sua password detta a voce vale ancora');
+        await aspetta(async () => /^Credenziali inviate a Anna Maria De Luca/.test(await testo('#msg-aggiungi')), 30000, 'credenziali ad Anna Maria');
+        const credDiNuovo = postaPer(ANNA, 'credenziali').slice(credPrima);
+        const pwAnnaDiNuovo = credDiNuovo.length ? passwordDa(credDiNuovo[0]) : '';
+        vero(credDiNuovo.length === 1 && RE_PASSWORD.test(pwAnnaDiNuovo) && /non è più valida/.test(credDiNuovo[0].testo) && postaPer(ANNA, 'iscritto-anche').length === 0,
+            'Anna Maria riceve le credenziali con una password nuova, e l\'email dice che quella di prima non vale più');
+        vero((await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pw })).stato === 401
+            && (await api('diretta-accesso', { azione: 'entra', email: ANNA, password: pwAnnaDiNuovo })).stato === 200, '...e infatti la password di prima non vale più, quella nuova sì');
+        pw = pwAnnaDiNuovo;
         // protetta come le altre azioni
         const aggSenzaToken = await api('diretta-gestione', { azione: 'partecipante-aggiungi', idEvento: ID, nome: 'X', cognome: 'Y', email: 'x.y@esempio.it' });
         vero(aggSenzaToken.stato === 401 && !(await uidDi('x.y@esempio.it')), 'senza accesso: 401, nessuna persona aggiunta');
@@ -2741,7 +2782,7 @@ async function sheetJSNode() {
         const guasti = uscitaServer.join('\n').split('\n').filter(r => /\[server-locale\]|Errore non gestito|TypeError|ReferenceError/.test(r));
         vero(guasti.length === 0, 'nessun errore non gestito nelle funzioni del servizio', guasti.slice(0, 5).join('\n'));
         const tuttaLaPosta = JSON.stringify(leggiPosta().filter(m => m.tipo !== 'credenziali' && m.tipo !== 'prova-credenziali').map(m => m.testo));
-        vero(!/Password:\s*\S/.test(tuttaLaPosta), 'nessuna password nelle email che non sono di credenziali (promemoria, reimpostazione, «Sei iscritto anche a…»)');
+        vero(!/Password:\s*\S/.test(tuttaLaPosta), 'nessuna password nelle email che non sono di credenziali (promemoria, reimpostazione)');
         const conNomeUtente = leggiPosta().filter(m => /nome utente/i.test(m.oggetto + m.testo + m.html));
         vero(leggiPosta().length >= 30 && conNomeUtente.length === 0, 'in nessuna delle ' + leggiPosta().length + ' email compare un «nome utente»', conNomeUtente.map(m => m.tipo).join(', '));
     } catch (e) {

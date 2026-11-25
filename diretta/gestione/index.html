@@ -391,7 +391,7 @@
                         «Pagina dell'evento sul sito» (quella salvata qui sopra): riceve l'email con la password per entrare con la sua email
                         <strong>appena conferma il suo indirizzo</strong> con il pulsante «Conferma il tuo indirizzo email» della mail del sito.
                         Fino ad allora resta «da confermare»: nessuna password parte verso un indirizzo che la persona non ha confermato.
-                        Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova; chi si iscrive due volte non riceve niente di nuovo.
+                        Chi ha già un account per un altro evento riceve lo stesso le credenziali, con una password nuova; chi si iscrive due volte non riceve niente di nuovo.
                         È spento di base: accendilo dopo aver caricato e inviato la prima lista.</p>
                     <p id="msg-iscrizioni" class="msg" role="status" hidden></p>
                 </section>
@@ -1187,7 +1187,6 @@
                             <label for="sel-tipo-prova" class="solo-lettori">Email da provare</label>
                             <select id="sel-tipo-prova">
                                 <option value="credenziali">Credenziali (email e password)</option>
-                                <option value="iscritto-anche">Sei iscritto anche a… (senza password)</option>
                                 <option value="promemoria-giorno">Promemoria del giorno prima</option>
                                 <option value="promemoria-ora">Promemoria di un'ora prima</option>
                             </select>
@@ -1204,6 +1203,11 @@
                             <button type="button" id="btn-invia-tutti" class="btn btn-primario" aria-describedby="nota-disattivati">Invia le credenziali a chi non le ha ancora</button>
                             <p id="nota-disattivati" class="aiuto" hidden></p>
                             <button type="button" id="btn-reinvia-non-ricevute" class="btn btn-secondario">Reinvia a chi non l'ha ricevuta</button>
+                            <!-- chi per questo evento ha ricevuto solo il vecchio avviso «Sei iscritto anche a…», senza password (gestione.js, soloAvvisoAttivi) -->
+                            <div id="blocco-solo-avviso" class="blocco-da-confermare" hidden>
+                                <p id="testo-solo-avviso" class="aiuto"></p>
+                                <button type="button" id="btn-invia-solo-avviso" class="btn btn-secondario">Invia loro le credenziali</button>
+                            </div>
                             <!-- chi si e' iscritto dal modulo del sito e non ha ancora confermato l'indirizzo (gestione.js, daConfermareAttivi) -->
                             <div id="blocco-da-confermare" class="blocco-da-confermare" hidden>
                                 <p id="testo-da-confermare" class="aiuto"></p>
@@ -1441,6 +1445,6 @@
     <script src="../sorgente-video.js?v=20261121a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20261125a"></script>
+    <script src="gestione.js?v=20261125c"></script>
 </body>
 </html>

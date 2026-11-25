@@ -6315,8 +6315,9 @@ per un'iscrizione `online` con email, **dopo** aver salvato la scheda e mandato
 la conferma, chiama `lib/diretta-iscrizione.js` (`dalModulo`, dentro un
 try/catch). Se sull'evento della diretta con la stessa pagina il gestore ha
 acceso "Invia subito la password a chi si iscrive dal modulo del sito"
-(`iscrizioniAutomatiche`), la persona riceve subito la password (o, se ha gia'
-un account, l'avviso "Sei iscritto anche a..."). Se la diretta non e'
+(`iscrizioniAutomatiche`), la persona riceve subito le credenziali di
+quell'evento, con una password nuova e il collegamento alla sua diretta (anche
+se ha gia' un account: ogni evento, le sue credenziali). Se la diretta non e'
 configurata non succede niente. Su Vercel la risposta del modulo non aspetta
 mai il lavoro della diretta (finisce dopo, con `waitUntil`): cosi' risponde
 nello stesso tempo per un indirizzo nuovo e per uno gia' iscritto. Il modulo

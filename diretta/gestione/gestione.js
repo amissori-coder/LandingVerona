@@ -1137,8 +1137,10 @@
        il lavoro lo fa lib/diretta-iscrizione.js) ha subito l'account, e
        riceve l'email con la password appena conferma il suo indirizzo con
        il pulsante della mail del sito (fino ad allora: «da confermare»); chi
-       ha gia' un account riceve «Sei iscritto anche a...», senza una
-       password nuova; chi si iscrive due volte non riceve niente di nuovo.
+       ha gia' un account (per un altro evento) riceve lo stesso le
+       credenziali, con una password nuova (ogni evento le sue credenziali,
+       vedi lib/diretta-invio.js); chi si iscrive due volte non riceve
+       niente di nuovo.
        Il servizio lo rifiuta senza la pagina dell'evento (400 'pagina') e
        se la stessa pagina lo ha gia' acceso su un altro evento (409
        'iscrizioni-doppie'): il modulo del sito deve portare a UN evento.
@@ -1190,7 +1192,7 @@
                 testo: 'Da adesso chi si iscrive online dal modulo di ' + (ev.paginaEvento || 'questa pagina') + ' riceve l\'email con la password per la diretta «' + (ev.titolo || ev.id) + '» appena conferma il suo indirizzo con il pulsante «Conferma il tuo indirizzo email» della mail del sito.',
                 dettagli: [
                     'Finché non conferma resta «da confermare»: nella scheda Email li vedi, e puoi mandarla anche a loro.',
-                    'Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova.',
+                    'Chi ha già un account per un altro evento riceve lo stesso le credenziali, con una password nuova: quella di prima non vale più, e l\'email lo dice.',
                     'Chi si iscrive due volte non riceve una seconda password.',
                     'Accendilo dopo aver caricato e inviato la prima lista: le persone già iscritte le raggiungi con «Invia le credenziali».'
                 ],
@@ -4276,7 +4278,7 @@
         const attivo = p.stato !== 'disattivato';
         const chi = [p.nome, p.cognome].filter(Boolean).join(' ') || p.email;
         const dettaglioEmail = p.invio && p.invio.inviata && s === 'inviata'
-            ? 'il ' + dataOra(p.invio.inviata) + (avvisoAnche(p) ? ' · «Sei iscritto anche a…», senza password: usa quella che ha già' : '')
+            ? 'il ' + dataOra(p.invio.inviata) + (avvisoAnche(p) ? ' · solo «Sei iscritto anche a…», senza password: le credenziali di questo evento le mandi con «Invia loro le credenziali» (scheda Email)' : '')
             : (p.invio && p.invio.errore ? p.invio.errore
                 : (s === DA_CONFERMARE ? 'non ha ancora confermato l\'indirizzo dalla mail del sito: la password parte da sola al clic' : ''));
         const bottone = (op, testo, extra) => el('button', Object.assign({ type: 'button', classe: 'btn btn-mini btn-secondario', dati: { op: op }, 'aria-label': testo + ': ' + chi }, extra || {}), [testo]);
@@ -4435,8 +4437,7 @@
         if (op === 'relatore') { await segnaRelatore(p, !eRelatore(p), bottone); return; }
         // un account con altri eventi ha gia' (o avra') una password: «Invia ora» ne fa una nuova
         const altriEventi = (p.eventi || []).filter(e => e !== stato.idEvento).length;
-        const notaAltri = altriEventi ? 'È iscritta anche ad altri eventi: la password nuova vale per tutti e quella di prima smette di funzionare. '
-            + 'Per avvisarla senza cambiarle la password usa «Invia le credenziali» nella scheda Email (riceve «Sei iscritto anche a…»).' : '';
+        const notaAltri = altriEventi ? 'È iscritta anche ad altri eventi: la password nuova vale per tutti e quella di prima smette di funzionare (l\'email lo dice).' : '';
         let domanda;
         if (op === 'reinvia') {
             domanda = (s === 'da inviare' || s === DA_CONFERMARE) && !(p.invio && p.invio.inviata)
@@ -4507,8 +4508,8 @@
        un'altra persona rifiutata con il suo nome. Qui si controllano solo
        i campi vuoti. Aggiungere NON manda email: dopo, «Invia ora le
        credenziali» (operazione 'invia', con la conferma) manda quello che
-       partirebbe con «Invia le credenziali»: la password, o «Sei iscritto
-       anche a…» a chi ne ha gia' una.
+       partirebbe con «Invia le credenziali»: le credenziali con una
+       password nuova e il collegamento alla diretta dell'evento.
        ============================================================ */
     const CAMPI_AGGIUNGI = ['#agg-nome', '#agg-cognome', '#agg-email', '#agg-azienda'];
     function nomeEmail(p) {
@@ -4609,8 +4610,8 @@
         const ok = await conferma({
             titolo: 'Inviare adesso le credenziali?', ok: 'Invia ora',
             testo: chi + ' riceve subito un\'email per entrare nella diretta con la sua email ' + p.email + '.',
-            dettagli: ['Se non ha ancora una password, la riceve nell\'email.',
-                'Se ne ha già una (da un altro evento, detta a voce o scelta con «Password dimenticata?»), riceve «Sei iscritto anche a…» senza password: quella che ha continua a valere.']
+            dettagli: ['Riceve una password nuova, con il collegamento alla diretta di questo evento.',
+                'Se ne aveva già una (da un altro evento, detta a voce o scelta con «Password dimenticata?»), quella di prima non vale più: l\'email lo dice.']
         });
         if (!ok) return;
         await conAttesa($('#btn-invia-aggiunto'), async () => {
@@ -4908,8 +4909,34 @@
         b.textContent = 'Invia anche a loro (' + n.toLocaleString('it-IT') + ')';
         if (b.getAttribute('aria-busy') !== 'true') b.disabled = !n || inCorso;
     }
+    /* Chi per questo evento ha ricevuto solo l'avviso «Sei iscritto anche
+       a…», senza password (partiva fino al 25 novembre 2026 a chi una
+       password l'aveva gia'): non ha le credenziali di questo evento, e
+       chi non ricorda la password non entra. «Invia loro le credenziali»
+       le manda adesso, con una password nuova e il collegamento alla
+       diretta dell'evento (email-accoda, chi 'solo-avviso': ogni evento,
+       le sue credenziali). Si contano sull'elenco dei partecipanti, che si
+       carica con l'evento; il riquadro c'e' solo se ce ne sono. */
+    function eSoloAvviso(p) { return statoInvio(p) === 'inviata' && !!p.invio && p.invio.tipo === 'anche'; }
+    function soloAvvisoAttivi() {
+        if (stato.partecipantiDi !== stato.idEvento) return 0;
+        return stato.partecipanti.filter(p => eSoloAvviso(p) && p.stato !== 'disattivato').length;
+    }
+    function disegnaSoloAvviso() {
+        const n = soloAvvisoAttivi();
+        $('#blocco-solo-avviso').hidden = !n;
+        $('#testo-solo-avviso').textContent = n
+            ? conNumero(n, 'persona', 'persone') + ' ' + plurale(n, 'ha', 'hanno') + ' ricevuto per questo evento solo l\'avviso «Sei iscritto anche a…», senza password: '
+                + plurale(n, 'non ha', 'non hanno') + ' le credenziali di questo evento.'
+            : '';
+        const b = $('#btn-invia-solo-avviso');
+        b.textContent = 'Invia loro le credenziali (' + n.toLocaleString('it-IT') + ')';
+        const inCorso = !!(stato.posta.ciclo && stato.posta.ciclo.attivo);
+        if (b.getAttribute('aria-busy') !== 'true') b.disabled = !n || inCorso;
+    }
     function aggiornaEtichetteEmail() {
         disegnaDaConfermare();
+        disegnaSoloAvviso();
         const daInviare = daInviareAttivi();
         const nr = nonRicevute();
         const inCorso = !!(stato.posta.ciclo && stato.posta.ciclo.attivo);
@@ -4950,7 +4977,7 @@
             titolo: 'Inviare le credenziali a ' + conNumero(n, 'persona', 'persone') + '?',
             testo: 'Ognuno riceve l\'email con cui entrare e una password. Le email partono a gruppi, con pause, e nessuno le riceve due volte.',
             dettagli: [
-                'Chi ha già una password (per un altro evento, o detta a voce) non ne riceve una nuova: riceve «Sei iscritto anche a…» ed entra con quella che ha.',
+                'Ognuno riceve una password nuova e il collegamento alla diretta di questo evento, anche chi ne aveva già una (per un altro evento, o detta a voce): quella di prima non vale più, e l\'email lo dice.',
                 'Hai già provato l\'email su di te? Se no, annulla e usa «Invia email di prova a me».',
                 'Se chiudi la pagina l\'invio continua da solo, un gruppo ogni 5 minuti.'
             ],
@@ -4977,7 +5004,7 @@
             dettagli: [
                 'Il rischio: un indirizzo scritto male nel modulo può essere di qualcun altro, e la password arriverebbe a lui. Se puoi, controlla prima gli indirizzi («Copia gli indirizzi»).',
                 'Conviene farlo poco prima dell\'evento (per esempio il giorno prima), per chi non ha ancora cliccato.',
-                'Chi ha già un account riceve «Sei iscritto anche a…», senza una password nuova.'
+                'Chi ha già un account per un altro evento riceve lo stesso una password nuova: quella di prima non vale più.'
             ],
             ok: 'Invia a ' + conNumero(n, 'persona', 'persone')
         });
@@ -5003,6 +5030,31 @@
                 conNumero(indirizzi.length, 'indirizzo copiato', 'indirizzi copiati') + ': incollali nel campo «Ccn» della tua email, per non mostrarli a tutti.');
         } catch (e) { erroreGenerico(e, '#msg-email'); }
     }));
+
+    $('#btn-invia-solo-avviso').addEventListener('click', async () => {
+        const n = soloAvvisoAttivi();
+        if (!n) return;
+        const ok = await conferma({
+            titolo: 'Inviare le credenziali a ' + conNumero(n, 'persona', 'persone') + '?',
+            testo: conNumero(n, 'persona', 'persone') + ' ' + plurale(n, 'riceve', 'ricevono')
+                + ' adesso le credenziali di questo evento: una password nuova e il collegamento alla sua diretta.',
+            dettagli: [
+                'Per questo evento ' + plurale(n, 'aveva', 'avevano') + ' ricevuto solo «Sei iscritto anche a…», senza password.',
+                'La password di prima non vale più, per nessun evento: l\'email lo dice. Chi in quel momento segue un\'altra diretta rientra con quella nuova.',
+                'Le email partono a gruppi, con pause, e nessuno le riceve due volte.'
+            ],
+            ok: 'Invia a ' + conNumero(n, 'persona', 'persone')
+        });
+        if (!ok) return;
+        await conAttesa($('#btn-invia-solo-avviso'), async () => {
+            try {
+                const r = await chiama('email-accoda', { idEvento: stato.idEvento, chi: 'solo-avviso' });
+                if (!r.accodate) { mostraMsg('#msg-email', 'Nessuna email da inviare: nel frattempo hanno già ricevuto le credenziali o sono in coda.', 'info'); return; }
+                mostraMsg('#msg-email', testoAccodate(r, ['messa', 'messe']) + ': l\'invio è partito.', 'ok');
+                avviaCicloEmail(r.accodate, 'solo-avviso');
+            } catch (e) { erroreGenerico(e, '#msg-email'); }
+        });
+    });
 
     $('#btn-reinvia-non-ricevute').addEventListener('click', async () => {
         const n = nonRicevute();

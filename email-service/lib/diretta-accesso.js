@@ -54,9 +54,11 @@
      TEMPO_FALLITO_MS).
    - «PASSWORD DIMENTICATA?» LASCIA UN SEGNO: quando il collegamento
      parte (o forse e' partito), sul profilo resta resetInviato (quando).
-     Da li' in poi la persona puo' avere una password scelta da lei, e
-     lib/diretta-invio.js non le manda piu' credenziali nuove da solo
-     (riceve «Sei iscritto anche a...»): vedi haPassword.
+     Da li' in poi la persona puo' avere una password scelta da lei: le
+     credenziali di un evento le arrivano lo stesso, con una password
+     nuova, e l'email dice che quella di prima (anche scelta da lei) non
+     vale piu' (lib/diretta-invio.js: OGNI EVENTO, LE SUE CREDENZIALI,
+     sostituzione).
 
    - PASSWORD DIMENTICATA e ACCESSO DEI GESTORI (DECISIONI D2, D9): la
      risposta e' SEMPRE la stessa e arriva sempre dopo lo stesso tempo
@@ -652,10 +654,10 @@ async function spedisciReimpostazione(ctx, dati, dopoInvio) {
    nome utente) arriva qui gia' tradotto in `email` dall'API: un nome
    utente non e' un'email valida, quindi non trova nessuno.
    Partito il collegamento, sul profilo resta QUANDO (resetInviato): la
-   persona da li' puo' avere una password scelta da lei, e un «Invia le
-   credenziali» del gestore o un'iscrizione dal modulo non devono
-   cancellargliela con una nostra (vedi haPassword in
-   lib/diretta-invio.js: riceve «Sei iscritto anche a...»). Se proprio
+   persona da li' puo' avere una password scelta da lei: le credenziali
+   di un evento («Invia le credenziali», un'iscrizione dal modulo)
+   gliela cambiano lo stesso, e l'email lo dice (vedi sostituzione in
+   lib/diretta-invio.js: 'precedente'). Se proprio
    questa scrittura non riesce, il collegamento e' partito lo stesso: lo
    dice il log (senza dati personali). */
 async function passwordDimenticata(ctx, { email, ip }) {

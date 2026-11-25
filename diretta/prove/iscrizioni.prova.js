@@ -35,13 +35,16 @@
    4. Due iscrizioni della stessa email nello stesso istante: un account,
       una email.
    5. Email che ha gia' un account con la password (import di Milano e
-      credenziali inviate): si aggiunge Napoli, arriva UNA volta
-      «Sei iscritto anche a...» senza password, la password di prima
-      vale ancora (anche per Napoli). Iscritta di nuovo: niente.
+      credenziali inviate): si aggiunge Napoli, arrivano UNA volta le
+      credenziali di Napoli (OGNI EVENTO, LE SUE CREDENZIALI), con una
+      password nuova, «vai su .../diretta/?e=napoli-2026» e la nota che
+      quella di Milano non vale piu' (e infatti non vale piu').
+      Iscritta di nuovo: niente.
    6. Email caricata dal file e mai raggiunta (credenziali "da
       inviare"): con l'iscrizione dal modulo riceve le credenziali (la
       prima password). E dopo, quando il gestore manda le credenziali
-      di Milano, riceve l'avviso «anche», non una seconda password.
+      di Milano, riceve quelle di Milano, con una password nuova e il
+      collegamento a Milano.
    7. Una pagina che non porta a nessun evento (Roma, etichetta o
       percorso), la modalita' "presenza", gli aderenti, un evento
       terminato: niente.
@@ -57,16 +60,17 @@
       Napoli con l'etichetta di Roma porta a Napoli (vince il percorso);
       l'etichetta vale solo senza percorso (o con la home).
    13. «Password dimenticata?» PRIMA di «Invia le credenziali»: il
-      collegamento lascia resetInviato sul profilo; la password scelta
-      dalla persona resta: il gestore manda le credenziali e a lei
-      arriva «anche», e cosi' dal modulo di un altro evento; il
-      "Reinvia" del gestore manda le credenziali dicendo che quella di
-      prima non vale piu'.
+      collegamento lascia resetInviato sul profilo; il gestore manda le
+      credenziali e a lei arrivano lo stesso, dicendo che la password di
+      prima (anche quella scelta da lei) non vale piu'; cosi' dal modulo
+      di un altro evento (le credenziali di quell'evento) e con il
+      "Reinvia" del gestore («sostituisce le precedenti»).
    14. Email corretta dal gestore (credenziali di Milano partite al
       vecchio indirizzo), poi iscrizione dal modulo di Napoli con il
       nuovo (credenziali, prima password per quella casella), poi
-      «Invia le credenziali» di Milano: arriva «anche», non una seconda
-      password, e quella di Napoli vale ancora.
+      «Invia le credenziali» di Milano: le credenziali di Milano al
+      nuovo indirizzo, con la nota sulla password di Napoli (non su
+      quella partita al vecchio indirizzo).
    15. Due persone con la stessa email (info@...): la seconda non
       finisce nell'account della prima (niente evento aggiunto, niente
       email, account intatto), e c'e' una riga «da verificare» per il
@@ -122,8 +126,8 @@
       e il cron non le manda; la riconciliazione non lo rimette dentro;
       chi ha un'altra scheda online attiva resta; un altro posto
       dell'ordine con la sua email esce anche lui; togliendo
-      l'annullamento, a interruttore acceso si rientra («anche», la
-      password di sempre, l'evento si legge di nuovo), a interruttore
+      l'annullamento, a interruttore acceso si rientra (le credenziali
+      con una password nuova, l'evento si legge di nuovo), a interruttore
       spento solo la riga riattivata-dal-sito; chi annulla prima di
       cliccare perde le credenziali «da confermare», e il clic sulla
       scheda annullata non manda niente; togliendo l'annullamento a una
@@ -450,19 +454,21 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const anna = await iscriviEConferma({ nome: 'Anna', cognome: 'Bianchi', email: 'Anna.Bianchi@esempio.it' });
         const pAnna = await profiloDi('anna.bianchi@esempio.it');
         vero(anna.corpo.ok && pAnna.eventi.indexOf('napoli-2026') >= 0 && pAnna.eventi.indexOf('milano-2026') >= 0, 'dal modulo di Napoli: Napoli si aggiunge al suo account (lo stesso)');
-        const ancheAnna = postaA('anna.bianchi@esempio.it', 'iscritto-anche');
-        vero(ancheAnna.length === 1 && postaA('anna.bianchi@esempio.it', 'credenziali').length === 1, 'arriva UNA email «Sei iscritto anche a...», nessuna nuova email di credenziali');
-        vero(ancheAnna.length === 1 && /^Sei iscritto anche a Next Generation Business 2026 · Napoli$/.test(ancheAnna[0].oggetto)
-            && ancheAnna[0].testo.indexOf('entra con la tua email e la password che hai già; se non la ricordi usa "Password dimenticata?"') >= 0
-            && !/Password:\s*\S/.test(ancheAnna[0].testo) && ancheAnna[0].html.indexOf(pwAnna) < 0,
-        '«Sei iscritto anche a <evento>: entra con la tua email e la password che hai già...», senza password');
-        vero(pAnna.invii['napoli-2026'].stato === 'inviata' && pAnna.invii['napoli-2026'].tipo === 'anche', 'sulla voce di Napoli: inviata, tipo "anche"');
-        const entraAnna = await entra('anna.bianchi@esempio.it', pwAnna);
-        vero(entraAnna.stato === 200, 'la password di Milano vale ancora (una password per tutti gli eventi)');
+        const credAnnaNapoli = postaA('anna.bianchi@esempio.it', 'credenziali').slice(1);
+        const pwAnnaNapoli = credAnnaNapoli.length ? passwordDi(credAnnaNapoli[0]) : '';
+        passwordViste.push(pwAnnaNapoli);
+        vero(credAnnaNapoli.length === 1 && postaA('anna.bianchi@esempio.it', 'iscritto-anche').length === 0, 'arrivano le credenziali di Napoli (UNA email), nessun avviso «Sei iscritto anche a...»');
+        vero(credAnnaNapoli.length === 1 && /^Le tue credenziali per la diretta - Next Generation Business 2026 · Napoli$/.test(credAnnaNapoli[0].oggetto)
+            && !!pwAnnaNapoli && pwAnnaNapoli !== pwAnna && credAnnaNapoli[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0
+            && credAnnaNapoli[0].testo.indexOf('vai su ' + C.linkDiretta() + '?e=napoli-2026, scrivi la tua email anna.bianchi@esempio.it') >= 0,
+        '«Le tue credenziali per la diretta - <Napoli>»: una password nuova, «vai su .../diretta/?e=napoli-2026» e la nota che quella di Milano non vale più');
+        vero(pAnna.invii['napoli-2026'].stato === 'inviata' && pAnna.invii['napoli-2026'].tipo === 'credenziali', 'sulla voce di Napoli: inviata, tipo "credenziali"');
+        vero((await entra('anna.bianchi@esempio.it', pwAnna)).stato === 401 && (await entra('anna.bianchi@esempio.it', pwAnnaNapoli)).stato === 200,
+            'la password di Milano non vale più, quella nuova sì (una password per tutti gli eventi)');
         const claimsAnna = ((await ctx.auth.getUser(pAnna.uid)).customClaims || {}).eventi || [];
         vero(claimsAnna.indexOf('napoli-2026') >= 0 && claimsAnna.indexOf('milano-2026') >= 0, 'i permessi del suo account comprendono Napoli e Milano');
         await iscriviEConferma({ nome: 'Anna', cognome: 'Bianchi', email: 'anna.bianchi@esempio.it' });
-        vero(postaA('anna.bianchi@esempio.it').length === 2, 'iscritta e confermata di nuovo: niente (l\'avviso «anche» parte una volta sola)');
+        vero(postaA('anna.bianchi@esempio.it').length === 2, 'iscritta e confermata di nuovo: niente (le credenziali di Napoli partono una volta sola)');
 
         /* ---------- 6 ---------- */
         titolo('6. Un\'email caricata dal file e mai raggiunta');
@@ -478,9 +484,14 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         vero(credBruno.length === 1 && (await profiloDi('bruno.verdi@esempio.it')).invii['napoli-2026'].stato === 'inviata', 'conferma il suo indirizzo: riceve le credenziali di Napoli (la sua prima password)');
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
-        vero(postaA('bruno.verdi@esempio.it', 'credenziali').length === 1 && postaA('bruno.verdi@esempio.it', 'iscritto-anche').length === 1,
-            'poi il gestore manda le credenziali di Milano: a lui l\'avviso «anche», non una seconda password');
-        vero((await entra('bruno.verdi@esempio.it', passwordDi(credBruno[0] || {}))).stato === 200, 'e la password di Napoli vale ancora');
+        const credBrunoMilano = postaA('bruno.verdi@esempio.it', 'credenziali').slice(1);
+        const pwBrunoMilano = passwordDi(credBrunoMilano[0] || {});
+        passwordViste.push(pwBrunoMilano);
+        vero(credBrunoMilano.length === 1 && postaA('bruno.verdi@esempio.it', 'iscritto-anche').length === 0
+            && credBrunoMilano[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0 && credBrunoMilano[0].html.indexOf('/diretta/?e=milano-2026"') >= 0,
+            'poi il gestore manda le credenziali di Milano: a lui quelle di Milano, con una password nuova, il collegamento a Milano e la nota che quella di Napoli non vale più');
+        vero((await entra('bruno.verdi@esempio.it', passwordDi(credBruno[0] || {}))).stato === 401 && (await entra('bruno.verdi@esempio.it', pwBrunoMilano)).stato === 200,
+            'la password di Napoli non vale più, quella di Milano sì');
 
         /* ---------- 7 ---------- */
         titolo('7. Quando non si fa niente');
@@ -578,7 +589,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await D.cambiaIscrizioni(ctx, { idEvento: 'roma-2026', iscrizioniAutomatiche: false });
 
         /* ---------- 13 ---------- */
-        titolo('13. «Password dimenticata?» prima di «Invia le credenziali»: la password scelta dalla persona resta');
+        titolo('13. «Password dimenticata?» prima di «Invia le credenziali»: le credenziali arrivano lo stesso, e lo dicono');
         const PW_SCELTA = 'MiaScelta2026';
         passwordViste.push(PW_SCELTA);
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' }] });
@@ -596,28 +607,37 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         pRita = await profiloDi('rita.reset@esempio.it');
-        vero(postaA('rita.reset@esempio.it', 'credenziali').length === 0 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 1
-            && pRita.invii['milano-2026'].stato === 'inviata' && pRita.invii['milano-2026'].tipo === 'anche',
-        'poi il gestore preme «Invia le credenziali» di Milano: a Rita arriva «anche», nessuna password nuova');
-        vero((await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.3')).stato === 200, '...e la password che ha scelto vale ancora');
+        const credRitaMilano = postaA('rita.reset@esempio.it', 'credenziali');
+        const pwRitaMilano = passwordDi(credRitaMilano[0] || {});
+        passwordViste.push(pwRitaMilano);
+        vero(credRitaMilano.length === 1 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 0
+            && pRita.invii['milano-2026'].stato === 'inviata' && pRita.invii['milano-2026'].tipo === 'credenziali'
+            && credRitaMilano[0].testo.indexOf('Questa password sostituisce quella che usavi finora (anche se l\'avevi scelta tu con «Password dimenticata?»): quella di prima non è più valida.') >= 0,
+        'poi il gestore preme «Invia le credenziali» di Milano: a Rita arrivano le credenziali, con la frase che la password di prima (anche quella scelta da lei) non vale più');
+        vero((await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.3')).stato === 401 && (await entra('rita.reset@esempio.it', pwRitaMilano, '10.62.0.4')).stato === 200,
+            '...e infatti la password che aveva scelto non vale più, quella nuova sì');
         await iscriviEConferma({ nome: 'Rita', cognome: 'Reset', email: 'rita.reset@esempio.it' });
-        vero(postaA('rita.reset@esempio.it', 'credenziali').length === 0 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 2
-            && (await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.4')).stato === 200,
-        'e dal modulo di Napoli (iscritta e confermata): di nuovo «anche», la sua password vale anche per Napoli');
-        // il "Reinvia" esplicito del gestore (fra due minuti: non e' un doppio clic) manda le credenziali, e lo dice
+        const credRitaNapoli = postaA('rita.reset@esempio.it', 'credenziali').slice(1);
+        const pwRitaNapoli = passwordDi(credRitaNapoli[0] || {});
+        passwordViste.push(pwRitaNapoli);
+        vero(credRitaNapoli.length === 1 && postaA('rita.reset@esempio.it', 'iscritto-anche').length === 0
+            && credRitaNapoli[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0 && credRitaNapoli[0].html.indexOf('/diretta/?e=napoli-2026"') >= 0
+            && (await entra('rita.reset@esempio.it', pwRitaNapoli, '10.62.0.5')).stato === 200,
+        'e dal modulo di Napoli (iscritta e confermata): le credenziali di Napoli, con il loro collegamento e una password nuova (quella di Milano non vale più)');
+        // il "Reinvia" esplicito del gestore (fra due minuti: non e' un doppio clic): di nuovo le credenziali di Milano
         const ctxDopo = Object.assign({}, ctx, { adesso: () => Date.now() + 2 * 60 * 1000 });
         const reRita = await invio.inviaCredenziali(ctxDopo, { uid: pRita.uid, idEvento: 'milano-2026' });
         const credRita = postaA('rita.reset@esempio.it', 'credenziali');
-        const pwRitaNuova = passwordDi(credRita[0] || {});
+        const pwRitaNuova = passwordDi(credRita[2] || {});
         passwordViste.push(pwRitaNuova);
-        vero(reRita.stato === 'inviata' && credRita.length === 1
-            && credRita[0].testo.indexOf('Questa password sostituisce quella che usavi finora (anche se l\'avevi scelta tu con «Password dimenticata?»): quella di prima non è più valida.') >= 0,
-        '"Reinvia" del gestore: le credenziali, con la frase che la password di prima (anche quella scelta da lei) non vale piu\'');
-        vero((await entra('rita.reset@esempio.it', PW_SCELTA, '10.62.0.5')).stato === 401 && (await entra('rita.reset@esempio.it', pwRitaNuova, '10.62.0.6')).stato === 200,
-            '...e infatti la sua password non vale piu\', quella nuova si\'');
+        vero(reRita.stato === 'inviata' && credRita.length === 3
+            && credRita[2].testo.indexOf('Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.') >= 0,
+        '"Reinvia" del gestore: di nuovo le credenziali di Milano, «Questa email sostituisce le precedenti...»');
+        vero((await entra('rita.reset@esempio.it', pwRitaNapoli, '10.62.0.6')).stato === 401 && (await entra('rita.reset@esempio.it', pwRitaNuova, '10.62.0.7')).stato === 200,
+            '...e infatti la password di prima non vale più, quella nuova sì');
 
         /* ---------- 14 ---------- */
-        titolo('14. Email corretta dal gestore, iscrizione dal modulo con quella nuova, poi «Invia le credenziali»: una password sola');
+        titolo('14. Email corretta dal gestore, iscrizione dal modulo con quella nuova, poi «Invia le credenziali» di Milano: al nuovo indirizzo, con la nota giusta');
         await D.crea(ctx, { idEvento: 'milano-2026', righe: [{ riga: 2, nome: 'Ugo', cognome: 'Cambio', email: 'ugo.vecchia@esempio.it' }] });
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
@@ -633,10 +653,15 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         await invio.accoda(ctx, { idEvento: 'milano-2026', chi: 'da-inviare' });
         await invio.avanzaCoda(ctx, { idEvento: 'milano-2026', budgetMs: 20000 });
         const pUgoDopo = await profiloDi('ugo.nuova@esempio.it');
-        vero(postaA('ugo.nuova@esempio.it', 'credenziali').length === 1 && postaA('ugo.nuova@esempio.it', 'iscritto-anche').length === 1
-            && pUgoDopo.invii['milano-2026'].stato === 'inviata' && pUgoDopo.invii['milano-2026'].tipo === 'anche',
-        'poi il gestore rimanda le credenziali di Milano: all\'indirizzo nuovo arriva «anche», NON una seconda password');
-        vero((await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.2')).stato === 200, '...e la password di Napoli, ricevuta un minuto prima, vale ancora');
+        const credUgoMilano = postaA('ugo.nuova@esempio.it', 'credenziali').slice(1);
+        const pwUgoMilano = passwordDi(credUgoMilano[0] || {});
+        passwordViste.push(pwUgoMilano);
+        vero(credUgoMilano.length === 1 && postaA('ugo.nuova@esempio.it', 'iscritto-anche').length === 0
+            && pUgoDopo.invii['milano-2026'].stato === 'inviata' && pUgoDopo.invii['milano-2026'].tipo === 'credenziali'
+            && credUgoMilano[0].testo.indexOf('Avevi già ricevuto le credenziali per un altro evento') >= 0 && credUgoMilano[0].testo.indexOf('Questa email sostituisce le precedenti') < 0,
+        'poi il gestore rimanda le credenziali di Milano: all\'indirizzo nuovo le credenziali di Milano, con la nota sulla password di Napoli (non su quella partita al vecchio indirizzo)');
+        vero((await entra('ugo.nuova@esempio.it', pwUgo, '10.63.0.2')).stato === 401 && (await entra('ugo.nuova@esempio.it', pwUgoMilano, '10.63.0.3')).stato === 200,
+            '...la password di Napoli non vale più, quella nuova sì');
 
         /* ---------- 15 ---------- */
         titolo('15. La stessa email per due persone: la seconda non entra nell\'account della prima');
@@ -676,9 +701,9 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         passwordViste.push(passwordDi(postaA('segreteria@esempio.it', 'credenziali')[0] || {}));
         await iscrivi({ nome: 'Luisa', cognome: 'Verdi', email: 'segreteria@esempio.it' });
         const pSegr = await profiloDi('segreteria@esempio.it');
-        vero(pSegr.nome === 'Mario' && pSegr.eventi.join() === 'milano-2026' && postaA('segreteria@esempio.it', 'iscritto-anche').length === 0
+        vero(pSegr.nome === 'Mario' && pSegr.eventi.join() === 'milano-2026' && postaA('segreteria@esempio.it').length === 1
             && ((await ctx.auth.getUser(pSegr.uid)).customClaims || {}).eventi.join() === 'milano-2026',
-        'Luisa Verdi con la segreteria@ di Mario Rossi (Milano): Napoli NON si aggiunge all\'account di Mario, nessun «anche», permessi invariati');
+        'Luisa Verdi con la segreteria@ di Mario Rossi (Milano): Napoli NON si aggiunge all\'account di Mario, nessuna email, permessi invariati');
         daVed = await righeNapoli();
         const rigaLuisa = daVed.find(r => r.nome === 'Luisa');
         vero(rigaLuisa && rigaLuisa.motivo === 'email-condivisa' && rigaLuisa.esistente === 'Mario Rossi', '...e c\'e\' la sua riga «da verificare» (account di Mario Rossi)');
@@ -1005,7 +1030,7 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
             && (torinoDi(giroPina).conferme || {}).lette >= 1 && (torinoDi(giroPina).conferme || {}).inCoda === 0,
         'la conferma d\'ufficio dell\'amministratore (pregresso): la seconda passata la legge e la lascia stare, a Pina non parte niente', JSON.stringify(torinoDi(giroPina)));
         vero(['gino.guasto', 'lara.guasto', 'gina.giusta', 'ilaria.guasto', 'leo.perso'].every(e => postaA(e + '@esempio.it').length === 1),
-            'Gino, Lara, Gina, Ilaria e Leo: una email a testa (la password una volta sola), nessun «anche» in piu\'');
+            'Gino, Lara, Gina, Ilaria e Leo: una email a testa (la password una volta sola), nessuna email in piu\'');
         vero(!(await profiloDi('tina.prima@esempio.it')) && !(await profiloDi('anna.annullata@esempio.it')) && !(await profiloDi('olga.altrove@esempio.it'))
             && !(await profiloDi('pietro.presente@esempio.it')) && postaA('tina.prima@esempio.it').length === 0,
         'ignorate: la scheda di prima dell\'accensione (Tina), quella annullata (Anna), quella di un altro evento (Olga), quella in sala (Pietro)');
@@ -1146,14 +1171,18 @@ const passwordDi = m => ((/\nPassword: (\S+)\n/.exec(m.testo || '')) || [])[1] |
         const primaMarta = postaA('marta.ritiro@esempio.it').length;
         const riMarta = await completa(idMarta, [{ nome: 'Marta', cognome: 'Ritiro', email: 'marta.ritiro@esempio.it', azienda: 'Prova srl' }]);
         pMarta = await profiloDi('marta.ritiro@esempio.it');
-        const ancheMarta = postaA('marta.ritiro@esempio.it', 'iscritto-anche');
+        const credMarta = postaA('marta.ritiro@esempio.it', 'credenziali');
+        const pwMarta2 = passwordDi(credMarta[1] || {});
+        passwordViste.push(pwMarta2);
         vero(riMarta.corpo.ok === true && pMarta.eventi.indexOf(TORINO) >= 0 && !(pMarta.annullatoDalSito || {})[TORINO]
             && ((await sessioneDi(pMarta.uid)).eventiTolti || []).indexOf(TORINO) < 0
-            && postaA('marta.ritiro@esempio.it').length === primaMarta + 1 && ancheMarta.length === 1 && postaA('marta.ritiro@esempio.it', 'credenziali').length === 1,
+            && postaA('marta.ritiro@esempio.it').length === primaMarta + 1 && credMarta.length === 2 && postaA('marta.ritiro@esempio.it', 'iscritto-anche').length === 0
+            && /non è più valida/.test(credMarta[1].testo),
         'Marta toglie l\'annullamento (interruttore acceso; la sua scheda era confermata): di nuovo in Torino, via il segno dell\'annullamento e l\'evento da eventiTolti; '
-            + 'era gia\' entrata con la sua password, quindi le arriva subito «Sei iscritto anche a…», nessuna password nuova');
-        const tokMarta2 = await tokenBrowser('marta.ritiro@esempio.it', pwMarta, '10.72.0.3');
-        vero(tokMarta2 && await leggeEvento(tokMarta2, TORINO) === 200, 'con la password di sempre rientra, e legge di nuovo l\'evento');
+            + 'le arrivano subito le credenziali di Torino, con una password nuova e la nota che quella di prima non vale più');
+        const tokMarta2 = await tokenBrowser('marta.ritiro@esempio.it', pwMarta2, '10.72.0.3');
+        vero(tokMarta2 && await leggeEvento(tokMarta2, TORINO) === 200, 'con la password nuova rientra, e legge di nuovo l\'evento');
+        vero((await entra('marta.ritiro@esempio.it', pwMarta, '10.72.0.4')).stato === 401, '...e quella di prima non vale più');
 
         // riattivazione con l'interruttore spento: solo una riga per il gestore
         const spentoTorino = await D.cambiaIscrizioni(ctx, { idEvento: TORINO, iscrizioniAutomatiche: false });
