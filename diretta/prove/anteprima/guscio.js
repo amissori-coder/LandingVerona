@@ -95,6 +95,10 @@
         // la pagina del relatore (dalla gestione, dalla reimpostazione della password): nella sua scheda
         if (dest === 'relatore') {
             if (p === pannelli.sopra) chiudiSopra();
+            /* il relatore entrato nella diretta: sul sito la sua scheda va alla
+               pagina del relatore; qui la scheda «Partecipante» resta sulla
+               diretta come la vede lui (?vista=diretta) */
+            if (p === pannelli.partecipante) monta(pannelli.partecipante, 'diretta', '?vista=diretta');
             monta(pannelli.relatore, 'relatore', u.search);
             apriScheda('relatore');
             return;

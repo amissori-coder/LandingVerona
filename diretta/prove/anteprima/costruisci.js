@@ -120,7 +120,9 @@ const RITOCCHI_DIRETTA = [
     ["history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash);", "NGBA_RICERCA_IMPOSTA(u.search || '');"],
     // la navigazione fra le pagine della diretta resta dentro l'anteprima
     ["location.href = '/diretta/gestione/';", "NGBA_VAI('/diretta/gestione/');"],
-    ["location.replace('/diretta/' + ", "NGBA_VAI('/diretta/' + "]
+    ["location.replace('/diretta/' + ", "NGBA_VAI('/diretta/' + "],
+    // il relatore che entra nella diretta va alla sua pagina (nell'anteprima: la scheda «Relatore»)
+    ["location.replace('/diretta/relatore/' + q);", "NGBA_VAI('/diretta/relatore/' + q);"]
 ];
 const RITOCCHI_GESTIONE = [
     ["import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js')", "import(new URL('anteprima/sdk/firebase-app.js', document.baseURI).href)"],

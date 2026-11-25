@@ -318,6 +318,8 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         let g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r1', relatore: true });
         vero(g.stato === 200 && JSON.stringify(g.corpo.relatori) === '["r1"]' && m.docs.get('relatoriEventi/' + WEB).da === 'regia@revilaw.it',
             'la regia segna un partecipante come relatore, con chi l\'ha segnato', JSON.stringify(g.corpo));
+        vero(JSON.stringify(m.docs.get('partecipanti/r1').relatoreDi) === JSON.stringify([WEB]),
+            'il segno sta anche nel profilo della persona (relatoreDi): la diretta la porta subito alla sua pagina', JSON.stringify(m.docs.get('partecipanti/r1')));
         g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r2', relatore: true });
         vero(g.stato === 200 && JSON.stringify(g.corpo.relatori) === '["r1","r2"]', 'i relatori possono essere più d\'uno', JSON.stringify(g.corpo));
         const primaR = m.scritture.length;
@@ -425,6 +427,16 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r1', relatore: false });
         r = await domande({ azione: 'elenco', idEvento: WEB }, 'tok-r1');
         vero(r.stato === 403 && JSON.stringify(m.docs.get('relatoriEventi/' + WEB).uid) === '["r2"]', 'segno tolto: 403 da subito, anche con il token di prima');
+        vero(JSON.stringify(m.docs.get('partecipanti/r1').relatoreDi) === '[]', 'e il profilo non lo dice più (la diretta non lo porta più alla pagina del relatore)');
+
+        // un relatore segnato quando il profilo non lo diceva ancora: si rimette in pari
+        m.docs.set('relatoriEventi/' + WEB, { uid: ['r1'] });
+        delete m.docs.get('partecipanti/r1').relatoreDi;
+        r = await domande({ azione: 'mie', idEvento: WEB }, 'tok-r1');
+        vero(r.corpo.relatore === true && JSON.stringify(m.docs.get('partecipanti/r1').relatoreDi) === JSON.stringify([WEB]), '«mie» rimette in pari il profilo di chi è relatore');
+        delete m.docs.get('partecipanti/r1').relatoreDi;
+        g = await gestione({ azione: 'relatore-segna', idEvento: WEB, uid: 'r1', relatore: true });
+        vero(g.stato === 200 && JSON.stringify(m.docs.get('partecipanti/r1').relatoreDi) === JSON.stringify([WEB]), 'e anche «Segna come relatore» su chi lo è già');
     }
 
     /* ======================== AL MASSIMO 10 RELATORI ======================== */

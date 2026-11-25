@@ -513,6 +513,8 @@
         }
         stato.evento = stato.eventi.find(e => e.id === id) || null;
         $('sel-evento').value = id;
+        // «Guarda la diretta»: lo stesso evento, e la diretta non rimanda qui (?vista=diretta)
+        $('link-guarda-diretta').setAttribute('href', '/diretta/?vista=diretta' + (ID_EVENTO_VALIDO.test(String(id || '')) ? '&e=' + encodeURIComponent(id) : ''));
         archivio.scrivi(CHIAVE_EVENTO, id);
         aggiornaTestata();
         if (!stesso) { leggiDomande(); leggiPartecipanti(); }
