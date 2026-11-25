@@ -455,6 +455,25 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         vero(g.stato === 200 && g.corpo.relatori.length === 10 && g.corpo.relatori.indexOf('q10') >= 0 && g.corpo.relatori.indexOf('q0') < 0, 'tolto uno, se ne segna un altro');
     }
 
+    /* ======================== L'EMAIL GIA' DI UN ALTRO ACCOUNT (aggiunta a mano) ======================== */
+    {
+        const m = nuovoMondo();
+        evento(m, WEB, 'programmato');
+        evento(m, ALTRO, 'programmato');
+        m.auth.token.set('tok-regia', { uid: 'g1', email: 'regia@revilaw.it', email_verified: true, gestore: true, firebase: { sign_in_provider: 'password' } });
+        // una prova fatta con l'email di un altro: l'account c'e', con un altro nome, iscritto a Milano
+        partecipante(m, 'z1', { nome: 'Anna', cognome: 'Prova', email: 'mia.email@esempio.it', emailNorm: 'mia.email@esempio.it', eventi: [ALTRO] });
+        m.docs.set('indirizzi/mia.email@esempio.it', { uid: 'z1' });
+        const g = await gestione({ azione: 'partecipante-aggiungi', idEvento: WEB, nome: 'Andrea', cognome: 'Vero', email: 'mia.email@esempio.it' });
+        vero(g.stato === 409 && g.corpo.codice === 'email-condivisa'
+            && /^Con questa email è già registrato Anna Prova: se è la stessa persona, scrivi il nome come è registrato/.test(g.corpo.msg)
+            && /Quell'account è iscritto a: «Webinar 10 dicembre»\./.test(g.corpo.msg) && /«Correggi» sulla sua riga/.test(g.corpo.msg),
+            'email già di un altro account: il messaggio dice a quale evento è iscritto e come dargli il nome giusto', g.corpo.msg);
+        m.docs.get('partecipanti/z1').eventi = [];
+        const g2 = await gestione({ azione: 'partecipante-aggiungi', idEvento: WEB, nome: 'Andrea', cognome: 'Vero', email: 'mia.email@esempio.it' });
+        vero(g2.stato === 409 && /Quell'account non è iscritto a nessun evento\./.test(g2.corpo.msg), '…anche quando non è iscritto a nessun evento', g2.corpo.msg);
+    }
+
     /* ======================== LA PORTA ======================== */
     {
         nuovoMondo();
