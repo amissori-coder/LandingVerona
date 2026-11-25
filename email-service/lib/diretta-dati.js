@@ -1070,6 +1070,8 @@ async function creaRiga(ctx, idEvento, r, opz) {
     if (fatto.tipo === 'email-condivisa') {
         return esito('errore', {
             codice: 'email-condivisa', nomeRegistrato: E.nomeCompleto(fatto.dati) || '',
+            // a quali eventi e' iscritto l'account che ha gia' l'email (l'aggiunta a mano lo dice al gestore)
+            eventiRegistrato: Array.isArray((fatto.dati || {}).eventi) ? fatto.dati.eventi.map(String).slice(0, 10) : [],
             motivo: 'Con questa email è già registrato ' + (E.nomeCompleto(fatto.dati) || 'un altro account') + ': un account è di una persona sola, serve un indirizzo suo.'
         });
     }
@@ -1110,8 +1112,18 @@ async function aggiungiAMano(ctx, b, chi) {
     console.log('[diretta] aggiunta a mano: ' + JSON.stringify({ idEvento: id, esito: r.esito, codice: r.codice || undefined }));
     if (r.esito === 'errore') {
         if (r.codice === 'email-condivisa') {
+            /* Il gestore deve poter ritrovare quell'account: si dice a quali
+               eventi e' iscritto, e come dargli il nome giusto se e' la stessa
+               persona (per esempio un'iscrizione di prova fatta con il nome di
+               un altro): con il nome registrato l'aggiunta riesce, poi
+               «Correggi» sulla sua riga. */
+            const titoli = await titoliEventi(ctx, r.eventiRegistrato || []);
+            const dove = titoli.length
+                ? ' Quell\'account è iscritto a: ' + titoli.join(', ') + '.'
+                : ' Quell\'account non è iscritto a nessun evento.';
             throw errorePubblico(409, 'email-condivisa', 'Con questa email è già registrato ' + (r.nomeRegistrato || 'un\'altra persona')
-                + ': se è la stessa persona, scrivi il nome come è registrato; se no, serve un indirizzo suo (un account è di una persona sola).');
+                + ': se è la stessa persona, scrivi il nome come è registrato; se no, serve un indirizzo suo (un account è di una persona sola).'
+                + dove + ' Per dargli il nome giusto: scrivi qui il nome registrato, premi «Aggiungi», poi «Correggi» sulla sua riga.');
         }
         if (r.codice === 'temporaneo' || r.codice === 'account') {
             throw errorePubblico(503, r.codice, 'Firebase non ha completato l\'account: riprova tra poco (non si creano doppioni).');
@@ -1121,6 +1133,17 @@ async function aggiungiAMano(ctx, b, chi) {
     const snap = await ctx.db.collection('partecipanti').doc(r.uid).get();
     const partecipante = snap.exists ? partecipanteJSON(Object.assign({ uid: snap.id }, snap.data()), id) : null;
     return { esito: r.esito, motivo: r.motivo || '', partecipante: partecipante };
+}
+
+// i titoli di alcuni eventi, tra «»: al massimo tre, poi «e altri N»
+async function titoliEventi(ctx, ids) {
+    const validi = (ids || []).filter(x => RE_ID_EVENTO.test(String(x)));
+    if (!validi.length) return [];
+    let snaps = [];
+    try { snaps = await ctx.db.getAll(...validi.slice(0, 3).map(x => ctx.db.collection('eventi').doc(x))); } catch (e) { snaps = []; }
+    const titoli = validi.slice(0, 3).map((x, i) => '«' + ((snaps[i] && snaps[i].exists && snaps[i].data().titolo) || x) + '»');
+    if (validi.length > 3) titoli.push('e altri ' + (validi.length - 3));
+    return titoli;
 }
 
 /* ---------- operazioni sul singolo partecipante ---------- */
