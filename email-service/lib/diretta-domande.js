@@ -4,9 +4,9 @@
    Durante un evento online ogni partecipante puo' mandare domande al
    relatore dalla pagina della diretta. Non e' una chat: gli altri
    partecipanti non le vedono MAI. Le vedono:
-     - il RELATORE, dalla sua pagina (/diretta/relatore/), insieme
-       all'elenco dei partecipanti e a chi e' collegato; segna quelle a
-       cui ha risposto («Risposta data»);
+     - i RELATORI, dalla loro pagina (/diretta/relatore/), insieme
+       all'elenco dei partecipanti e a chi e' collegato; segnano quelle a
+       cui hanno risposto («Risposta data»);
      - la REGIA (i gestori, DIRETTA_ADMIN_EMAILS), nella scheda Regia
        della gestione, con lo stesso segno.
    Chi scrive vede solo le PROPRIE domande, e se hanno avuto risposta.
@@ -15,25 +15,25 @@
      domande/{auto}          idEvento, uid, nome, cognome, azienda, email,
                              testo, quando, risposta (vero o falso),
                              rispostaQuando, rispostaDa (chi l'ha segnata)
-     relatoriEventi/{id}     email: [gli indirizzi dei relatori], aggiornato,
-                             da: li decide la gestione (scheda Evento). Un
+     relatoriEventi/{id}     uid: [i partecipanti dell'evento segnati come
+                             relatori], aggiornato, da: li segna la gestione
+                             (scheda Partecipanti, «Segna come relatore»). Un
                              documento a parte perche' eventiRiservati si
                              riscrive per intero quando cambia il video, e i
                              relatori non devono sparire con lui
-     relatoriAccount/{uid}   gli account attivati come relatore (come
-                             gestoriAccount per i gestori)
    Nessuna regola nuova di Firestore: tutto passa dal servizio, con la
    chiave del server; per il browser queste raccolte sono chiuse dalla
    regola finale di firestore.rules (tutto il resto: solo il server).
 
-   CHI E' IL RELATORE. Un account di Firebase Auth con la SUA email vera,
-   come i gestori (i partecipanti hanno invece un indirizzo tecnico),
-   attivato dal servizio con «Primo accesso o password dimenticata» della
-   sua pagina (relatore-accesso in lib/diretta-accesso.js), con il claim
-   relatore: true e l'email verificata. Il claim da solo non basta: a OGNI
-   chiamata l'email deve essere fra i relatori dell'evento chiesto
-   (relatoriEventi); togliere un'email dalla scheda Evento chiude subito
-   la porta. I gestori passano sempre, su ogni evento.
+   CHI E' IL RELATORE. Un PARTECIPANTE dell'evento, con il suo account
+   di sempre (le credenziali che arrivano per email a tutti), segnato come
+   relatore dalla gestione; possono essere piu' d'uno (al massimo
+   MAX_RELATORI). Entra nella sua pagina con la sua email e la sua
+   password, come nella diretta (azione 'entra' di api/diretta-accesso:
+   la sessione del browser e' la stessa). A OGNI chiamata il servizio
+   controlla che l'account sia attivo, iscritto all'evento chiesto e fra
+   i suoi relatori: togliere il segno chiude subito la porta. I gestori
+   passano sempre, su ogni evento.
 
    QUANTO PESA. Mille partecipanti che scrivono qualche domanda sono
    qualche centinaio di documenti. La pagina del relatore e la regia
@@ -64,62 +64,53 @@ const RE_ID_DOMANDA = /^[A-Za-z0-9_-]{1,64}$/;
 
 const MSG_DISATTIVATO = 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
 const MSG_NON_RELATORE = 'Questo account non è fra i relatori della diretta.';
+const RE_UID = /^[A-Za-z0-9_-]{1,128}$/;
 
 /* ============================================================
    I RELATORI DI UN EVENTO
    ============================================================ */
 function rifRelatori(ctx, idEvento) { return ctx.db.collection('relatoriEventi').doc(idEvento); }
 
-/* L'elenco come lo scrive la gestione: email separate da a capo, spazi,
-   virgole o punti e virgola (o gia' un array). Le doppie si tolgono;
-   un'email non valida ferma tutto e si dice quale. */
-function leggiRelatori(v) {
-    const grezzi = Array.isArray(v) ? v : String(v == null ? '' : v).split(/[\s,;]+/);
-    const visti = new Set();
-    const out = [];
-    grezzi.forEach(x => {
-        const t = String(x == null ? '' : x).trim();
-        if (!t) return;
-        const e = E.normalizzaEmail(t);
-        if (!E.emailValida(e) || C.eEmailTecnica(e)) throw C.errore(400, 'Email del relatore non valida: «' + t.slice(0, 80) + '».', 'relatori');
-        if (visti.has(e)) return;
-        visti.add(e);
-        out.push(e);
-    });
-    if (out.length > MAX_RELATORI) throw C.errore(400, 'Al massimo ' + MAX_RELATORI + ' relatori per evento.', 'relatori');
-    return out;
-}
+function uidDa(v) { return Array.isArray(v) ? v.map(x => String(x)).filter(x => RE_UID.test(x)) : []; }
 
+// i partecipanti segnati come relatori dell'evento: [uid]
 async function relatoriDi(ctx, idEvento) {
     const s = await rifRelatori(ctx, idEvento).get();
-    const l = s.exists ? s.data().email : null;
-    return Array.isArray(l) ? l.map(x => String(x)) : [];
+    return s.exists ? uidDa(s.data().uid) : [];
 }
 
-// gli elenchi di piu' eventi insieme (la gestione li mostra con gli eventi): { idEvento: [email] }
+// gli elenchi di piu' eventi insieme (la gestione li mostra con gli eventi): { idEvento: [uid] }
 async function relatoriDiEventi(ctx, ids) {
     const out = {};
     if (!ids.length) return out;
     const snaps = await ctx.db.getAll(...ids.map(id => rifRelatori(ctx, id)));
-    snaps.forEach((s, i) => { out[ids[i]] = s.exists && Array.isArray(s.data().email) ? s.data().email.map(String) : []; });
+    snaps.forEach((s, i) => { out[ids[i]] = s.exists ? uidDa(s.data().uid) : []; });
     return out;
 }
 
-async function salvaRelatori(ctx, { idEvento, relatori }, chi) {
+/* relatore-segna: { idEvento, uid, relatore: true|false } -> [uid]. Il
+   partecipante deve essere iscritto all'evento (non si segna chi non
+   presente); al massimo MAX_RELATORI. Ripetere la stessa scelta non cambia
+   niente. */
+async function segnaRelatore(ctx, { idEvento, uid, relatore }, chi) {
     const id = D.controllaIdEvento(idEvento);
-    const lista = leggiRelatori(relatori);
-    const ev = await ctx.db.collection('eventi').doc(id).get();
-    if (!ev.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
-    await rifRelatori(ctx, id).set({ email: lista, aggiornato: D.adessoTs(ctx), da: String(chi || '').slice(0, 254) });
-    return lista;
-}
-
-// l'email e' fra i relatori di almeno un evento? (il primo accesso del relatore)
-async function eRelatore(ctx, email) {
-    const e = E.normalizzaEmail(email);
-    if (!E.emailValida(e)) return false;
-    const snap = await ctx.db.collection('relatoriEventi').where('email', 'array-contains', e).limit(1).get();
-    return !snap.empty;
+    const u = String(uid == null ? '' : uid);
+    if (!RE_UID.test(u)) throw C.errore(400, 'Partecipante non valido.', 'uid');
+    if (typeof relatore !== 'boolean') throw C.errore(400, 'Indica se è un relatore.', 'relatore');
+    const rif = rifRelatori(ctx, id);
+    return ctx.db.runTransaction(async tx => {
+        const [ev, part, rel] = await tx.getAll(ctx.db.collection('eventi').doc(id), ctx.db.collection('partecipanti').doc(u), rif);
+        if (!ev.exists) throw C.errore(404, 'Evento inesistente.', 'evento');
+        const p = part.exists ? part.data() : null;
+        if (!p || !Array.isArray(p.eventi) || p.eventi.indexOf(id) < 0) throw C.errore(404, 'Questa persona non è fra i partecipanti dell\'evento.', 'partecipante');
+        const lista = rel.exists ? uidDa(rel.data().uid) : [];
+        const presente = lista.indexOf(u) >= 0;
+        if (presente === relatore) return lista;
+        if (relatore && lista.length >= MAX_RELATORI) throw C.errore(400, 'Al massimo ' + MAX_RELATORI + ' relatori per evento.', 'relatori');
+        const nuova = relatore ? lista.concat([u]) : lista.filter(x => x !== u);
+        tx.set(rif, { uid: nuova, aggiornato: D.adessoTs(ctx), da: String(chi || '').slice(0, 254) });
+        return nuova;
+    });
 }
 
 /* ============================================================
@@ -157,22 +148,33 @@ async function partecipante(ctx, req, b) {
     return { uid: tok.uid, p: p, idEvento: idEvento };
 }
 
-/* Il RELATORE (o un gestore): l'account con email e password, l'email
-   verificata (la mette il servizio quando lo attiva: chi si registra da
-   solo con l'email di un relatore non ce l'ha), il claim e, per l'evento
-   chiesto, l'email fra i suoi relatori. Il token si controlla anche
-   contro la revoca, come per i gestori. */
+/* Il RELATORE (o un gestore). Un gestore entra con email e password (la
+   sua email vera, verificata, con il claim gestore e nell'elenco
+   DIRETTA_ADMIN_EMAILS) e passa su ogni evento. Un relatore e' un
+   partecipante (il gettone del servizio, come nella diretta): account
+   attivo e, per l'evento chiesto, iscritto e fra i relatori. Il token si
+   controlla anche contro la revoca. */
 async function relatore(ctx, req, idEvento) {
     const tok = await tokenDi(ctx, req, true);
-    const email = String(tok.email || '').toLowerCase();
     const provider = tok.firebase && tok.firebase.sign_in_provider;
-    if (!email || provider !== 'password' || tok.email_verified !== true) throw C.errore(403, MSG_NON_RELATORE, 'non-relatore');
-    if (tok.gestore === true && C.eGestore(email)) return { uid: tok.uid, email: email, ruolo: 'gestore' };
-    if (tok.relatore !== true) throw C.errore(403, MSG_NON_RELATORE, 'non-relatore');
-    if (idEvento && (await relatoriDi(ctx, idEvento)).indexOf(email) < 0) {
+    if (provider === 'password') {
+        const email = String(tok.email || '').toLowerCase();
+        if (email && tok.email_verified === true && tok.gestore === true && C.eGestore(email)) return { uid: tok.uid, email: email, ruolo: 'gestore', eventi: [] };
+        throw C.errore(403, MSG_NON_RELATORE, 'non-relatore');
+    }
+    const [snapP, snapS] = await ctx.db.getAll(ctx.db.collection('partecipanti').doc(tok.uid), ctx.db.collection('sessioni').doc(tok.uid));
+    if (!snapP.exists) throw C.errore(403, MSG_NON_RELATORE, 'non-relatore');
+    const p = snapP.data();
+    const s = snapS.exists ? snapS.data() : null;
+    if (p.stato !== 'attivo' || (s && s.stato !== 'attivo')) throw D.errorePubblico(403, 'disattivato', MSG_DISATTIVATO);
+    const chi = {
+        uid: tok.uid, email: p.emailNorm || E.normalizzaEmail(p.email) || '', ruolo: 'relatore',
+        eventi: Array.isArray(p.eventi) ? p.eventi.map(String) : []
+    };
+    if (idEvento && (chi.eventi.indexOf(idEvento) < 0 || (await relatoriDi(ctx, idEvento)).indexOf(tok.uid) < 0)) {
         throw C.errore(403, 'Non risulti fra i relatori di questo evento.', 'non-relatore');
     }
-    return { uid: tok.uid, email: email, ruolo: 'relatore' };
+    return chi;
 }
 
 /* ============================================================
@@ -256,25 +258,28 @@ async function invia(ctx, req, b) {
     return { domanda: miaJSON(rif.id, dati), aperte: true };
 }
 
-/* mie: { idEvento, sessione } -> { domande, aperte, attive }: le domande
-   di chi chiama per quell'evento, dalla piu' vecchia, se se ne possono
-   ancora mandare e se l'evento le prevede. */
+/* mie: { idEvento, sessione } -> { domande, aperte, attive, relatore }:
+   le domande di chi chiama per quell'evento, dalla piu' vecchia, se se ne
+   possono ancora mandare, se l'evento le prevede e se chi chiama e' uno
+   dei suoi relatori. */
 async function mie(ctx, req, b) {
     const chi = await partecipante(ctx, req, b);
-    const [snap, ev] = await Promise.all([
+    const [snap, ev, relatori] = await Promise.all([
         ctx.db.collection('domande').where('uid', '==', chi.uid).limit(MAX_MIE).get(),
-        ctx.db.collection('eventi').doc(chi.idEvento).get()
+        ctx.db.collection('eventi').doc(chi.idEvento).get(),
+        relatoriDi(ctx, chi.idEvento)
     ]);
     const domande = snap.docs.filter(d => d.data().idEvento === chi.idEvento).map(d => miaJSON(d.id, d.data())).sort(perOrdine);
-    return { domande: domande, aperte: ev.exists && aperte(ev.data()), attive: ev.exists && attive(ev.data()) };
+    // relatore: la pagina della diretta gli mostra la strada per la pagina del relatore
+    return { domande: domande, aperte: ev.exists && aperte(ev.data()), attive: ev.exists && attive(ev.data()), relatore: relatori.indexOf(chi.uid) >= 0 };
 }
 
 /* eventi: gli eventi della pagina del relatore. Per un relatore quelli
-   in cui c'e' la sua email; per un gestore tutti. */
+   in cui e' segnato (e a cui e' ancora iscritto); per un gestore tutti. */
 async function eventiDi(ctx, chi) {
     let ids;
     if (chi.ruolo === 'gestore') ids = (await ctx.db.collection('eventi').get()).docs.map(d => d.id);
-    else ids = (await ctx.db.collection('relatoriEventi').where('email', 'array-contains', chi.email).get()).docs.map(d => d.id);
+    else ids = (await ctx.db.collection('relatoriEventi').where('uid', 'array-contains', chi.uid).get()).docs.map(d => d.id).filter(id => chi.eventi.indexOf(id) >= 0);
     if (!ids.length) return { eventi: [], ruolo: chi.ruolo, email: chi.email };
     const snaps = await ctx.db.getAll(...ids.map(id => ctx.db.collection('eventi').doc(id)));
     const eventi = snaps.filter(s => s.exists).map(s => eventoBreve(s.id, s.data())).sort((a, b) => (b.inizio || 0) - (a.inizio || 0));
@@ -323,18 +328,19 @@ async function segna(ctx, { idEvento, idDomanda, risposta }, chi) {
 
 /* partecipanti: { idEvento } -> { partecipanti, conteggi, aggiornato }:
    gli iscritti con l'account attivo (nome, cognome, azienda; l'email
-   solo alla regia) e chi e' collegato adesso. */
+   solo alla regia), chi e' collegato adesso e chi e' relatore. */
 async function partecipanti(ctx, idEvento, chi) {
     const id = D.controllaIdEvento(idEvento);
     const ora = ctx.adesso();
-    const [snapP, snapPres] = await Promise.all([
+    const [snapP, snapPres, relatori] = await Promise.all([
         ctx.db.collection('partecipanti').where('eventi', 'array-contains', id).get(),
-        ctx.db.collection('presenze').where('idEvento', '==', id).where('ultimo', '>=', ctx.Timestamp.fromMillis(ora - FINESTRA_COLLEGATI_MS)).get()
+        ctx.db.collection('presenze').where('idEvento', '==', id).where('ultimo', '>=', ctx.Timestamp.fromMillis(ora - FINESTRA_COLLEGATI_MS)).get(),
+        relatoriDi(ctx, id)
     ]);
     const collegati = new Set(snapPres.docs.map(d => d.data().uid));
     const elencoP = snapP.docs.filter(d => (d.data().stato || 'attivo') === 'attivo').map(d => {
         const x = d.data();
-        const o = { nome: x.nome || '', cognome: x.cognome || '', azienda: x.azienda || '', collegato: collegati.has(d.id) };
+        const o = { nome: x.nome || '', cognome: x.cognome || '', azienda: x.azienda || '', collegato: collegati.has(d.id), relatore: relatori.indexOf(d.id) >= 0 };
         if (chi.ruolo === 'gestore') o.email = x.emailNorm || E.normalizzaEmail(x.email) || '';
         return o;
     }).sort((a, b) => (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome, 'it'));
@@ -347,7 +353,7 @@ async function partecipanti(ctx, idEvento, chi) {
 
 module.exports = {
     // relatori
-    leggiRelatori, relatoriDi, relatoriDiEventi, salvaRelatori, eRelatore,
+    relatoriDi, relatoriDiEventi, segnaRelatore,
     // chi chiama
     partecipante, relatore,
     // domande

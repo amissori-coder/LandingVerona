@@ -26,11 +26,6 @@
             Spam o Promozioni.» L'email parte solo a chi e' iscritto.
      { azione: 'gestore-accesso', email }
          -> sempre { ok, msg } uguale, dopo lo stesso tempo
-     { azione: 'relatore-accesso', email }
-         -> sempre { ok, msg } uguale, dopo lo stesso tempo: il primo
-            accesso (o la password dimenticata) della pagina del
-            relatore; l'email parte solo se l'indirizzo e' fra i
-            relatori di un evento (scheda Evento della gestione)
      { azione: 'aggiorna-permessi' }  con Authorization: Bearer <idToken>
          -> { ok, aggiornati }
      { azione: 'link-video', idEvento, sorgente, sessione }  con Authorization: Bearer <idToken>
@@ -79,8 +74,6 @@ module.exports = async (req, res) => {
             risposta = await A.passwordDimenticata(ctx, { email: email, ip: ip });
         } else if (azione === 'gestore-accesso') {
             risposta = await A.gestoreAccesso(ctx, { email: b.email, ip: ip });
-        } else if (azione === 'relatore-accesso') {
-            risposta = await A.relatoreAccesso(ctx, { email: b.email, ip: ip });
         } else if (azione === 'aggiorna-permessi') {
             risposta = await A.aggiornaPermessi(ctx, req);
         } else if (azione === 'link-video') {

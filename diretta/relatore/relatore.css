@@ -108,6 +108,7 @@ img { max-width: 100%; height: auto; }
 .btn-piccolo { min-height: 40px; padding: 6px 12px; }
 .btn[disabled] { opacity: .6; cursor: not-allowed; }
 .btn-collegamento {
+    display: inline-flex; align-items: center; justify-content: center;
     background: none; border: 0; color: var(--blu); font-weight: 600; text-decoration: underline;
     text-underline-offset: 3px; padding: 8px 4px; min-height: 44px; align-self: center;
 }
@@ -261,6 +262,11 @@ body.testo-grande .domanda-testa { font-size: 1rem; }
 .partecipante-chi { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .partecipante-chi strong { color: var(--scuro); overflow-wrap: anywhere; }
 .partecipante-azienda, .partecipante-email { color: var(--tenue); font-size: 0.84rem; overflow-wrap: anywhere; }
+.bollino-relatore {
+    display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 999px; vertical-align: 1px;
+    font-size: 0.66rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    background: var(--verde-bg); color: var(--verde); border: 1px solid #B7DDC6;
+}
 .partecipante-stato { font-size: 0.75rem; color: var(--tenue-2); white-space: nowrap; }
 .partecipante[data-collegato="1"] .partecipante-stato { color: var(--verde); font-weight: 700; }
 .nota-collegati { margin-top: 10px; font-size: 0.78rem; color: var(--tenue-2); }

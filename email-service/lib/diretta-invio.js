@@ -1157,14 +1157,14 @@ async function inviaReimpostazione(ctx, opz) {
         const a = E.normalizzaEmail(o.a || '');
         if (!E.emailValida(a)) return { ok: false, motivo: 'indirizzo non valido' };
         const mail = M.reimpostazione({
-            nome: o.nome, cognome: o.cognome, email: (o.perGestore || o.perRelatore) ? '' : a, link: o.link, perGestore: !!o.perGestore, perRelatore: !!o.perRelatore,
+            nome: o.nome, cognome: o.cognome, email: o.perGestore ? '' : a, link: o.link, perGestore: !!o.perGestore,
             assistenza: C.assistenza(), adesso: ctx.adesso()
         });
         trasporto = creaTrasporto(ctx);
         const prenotazione = await riserva(ctx, 1, 0.8);
         if (!prenotazione.preso) { log('reimpostazione non inviata: tetto giornaliero'); return { ok: false, motivo: 'tetto giornaliero' }; }
         try {
-            await spedisci(trasporto, { a: a, mail: mail, custom: o.perRelatore ? 'diretta|relatore|reimpostazione' : (o.perGestore ? 'diretta|gestione|reimpostazione' : 'diretta|reimpostazione'), tipo: 'reimpostazione' });
+            await spedisci(trasporto, { a: a, mail: mail, custom: o.perGestore ? 'diretta|gestione|reimpostazione' : 'diretta|reimpostazione', tipo: 'reimpostazione' });
         } catch (e) {
             if (primaDelData(e)) await restituisci(ctx, prenotazione, 1);
             else forse = true;

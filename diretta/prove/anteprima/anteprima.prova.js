@@ -138,7 +138,7 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await page.screenshot({ path: path.join(FOTO, '04c-domanda.png') });
 
         await A.locator('#tab-guida').click();
-        vero(/relatore@anteprima\.it/.test(await A.locator('#relatore-email').innerText()), 'la guida mostra l\'accesso del relatore');
+        vero(/laura\.verdi@esempio\.it/.test(await A.locator('#relatore-email').innerText()), 'la guida mostra l\'accesso della relatrice (una partecipante)');
         await A.locator('#btn-usa-relatore').click();
         const R = A.frameLocator('#fr-relatore');
         await R.locator('body[data-vista="app"]').waitFor({ timeout: 20000 });
@@ -148,12 +148,13 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         const terza = await R.locator('#elenco-domande .domanda').nth(2).innerText();
         vero(/Mario Rossi/.test(terza) && /Rossi Costruzioni/.test(terza) && /n\. 3/.test(terza), 'con numero, nome, cognome e azienda di chi l\'ha scritta');
         vero(!/@/.test(await R.locator('#elenco-domande').innerText()), 'al relatore nessuna email');
-        await R.locator('#elenco-partecipanti .partecipante').nth(3).waitFor({ timeout: 15000 });
+        await R.locator('#elenco-partecipanti .partecipante').nth(4).waitFor({ timeout: 15000 });
         const partR = await R.locator('#elenco-partecipanti').innerText();
-        vero(await R.locator('#elenco-partecipanti .partecipante').count() === 4 && /De Luca/.test(partR) && !/@/.test(partR),
-            'il relatore vede i quattro iscritti, senza email');
+        vero(await R.locator('#elenco-partecipanti .partecipante').count() === 5 && /De Luca/.test(partR) && !/@/.test(partR)
+            && /Verdi Laura\s*relatore/i.test(partR),
+            'la relatrice vede i cinque iscritti (lei compresa, segnata «relatore»), senza email', partR);
         await R.locator('#elenco-partecipanti .partecipante[data-collegato="1"]').first().waitFor({ timeout: 40000 });
-        vero(/4 iscritti · 1 collegato adesso/.test(await R.locator('#conteggi-partecipanti').innerText())
+        vero(/5 iscritti · 1 collegato adesso/.test(await R.locator('#conteggi-partecipanti').innerText())
             && /Rossi Costruzioni/.test(await R.locator('#elenco-partecipanti .partecipante[data-collegato="1"]').first().innerText()),
             'e chi è collegato adesso (Mario Rossi, dal telefono)');
         vero(/In onda/i.test(await R.locator('#stato-evento').innerText()), 'la pagina del relatore dice che la diretta è in onda');
@@ -173,15 +174,24 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await R.locator('#btn-testo-grande').click();
         await R.locator('[data-filtro="aperte"]').click();
 
-        // la regia: le stesse domande, con l'email e chi ha segnato la risposta
+        // la regia: nella scheda Partecipanti la relatrice ha il segno «relatore»
         await A.locator('#tab-gestione').click();
+        await G.locator('[data-scheda="partecipanti"]').click();
+        await G.locator('#tabella-partecipanti .origine-relatore').first().waitFor({ timeout: 15000 });
+        const rigaRel = await G.locator('#tabella-partecipanti tr', { has: G.locator('.origine-relatore') }).innerText();
+        vero(await G.locator('#tabella-partecipanti .origine-relatore').count() === 1 && /Laura Verdi/.test(rigaRel),
+            'Gestione → Partecipanti: Laura Verdi ha il segno «relatore»', rigaRel);
+        await G.locator('[data-scheda="evento"]').click();
+        vero(/Relatori:\s*Laura Verdi/.test(await G.locator('.relatori-elenco').innerText()), 'Gestione → Evento: «Relatori: Laura Verdi»');
+        await G.locator('[data-scheda="regia"]').click();
+        // la regia: le stesse domande, con l'email e chi ha segnato la risposta
         await G.locator('#regia-elenco-domande .regia-domanda').first().waitFor({ timeout: 15000 });
         await G.locator('.filtro-domande[data-filtro="tutte"]').click();
         // la regia rilegge ogni 8 secondi: la domanda di Mario e il segno del relatore arrivano al giro dopo
         await G.locator('#regia-elenco-domande .regia-domanda.risposta').first().waitFor({ timeout: 20000 });
         const regiaD = await G.locator('#regia-elenco-domande').innerText();
         vero(await G.locator('#regia-elenco-domande .regia-domanda').count() === 3 && /mario\.rossi@esempio\.it/.test(regiaD)
-            && /Risposta data.*relatore@anteprima\.it/.test(regiaD), 'in Regia le stesse tre domande, con le email e chi ha segnato la risposta');
+            && /Risposta data.*laura\.verdi@esempio\.it/.test(regiaD), 'in Regia le stesse tre domande, con le email e chi ha segnato la risposta');
         await G.locator('#regia-domande').scrollIntoViewIfNeeded();
         await page.screenshot({ path: path.join(FOTO, '14-regia-domande.png') });
 

@@ -795,6 +795,8 @@
         // il conteggio degli iscritti arriva solo con l'elenco: si conserva
         if (i >= 0) {
             if (ev.iscritti == null) ev.iscritti = stato.eventi[i].iscritti;
+            // i relatori arrivano solo con 'eventi' ed 'evento-salva' (non con stato, video, avviso...): si conservano
+            if (!Array.isArray(ev.relatori)) ev.relatori = stato.eventi[i].relatori || [];
             stato.eventi[i] = ev;
         } else stato.eventi.unshift(ev);
         if (stato.idEvento === ev.id) {
@@ -807,7 +809,7 @@
                 seguiCampoLink('ev-riserva', ev.riservaUrl);
                 seguiFirma(ev);
                 seguiTipoPlayer(ev);
-                seguiRelatori(ev);
+                disegnaRelatoriEvento();
             }
             seguiCampoLink('regia-azoto', ev.azotoUrl);
             seguiCampoLink('regia-video', ev.videoUrl);
@@ -823,26 +825,27 @@
        resta quello che ha scritto, e al salvataggio vale come una sua
        scelta esplicita. dataset.iniziale e' l'ultimo valore del servizio:
        al salvataggio si manda un link solo se e' diverso da quello. */
-    /* I relatori dell'evento (scheda Evento): come i link, al salvataggio
-       si mandano solo se il gestore li ha cambiati qui (dataset.iniziale e'
-       l'ultimo elenco del servizio), cosi' un salvataggio del titolo non
-       rimette i relatori di prima tolti nel frattempo da un altro gestore. */
-    function testoRelatori(ev) { return ev && Array.isArray(ev.relatori) ? ev.relatori.join('\n') : ''; }
-    function compilaRelatori(ev) {
-        const campo = $('#ev-relatori');
-        campo.value = testoRelatori(ev);
-        campo.dataset.iniziale = campo.value;
-        campo.removeAttribute('aria-invalid');
+    /* I RELATORI dell'evento: partecipanti segnati con «Segna come
+       relatore» (scheda Partecipanti, azione 'relatore-segna'); l'elenco
+       (gli uid) arriva con l'evento (stato.evento.relatori, in 'eventi'
+       ed 'evento-salva'). Nella scheda Evento se ne mostrano i nomi. */
+    function relatoriEvento() { return stato.evento && Array.isArray(stato.evento.relatori) ? stato.evento.relatori : []; }
+    function eRelatore(p) { return !!p && relatoriEvento().indexOf(p.uid) >= 0; }
+    function impostaRelatori(lista) {
+        if (!stato.evento) return;
+        const nuova = Array.isArray(lista) ? lista.slice() : [];
+        stato.evento.relatori = nuova;
+        const i = stato.eventi.findIndex(e => e.id === stato.evento.id);
+        if (i >= 0) stato.eventi[i].relatori = nuova;
+        disegnaRelatoriEvento();
     }
-    function seguiRelatori(ev) {
-        const campo = $('#ev-relatori');
-        if (campo.value.trim() === (campo.dataset.iniziale || '').trim()) { campo.value = testoRelatori(ev); campo.removeAttribute('aria-invalid'); }
-        campo.dataset.iniziale = testoRelatori(ev);
-    }
-    function relatoriCambiati() {
-        const campo = $('#ev-relatori');
-        const norma = t => String(t || '').toLowerCase().split(/[\s,;]+/).filter(Boolean).join('\n');
-        return norma(campo.value) !== norma(campo.dataset.iniziale);
+    function disegnaRelatoriEvento() {
+        const el = $('#ev-relatori-elenco');
+        if (!el) return;
+        const uid = relatoriEvento();
+        const nomi = uid.map(u => stato.perUid.get(u)).filter(Boolean).map(p => [p.nome, p.cognome].filter(Boolean).join(' ') || p.email);
+        el.textContent = !uid.length ? 'nessuno, per ora'
+            : (nomi.length === uid.length ? nomi.join(', ') : conNumero(uid.length, 'partecipante', 'partecipanti'));
     }
 
     function seguiCampoLink(id, valore) {
@@ -1022,7 +1025,7 @@
         compilaIscrizioni(ev);
         $('#ev-un-dispositivo').checked = !!(ev && ev.unSoloDispositivo);
         $('#ev-domande').checked = !!(ev && ev.domande);
-        compilaRelatori(ev);
+        disegnaRelatoriEvento();
         $('#ev-promemoria-giorno').checked = !!(ev && ev.promemoria && ev.promemoria.giornoPrima);
         $('#ev-promemoria-ora').checked = !!(ev && ev.promemoria && ev.promemoria.oraPrima);
         $('#titolo-form-evento').textContent = ev ? 'Dati dell\'evento' : 'Nuovo evento';
@@ -1494,8 +1497,7 @@
             domande: $('#ev-domande').checked,
             promemoria: { giornoPrima: $('#ev-promemoria-giorno').checked, oraPrima: $('#ev-promemoria-ora').checked }
         };
-        // i relatori solo se cambiati qui (vedi seguiRelatori); il servizio controlla le email
-        if (stato.nuovo || relatoriCambiati()) evento.relatori = $('#ev-relatori').value;
+
         // al servizio va solo l'indirizzo ricavato qui, mai il codice incollato
         if (azotoCambiato) evento.azotoUrl = la && !la.errore ? la.valore : '';
         const tipoCambiato = stato.nuovo || tipo !== stato.tipoSalvato;
@@ -1645,10 +1647,6 @@
                 } else if (err.stato === 400 && (err.codice === 'azoto' || err.codice === 'video')) {
                     $(err.codice === 'azoto' ? '#ev-azoto' : '#ev-video').setAttribute('aria-invalid', 'true');
                     erroreGenerico(err, '#msg-evento');
-                } else if (err.stato === 400 && err.codice === 'relatori') {
-                    $('#ev-relatori').setAttribute('aria-invalid', 'true');
-                    mostraMsg('#msg-evento', (err.msg || 'Email dei relatori non valida.') + ' Non ho salvato niente.', 'errore');
-                    $('#ev-relatori').focus();
                 } else if (err.stato === 400 && err.codice === 'tipoPlayer') {
                     RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
                     aggiornaVistaTipoPlayer();
@@ -4133,6 +4131,7 @@
             stato.perUid = new Map(stato.partecipanti.map(p => [p.uid, p]));
             stato.partecipantiDi = id;
             disegnaPartecipanti();
+            disegnaRelatoriEvento();
             aggiornaEtichetteEmail();
             aggiornaDettaglioConnessi();
         } catch (e) {
@@ -4284,6 +4283,7 @@
         const altre = el('details', { classe: 'altre-azioni' }, [
             el('summary', { classe: 'btn btn-mini btn-secondario', 'aria-label': 'Altre azioni per ' + chi }, ['Altro']),
             el('div', { classe: 'altre-azioni-menu' }, [
+                bottone('relatore', eRelatore(p) ? 'Non è più relatore' : 'Segna come relatore'),
                 bottone('rigenera', 'Nuova password da comunicare a voce'),
                 bottone('rimuovi-evento', 'Togli da questo evento', { classe: 'btn btn-mini btn-pericolo-testo' }),
                 attivo
@@ -4294,6 +4294,7 @@
         const tr = el('tr', { classe: attivo ? '' : 'disattivato', dati: { uid: p.uid, origine: dalModulo(p) ? 'modulo' : (aMano(p) ? 'mano' : 'file') } }, [
             el('td', { 'data-label': 'Nome e cognome' }, [
                 el('span', { classe: 'persona', testo: chi }),
+                eRelatore(p) ? el('span', { classe: 'origine-modulo origine-relatore', title: 'Relatore di questo evento: con le sue credenziali entra anche nella pagina del relatore', testo: 'relatore' }) : null,
                 dalModulo(p) ? el('span', { classe: 'origine-modulo', title: 'Iscritta dal modulo del sito: la password parte da sola quando conferma il suo indirizzo', testo: 'dal modulo del sito' }) : null,
                 aMano(p) ? etichettaAMano(p) : null
             ]),
@@ -4312,7 +4313,7 @@
             ])])
         ]);
         // si cerca per nome (anche scritto attaccato o al contrario), email e azienda
-        p._cerca = perRicerca([p.nome + ' ' + p.cognome, p.cognome + ' ' + p.nome, p.email, p.azienda, dalModulo(p) ? 'modulo del sito' : ''].join(' | '));
+        p._cerca = perRicerca([p.nome + ' ' + p.cognome, p.cognome + ' ' + p.nome, p.email, p.azienda, dalModulo(p) ? 'modulo del sito' : '', eRelatore(p) ? 'relatore' : ''].join(' | '));
         p._compatto = compatto((p.nome || '') + (p.cognome || '')) + '|' + compatto((p.cognome || '') + (p.nome || '')) + '|' + compatto(p.email);
         return tr;
     }
@@ -4400,11 +4401,38 @@
         if (p) operazione(p, b.dataset.op, b);
     });
 
+    // «Segna come relatore» / «Non è più relatore»: subito, senza conferma (si annulla con un clic)
+    async function segnaRelatore(p, si, bottone) {
+        const chi = nomeEmail(p);
+        const menu = bottone && bottone.closest('details');
+        await conAttesa(bottone, async () => {
+            const idEvento = stato.idEvento;
+            try {
+                const r = await chiama('relatore-segna', { idEvento: idEvento, uid: p.uid, relatore: si });
+                if (idEvento !== stato.idEvento) return;
+                impostaRelatori(r.relatori);
+                const nuovo = sostituisciPartecipante(stato.perUid.get(p.uid) || p);
+                const s = statoInvio(p);
+                const daMandare = si && (s === 'da inviare' || s === DA_CONFERMARE);
+                avviso(si
+                    ? chi + ' è relatore di questo evento: con le sue credenziali entra in nextgenerationbusiness.it/diretta/relatore.'
+                        + (daMandare ? ' Le credenziali non sono ancora partite: mandagliele con «Invia ora».' : '')
+                    : chi + ' non è più relatore di questo evento.', 'ok');
+                if (menu) { const m = nuovo.querySelector('details.altre-azioni summary'); if (m) m.focus(); }
+            } catch (e) {
+                if (e && (e.stato === 401 || e.stato === 403)) { erroreGenerico(e); return; }
+                avviso('Non riuscito per ' + chi + ': ' + ((e && e.msg) || 'riprova tra poco.'), 'errore');
+                if (e && e.stato === 404) caricaPartecipanti();
+            }
+        });
+    }
+
     async function operazione(p, op, bottone) {
         const nome = [p.nome, p.cognome].filter(Boolean).join(' ');
         const chi = nome ? nome + ' (' + p.email + ')' : p.email;
         const s = statoInvio(p);
         if (op === 'correggi') { apriCorreggi(p); return; }
+        if (op === 'relatore') { await segnaRelatore(p, !eRelatore(p), bottone); return; }
         // un account con altri eventi ha gia' (o avra') una password: «Invia ora» ne fa una nuova
         const altriEventi = (p.eventi || []).filter(e => e !== stato.idEvento).length;
         const notaAltri = altriEventi ? 'È iscritta anche ad altri eventi: la password nuova vale per tutti e quella di prima smette di funzionare. '
@@ -4489,6 +4517,7 @@
     }
     function azzeraAggiungi() {
         CAMPI_AGGIUNGI.forEach(sel => { $(sel).value = ''; $(sel).removeAttribute('aria-invalid'); });
+        $('#agg-relatore').checked = false;
         nascondiMsg('#msg-aggiungi');
         $('#dopo-aggiungi').hidden = true;
         stato.ultimoAggiunto = null;
@@ -4534,17 +4563,33 @@
             }
             mostraMsg('#msg-aggiungi', 'Aggiunta in corso…', 'info');
             try {
-                const r = await chiama('partecipante-aggiungi', Object.assign({ idEvento: stato.idEvento }, d));
+                const idEvento = stato.idEvento;
+                const comeRelatore = $('#agg-relatore').checked;
+                const r = await chiama('partecipante-aggiungi', Object.assign({ idEvento: idEvento }, d));
                 const p = r.partecipante || null;
                 if (p && stato.partecipantiDi === stato.idEvento) sostituisciPartecipante(p);
                 const chi = p ? nomeEmail(p) : d.email;
                 let testo;
                 if (r.esito === 'creato') testo = 'Aggiunto: ' + chi + '. Account creato, credenziali «da inviare»: non è partita nessuna email.';
                 else if (r.esito === 'aggiunto') testo = 'Aggiunto a questo evento: ' + chi + ' aveva già un account (per un altro evento), nessun account nuovo. Credenziali «da inviare»: non è partita nessuna email.';
-                else testo = chi + ' è già in questo evento: non è cambiato niente.';
+                else testo = chi + ' è già in questo evento' + (comeRelatore ? '.' : ': non è cambiato niente.');
                 if (r.motivo) testo += ' ' + r.motivo;
-                mostraMsg('#msg-aggiungi', testo, r.esito === 'gia-iscritto' || r.motivo ? 'attenzione' : 'ok');
-                if (r.esito !== 'gia-iscritto') CAMPI_AGGIUNGI.forEach(sel => { $(sel).value = ''; });
+                // «È un relatore»: il segno subito dopo (anche per chi c'era gia')
+                let senzaSegno = false;
+                if (p && comeRelatore && idEvento === stato.idEvento) {
+                    try {
+                        const rr = await chiama('relatore-segna', { idEvento: idEvento, uid: p.uid, relatore: true });
+                        impostaRelatori(rr.relatori);
+                        if (stato.partecipantiDi === stato.idEvento) sostituisciPartecipante(stato.perUid.get(p.uid) || p);
+                        testo += ' È segnato come relatore: con le stesse credenziali entra anche in nextgenerationbusiness.it/diretta/relatore.';
+                    } catch (e2) {
+                        if (e2 && (e2.stato === 401 || e2.stato === 403)) { erroreGenerico(e2); return; }
+                        senzaSegno = true;
+                        testo += ' Non sono riuscito a segnarlo come relatore (' + ((e2 && e2.msg) || 'errore') + '): riprova da «Altro» → «Segna come relatore».';
+                    }
+                }
+                mostraMsg('#msg-aggiungi', testo, r.esito === 'gia-iscritto' && !comeRelatore || r.motivo || senzaSegno ? 'attenzione' : 'ok');
+                if (r.esito !== 'gia-iscritto' || comeRelatore) { CAMPI_AGGIUNGI.forEach(sel => { $(sel).value = ''; }); $('#agg-relatore').checked = false; }
                 mostraDopoAggiunta(p);
                 // pronto per la persona dopo
                 $('#agg-nome').focus();

@@ -14,20 +14,22 @@
    partecipanti ogni 30 (piu' piano se la scheda del browser non e' in
    vista, e piu' piano ancora se il servizio non risponde).
 
-   CHI ENTRA. Il relatore entra con la SUA email e una password che
-   sceglie lui: «Primo accesso o password dimenticata» chiede al servizio
-   il collegamento (api/diretta-accesso, azione 'relatore-accesso'), che
-   arriva solo se l'email e' fra i relatori di un evento (scheda Evento
-   della gestione, «Relatori»). Ogni chiamata al servizio
-   (api/diretta-domande) porta il token: il servizio controlla a OGNI
-   chiamata che l'email sia ancora fra i relatori dell'evento chiesto.
-   Anche i gestori possono entrare qui, su tutti gli eventi.
+   CHI ENTRA. Il relatore e' un PARTECIPANTE dell'evento che la regia ha
+   segnato come relatore (gestione, scheda Partecipanti); possono essere
+   piu' d'uno. Entra con la sua email e la password delle credenziali
+   della diretta, come nella pagina dei partecipanti (api/diretta-accesso,
+   azione 'entra'); «Password dimenticata?» e' quella della diretta. Ogni
+   chiamata al servizio (api/diretta-domande) porta il token: il servizio
+   controlla a OGNI chiamata che sia ancora un relatore dell'evento
+   chiesto. Anche i gestori possono usare questa pagina, su tutti gli
+   eventi, se sono gia' entrati nella gestione con lo stesso browser.
 
-   UNA SESSIONE TUTTA SUA. L'app di Firebase qui ha un nome suo
-   ('relatore'): la sessione di questa pagina non e' quella della
-   diretta (/diretta/) ne' quella della gestione. Cosi' il relatore puo'
-   aprire anche la diretta, in un'altra scheda, con un account da
-   partecipante, e uscire da una pagina non chiude l'altra.
+   LA STESSA SESSIONE DELLA DIRETTA. L'app di Firebase e' quella
+   predefinita, come nella diretta e nella gestione: chi e' entrato nella
+   diretta con questo browser qui e' gia' dentro, e viceversa; l'
+   identificativo del dispositivo (localStorage, ngbDirettaSessione) e'
+   lo stesso, cosi' per «un solo dispositivo» le due pagine sono un
+   dispositivo solo. «Esci» fa uscire anche dalla diretta.
 
    Niente Firestore: la pagina parla solo con il servizio. Nomi, aziende
    e domande arrivano da altre persone: si scrivono SEMPRE con
@@ -40,6 +42,10 @@
     const $ = id => document.getElementById(id);
 
     const CHIAVE_EVENTO = 'ngbRelatoreEvento';
+    // le stesse chiavi della pagina della diretta (diretta.js): stesso dispositivo, stessa email riproposta
+    const CHIAVE_SESSIONE = 'ngbDirettaSessione';
+    const CHIAVE_EMAIL = 'ngbDirettaEmail';
+    const SESSIONE_VALIDA = /^[A-Za-z0-9_-]{1,40}$/;
     const CHIAVE_TESTO = 'ngbRelatoreTestoGrande';
     const CHIAVE_ORDINE = 'ngbRelatoreOrdine';
     const ID_EVENTO_VALIDO = /^[a-z0-9-]{3,41}$/;
@@ -183,10 +189,14 @@
             return j;
         }
     }
-    // l'unica chiamata senza token: «Primo accesso o password dimenticata»
+    // l'accesso, senza token: 'entra' come nella pagina della diretta
     async function chiamaAccesso(dati) {
         const { r, j } = await posta('diretta-accesso', dati, null);
-        if (!r.ok || !j) throw new ErroreServizio(r.status, j && j.codice, (j && j.msg) || messaggioPerStato(r.status));
+        if (!r.ok || !j || j.ok !== true) {
+            const e = new ErroreServizio(r.status, j && j.codice, (j && j.msg) || messaggioPerStato(r.status));
+            e.dati = j || {};
+            throw e;
+        }
         return j;
     }
 
@@ -229,10 +239,10 @@
                 () => location.reload());
             return;
         }
-        // un'app con un nome suo: la sessione di questa pagina e' separata (vedi in cima)
-        const app = appMod.initializeApp(cfg.firebase, 'relatore');
+        // l'app predefinita: la stessa sessione della diretta e della gestione (vedi in cima)
+        const app = appMod.initializeApp(cfg.firebase);
         const auth = authMod.initializeAuth(app, {
-            persistence: [authMod.indexedDBLocalPersistence, authMod.browserLocalPersistence]
+            persistence: [authMod.indexedDBLocalPersistence, authMod.browserLocalPersistence, authMod.browserSessionPersistence]
         });
         auth.languageCode = 'it';
         if (cfg.emulatori && cfg.emulatori.auth) authMod.connectAuthEmulator(auth, cfg.emulatori.auth, { disableWarnings: true });
@@ -255,9 +265,9 @@
             r = await chiama('eventi');
         } catch (e) {
             if (e.stato === 401 || e.stato === 403) {
-                stato.messaggioAccesso = e.stato === 403
-                    ? 'Questo account non è fra i relatori di una diretta. Se sei un relatore, usa «Primo accesso o password dimenticata» con l\'email che hai dato alla regia.'
-                    : 'La sessione è scaduta: accedi di nuovo.';
+                stato.messaggioAccesso = e.codice === 'disattivato'
+                    ? 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.'
+                    : (e.stato === 403 ? 'Questo account non è fra i relatori di una diretta.' : 'La sessione è scaduta: accedi di nuovo.');
                 try { await stato.fb.signOut(stato.auth); } catch (e2) { mostraAccesso(); }
                 return;
             }
@@ -332,33 +342,10 @@
     function preparaComandi() {
         $('form-accesso').addEventListener('submit', async e => {
             e.preventDefault();
-            const email = $('campo-email').value.trim();
-            const password = $('campo-password').value;
-            mostraMsg('msg-accesso', '');
-            if (!email || !password) {
-                mostraMsg('msg-accesso', 'Scrivi la tua email e la password.', 'errore');
-                (email ? $('campo-password') : $('campo-email')).focus();
-                return;
-            }
-            if (!stato.fb) return;
-            const b = $('btn-entra');
-            b.disabled = true;
-            b.setAttribute('aria-busy', 'true');
-            try {
-                await stato.fb.signInWithEmailAndPassword(stato.auth, email, password);
-                // il resto lo fa onAuthStateChanged (il controllo del servizio compreso)
-            } catch (err) {
-                b.disabled = false;
-                b.removeAttribute('aria-busy');
-                const c = String((err && err.code) || '');
-                let m = 'Accesso non riuscito: riprova.';
-                if (/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c)) m = 'Email o password non corretti. Al primo accesso usa «Primo accesso o password dimenticata».';
-                else if (/too-many-requests/.test(c)) m = 'Troppi tentativi sbagliati: attendi qualche minuto oppure usa «Primo accesso o password dimenticata».';
-                else if (/user-disabled/.test(c)) m = 'Questo account è stato disattivato.';
-                else if (/network-request-failed/.test(c)) m = 'Connessione assente: controlla la rete e riprova.';
-                mostraMsg('msg-accesso', m, 'errore');
-            }
+            entra();
         });
+        const ricordata = archivio.leggi(CHIAVE_EMAIL);
+        if (ricordata && !$('campo-email').value) $('campo-email').value = ricordata;
         $('btn-mostra-password').addEventListener('click', () => {
             const campo = $('campo-password');
             const b = $('btn-mostra-password');
@@ -366,29 +353,6 @@
             campo.type = vedi ? 'text' : 'password';
             b.setAttribute('aria-pressed', String(vedi));
             b.setAttribute('aria-label', vedi ? 'Nascondi la password' : 'Mostra la password');
-        });
-        $('btn-primo-accesso').addEventListener('click', async () => {
-            const email = $('campo-email').value.trim();
-            if (!email || email.indexOf('@') < 1) {
-                mostraMsg('msg-accesso', 'Scrivi prima la tua email qui sopra, poi premi di nuovo «Primo accesso o password dimenticata».', 'errore');
-                $('campo-email').focus();
-                return;
-            }
-            const b = $('btn-primo-accesso');
-            if (b.getAttribute('aria-busy') === 'true') return;
-            b.setAttribute('aria-busy', 'true');
-            b.disabled = true;
-            mostraMsg('msg-accesso', 'Invio in corso…', 'info');
-            try {
-                const r = await chiamaAccesso({ azione: 'relatore-accesso', email: email });
-                mostraMsg('msg-accesso', (r.msg || 'Se l\'indirizzo è fra i relatori, ti abbiamo scritto.')
-                    + ' Il collegamento porta alla pagina dove scegliere la password; poi torna qui ed entra.', 'ok');
-            } catch (e) {
-                mostraMsg('msg-accesso', e.msg || 'Invio non riuscito: riprova tra poco.', 'errore');
-            } finally {
-                b.removeAttribute('aria-busy');
-                b.disabled = false;
-            }
         });
         $('btn-esci').addEventListener('click', async () => {
             fermaTutto();
@@ -443,6 +407,58 @@
             if (stato.timerPartecipanti) { clearTimeout(stato.timerPartecipanti); leggiPartecipanti(); }
         });
     }
+    /* L'accesso: email e password delle credenziali della diretta, con
+       l'azione 'entra' del servizio (la stessa della pagina dei
+       partecipanti, con gli stessi limiti); poi il gettone del servizio. */
+    async function entra() {
+        const campo = $('campo-email');
+        const email = String(campo.value || '').trim().toLowerCase();
+        const password = $('campo-password').value;
+        mostraMsg('msg-accesso', '');
+        if (!email || !password) {
+            mostraMsg('msg-accesso', 'Scrivi la tua email e la password.', 'errore');
+            (email ? $('campo-password') : campo).focus();
+            return;
+        }
+        if (!stato.fb) return;
+        const b = $('btn-entra');
+        if (b.getAttribute('aria-busy') === 'true') return;
+        b.disabled = true;
+        b.setAttribute('aria-busy', 'true');
+        try {
+            const r = await chiamaAccesso({ azione: 'entra', email: email, password: password });
+            if (!r.token) throw new ErroreServizio(500, 'servizio', 'Accesso non riuscito: riprova tra poco.');
+            if (SESSIONE_VALIDA.test(String(r.sessione || ''))) archivio.scrivi(CHIAVE_SESSIONE, String(r.sessione));
+            archivio.scrivi(CHIAVE_EMAIL, email);
+            await stato.fb.signInWithCustomToken(stato.auth, r.token);
+            $('campo-password').value = '';
+            // il resto lo fa onAuthStateChanged (il controllo del servizio compreso)
+        } catch (err) {
+            b.disabled = false;
+            b.removeAttribute('aria-busy');
+            mostraMsg('msg-accesso', messaggioAccesso(err), 'errore');
+        }
+    }
+    function messaggioAccesso(err) {
+        const c = String((err && err.codice) || '');
+        const d = (err && err.dati) || {};
+        if (c === 'attendi' || (err && err.stato === 429)) {
+            const s = Number(d.attesaSecondi);
+            return 'Troppi tentativi: riprova ' + (isFinite(s) && s > 0 ? 'tra ' + Math.ceil(s) + ' secondi.' : 'tra qualche minuto.');
+        }
+        if (c === 'disattivato') return 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
+        if (c === 'nessun-evento') return 'Non risulti iscritto a nessuna diretta: chiedi alla regia.';
+        if (c === 'credenziali' || (err && err.stato === 401)) {
+            const rimasti = Number(d.rimasti);
+            return 'Email o password non corretti. Usa l\'email e la password delle credenziali della diretta (l\'email che hai ricevuto).'
+                + (isFinite(rimasti) && rimasti > 0 && rimasti <= 3 ? (rimasti === 1 ? ' Ti resta un tentativo.' : ' Ti restano ' + rimasti + ' tentativi.') : '');
+        }
+        if (c === 'riprova' && err.msg) return String(err.msg).slice(0, 200);
+        if (c === 'rete') return MSG_RETE;
+        if (/network-request-failed/.test(String((err && err.code) || ''))) return MSG_RETE;
+        return 'Accesso non riuscito: riprova tra poco.';
+    }
+
     function impostaTestoGrande(si) {
         document.body.classList.toggle('testo-grande', !!si);
         $('btn-testo-grande').setAttribute('aria-pressed', String(!!si));
@@ -784,6 +800,7 @@
             li.appendChild(punto);
             const chi = el('span', 'partecipante-chi');
             chi.appendChild(el('strong', '', [p.cognome, p.nome].map(x => String(x || '').trim()).filter(Boolean).join(' ') || 'Senza nome'));
+            if (p.relatore) { chi.firstChild.appendChild(document.createTextNode(' ')); chi.firstChild.appendChild(el('span', 'bollino-relatore', 'relatore')); }
             if (p.azienda) chi.appendChild(el('span', 'partecipante-azienda', p.azienda));
             if (stato.ruolo === 'gestore' && p.email) chi.appendChild(el('span', 'partecipante-email', p.email));
             li.appendChild(chi);
