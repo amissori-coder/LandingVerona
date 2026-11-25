@@ -17,9 +17,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= cambia a ogni modifica: GitHub Pages tiene i file in cache 10 minuti -->
-    <link rel="stylesheet" href="relatore.css?v=20261125a">
+    <link rel="stylesheet" href="relatore.css?v=20261125b">
     <script src="../config.js?v=20260926b" defer></script>
-    <script src="relatore.js?v=20261125a" defer></script>
+    <script src="relatore.js?v=20261125b" defer></script>
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -92,6 +92,8 @@
                 </div>
                 <div class="testata-utente">
                     <span id="utente-connesso" class="utente-connesso"></span>
+                    <!-- la diretta in un'altra scheda, con la stessa sessione (?vista=diretta: il relatore resta li') -->
+                    <a id="link-guarda-diretta" class="btn btn-trasparente" href="/diretta/?vista=diretta" target="_blank" rel="noopener">Guarda la diretta</a>
                     <button type="button" id="btn-esci" class="btn btn-trasparente">Esci</button>
                 </div>
             </div>

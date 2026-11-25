@@ -897,7 +897,25 @@
 
         const id = await scegliEvento(F, eventi, p.idEvento, gen);
         if (gen !== stato.generazione) return;
+        // il relatore dell'evento va alla sua pagina (vedi IL RELATORE, qui sotto)
+        if (eRelatoreDi(p, id) && parametro('vista') !== 'diretta') { vaiAllaPaginaDelRelatore(id); return; }
         ascoltaEvento(id, false, gen);
+    }
+
+    /* IL RELATORE. Un partecipante segnato come relatore dell'evento
+       (gestione, scheda Partecipanti) non resta qui: va alla pagina del
+       relatore (/diretta/relatore/), con la stessa sessione, a leggere le
+       domande. Lo dice il suo profilo (relatoreDi, lo scrive il servizio
+       quando la regia lo segna); per chi e' stato segnato prima che il
+       profilo lo dicesse, lo dice 'mie' (DOMANDE AL RELATORE). Con
+       ?vista=diretta (il pulsante «Guarda la diretta» della sua pagina)
+       resta qui e vede la diretta come gli altri, con la strada per tornare
+       alle domande al posto del modulo. */
+    function eRelatoreDi(p, id) { return !!p && Array.isArray(p.relatoreDi) && p.relatoreDi.indexOf(id) >= 0; }
+    function vaiAllaPaginaDelRelatore(id) {
+        mostraVista('caricamento');
+        const q = ID_EVENTO_VALIDO.test(String(id || '')) ? '?e=' + encodeURIComponent(id) : '';
+        location.replace('/diretta/relatore/' + q);
     }
 
     // gli eventi del profilo (i profili di prima avevano solo idEvento)
@@ -2771,6 +2789,8 @@
             domande.mie = r.domande.filter(domandaValida).slice(-200);
             domande.lette = true;
             domande.relatore = r.relatore === true;
+            // un relatore segnato prima che il suo profilo lo dicesse: alla sua pagina adesso
+            if (domande.relatore && !stato.anteprima && parametro('vista') !== 'diretta') { vaiAllaPaginaDelRelatore(id); return; }
             disegnaMie();
             disegnaRuoloDomande();
         } else if (r && r.codice === 'disattivato') {

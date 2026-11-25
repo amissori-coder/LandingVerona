@@ -90,8 +90,12 @@ async function relatoriDiEventi(ctx, ids) {
 
 /* relatore-segna: { idEvento, uid, relatore: true|false } -> [uid]. Il
    partecipante deve essere iscritto all'evento (non si segna chi non
-   presente); al massimo MAX_RELATORI. Ripetere la stessa scelta non cambia
-   niente. */
+   c'e'); al massimo MAX_RELATORI. Il segno sta in relatoriEventi (chi
+   puo' usare la pagina del relatore) e, uguale, nel profilo della persona
+   (partecipanti/{uid}.relatoreDi: [idEvento]), che la pagina della
+   diretta legge all'accesso per portarla subito alla pagina del
+   relatore. Ripetere la stessa scelta non cambia niente (ma rimette il
+   profilo in pari, se serve). */
 async function segnaRelatore(ctx, { idEvento, uid, relatore }, chi) {
     const id = D.controllaIdEvento(idEvento);
     const u = String(uid == null ? '' : uid);
@@ -105,10 +109,13 @@ async function segnaRelatore(ctx, { idEvento, uid, relatore }, chi) {
         if (!p || !Array.isArray(p.eventi) || p.eventi.indexOf(id) < 0) throw C.errore(404, 'Questa persona non è fra i partecipanti dell\'evento.', 'partecipante');
         const lista = rel.exists ? uidDa(rel.data().uid) : [];
         const presente = lista.indexOf(u) >= 0;
-        if (presente === relatore) return lista;
-        if (relatore && lista.length >= MAX_RELATORI) throw C.errore(400, 'Al massimo ' + MAX_RELATORI + ' relatori per evento.', 'relatori');
-        const nuova = relatore ? lista.concat([u]) : lista.filter(x => x !== u);
-        tx.set(rif, { uid: nuova, aggiornato: D.adessoTs(ctx), da: String(chi || '').slice(0, 254) });
+        const suoi = Array.isArray(p.relatoreDi) ? p.relatoreDi.map(String) : [];
+        const nelProfilo = suoi.indexOf(id) >= 0;
+        if (presente === relatore && nelProfilo === relatore) return lista;
+        if (relatore && !presente && lista.length >= MAX_RELATORI) throw C.errore(400, 'Al massimo ' + MAX_RELATORI + ' relatori per evento.', 'relatori');
+        const nuova = presente === relatore ? lista : (relatore ? lista.concat([u]) : lista.filter(x => x !== u));
+        if (presente !== relatore) tx.set(rif, { uid: nuova, aggiornato: D.adessoTs(ctx), da: String(chi || '').slice(0, 254) });
+        if (nelProfilo !== relatore) tx.update(part.ref, { relatoreDi: relatore ? suoi.concat([id]) : suoi.filter(x => x !== id) });
         return nuova;
     });
 }
@@ -270,8 +277,14 @@ async function mie(ctx, req, b) {
         relatoriDi(ctx, chi.idEvento)
     ]);
     const domande = snap.docs.filter(d => d.data().idEvento === chi.idEvento).map(d => miaJSON(d.id, d.data())).sort(perOrdine);
-    // relatore: la pagina della diretta gli mostra la strada per la pagina del relatore
-    return { domande: domande, aperte: ev.exists && aperte(ev.data()), attive: ev.exists && attive(ev.data()), relatore: relatori.indexOf(chi.uid) >= 0 };
+    const relatore = relatori.indexOf(chi.uid) >= 0;
+    // un relatore segnato prima che il profilo lo dicesse: si rimette in pari (la prossima volta la diretta lo porta subito alla sua pagina)
+    const suoi = Array.isArray(chi.p.relatoreDi) ? chi.p.relatoreDi.map(String) : [];
+    if (relatore && suoi.indexOf(chi.idEvento) < 0) {
+        await ctx.db.collection('partecipanti').doc(chi.uid).update({ relatoreDi: suoi.concat([chi.idEvento]) }).catch(() => { /* ci si riprova la prossima volta */ });
+    }
+    // relatore: la pagina della diretta lo porta alla pagina del relatore
+    return { domande: domande, aperte: ev.exists && aperte(ev.data()), attive: ev.exists && attive(ev.data()), relatore: relatore };
 }
 
 /* eventi: gli eventi della pagina del relatore. Per un relatore quelli

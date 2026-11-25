@@ -165,6 +165,7 @@ img { max-width: 100%; height: auto; }
 #sel-evento { max-width: 340px; min-height: 40px; color: var(--testo); }
 .testata-utente { display: flex; align-items: center; gap: 12px; }
 .utente-connesso { font-size: 0.85rem; color: var(--su-scuro); overflow-wrap: anywhere; }
+#link-guarda-diretta { text-decoration: none; white-space: nowrap; }
 .pillola-stato {
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
     padding: 4px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 800;
@@ -309,6 +310,8 @@ body.testo-grande .domanda-testa { font-size: 1rem; }
     .testata-riga { padding: 10px 14px; }
     .testata-marchio img { width: 84px; }
     .utente-connesso { display: none; }
+    .testata-utente { gap: 8px; }
+    #link-guarda-diretta { padding: 6px 10px; font-size: 0.85rem; }
     .scambio { padding: 10px 12px 0; }
     .principale { padding: 12px 12px 48px; }
     .riquadro { padding: 16px 14px; }
