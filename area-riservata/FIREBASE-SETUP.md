@@ -330,16 +330,38 @@ della scheda piu le eventuali altre regioni coordinate spuntate li. Nota: il
 filtro per regione limita gli incarichi (e cio che ne deriva, come la
 fatturazione); dare la scrittura a un coordinatore su sezioni non legate alla
 regione (per esempio Aderenti Revilaw o Comunicazioni) non e' ristretto alla sua regione.
+Il ruolo di sistema **"Revisore"** (`revisore`) e' per chi lavora sugli
+incarichi: vede solo gli incarichi in cui compare la sua scheda in Aderenti
+Revilaw (team, responsabile dell'incarico o della qualita', agganciata per
+email), sempre in sola visualizzazione. L'amministratore sceglie quali sezioni
+gli compaiono; Aderenti Revilaw, Verifica merito creditizio e Comunicazione
+teams gli restano nascoste, perche' non si possono restringere ai suoi
+incarichi. Per le regole qui sopra e' un utente dello staff come gli altri:
+**non serve ripubblicare le regole** per questo ruolo.
+
+**Nuovi accessi.** I responsabili della qualita' (ruolo `qualita`, oppure la
+qualifica sulla scheda), gli equity partner e i founding partner possono
+**aggiungere** utenti dalla sezione "Nuovi accessi", ma solo con i ruoli
+Revisore, Coordinatore territoriale e Vice coordinatore territoriale. Le regole
+lasciano creare gli utenti al solo amministratore, e restano cosi': la scheda la
+scrive il servizio email (`email-service/api/abilita-utente.js`), che verifica
+chi chiama, accetta solo quei tre ruoli e rifiuta un indirizzo che ha gia' una
+scheda, anche disabilitata. Cambiare un ruolo, disabilitare ed eliminare restano
+dell'amministratore.
+
 Cosa succede a livello di sicurezza:
 
 - **Blindato dal server (regole Firestore):**
   - il campo `ruolo` di ogni utente sta nella collezione `utenti`, che solo
-    l'admin puo' scrivere: un utente non puo' cambiarsi il ruolo da solo;
+    l'admin puo' scrivere: un utente non puo' cambiarsi il ruolo da solo
+    (l'unica altra strada e' il servizio email dei "Nuovi accessi", che crea
+    schede nuove con tre ruoli a bassi privilegi e non tocca quelle esistenti);
   - la **definizione** dei ruoli (`archivio/ruoli`) e scrivibile solo
     dall'admin (regola qui sopra): un utente non puo' allargarsi i permessi
     riscrivendo il proprio ruolo.
 - **Solo lato browser (NON blindato dal server):** la sola lettura per
-  sezione e il filtro per regione del coordinatore territoriale. Tengono ognuno nella sua parte e prevengono
+  sezione, il filtro per regione del coordinatore territoriale e il filtro
+  "solo i suoi incarichi" del Revisore. Tengono ognuno nella sua parte e prevengono
   gli errori, ma un utente abilitato che conosca gli strumenti per
   sviluppatori del browser potrebbe aggirarli, perche' ogni collezione e
   salvata come un unico blocco JSON che le regole non sanno leggere al loro

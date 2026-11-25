@@ -295,6 +295,40 @@
     const NOME_RUOLO_VICE_ADMIN = 'Vice amministratore';
     // i ruoli con i poteri dell'amministratore: lui e il suo vice
     function eRuoloAdmin(ruolo) { return ruolo === 'admin' || ruolo === RUOLO_VICE_ADMIN; }
+    /* Revisore: il professionista che lavora sugli incarichi ed entra per vedere il
+       PROPRIO lavoro. E' un ruolo di sistema con due regole fisse, imposte dal programma
+       e non dai dati salvati:
+       - vede SOLO gli incarichi in cui compare la sua scheda di Aderenti Revilaw
+         (agganciata per email): come team, responsabile dell'incarico, responsabile
+         della qualita', referente o coordinatore. Senza scheda, o senza incarichi, non
+         vede alcun incarico (fail-closed);
+       - e' SEMPRE in sola visualizzazione, e le sezioni che non si possono restringere
+         ai suoi incarichi (l'anagrafica degli aderenti, il merito creditizio, le
+         comunicazioni ai team) gli restano nascoste.
+       L'amministratore sceglie solo QUALI delle altre sezioni vede (Ruoli e permessi).
+       Come per i coordinatori, il filtro vale dentro il programma: non e' una regola del
+       server (gli incarichi stanno in un unico documento, vedi FIREBASE-SETUP.md). */
+    const RUOLO_REVISORE = 'revisore';
+    const NOME_RUOLO_REVISORE = 'Revisore';
+    const SEZIONI_REVISORE_NO = ['persone', 'rating', 'comunicazioni'];
+    function eRuoloRevisore(ruolo) { return ruolo === RUOLO_REVISORE; }
+    // le sezioni di un Revisore: quelle scelte (o, senza scelte, quelle di partenza), mai
+    // in scrittura e mai quelle che non si possono restringere ai suoi incarichi
+    function sezioniRevisore(scelte) {
+        const partenza = { dashboard: 'lettura', incarichi: 'lettura', controlloQualita: 'lettura' };
+        const out = {};
+        SEZIONI_RUOLO.forEach(s => {
+            const v = (scelte || partenza)[s.id];
+            out[s.id] = ((v === 'lettura' || v === 'scrittura') && !SEZIONI_REVISORE_NO.includes(s.id)) ? 'lettura' : 'no';
+        });
+        return out;
+    }
+    /* I ruoli che possono essere assegnati da chi NON e' amministratore: responsabili
+       della qualita', equity partner e founding partner abilitano i revisori che non
+       hanno ancora un accesso (sezione "Nuovi accessi"), ma solo con uno di questi tre
+       ruoli. Lo stesso elenco sta nel servizio (email-service/lib/abilita-utente.js),
+       che e' quello che decide davvero. */
+    const RUOLI_DELEGABILI = [RUOLO_REVISORE, 'coordinatore', 'vicecoordinatore'];
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: RUOLO_VICE_ADMIN, nome: NOME_RUOLO_VICE_ADMIN, builtin: true, sezioni: sezioniTutte('scrittura') },
@@ -308,7 +342,8 @@
            Sulle richieste di correzione resta un osservatore: le vede TUTTE, come un
            equity partner, ma non le riceve, non le prende in carico e non risponde.
            Il territorio non lo limita: non e' un ruolo di zona. */
-        { id: RUOLO_MARKETING, nome: 'Marketing', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
+        { id: RUOLO_MARKETING, nome: 'Marketing', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
+        { id: RUOLO_REVISORE, nome: NOME_RUOLO_REVISORE, builtin: true, sistema: true, sezioni: sezioniRevisore(null) }
     ];
     /* Ruoli "solo sondaggio": accesso isolato alla sola sezione Sondaggi, per gli invitati
        che NON fanno parte dello staff. compila = puo' compilare il questionario; risultati =
@@ -428,8 +463,9 @@
                 // Il NOME resta quello del programma (i ruoli di sistema non si rinominano): cosi
                 // un'etichetta vecchia rimasta in archivio si aggiorna da sola.
                 const sez = { ...(lista[idx].sezioni || {}) };
-                SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = 'lettura'; });
-                lista[idx] = { ...lista[idx], nome: d.nome, sezioni: sez, sistema: true };
+                SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = (d.sezioni && d.sezioni[s.id]) || 'lettura'; });
+                // il Revisore non ha mai la scrittura ne' le sezioni che non si restringono ai suoi incarichi
+                lista[idx] = { ...lista[idx], nome: d.nome, sezioni: d.id === RUOLO_REVISORE ? sezioniRevisore(sez) : sez, sistema: true };
             });
             /* I ruoli storici ad accesso pieno (qualita, procuratore) ricevono in scrittura
                anche le sezioni nate DOPO il salvataggio del ruolo: sono i profili "accesso
@@ -1388,6 +1424,12 @@
                 const sez = sezioniTutte('no'); sez.sondaggi = compila ? 'scrittura' : 'lettura';
                 return { id: u.ruolo, nome: NOMI_RUOLO_SOND[u.ruolo] || 'Sondaggio', builtin: true, sistema: true, soloSondaggio: true, sondaggioRuolo: compila ? 'compila' : 'risultati', sezioni: sez };
             }
+            // Revisore: sola visualizzazione, e solo dei suoi incarichi (flag revisore). Quali
+            // sezioni vede lo sceglie l'amministratore; il resto e' imposto qui.
+            if (eRuoloRevisore(u.ruolo)) {
+                const salvato = Ruoli.trova(RUOLO_REVISORE);
+                return { id: RUOLO_REVISORE, nome: NOME_RUOLO_REVISORE, builtin: true, sistema: true, revisore: true, sezioni: sezioniRevisore(salvato ? Ruoli.normalizza(salvato).sezioni : null) };
+            }
             // Coordinatore e Vice: i permessi per sezione sono MODIFICABILI dall'amministratore
             // (sezione Ruoli), ma il filtro per regione resta sempre attivo (flag coordinatore).
             // Si legge il profilo salvato; se manca del tutto, sola visualizzazione ovunque.
@@ -1463,6 +1505,8 @@
         // Il titolare ha sempre i poteri dell'admin (non deve potersi chiudere fuori).
         puoVedere(sez) {
             if (sez === 'utenti' || sez === 'ruoli') return this.eAdmin() || this.eProprietario();
+            // "Nuovi accessi": chi, senza essere amministratore, puo' abilitare i revisori
+            if (sez === 'accessi') return this.puoAbilitareUtenti();
             if (sez === 'dati') return this.eProprietario();
             // "Eventi" non passa dai ruoli: la vede l'admin e i soli utenti scelti a mano
             if (sez === 'eventi') return puoVedereEventi();
@@ -1489,6 +1533,7 @@
         },
         puoScrivere(sez) {
             if (sez === 'utenti' || sez === 'ruoli') return this.eAdmin() || this.eProprietario();
+            if (sez === 'accessi') return this.puoAbilitareUtenti();
             if (sez === 'dati') return this.eProprietario();
             // Eventi e Newsletter non passano dai ruoli: chi e' abilitato puo' anche operare
             if (sez === 'eventi') return puoVedereEventi();
@@ -1515,12 +1560,59 @@
             // chiave normalizzata: grafie diverse della stessa regione (accenti, trattini) coincidono
             return Array.from(new Set(regioniCoperte(p).map(chiaveRegione).filter(Boolean)));
         },
+        /* null = nessun limite di questo tipo. Il Revisore e' limitato agli incarichi in
+           cui compare la sua scheda di Aderenti Revilaw (agganciata per email): torna
+           l'insieme dei loro id. Scheda mancante = insieme vuoto (fail-closed). */
+        incarichiMiei() {
+            const r = this.ruoloCorrente();
+            if (!r || !r.revisore) return null;
+            return idIncarichiDiPersona(this.personaCorrente());
+        },
+        // il ruolo collegato vede solo una parte degli incarichi (per regione o perche' suoi)
+        limitato() { return !!(this.regioniConsentite() || this.incarichiMiei()); },
         vedeIncarico(inc) {
             const reg = this.regioniConsentite();
-            if (!reg) return true;
-            return reg.includes(chiaveRegione((inc && inc.regione) || ''));
-        }
+            if (reg && !reg.includes(chiaveRegione((inc && inc.regione) || ''))) return false;
+            const miei = this.incarichiMiei();
+            if (miei && !(inc && miei.has(inc.id))) return false;
+            return true;
+        },
+        /* Chi puo' ABILITARE nuovi utenti senza essere amministratore: i responsabili
+           della qualita' (il ruolo di accesso, o la qualifica sulla scheda), gli equity
+           partner e i founding partner. Torna la qualifica che glielo consente ('' se
+           nessuna). Possono solo AGGIUNGERE, e solo con i ruoli di RUOLI_DELEGABILI: la
+           gestione vera degli utenti (cambi di ruolo, disabilitazioni, eliminazioni)
+           resta dell'amministratore. Un collaboratore non eredita questo potere. */
+        qualificaPerAbilitare() {
+            const u = this.utenteCorrente;
+            if (!u || u.collaboratore) return '';
+            const r = this.ruoloCorrente();
+            if (!r || r.soloSondaggio || r.sconosciuto) return '';
+            const p = this.personaCorrente();
+            const scheda = p && p.attivo && !p.eliminato ? p : null;
+            if (scheda && scheda.equityPartner) return 'equity partner';
+            if (scheda && scheda.foundingPartner) return 'founding partner';
+            if (u.ruolo === 'qualita' || (scheda && scheda.qualita)) return 'responsabile della qualità';
+            return '';
+        },
+        // amministratore e titolare hanno gia' la sezione Utenti intera: a loro questa non serve
+        puoAbilitareUtenti() { return !this.eAdmin() && !this.eProprietario() && !!this.qualificaPerAbilitare(); }
     };
+
+    /* Gli id degli incarichi in cui compare una persona (qualunque sia il suo posto: team,
+       responsabile dell'incarico o della qualita', referente, coordinatore). Lo chiede a
+       ogni ridisegno il filtro del Revisore: il risultato si tiene finche' incarichi e
+       anagrafica non cambiano. */
+    let _memoMiei = { id: '', inc: null, pers: null, ids: new Set() };
+    function idIncarichiDiPersona(p) {
+        if (!p) return new Set();
+        let inc = null, pers = null;
+        try { inc = localStorage.getItem(CHIAVI.incarichi); pers = localStorage.getItem(CHIAVI.persone); } catch (e) { inc = null; }
+        if (inc !== null && _memoMiei.id === p.id && _memoMiei.inc === inc && _memoMiei.pers === pers) return _memoMiei.ids;
+        const ids = new Set(incarichiDellaPersona(p, Incarichi.tutti()).map(v => v.inc.id));
+        _memoMiei = { id: p.id, inc: inc, pers: pers, ids: ids };
+        return ids;
+    }
 
     /* Le regioni a cui e' limitato il ruolo collegato, nella grafia della scheda:
        null = il ruolo vede tutto, [] = e' limitato ma non ha alcuna regione spuntata.
@@ -2725,6 +2817,31 @@
             const { doc, setDoc } = this.fb.fsMod;
             await setDoc(doc(this.db, 'utenti', email.toLowerCase()), dati, { merge: true });
         },
+        /* Abilita un nuovo utente per conto di chi NON e' amministratore (responsabili
+           della qualita', equity e founding partner: sezione "Nuovi accessi"). Le regole
+           Firestore lasciano scrivere l'elenco degli utenti al solo amministratore, quindi
+           la scheda la crea il servizio email, che verifica chi chiama e accetta solo i
+           ruoli consentiti (email-service/api/abilita-utente.js). */
+        async abilitaUtenteDelegato(dati) {
+            let url = window.RV_ABILITA_UTENTE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'abilita-utente$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato: chiedi all\'amministratore di abilitare l\'utente.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: idToken, azione: 'abilita', email: dati.email, nome: dati.nome, ruolo: dati.ruolo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data || data.ok === false) return { ok: false, msg: (data && data.msg) || ('Servizio non disponibile (' + r.status + ').') };
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio non raggiungibile: riprova.' };
+            }
+        },
         // il valore che, passato a salvaUtente, CANCELLA un campo della scheda (es. collaboratoreDi)
         campoDaTogliere() { return this.fb.fsMod.deleteField(); },
         /* Eliminazione definitiva dell'utente: rimuove il documento dalla collezione
@@ -2962,10 +3079,11 @@
         // gli incarichi che l'utente collegato PUO' vedere (filtro per regione del ruolo).
         // Usare questo nelle viste; tutti() resta per storage, import, backup e integrita' dati.
         visibili() {
-            const reg = Auth.regioniConsentite();
             const tutti = this.tutti();
-            if (!reg) return tutti;
-            return tutti.filter(i => reg.includes(chiaveRegione(i.regione || '')));
+            // due limiti possibili: per regione (coordinatore e vice) e ai propri incarichi (revisore)
+            const reg = Auth.regioniConsentite(), miei = Auth.incarichiMiei();
+            if (!reg && !miei) return tutti;
+            return tutti.filter(i => (!reg || reg.includes(chiaveRegione(i.regione || ''))) && (!miei || miei.has(i.id)));
         },
         salva(lista) { Store.scrivi(CHIAVI.incarichi, lista); },
         trova(id) { return this.tutti().find(i => i.id === id) || null; },
@@ -3970,6 +4088,7 @@
         { id: 'eventi', nome: 'Iscrizioni Eventi NGB', gruppo: 'Comunicazioni', icona: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
         { id: 'sondaggi', nome: 'Sondaggi', icona: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 13l2 2 4-4' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+        { id: 'accessi', nome: 'Nuovi accessi', icona: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM19 8v6m3-3h-6' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
         { id: 'ruoli', nome: 'Ruoli e permessi', icona: 'M12 15a3 3 0 100-6 3 3 0 000 6zM12 1v2m0 18v2m11-11h-2M3 12H1m17.66 6.66l-1.42-1.42M6.76 6.76 5.34 5.34m12.32 0-1.42 1.42M6.76 17.24l-1.42 1.42', soloAdmin: true },
         { id: 'dati', nome: 'Dati e backup', icona: 'M4 7c0-1.1 3.6-2 8-2s8 .9 8 2-3.6 2-8 2-8-.9-8-2zm0 0v10c0 1.1 3.6 2 8 2s8-.9 8-2V7', soloProprietario: true }
@@ -4128,6 +4247,7 @@
             eventi: vistaEventi,
             newsletter: vistaNewsletter,
             registro: vistaRegistro,
+            accessi: vistaNuoviAccessi,
             utenti: vistaUtenti,
             ruoli: vistaRuoli,
             dati: vistaDati,
@@ -4276,6 +4396,13 @@
             html += '<span class="regioni-assegnate">' + (regioni.length
                 ? 'Regioni assegnate: <strong>' + esc(regioni.join(', ')) + '</strong>'
                 : '<span class="badge rosso">nessuna regione assegnata</span>') + '</span>';
+        }
+        // il Revisore: quanti sono gli incarichi che vede (i suoi), sempre sott'occhio
+        const miei = Auth.incarichiMiei();
+        if (miei) {
+            html += '<span class="regioni-assegnate">' + (Auth.personaCorrente()
+                ? 'Vedi solo i tuoi incarichi: <strong>' + miei.size + '</strong>'
+                : '<span class="badge rosso">scheda in Aderenti Revilaw non trovata</span>') + '</span>';
         }
         el.innerHTML = html;
     }
@@ -4536,7 +4663,12 @@
            parlava di "quadro generale" a chiunque: gli stessi riquadri sembravano i totali
            dello studio. Per gli altri ruoli non cambia nulla. */
         const regioniRuolo = regioniDelRuolo();
-        const descrizioneAmbito = !regioniRuolo
+        const mieiRuolo = Auth.incarichiMiei();     // il Revisore: solo gli incarichi in cui compare
+        const descrizioneAmbito = mieiRuolo
+            ? (Auth.personaCorrente()
+                ? 'Gli incarichi di revisione <strong>in cui compari tu</strong>, nel team o come responsabile: sono ' + mieiRuolo.size + '. Gli altri incarichi dello studio non entrano in questi riepiloghi.'
+                : 'Il tuo ruolo vede solo i propri incarichi, ma in Aderenti Revilaw non c\'è una scheda con il tuo indirizzo email: finché non viene sistemata non vedi alcun incarico.')
+            : !regioniRuolo
             ? 'Quadro generale degli incarichi di revisione e dei compensi.'
             : regioniRuolo.length
                 ? `Incarichi di revisione e compensi delle regioni che ti sono assegnate: <strong>${esc(regioniRuolo.join(', '))}</strong>. Gli incarichi delle altre regioni non entrano in questi riepiloghi.`
@@ -11061,6 +11193,9 @@
         /* le verifiche che l'utente collegato puo vedere: filtro territoriale (come
            gli incarichi) E regole di proprieta/condivisione (rbAccessoCorrente) */
         visibili() {
+            // le verifiche di merito creditizio non sono legate a un incarico: al Revisore, che
+            // vede solo cio' che riguarda i suoi incarichi, non se ne mostra nessuna
+            if (Auth.incarichiMiei()) return [];
             const reg = Auth.regioniConsentite();
             let lista = this.tutte();
             if (reg) lista = lista.filter(v => reg.includes(chiaveRegione(v.regione || '')));
@@ -40910,11 +41045,19 @@
         // filtro regione: un ruolo limitato non deve vedere nel registro le voci che nominano
         // un cliente fuori dalla sua regione (nome cliente, codice fiscale, compensi, ecc.).
         // Le voci senza cliente (accessi, sistema, persone, comunicazioni) restano visibili.
-        const regCons = Auth.regioniConsentite();
+        const regCons = Auth.limitato();     // per regione (coordinatori) o ai propri incarichi (revisori)
         let base = log;
         if (regCons) {
             const visCli = new Set(Incarichi.visibili().map(i => String(i.cliente || '').toLowerCase()));
-            base = log.filter(v => { const cli = String(v.cliente || '').toLowerCase(); return !cli || visCli.has(cli); });
+            /* Il Revisore vede solo cio' che riguarda i suoi incarichi: delle voci senza
+               cliente (accessi, anagrafica, utenti, comunicazioni) gli restano le sue. */
+            const soloMie = !!Auth.incarichiMiei();
+            const io = Auth.emailSessione();
+            base = log.filter(v => {
+                const cli = String(v.cliente || '').toLowerCase();
+                if (cli) return visCli.has(cli);
+                return !soloMie || (!!io && String(v.utente || '').toLowerCase().indexOf(io) >= 0);
+            });
         }
         const utenti = Array.from(new Set(base.map(v => v.utente))).sort();
 
@@ -41155,6 +41298,7 @@
                 <div class="ruolo-sez">${riepSez(r)}</div>
                 ${r.id === RUOLO_VICE_ADMIN ? '<div class="ruolo-reg">Può fare <strong>tutto quello che può fare l\'amministratore</strong>: ogni sezione in scrittura, Eventi e Newsletter, e anche <strong>Utenti</strong> e <strong>Ruoli e permessi</strong>. Non è modificabile e non può avere collaboratori. «Dati e backup» resta del solo titolare.</div>' : ''}
                 ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw più le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.id === RUOLO_REVISORE ? '<div class="ruolo-reg">Vede solo gli <strong>incarichi in cui compare</strong> la sua scheda di Aderenti Revilaw (team, responsabile dell\'incarico o della qualità), sempre in <strong>sola visualizzazione</strong>. Qui scegli quali sezioni gli compaiono; Aderenti Revilaw, Verifica merito creditizio e Comunicazione teams gli restano nascoste, perché non si possono restringere ai suoi incarichi. Lo possono assegnare anche responsabili della qualità, equity partner e founding partner, dalla sezione <strong>Nuovi accessi</strong>.</div>' : ''}
                 ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non è limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
             `<div class="ruolo-card ruolo-card-collab">
@@ -41219,17 +41363,21 @@
         const diSistema = !!(esistente && esistente.sistema);
         // profilo Marketing: niente territorio e ruolo speciale sulle richieste, va spiegato a parte
         const profiloMarketing = !!(esistente && esistente.id === RUOLO_MARKETING);
+        // profilo Revisore: mai la scrittura, e tre sezioni sempre nascoste
+        const profiloRevisore = !!(esistente && eRuoloRevisore(esistente.id));
+        const livelliPer = sez => Object.keys(LIVELLI_SEZIONE).filter(liv => !profiloRevisore || (liv !== 'scrittura' && (liv === 'no' || !SEZIONI_REVISORE_NO.includes(sez))));
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
             ${soloAdmin ? (eVice
                 ? '<p class="descrizione">Il vice amministratore può fare tutto quello che può fare l\'amministratore: ha sempre accesso completo a tutte le sezioni, comprese Utenti e Ruoli e permessi. Non è modificabile. Si assegna dalla sezione Utenti, come ogni altro ruolo.</p>'
                 : '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non è modificabile.</p>') : `
-            ${profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove può anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si può concedere</strong> sezione per sezione. Non è limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
+            ${profiloRevisore ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede. Vede comunque SOLO gli incarichi in cui compare la sua scheda di Aderenti Revilaw (team, responsabile dell\'incarico o della qualità) ed è sempre in <strong>sola lettura</strong>: per questo la scrittura non è tra le scelte, e le sezioni che non si possono restringere ai suoi incarichi restano nascoste.</p>'
+                : profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove può anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si può concedere</strong> sezione per sezione. Non è limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
                 : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa può modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioè la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) più le eventuali <strong>altre regioni coordinate</strong> spuntate lì. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa può toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
-                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
+                <select data-sez="${s.id}"${livelliPer(s.id).length === 1 ? ' disabled title="Non si può restringere ai suoi incarichi: resta nascosta"' : ''}>${livelliPer(s.id).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
             <div class="msg-errore hidden" id="r-errore"></div>
             <div class="modale-azioni">
                 ${soloAdmin ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
@@ -41260,7 +41408,7 @@
                 const v = sel ? sel.value : 'no';
                 sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no';
             });
-            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sistema: !!(esistente && esistente.sistema), sezioni: sezioni };
+            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sistema: !!(esistente && esistente.sistema), sezioni: profiloRevisore ? sezioniRevisore(sezioni) : sezioni };
             const idx = lista.findIndex(x => x.id === nid);
             if (idx >= 0) lista[idx] = nuovo; else lista.push(nuovo);
             Ruoli.salva(lista);
@@ -41357,6 +41505,179 @@
         const d = [{ campo: 'Ruolo', prima: prima ? nomeRuolo(prima) : 'vuoto', dopo: nomeRuolo(dopo) }];
         if ((primaDi || '') !== (dopoDi || '')) d.push({ campo: 'Collaboratore di', prima: primaDi || 'vuoto', dopo: dopoDi || 'vuoto' });
         return d;
+    }
+
+    /* =========================================================
+       VISTA: NUOVI ACCESSI
+       ------------------------------------------------------------
+       Per i responsabili della qualita', gli equity partner e i founding partner
+       (Auth.puoAbilitareUtenti): abilitano all'area i revisori che non hanno ancora un
+       accesso. Possono solo AGGIUNGERE, e solo con i ruoli di RUOLI_DELEGABILI
+       (Revisore, Coordinatore territoriale, Vice coordinatore): cambi di ruolo,
+       disabilitazioni ed eliminazioni restano dell'amministratore, nella sezione Utenti.
+       Ogni accesso abilitato da qui resta nel Registro modifiche, con chi l'ha abilitato.
+    ========================================================= */
+    // quanti incarichi citano ciascuna scheda: una sola passata sugli incarichi
+    function incarichiPerPersona() {
+        const risolvi = risolutorePersone(), conta = new Map();
+        Incarichi.tutti().forEach(inc => {
+            const visti = new Set();
+            ['qualita', 'respIncarico', 'referente', 'coordinatore', 'team'].forEach(c => dividiNomi(String(inc[c] || '')).forEach(t => { const x = risolvi(t.trim()); if (x) visti.add(x.id); }));
+            visti.forEach(id => conta.set(id, (conta.get(id) || 0) + 1));
+        });
+        return conta;
+    }
+    // il ruolo che conviene proporre per una persona, letto dalla sua scheda
+    function ruoloPropostoPer(p) { return p && p.coordinatore ? 'coordinatore' : (p && p.viceCoordinatore ? 'vicecoordinatore' : RUOLO_REVISORE); }
+    function opzioniRuoliDelegabili(sel) {
+        return RUOLI_DELEGABILI.map(id => '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(nomeRuolo(id)) + '</option>').join('');
+    }
+    /* Abilita un accesso da "Nuovi accessi". Torna { ok, msg, tono }. In cloud la scheda
+       la crea il servizio (che ricontrolla chi chiama e il ruolo); poi parte l'email per
+       impostare la password, come dalla sezione Utenti. */
+    async function abilitaAccessoDelegato(nome, email, ruolo) {
+        nome = String(nome || '').trim();
+        email = String(email || '').trim().toLowerCase();
+        if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, msg: 'Servono il nome e un indirizzo email valido.' };
+        if (!RUOLI_DELEGABILI.includes(ruolo)) return { ok: false, msg: 'Da qui si assegnano solo i ruoli Revisore, Coordinatore territoriale e Vice coordinatore territoriale.' };
+        if (!Auth.puoAbilitareUtenti()) return { ok: false, msg: 'Non hai il permesso di abilitare nuovi accessi.' };
+        const qualifica = Auth.qualificaPerAbilitare();
+        const dettagli = [{ campo: 'Ruolo', prima: 'vuoto', dopo: nomeRuolo(ruolo) }, { campo: 'Abilitato da', prima: 'vuoto', dopo: qualifica + ' (sezione Nuovi accessi)' }];
+        if (Cloud.attivo) {
+            const r = await Cloud.abilitaUtenteDelegato({ nome: nome, email: email, ruolo: ruolo });
+            if (!r.ok) return r;
+            Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, dettagli);
+            const invio = await Cloud.primaPassword(email);
+            if (invio.ok && invio.saltato) return { ok: true, tono: 'ambra', msg: 'Accesso abilitato. L\'email per la password NON è partita ora: ' + (invio.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.') };
+            if (!invio.ok) return { ok: true, tono: 'rosso', msg: 'Accesso abilitato, ma l\'email per la password non è partita: ' + invio.msg };
+            return { ok: true, tono: 'verde', msg: 'Accesso abilitato: a ' + email + ' è partita l\'email per impostare la password. Avvisalo di controllare anche lo spam.' };
+        }
+        if (Auth.trova(email)) return { ok: false, msg: 'Questo indirizzo ha già un accesso: per cambiarlo serve l\'amministratore.' };
+        const utenti = Auth.utenti();
+        utenti.push({ email: email, nome: nome, ruolo: ruolo, hash: null, sale: uid(), mustChange: false, tentativi: 0, bloccatoFino: 0, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email, delega: qualifica });
+        Auth.salvaUtenti(utenti);
+        Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, dettagli);
+        return { ok: true, tono: 'verde', msg: 'Accesso abilitato: potrà richiedere la prima password dalla pagina di ingresso.' };
+    }
+    async function vistaNuoviAccessi() {
+        if (!Auth.puoAbilitareUtenti()) { naviga('dashboard'); return; }
+        const qualifica = Auth.qualificaPerAbilitare();
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Nuovi accessi</h1>
+                    <p class="descrizione">Come <strong>${esc(qualifica)}</strong> puoi abilitare all'area riservata i revisori che non hanno ancora un accesso. Da qui si assegnano solo i ruoli <strong>Revisore</strong>, <strong>Coordinatore territoriale</strong> e <strong>Vice coordinatore territoriale</strong>. Cambiare un ruolo, disabilitare o eliminare un utente resta dell'amministratore.</p>
+                </div>
+                <div class="header-azioni"><button class="btn btn-primary" id="na-nuovo">+ Abilita un'altra persona</button></div>
+            </header>
+            <div class="card">
+                <h2>Che cosa vede chi abiliti</h2>
+                <ul class="elenco-ambito">
+                    <li><strong>Revisore</strong>: solo gli incarichi in cui compare (team, responsabile dell'incarico o della qualità), in sola visualizzazione. Li riconosce dall'indirizzo email scritto sulla sua scheda di Aderenti Revilaw.</li>
+                    <li><strong>Coordinatore territoriale</strong> e <strong>Vice coordinatore</strong>: gli incarichi delle regioni spuntate sulla loro scheda di Aderenti Revilaw. Senza regioni spuntate non vedono alcun incarico.</li>
+                </ul>
+            </div>
+            <div class="card tabella-vuota" id="na-caricamento">Carico l'elenco…</div>
+            <div id="na-corpo"></div>`;
+        const ridisegna = () => { if (vistaCorrente === 'accessi') vistaNuoviAccessi(); };
+        const apriNuovo = () => {
+            apriModale(`<h2>Abilita un nuovo accesso</h2>
+                <div class="campo"><label>Nome e cognome</label><input id="na-m-nome"></div>
+                <div class="campo"><label>Email</label><input id="na-m-email" type="email"></div>
+                <div class="campo"><label>Ruolo</label><select id="na-m-ruolo">${opzioniRuoliDelegabili(RUOLO_REVISORE)}</select></div>
+                <p class="descrizione">Perché un revisore veda i suoi incarichi, la stessa email deve essere scritta sulla sua scheda in Aderenti Revilaw. ${Cloud.attivo ? 'Riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password.' : 'Potrà richiedere la prima password dalla pagina di ingresso.'}</p>
+                <div class="msg-errore hidden" id="na-m-err"></div>
+                <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="na-m-salva">Abilita</button></div>`);
+            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            const b = document.getElementById('na-m-salva');
+            b.addEventListener('click', () => conAttesa(b, async () => {
+                const r = await abilitaAccessoDelegato(document.getElementById('na-m-nome').value, document.getElementById('na-m-email').value, document.getElementById('na-m-ruolo').value);
+                if (!r.ok) { const e = document.getElementById('na-m-err'); e.textContent = r.msg; e.classList.remove('hidden'); return; }
+                chiudiModale(); toast(r.msg, r.tono || 'verde'); ridisegna();
+            }, { testo: 'Abilito…' }));
+        };
+        document.getElementById('na-nuovo').addEventListener('click', apriNuovo);
+
+        let utenti;
+        try { utenti = Cloud.attivo ? await Cloud.listaUtenti() : Auth.utenti(); }
+        catch (e) {
+            const c = document.getElementById('na-caricamento');
+            if (c) c.textContent = 'Elenco non disponibile: ' + Cloud.msgErrore(e);
+            return;
+        }
+        const caricamento = document.getElementById('na-caricamento'), corpo = document.getElementById('na-corpo');
+        if (!caricamento || !corpo || vistaCorrente !== 'accessi') return;     // la vista puo' essere cambiata nel frattempo
+        caricamento.classList.add('hidden');
+        const conAccesso = new Set(utenti.map(u => String(u.email || '').toLowerCase()));
+        const conta = incarichiPerPersona();
+        const visti = new Set();
+        const candidati = Persone.tutte()
+            .filter(p => p.attivo && !p.eliminato && p.email && !conAccesso.has(String(p.email).toLowerCase()))
+            // due schede con la stessa email darebbero due righe per lo stesso accesso
+            .filter(p => { const e = String(p.email).toLowerCase(); if (visti.has(e)) return false; visti.add(e); return true; })
+            .sort((a, b) => nomeCompletoPersona(a).localeCompare(nomeCompletoPersona(b), 'it'));
+        const io = String(Auth.utenteCorrente.email || '').toLowerCase();
+        const miei = utenti.filter(u => String(u.creatoDa || '').toLowerCase() === io).sort((a, b) => (b.creato || 0) - (a.creato || 0));
+        const qualifiche = p => [p.equityPartner && 'Equity partner', p.foundingPartner && 'Founding partner', p.qualita && 'Resp. qualità', p.respIncarico && 'Resp. incarico',
+            p.coordinatore && 'Coordinatore', p.viceCoordinatore && 'Vice coordinatore'].filter(Boolean).map(q => '<span class="badge neutro">' + esc(q) + '</span>').join(' ');
+        const nIncarichi = p => { const n = conta.get(p.id) || 0; return n ? '<span class="badge verde">' + n + (n === 1 ? ' incarico' : ' incarichi') + '</span>' : '<span class="badge ambra" title="Come Revisore non vedrebbe alcun incarico finché il suo nome non è scritto in un incarico">nessun incarico</span>'; };
+        corpo.innerHTML = `
+            <div class="card">
+                <h2>Revisori senza accesso${candidati.length ? ' (' + candidati.length + ')' : ''}</h2>
+                <p class="descrizione">Le persone attive di Aderenti Revilaw che hanno un indirizzo email sulla scheda ma non sono ancora abilitate all'area riservata.</p>
+                ${candidati.length ? `<div class="campo" style="max-width:340px;"><input id="na-cerca" type="search" placeholder="Cerca per nome o email" aria-label="Cerca per nome o email"></div>
+                <div class="tabella-wrap"><table class="dati" id="na-tabella"><thead><tr><th>Persona</th><th>Email</th><th>Sulla scheda</th><th>Ruolo</th><th></th></tr></thead><tbody>`
+                    + candidati.map(p => `<tr data-id="${esc(p.id)}" data-testo="${esc((nomeCompletoPersona(p) + ' ' + p.email).toLowerCase())}">
+                        <td class="cliente-cella" data-label="Persona">${esc(nomeCompletoPersona(p))}</td>
+                        <td data-label="Email">${esc(p.email)}</td>
+                        <td data-label="Sulla scheda">${nIncarichi(p)} ${qualifiche(p)}</td>
+                        <td data-label="Ruolo"><select class="na-ruolo" aria-label="Ruolo per ${esc(nomeCompletoPersona(p))}">${opzioniRuoliDelegabili(ruoloPropostoPer(p))}</select></td>
+                        <td data-label=""><button type="button" class="btn btn-sm btn-primary na-abilita">Abilita</button></td>
+                    </tr>`).join('') + '</tbody></table></div>'
+                    : '<p class="tabella-vuota">Tutte le persone attive con un indirizzo email hanno già un accesso. Per abilitare qualcuno che non è in anagrafica usa «Abilita un\'altra persona».</p>'}
+            </div>
+            <div class="card">
+                <h2>Accessi che hai abilitato tu${miei.length ? ' (' + miei.length + ')' : ''}</h2>
+                ${miei.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Abilitato il</th><th>Stato</th><th>Ultimo accesso</th><th></th></tr></thead><tbody>`
+                    + miei.map(u => `<tr>
+                        <td class="cliente-cella" data-label="Nome">${esc(u.nome || '')}</td>
+                        <td data-label="Email">${esc(u.email)}</td>
+                        <td data-label="Ruolo">${esc(etichettaRuoloUtente(u, utenti))}</td>
+                        <td data-label="Abilitato il">${u.creato ? fmtDataOra(u.creato) : ''}</td>
+                        <td data-label="Stato">${u.attivo === false ? '<span class="badge rosso">disabilitato</span>' : '<span class="badge verde">attivo</span>'}</td>
+                        <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : '<span class="badge ambra">mai entrato</span>'}</td>
+                        <td data-label="">${Cloud.attivo && u.attivo !== false ? '<button type="button" class="btn btn-sm btn-secondary na-email" data-email="' + esc(u.email) + '">Invia di nuovo l\'email</button>' : ''}</td>
+                    </tr>`).join('') + '</tbody></table></div>'
+                    : '<p class="tabella-vuota">Non hai ancora abilitato nessun accesso.</p>'}
+            </div>`;
+        const cerca = document.getElementById('na-cerca');
+        if (cerca) cerca.addEventListener('input', () => {
+            const q = cerca.value.trim().toLowerCase();
+            corpo.querySelectorAll('#na-tabella tbody tr').forEach(tr => { tr.hidden = !!q && tr.dataset.testo.indexOf(q) < 0; });
+        });
+        corpo.querySelectorAll('.na-abilita').forEach(b => b.addEventListener('click', () => {
+            const tr = b.closest('tr');
+            const p = candidati.find(x => x.id === tr.dataset.id); if (!p) return;
+            const ruolo = tr.querySelector('.na-ruolo').value;
+            apriModale(`<h2>Abilitare ${esc(nomeCompletoPersona(p))}?</h2>
+                <p>Avrà accesso all'area riservata con l'indirizzo <strong>${esc(p.email)}</strong> e il ruolo <strong>${esc(nomeRuolo(ruolo))}</strong>.</p>
+                <p class="descrizione">${Cloud.attivo ? 'Gli arriva subito una email con il collegamento per impostare la password.' : 'Potrà richiedere la prima password dalla pagina di ingresso.'} L'operazione resta nel Registro modifiche a tuo nome.</p>
+                <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="na-conferma">Abilita</button></div>`);
+            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            const si = document.getElementById('na-conferma');
+            si.addEventListener('click', () => conAttesa(si, async () => {
+                const r = await abilitaAccessoDelegato(nomeCompletoPersona(p), p.email, ruolo);
+                chiudiModale();
+                toast(r.msg, r.ok ? (r.tono || 'verde') : 'rosso');
+                if (r.ok) ridisegna();
+            }, { testo: 'Abilito…' }));
+        }));
+        corpo.querySelectorAll('.na-email').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
+            const esito = await Cloud.primaPassword(b.dataset.email);
+            Audit.registra(Auth.utenteCorrente, 'Email reimpostazione password inviata', 'utente', b.dataset.email, null, null);
+            if (esito.ok && esito.saltato) toast('NON inviata: ' + (esito.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
+            else toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
+        }, { testo: 'Invio…' })));
     }
 
     function vistaUtenti() {
@@ -43017,7 +43338,41 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
        a ogni ricarica della pagina. */
     const CHIAVE_AVVISO_AMBITO = 'rvArea.avvisoAmbito';
 
+    /* Lo stesso per il Revisore: al primo ingresso gli si dice che vede solo i suoi
+       incarichi, da dove il programma li ricava e che non puo' modificarli. */
+    function avvisaAmbitoRevisore(miei) {
+        try {
+            if (sessionStorage.getItem(CHIAVE_AVVISO_AMBITO)) return;
+            sessionStorage.setItem(CHIAVE_AVVISO_AMBITO, '1');
+        } catch (e) { }
+        const scheda = Auth.personaCorrente();
+        apriModale(`<h2>${esc(NOME_RUOLO_REVISORE)}</h2>
+            <p class="descrizione" style="margin:-6px 0 14px;">Il tuo accesso all'area riservata riguarda gli incarichi su cui lavori.</p>
+            <div class="riquadro-ambito">
+                <div class="etichetta-ambito">I tuoi incarichi</div>
+                ${scheda
+                ? `<div class="valore-ambito">${miei.size}</div>`
+                : '<div class="valore-ambito"><span class="badge rosso">scheda non trovata</span></div>'}
+            </div>
+            ${scheda
+                ? `<ul class="elenco-ambito">
+                        <li>Vedi <strong>solo gli incarichi in cui compari</strong>: nel team, come responsabile dell'incarico o della qualità. Gli altri non compaiono in alcuna schermata, nemmeno nei totali del cruscotto.</li>
+                        <li>Il tuo accesso è in <strong>sola visualizzazione</strong>: puoi consultare i dati dei tuoi incarichi, non modificarli. Negli <strong>Strumenti di revisione</strong> lavori normalmente sui tuoi incarichi.</li>
+                   </ul>`
+                : `<ul class="elenco-ambito">
+                        <li>In Aderenti Revilaw non c'è una scheda con il tuo indirizzo email: finché non viene sistemata <strong>non vedi alcun incarico</strong>. Non è un guasto, è la regola di sicurezza.</li>
+                        <li>Chiedi all'amministratore, o a chi ti ha abilitato, di controllare l'email sulla tua scheda.</li>
+                   </ul>`}
+            <p class="nota-riferimento">Se un incarico manca dall'elenco o un dato è sbagliato, non si corregge da qui: si chiede a un <strong>equity partner</strong> dalla sezione <strong>Richieste di correzione</strong>, nel menu a sinistra.</p>
+            <p class="hint" style="margin-top:12px;">Gli incarichi si riconoscono dal tuo nome scritto nella scheda di ciascun incarico. Il loro numero è sempre riportato in basso a sinistra, sotto il tuo nome.</p>
+            <div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Ho capito</button></div>`);
+        const btn = document.getElementById('m-ok');
+        if (btn) btn.addEventListener('click', chiudiModale);
+    }
+
     function avvisaAmbitoRegionale() {
+        const miei = Auth.incarichiMiei();
+        if (miei) { avvisaAmbitoRevisore(miei); return; }
         const regioni = regioniDelRuolo();
         if (!regioni) return;                    // ruolo senza limite: non c'e' nulla da avvisare
         try {

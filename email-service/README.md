@@ -593,6 +593,49 @@ Oltre a `invia-email`, il progetto include due funzioni per la sezione
   richiama **una volta al giorno** (vedi `vercel.json`): invia le comunicazioni
   in stato "programmata" la cui data è arrivata e aggiorna la pianificazione.
 
+## Nuovi accessi abilitati da chi non e' amministratore (`/api/abilita-utente`)
+
+Nell'area riservata gli utenti li gestisce l'amministratore, e le regole
+Firestore lasciano scrivere la raccolta `utenti` solo a lui. La sezione **Nuovi
+accessi** dell'area da' un potere piccolo e preciso a chi i revisori li conosce:
+i **responsabili della qualita'**, gli **equity partner** e i **founding
+partner** possono **aggiungere** un utente, e solo con uno di tre ruoli:
+`revisore`, `coordinatore`, `vicecoordinatore`. Siccome il browser non puo'
+scrivere in `utenti`, la scheda la crea questo servizio, che e' quello che
+decide davvero (`lib/abilita-utente.js`).
+
+`POST { idToken, azione }`:
+
+| Azione | Che cosa fa |
+|---|---|
+| `stato` | dice se chi chiama puo' abilitare (`puo`), a che titolo (`come`) e con quali ruoli |
+| `abilita` | con `{ email, nome, ruolo }` crea `utenti/<email>` con `attivo: true`, `creatoDa` (chi ha abilitato) e `delega` (a che titolo: `qualita`, `equity`, `founding`, `amministratore`) |
+
+**Chi puo'.** Equity e founding partner sono qualifiche della scheda in
+Aderenti Revilaw (`archivio/persone`, agganciata per email, scheda attiva);
+responsabile della qualita' e' chi ha il ruolo di accesso `qualita` oppure la
+qualifica sulla scheda. Amministratore, vice e titolare possono sempre. Un
+collaboratore no: i poteri sugli utenti non si delegano.
+
+**Che cosa non si puo' fare da qui**, nemmeno per l'amministratore:
+
+- assegnare un ruolo diverso dai tre (400);
+- toccare un indirizzo che ha gia' una scheda, anche disabilitata (409): chi e'
+  stato tolto dall'amministratore non rientra da questa porta, e nessuno si
+  cambia il ruolo da solo;
+- abilitare piu' di 60 accessi in 24 ore a testa (429; il conteggio sta in
+  `meta/abilitazioni`, l'amministratore non ha il freno).
+
+La scheda sola non fa entrare nessuno: l'email per impostare la password parte
+poi dall'area riservata, come dalla sezione Utenti (`/api/invia-email`). Dopo
+il deploy l'indirizzo e' quello di `invia-email` con `abilita-utente` al posto
+del nome (l'area lo ricava da sola da `RV_EMAIL_SERVICE_URL`).
+
+Il ruolo `revisore` non cambia niente nel servizio: nelle circolarizzazioni,
+per esempio, ognuno vede gia' solo gli incarichi in cui compare.
+
+Prove: `node prove/abilita-utente.prove.js` (52 verifiche).
+
 ## Sblocco del calcolo congelato (`/api/sblocco-incarico`)
 
 Quando il calcolo del compenso di un incarico è **congelato**, il compenso
