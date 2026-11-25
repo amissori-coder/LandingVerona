@@ -10,8 +10,9 @@
    (sezione "Nuovi accessi" dell'area):
 
      - AGGIUNGERE un utente che ancora non c'e';
-     - SOLO con uno di tre ruoli: Revisore, Coordinatore
-       territoriale, Vice coordinatore territoriale;
+     - SOLO con il ruolo Revisore: ogni altro ruolo (Coordinatore
+       territoriale, Vice, Responsabile qualita', Procuratore...)
+       lo assegna l'amministratore dalla sezione Utenti;
      - SOLO una persona che ha gia' una scheda ATTIVA in Aderenti
        Revilaw con quell'indirizzo email. Non si abilita un
        indirizzo scritto a mano: prima la persona si inserisce in
@@ -51,9 +52,9 @@ const { eRuoloAdmin } = require('./utente-effettivo');
 
 // il titolare dello studio: come in area-riservata/app.js e in lib/utente-effettivo.js
 const PROPRIETARIO = 'a.missori@emvas.tax';
-// i soli ruoli che si possono assegnare da "Nuovi accessi" (lo stesso elenco di RUOLI_DELEGABILI in app.js)
-const RUOLI_DELEGABILI = ['revisore', 'coordinatore', 'vicecoordinatore'];
-const NOMI_RUOLI = { revisore: 'Revisore', coordinatore: 'Coordinatore territoriale', vicecoordinatore: 'Vice coordinatore territoriale' };
+// il solo ruolo che si puo' assegnare da "Nuovi accessi" (lo stesso elenco di RUOLI_DELEGABILI in app.js)
+const RUOLI_DELEGABILI = ['revisore'];
+const NOMI_RUOLI = { revisore: 'Revisore' };
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 // quanti accessi puo' abilitare una persona in un giorno: un freno a un errore o a un abuso, non un limite di lavoro
 const MAX_AL_GIORNO = 60;
@@ -114,7 +115,7 @@ async function abilita(db, ue, dati) {
     const email = pulito(dati && dati.email, 200).toLowerCase();
     const ruolo = pulito(dati && dati.ruolo, 40);
     if (!EMAIL_RE.test(email)) return { ok: false, stato: 400, msg: 'Indirizzo email non valido.' };
-    if (RUOLI_DELEGABILI.indexOf(ruolo) < 0) return { ok: false, stato: 400, msg: 'Da qui si assegnano solo i ruoli Revisore, Coordinatore territoriale e Vice coordinatore territoriale.' };
+    if (RUOLI_DELEGABILI.indexOf(ruolo) < 0) return { ok: false, stato: 400, msg: 'Da qui si abilita solo con il ruolo Revisore: per un altro ruolo serve l\'amministratore.' };
     const rif = db.collection('utenti').doc(email);
     const GIA = 'Questo indirizzo ha già un accesso (attivo o disabilitato): per cambiarlo serve l\'amministratore.';
     // chi ha gia' un accesso lo si dice subito, prima di ogni altra cosa (la transazione sotto lo ricontrolla)

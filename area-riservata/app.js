@@ -325,10 +325,11 @@
     }
     /* I ruoli che possono essere assegnati da chi NON e' amministratore: responsabili
        della qualita', equity partner e founding partner abilitano i revisori che non
-       hanno ancora un accesso (sezione "Nuovi accessi"), ma solo con uno di questi tre
-       ruoli. Lo stesso elenco sta nel servizio (email-service/lib/abilita-utente.js),
-       che e' quello che decide davvero. */
-    const RUOLI_DELEGABILI = [RUOLO_REVISORE, 'coordinatore', 'vicecoordinatore'];
+       hanno ancora un accesso (sezione "Nuovi accessi"), ma SOLO come Revisore. Ogni
+       altro ruolo (Coordinatore territoriale, Vice, Responsabile qualita', Procuratore...)
+       lo assegna l'amministratore dalla sezione Utenti. Lo stesso elenco sta nel servizio
+       (email-service/lib/abilita-utente.js), che e' quello che decide davvero. */
+    const RUOLI_DELEGABILI = [RUOLO_REVISORE];
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: RUOLO_VICE_ADMIN, nome: NOME_RUOLO_VICE_ADMIN, builtin: true, sezioni: sezioniTutte('scrittura') },
@@ -1580,7 +1581,7 @@
         /* Chi puo' ABILITARE nuovi utenti senza essere amministratore: i responsabili
            della qualita' (il ruolo di accesso, o la qualifica sulla scheda), gli equity
            partner e i founding partner. Torna la qualifica che glielo consente ('' se
-           nessuna). Possono solo AGGIUNGERE, e solo con i ruoli di RUOLI_DELEGABILI: la
+           nessuna). Possono solo AGGIUNGERE, e solo con il ruolo Revisore (RUOLI_DELEGABILI): la
            gestione vera degli utenti (cambi di ruolo, disabilitazioni, eliminazioni)
            resta dell'amministratore. Un collaboratore non eredita questo potere. */
         qualificaPerAbilitare() {
@@ -41512,8 +41513,8 @@
        ------------------------------------------------------------
        Per i responsabili della qualita', gli equity partner e i founding partner
        (Auth.puoAbilitareUtenti): abilitano all'area i revisori che non hanno ancora un
-       accesso. Possono solo AGGIUNGERE, solo con i ruoli di RUOLI_DELEGABILI
-       (Revisore, Coordinatore territoriale, Vice coordinatore) e solo chi ha gia' una
+       accesso. Possono solo AGGIUNGERE, solo con il ruolo Revisore (RUOLI_DELEGABILI:
+       ogni altro ruolo lo assegna l'amministratore) e solo chi ha gia' una
        scheda attiva in Aderenti Revilaw con il suo indirizzo email: non si abilita un
        indirizzo scritto a mano. Chi manca va prima inserito in anagrafica (e messo
        negli incarichi), poi gli si da' l'accesso. Cambi di ruolo, disabilitazioni ed
@@ -41530,19 +41531,14 @@
         });
         return conta;
     }
-    // il ruolo che conviene proporre per una persona, letto dalla sua scheda
-    function ruoloPropostoPer(p) { return p && p.coordinatore ? 'coordinatore' : (p && p.viceCoordinatore ? 'vicecoordinatore' : RUOLO_REVISORE); }
-    function opzioniRuoliDelegabili(sel) {
-        return RUOLI_DELEGABILI.map(id => '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(nomeRuolo(id)) + '</option>').join('');
-    }
     /* Abilita un accesso da "Nuovi accessi". Torna { ok, msg, tono }. In cloud la scheda
        la crea il servizio (che ricontrolla chi chiama e il ruolo); poi parte l'email per
        impostare la password, come dalla sezione Utenti. */
-    async function abilitaAccessoDelegato(nome, email, ruolo) {
+    async function abilitaAccessoDelegato(nome, email) {
+        const ruolo = RUOLO_REVISORE;       // da qui si assegna solo questo
         nome = String(nome || '').trim();
         email = String(email || '').trim().toLowerCase();
         if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, msg: 'Servono il nome e un indirizzo email valido.' };
-        if (!RUOLI_DELEGABILI.includes(ruolo)) return { ok: false, msg: 'Da qui si assegnano solo i ruoli Revisore, Coordinatore territoriale e Vice coordinatore territoriale.' };
         if (!Auth.puoAbilitareUtenti()) return { ok: false, msg: 'Non hai il permesso di abilitare nuovi accessi.' };
         const qualifica = Auth.qualificaPerAbilitare();
         const dettagli = [{ campo: 'Ruolo', prima: 'vuoto', dopo: nomeRuolo(ruolo) }, { campo: 'Abilitato da', prima: 'vuoto', dopo: qualifica + ' (sezione Nuovi accessi)' }];
@@ -41570,14 +41566,14 @@
             <header>
                 <div>
                     <h1>Nuovi accessi</h1>
-                    <p class="descrizione">Come <strong>${esc(qualifica)}</strong> puoi abilitare all'area riservata i revisori che non hanno ancora un accesso. Da qui si assegnano solo i ruoli <strong>Revisore</strong>, <strong>Coordinatore territoriale</strong> e <strong>Vice coordinatore territoriale</strong>. Cambiare un ruolo, disabilitare o eliminare un utente resta dell'amministratore.</p>
+                    <p class="descrizione">Come <strong>${esc(qualifica)}</strong> puoi abilitare all'area riservata i revisori che non hanno ancora un accesso. Da qui l'accesso si dà solo con il ruolo <strong>Revisore</strong>: per un altro ruolo, per cambiarlo, o per disabilitare o eliminare un utente, serve l'amministratore.</p>
                 </div>
             </header>
             <div class="card">
                 <h2>Che cosa vede chi abiliti</h2>
                 <ul class="elenco-ambito">
-                    <li><strong>Revisore</strong>: solo gli incarichi in cui compare (team, responsabile dell'incarico o della qualità), in sola visualizzazione. Li riconosce dall'indirizzo email scritto sulla sua scheda di Aderenti Revilaw.</li>
-                    <li><strong>Coordinatore territoriale</strong> e <strong>Vice coordinatore</strong>: gli incarichi delle regioni spuntate sulla loro scheda di Aderenti Revilaw. Senza regioni spuntate non vedono alcun incarico.</li>
+                    <li>Entra come <strong>Revisore</strong>: vede solo gli incarichi in cui compare (team, responsabile dell'incarico o della qualità), in sola visualizzazione. Li riconosce dall'indirizzo email scritto sulla sua scheda di Aderenti Revilaw.</li>
+                    <li>Le caselle spuntate sulla scheda (Responsabile qualità, Responsabile incarico, Coordinatore territoriale…) dicono che cosa fa la persona nello studio, ma <strong>non cambiano il suo accesso</strong>: per farla entrare con un altro ruolo, per esempio Coordinatore territoriale, chiedi all'amministratore.</li>
                 </ul>
                 <p class="hint" style="margin-top:12px;"><strong>Manca qualcuno dall'elenco?</strong> Si abilita solo chi ha già una scheda in <strong>Aderenti Revilaw</strong> con il suo indirizzo email: prima si inserisce lì la persona, poi compare qui. Perché un Revisore veda degli incarichi, il suo nome va anche scritto negli incarichi su cui lavora (team o responsabile): l'accesso si può dare prima, ma finché non è in un incarico non vede nulla.</p>
             </div>
@@ -41613,12 +41609,12 @@
                 <h2>Revisori senza accesso${candidati.length ? ' (' + candidati.length + ')' : ''}</h2>
                 <p class="descrizione">Le persone attive di Aderenti Revilaw che hanno un indirizzo email sulla scheda ma non sono ancora abilitate all'area riservata.</p>
                 ${candidati.length ? `<div class="campo" style="max-width:340px;"><input id="na-cerca" type="search" placeholder="Cerca per nome o email" aria-label="Cerca per nome o email"></div>
-                <div class="tabella-wrap"><table class="dati" id="na-tabella"><thead><tr><th>Persona</th><th>Email</th><th>Sulla scheda</th><th>Ruolo</th><th></th></tr></thead><tbody>`
+                <div class="tabella-wrap"><table class="dati" id="na-tabella"><thead><tr><th>Persona</th><th>Email</th><th>Sulla scheda</th><th>Accesso</th><th></th></tr></thead><tbody>`
                     + candidati.map(p => `<tr data-id="${esc(p.id)}" data-testo="${esc((nomeCompletoPersona(p) + ' ' + p.email).toLowerCase())}">
                         <td class="cliente-cella" data-label="Persona">${esc(nomeCompletoPersona(p))}</td>
                         <td data-label="Email">${esc(p.email)}</td>
                         <td data-label="Sulla scheda">${nIncarichi(p)} ${qualifiche(p)}</td>
-                        <td data-label="Ruolo"><select class="na-ruolo" aria-label="Ruolo per ${esc(nomeCompletoPersona(p))}">${opzioniRuoliDelegabili(ruoloPropostoPer(p))}</select></td>
+                        <td data-label="Accesso">${esc(NOME_RUOLO_REVISORE)}${p.coordinatore || p.viceCoordinatore ? '<span class="hint" style="display:block;margin:2px 0 0;">per il ruolo di coordinatore serve l\'amministratore</span>' : ''}</td>
                         <td data-label=""><button type="button" class="btn btn-sm btn-primary na-abilita">Abilita</button></td>
                     </tr>`).join('') + '</tbody></table></div>'
                     : '<p class="tabella-vuota">Tutte le persone attive di Aderenti Revilaw con un indirizzo email hanno già un accesso. Per abilitare qualcun altro, prima inseriscilo in Aderenti Revilaw con il suo indirizzo email.</p>'}
@@ -41645,15 +41641,14 @@
         corpo.querySelectorAll('.na-abilita').forEach(b => b.addEventListener('click', () => {
             const tr = b.closest('tr');
             const p = candidati.find(x => x.id === tr.dataset.id); if (!p) return;
-            const ruolo = tr.querySelector('.na-ruolo').value;
             apriModale(`<h2>Abilitare ${esc(nomeCompletoPersona(p))}?</h2>
-                <p>Avrà accesso all'area riservata con l'indirizzo <strong>${esc(p.email)}</strong> e il ruolo <strong>${esc(nomeRuolo(ruolo))}</strong>.</p>
+                <p>Avrà accesso all'area riservata con l'indirizzo <strong>${esc(p.email)}</strong> e il ruolo <strong>${esc(NOME_RUOLO_REVISORE)}</strong>.</p>
                 <p class="descrizione">${Cloud.attivo ? 'Gli arriva subito una email con il collegamento per impostare la password.' : 'Potrà richiedere la prima password dalla pagina di ingresso.'} L'operazione resta nel Registro modifiche a tuo nome.</p>
                 <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="na-conferma">Abilita</button></div>`);
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             const si = document.getElementById('na-conferma');
             si.addEventListener('click', () => conAttesa(si, async () => {
-                const r = await abilitaAccessoDelegato(nomeCompletoPersona(p), p.email, ruolo);
+                const r = await abilitaAccessoDelegato(nomeCompletoPersona(p), p.email);
                 chiudiModale();
                 toast(r.msg, r.ok ? (r.tono || 'verde') : 'rosso');
                 if (r.ok) ridisegna();
