@@ -33,7 +33,7 @@
      3. per ognuna iscriviDaModulo con `riconcilia`: chi e' gia'
         nell'evento non riceve niente (e la sua voce non si tocca, anche
         se aspetta il gestore); chi non c'e' ha l'account e le credenziali
-        'in coda', o l'avviso «anche»: le manda la coda dello stesso giro,
+        'in coda': le manda la coda dello stesso giro,
         dentro la parte del tetto giornaliero del modulo (60%);
      4. si ricorda fino a dove si e' arrivati (riconciliazioni/{idEvento}:
         cursore = il `ricevuto` dell'ultima scheda letta, con le impronte

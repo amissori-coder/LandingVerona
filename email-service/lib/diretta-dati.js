@@ -1192,8 +1192,9 @@ async function reinvia(ctx, uid, idEvento, opz) {
    smette di valere e chi e' collegato viene scollegato entro un'ora
    (Firebase chiude le sessioni quando la password cambia). Sul profilo
    resta solo QUANDO (passwordAVoce): da li' in poi la persona ha una
-   password, e per un evento nuovo riceve «Sei iscritto anche a...»
-   invece di una password che cancellerebbe quella detta a voce. */
+   password; le credenziali di un evento gliela cambiano lo stesso, e
+   l'email dice che quella di prima (anche detta a voce) non vale piu'
+   (lib/diretta-invio.js: OGNI EVENTO, LE SUE CREDENZIALI). */
 async function rigenera(ctx, uid) {
     const p = await leggiPartecipante(ctx, uid);
     if (p.authCreato !== true) throw C.errore(409, 'Account non ancora completo: ricarica il file dei partecipanti per completarlo.', 'incompleto');
@@ -1240,9 +1241,8 @@ async function cambiaAttivazione(ctx, uid, idEvento, attivo) {
      cambiata (emailCambiata): gli invii fatti prima sono andati al
      vecchio indirizzo e non contano piu' come "password gia' ricevuta",
      e nemmeno le reimpostazioni e gli accessi di prima (vedi haPassword
-     e tipoInvio in lib/diretta-invio.js: le credenziali di questo evento
-     partite al vecchio indirizzo non impediscono l'avviso «anche» a chi
-     nel frattempo ha una password al nuovo). I contatori dei tentativi
+     e sostituzione in lib/diretta-invio.js: l'email al nuovo indirizzo
+     non parla della password partita al vecchio). I contatori dei tentativi
      di accesso del vecchio e del nuovo indirizzo si cancellano.
    - L'email tecnica su Auth non cambia mai (DECISIONI D1): chi e'
      collegato resta collegato. Il vecchio campo mantieniNomeUtente si
