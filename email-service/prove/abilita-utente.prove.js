@@ -7,9 +7,8 @@
    delle circolarizzazioni): non serve niente di installato.
 
    COSA DIMOSTRANO. Responsabili della qualita', equity partner e
-   founding partner possono AGGIUNGERE utenti con i soli ruoli
-   Revisore, Coordinatore territoriale e Vice coordinatore, e
-   nient'altro: nessun altro ruolo, nessuna modifica a chi c'e' gia',
+   founding partner possono AGGIUNGERE utenti con il solo ruolo
+   Revisore, e nient'altro: nessun altro ruolo, nessuna modifica a chi c'e' gia',
    nessun potere a chi non ha la qualifica, e solo per chi ha gia' una
    scheda attiva in Aderenti Revilaw. La decisione e' del
    servizio (api/abilita-utente.js): l'app mostra solo i comandi.
@@ -98,25 +97,25 @@ utente('vecchio@studio.it', { ruolo: 'procuratore', attivo: false, nome: 'Tolto 
     verifica('solo POST', (await chiama('elena@studio.it', { azione: 'abilita' }, 'GET')).http === 405);
     verifica('fin qui non e\' stato creato nessuno', quanti() === prima && !scheda('x@studio.it'));
     r = await chiama('elena@studio.it', { azione: 'stato' });
-    verifica('"stato" dice se si puo\', come, e con quali ruoli', r.ok && r.puo === true && r.come === 'equity' && r.ruoli.join() === 'revisore,coordinatore,vicecoordinatore', r);
+    verifica('"stato" dice se si puo\', come, e con quale ruolo', r.ok && r.puo === true && r.come === 'equity' && r.ruoli.join() === 'revisore', r);
     verifica('"stato" a chi non puo\'', (await chiama('marta@studio.it', { azione: 'stato' })).puo === false);
 
-    // ---------- 3. si aggiunge, e solo con i tre ruoli ----------
+    // ---------- 3. si aggiunge, e solo come Revisore ----------
     const t0 = Date.now();
     r = await chiama('qualita@studio.it', { azione: 'abilita', email: '  Nuovo.Revisore@Studio.IT ', nome: 'Un Nome Scritto Da Chi Chiama', ruolo: 'revisore' });
     let s = scheda('nuovo.revisore@studio.it');
     verifica('un responsabile della qualita\' abilita un Revisore', r.ok && r.http === 200 && r.email === 'nuovo.revisore@studio.it' && r.ruolo === 'revisore' && r.nomeRuolo === 'Revisore' && r.nome === 'Mario Bianchi', r);
     verifica('la scheda: indirizzo in minuscolo, nome preso da Aderenti Revilaw (non da chi chiama), attiva, con chi l\'ha creata e a che titolo', s && s.nome === 'Mario Bianchi' && s.ruolo === 'revisore' && s.attivo === true && s.creatoDa === 'qualita@studio.it' && s.delega === 'qualita' && s.creato >= t0 && !dati.has('utenti/  Nuovo.Revisore@Studio.IT '), s);
-    r = await chiama('elena@studio.it', { azione: 'abilita', email: 'coord@studio.it', nome: 'Coordinatore Nuovo', ruolo: 'coordinatore' });
-    verifica('un equity partner abilita un Coordinatore territoriale', r.ok && scheda('coord@studio.it').ruolo === 'coordinatore' && scheda('coord@studio.it').delega === 'equity' && scheda('coord@studio.it').creatoDa === 'elena@studio.it', r);
-    r = await chiama('piero@studio.it', { azione: 'abilita', email: 'vice.coord@studio.it', nome: 'Vice Nuovo', ruolo: 'vicecoordinatore' });
-    verifica('un founding partner abilita un Vice coordinatore', r.ok && scheda('vice.coord@studio.it').ruolo === 'vicecoordinatore' && scheda('vice.coord@studio.it').delega === 'founding', r);
+    r = await chiama('elena@studio.it', { azione: 'abilita', email: 'coord@studio.it', ruolo: 'revisore' });
+    verifica('un equity partner abilita un Revisore', r.ok && scheda('coord@studio.it').ruolo === 'revisore' && scheda('coord@studio.it').delega === 'equity' && scheda('coord@studio.it').creatoDa === 'elena@studio.it', r);
+    r = await chiama('piero@studio.it', { azione: 'abilita', email: 'vice.coord@studio.it', ruolo: 'revisore' });
+    verifica('un founding partner abilita un Revisore', r.ok && scheda('vice.coord@studio.it').ruolo === 'revisore' && scheda('vice.coord@studio.it').delega === 'founding', r);
     r = await chiama('admin@studio.it', { azione: 'abilita', email: 'da.admin@studio.it', nome: 'Da Admin', ruolo: 'revisore' });
     verifica('lo puo\' fare anche l\'amministratore (che ha comunque la sezione Utenti)', r.ok && scheda('da.admin@studio.it').delega === 'amministratore');
     const dopo = quanti();
-    for (const ruolo of ['admin', 'viceadmin', 'qualita', 'procuratore', 'marketing', 'collaboratore', 'sondaggio_compila', 'ruolo-su-misura', '', 'Revisore', 'REVISORE']) {
+    for (const ruolo of ['coordinatore', 'vicecoordinatore', 'admin', 'viceadmin', 'qualita', 'procuratore', 'marketing', 'collaboratore', 'sondaggio_compila', 'ruolo-su-misura', '', 'Revisore', 'REVISORE']) {
         r = await chiama('elena@studio.it', { azione: 'abilita', email: 'scalata@studio.it', nome: 'Scalata', ruolo: ruolo });
-        verifica('il ruolo "' + ruolo + '" NON si puo\' assegnare da qui', r.http === 400 && /solo i ruoli Revisore, Coordinatore territoriale e Vice coordinatore/.test(r.msg) && !scheda('scalata@studio.it'), r);
+        verifica('il ruolo "' + ruolo + '" NON si puo\' assegnare da qui', r.http === 400 && /solo con il ruolo Revisore: per un altro ruolo serve l'amministratore/.test(r.msg) && !scheda('scalata@studio.it'), r);
     }
     r = await chiama('admin@studio.it', { azione: 'abilita', email: 'scalata@studio.it', nome: 'Scalata', ruolo: 'admin' });
     verifica('nemmeno l\'amministratore crea amministratori da questa porta: usa la sezione Utenti', r.http === 400 && !scheda('scalata@studio.it'));
@@ -139,10 +138,10 @@ utente('vecchio@studio.it', { ruolo: 'procuratore', attivo: false, nome: 'Tolto 
     verifica('nemmeno l\'amministratore si puo\' declassare cosi\'', r.http === 409 && scheda('admin@studio.it').ruolo === 'admin');
     r = await chiama('qualita@studio.it', { azione: 'abilita', email: 'vecchio@studio.it', nome: 'Di Nuovo Dentro', ruolo: 'revisore' });
     verifica('chi e\' stato disabilitato dall\'amministratore resta disabilitato', r.http === 409 && scheda('vecchio@studio.it').attivo === false && scheda('vecchio@studio.it').nome === 'Tolto dall\'amministratore', r);
-    r = await chiama('elena@studio.it', { azione: 'abilita', email: 'elena@studio.it', nome: 'Elena', ruolo: 'coordinatore' });
+    r = await chiama('elena@studio.it', { azione: 'abilita', email: 'elena@studio.it', nome: 'Elena', ruolo: 'revisore' });
     verifica('non ci si cambia il ruolo da soli', r.http === 409 && scheda('elena@studio.it').ruolo === 'procuratore');
-    r = await chiama('piero@studio.it', { azione: 'abilita', email: 'nuovo.revisore@studio.it', nome: 'Doppio', ruolo: 'coordinatore' });
-    verifica('chi e\' appena stato abilitato da un altro non si ricrea con un altro ruolo', r.http === 409 && scheda('nuovo.revisore@studio.it').ruolo === 'revisore' && scheda('nuovo.revisore@studio.it').creatoDa === 'qualita@studio.it');
+    r = await chiama('piero@studio.it', { azione: 'abilita', email: 'nuovo.revisore@studio.it', nome: 'Doppio', ruolo: 'revisore' });
+    verifica('chi e\' appena stato abilitato da un altro non si ricrea', r.http === 409 && scheda('nuovo.revisore@studio.it').ruolo === 'revisore' && scheda('nuovo.revisore@studio.it').creatoDa === 'qualita@studio.it');
 
     // ---------- 5. il freno giornaliero ----------
     const k = ABILITA._interni.chiaveDi('ugo@studio.it');
@@ -159,7 +158,7 @@ utente('vecchio@studio.it', { ruolo: 'procuratore', attivo: false, nome: 'Tolto 
     // ---------- 6. app, regole e servizio dicono la stessa cosa ----------
     const app = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'app.js'), 'utf8');
     const regole = fs.readFileSync(path.join(__dirname, '..', '..', 'area-riservata', 'FIREBASE-SETUP.md'), 'utf8');
-    verifica('l\'app propone gli stessi tre ruoli che il servizio accetta', /const RUOLO_REVISORE = 'revisore';/.test(app) && /const RUOLI_DELEGABILI = \[RUOLO_REVISORE, 'coordinatore', 'vicecoordinatore'\];/.test(app) && ABILITA.RUOLI_DELEGABILI.join() === 'revisore,coordinatore,vicecoordinatore');
+    verifica('l\'app assegna lo stesso solo ruolo che il servizio accetta: Revisore', /const RUOLO_REVISORE = 'revisore';/.test(app) && /const RUOLI_DELEGABILI = \[RUOLO_REVISORE\];/.test(app) && ABILITA.RUOLI_DELEGABILI.join() === 'revisore');
     verifica('l\'app chiama questa porta, non scrive la scheda da se\'', /abilita-utente\$1/.test(app) && /azione: 'abilita'/.test(app));
     verifica('le regole Firestore lasciano creare gli utenti al solo amministratore: dal browser un delegato non puo\'', /allow create, delete: if admin\(\);/.test(regole));
     verifica('il Revisore non compare fra i ruoli esclusi dallo staff nelle regole (legge l\'archivio come gli altri)', !/'revisore'/.test(regole.split('```')[1] || ''));

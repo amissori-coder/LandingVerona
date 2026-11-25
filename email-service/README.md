@@ -599,8 +599,8 @@ Nell'area riservata gli utenti li gestisce l'amministratore, e le regole
 Firestore lasciano scrivere la raccolta `utenti` solo a lui. La sezione **Nuovi
 accessi** dell'area da' un potere piccolo e preciso a chi i revisori li conosce:
 i **responsabili della qualita'**, gli **equity partner** e i **founding
-partner** possono **aggiungere** un utente, e solo con uno di tre ruoli:
-`revisore`, `coordinatore`, `vicecoordinatore`. Siccome il browser non puo'
+partner** possono **aggiungere** un utente, e solo con il ruolo `revisore`
+(ogni altro ruolo lo assegna l'amministratore). Siccome il browser non puo'
 scrivere in `utenti`, la scheda la crea questo servizio, che e' quello che
 decide davvero (`lib/abilita-utente.js`).
 
@@ -608,7 +608,7 @@ decide davvero (`lib/abilita-utente.js`).
 
 | Azione | Che cosa fa |
 |---|---|
-| `stato` | dice se chi chiama puo' abilitare (`puo`), a che titolo (`come`) e con quali ruoli |
+| `stato` | dice se chi chiama puo' abilitare (`puo`), a che titolo (`come`) e con quale ruolo |
 | `abilita` | con `{ email, ruolo }` crea `utenti/<email>` con il nome preso dalla scheda, `attivo: true`, `creatoDa` (chi ha abilitato) e `delega` (a che titolo: `qualita`, `equity`, `founding`, `amministratore`) |
 
 **Chi puo'.** Equity e founding partner sono qualifiche della scheda in
@@ -622,7 +622,8 @@ collaboratore no: i poteri sugli utenti non si delegano.
 - abilitare un indirizzo che non ha una scheda **attiva in Aderenti Revilaw**
   (400): non si abilita un indirizzo scritto a mano. Un revisore nuovo si
   inserisce prima in anagrafica (e negli incarichi), poi gli si da' l'accesso;
-- assegnare un ruolo diverso dai tre (400);
+- assegnare un ruolo diverso da `revisore` (400): coordinatore, vice e tutti
+  gli altri li assegna l'amministratore dalla sezione Utenti;
 - toccare un indirizzo che ha gia' una scheda, anche disabilitata (409): chi e'
   stato tolto dall'amministratore non rientra da questa porta, e nessuno si
   cambia il ruolo da solo;
