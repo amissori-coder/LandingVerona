@@ -38,6 +38,7 @@ const crypto = require('crypto');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 const { utenteEffettivo, firmaCollaboratore, eRuoloAdmin } = require('../lib/utente-effettivo');
+const REVISORE = require('../lib/revisore');
 const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
 
 const COLL = 'sbloccoIncarichi';
@@ -235,6 +236,13 @@ function mailEsitoAlRichiedente(r, approvata) {
         + '<p style="' + P + '">Il compenso concordato resta congelato. Se serve, parlane con il responsabile e ripresenta la richiesta.</p>';
 }
 
+/* Chi ha il ruolo Revisore lavora solo sui SUOI incarichi (quelli in cui compare la sua
+   scheda di Aderenti Revilaw: lib/revisore.js). Per tutti gli altri non cambia nulla. */
+async function incaricoConsentito(ue, incaricoId) {
+    if (!REVISORE.eRevisore(ue)) return true;
+    return (await REVISORE.idIncarichi(admin.firestore(), ue)).has(String(incaricoId));
+}
+
 /* ============================================================
    AZIONI
    ============================================================ */
@@ -257,6 +265,9 @@ async function azioneRichiedi(body, res) {
     if (!incaricoId) { res.status(400).json({ ok: false, msg: 'Incarico non indicato.' }); return; }
     if (motivo.length < 5) { res.status(400).json({ ok: false, msg: 'Scrivi il motivo dello sblocco (almeno 5 caratteri).' }); return; }
 
+    // il Revisore vede solo i suoi incarichi: sugli altri non chiede nulla, e la risposta
+    // non gli dice nemmeno se esistono
+    if (!(await incaricoConsentito(ue, incaricoId))) { res.status(404).json({ ok: false, msg: 'Incarico non trovato.' }); return; }
     const incarichi = await leggiArchivio('incarichi');
     const inc = Array.isArray(incarichi) ? incarichi.find(i => i && i.id === incaricoId) : null;
     if (!inc) { res.status(404).json({ ok: false, msg: 'Incarico non trovato.' }); return; }
@@ -350,6 +361,7 @@ async function azioneAnnulla(body, res) {
 
     const incaricoId = String(body.incaricoId || '').trim();
     if (!incaricoId) { res.status(400).json({ ok: false, msg: 'Incarico non indicato.' }); return; }
+    if (!(await incaricoConsentito(ue, incaricoId))) { res.status(404).json({ ok: false, msg: 'Incarico non trovato.' }); return; }
 
     const db = admin.firestore();
     const trovate = await db.collection(COLL).where('incaricoId', '==', incaricoId).get();

@@ -1,0 +1,18 @@
+{
+  "name": "prova-regole-firestore",
+  "private": true,
+  "description": "Prove delle regole di sicurezza di Firestore e del Revisore, sugli emulatori di Firebase (vedi README.md)",
+  "scripts": {
+    "prova": "firebase emulators:exec --only firestore --project demo-regole \"node prova-regole.cjs\"",
+    "aggiorna": "firebase emulators:exec --only firestore --project demo-regole \"node prova-regole.cjs --aggiorna\"",
+    "prova-area": "firebase emulators:exec --only auth,firestore --project demo-regole \"node prova-area.cjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^13.0.0",
+    "firebase-tools": "^13.29.1",
+    "firebase-web": "npm:firebase@11.6.1",
+    "playwright": "^1.56.0"
+  }
+}
