@@ -309,6 +309,22 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await A.locator('#tab-posta').click();
         vero(/Nuova password/i.test(await A.locator('#elenco-posta').innerText()), 'l\'email di "password dimenticata" arriva nella posta');
 
+        // 8. la relatrice entra dalla pagina della diretta (il collegamento dell'email): va da sola alla pagina del relatore
+        await A.locator('#tab-partecipante').click();
+        // la pagina e' rimasta su «Password dimenticata?»: si ricarica (nessuno e' collegato su questo telefono)
+        await A.locator('#btn-ricarica-partecipante').click();
+        await P.locator('#email').waitFor({ timeout: 15000 });
+        await P.locator('#email').fill('laura.verdi@esempio.it');
+        await P.locator('#campo-password').fill('Scena4Rapt');
+        await P.locator('#btn-entra').click();
+        await A.locator('#tab-relatore[aria-selected="true"]').waitFor({ timeout: 20000 });
+        await R.locator('body[data-vista="app"]').waitFor({ timeout: 20000 });
+        vero(/laura\.verdi@esempio\.it/.test(await R.locator('#utente-connesso').innerText()), 'la relatrice entra dalla diretta e va da sola alla pagina del relatore');
+        vero(/vista=diretta/.test(await R.locator('#link-guarda-diretta').getAttribute('href')), 'nella pagina del relatore «Guarda la diretta» riapre la diretta per lei');
+        await A.locator('#tab-partecipante').click();
+        await P.locator('#box-relatore').waitFor({ state: 'visible', timeout: 30000 });
+        vero(!(await P.locator('#modulo-domanda').isVisible()), 'nella diretta, al posto del modulo, «Apri le domande dei partecipanti»');
+
         // telefono (390 px) su tutto il percorso: la guida
         await page.setViewportSize({ width: 390, height: 844 });
         await A.locator('#tab-guida').click();
