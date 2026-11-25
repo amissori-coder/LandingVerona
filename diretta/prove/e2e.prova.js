@@ -106,6 +106,8 @@ const { spawn } = require('child_process');
 const PORTE = { firestore: 8880, auth: 9880, api: 3880, statico: 8890 };
 const PROGETTO = 'demo-ngb-eventi';
 const EVENTO = 'napoli-2026';
+// l'account di un'email per EVENTO (indirizzi/{email}.perEvento: ogni evento ha i suoi partecipanti)
+const uidEvento = d => (d && ((d.perEvento || {})[EVENTO] || d.uid)) || '-';
 const SITO = 'http://127.0.0.1:' + PORTE.statico;
 const API = 'http://127.0.0.1:' + PORTE.api + '/api';
 const GESTORE = 'gestore@prova.it';
@@ -521,7 +523,8 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
             vero(r.stato === 200 && r.corpo && r.corpo.ok === true && r.ms < 10000, 'il modulo del sito: ' + r.stato + ' ' + JSON.stringify(r.corpo) + ' in ' + r.ms + ' ms');
             vero(!posta().slice(prima).some(x => aIndirizzo(x, LUCA)), 'e\' partita un\'email prima della conferma');
             const ind = await db.doc('indirizzi/' + LUCA).get();
-            const p = ind.exists ? (await db.doc('partecipanti/' + ind.data().uid).get()).data() : null;
+            // ogni evento ha i suoi account: quello di Luca per questo evento (perEvento)
+            const p = ind.exists ? (await db.doc('partecipanti/' + uidEvento(ind.data())).get()).data() : null;
             vero(p && p.origine === 'modulo' && p.invii[EVENTO].stato === 'da confermare', 'profilo di Luca: ' + JSON.stringify(p && { o: p.origine, i: p.invii }));
         });
         await prova('Luca apre il collegamento della conferma (la pagina vera /conferma_email/): «Indirizzo confermato», e la password gli arriva subito', async () => {
@@ -562,7 +565,8 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
                 'l\'email non dice «scrivi la tua email ' + LUCA + ' e questa password: …»');
             vero(/Non trovi l'email\? Controlla nella cartella Spam o Promozioni/.test(arrivate[0].testo), 'manca la frase dello Spam');
             const ind = await db.doc('indirizzi/' + LUCA).get();
-            const p = ind.exists ? (await db.doc('partecipanti/' + ind.data().uid).get()).data() : null;
+            // ogni evento ha i suoi account: quello di Luca per questo evento (perEvento)
+            const p = ind.exists ? (await db.doc('partecipanti/' + uidEvento(ind.data())).get()).data() : null;
             vero(p && p.origine === 'modulo' && p.eventi.join() === EVENTO && p.invii[EVENTO].stato === 'inviata', 'profilo di Luca: ' + JSON.stringify(p && { o: p.origine, e: p.eventi, i: p.invii }));
             vero(JSON.stringify(p).indexOf(pwLuca) < 0, 'la password e\' finita in Firestore');
         });
@@ -991,7 +995,7 @@ const nessunIframe = page => page.evaluate(() => document.querySelectorAll('#vid
         console.log('\n9. Dopo la prova: «Torna alla fase iniziale»');
         const luca = await contesto({ viewport: { width: 1280, height: 860 } });
         const treAperte = [[computer, 'Anna Maria'], [iphone, 'Mario'], [luca, 'Luca']];
-        const uidDi = async email => (await db.doc('indirizzi/' + email).get()).data().uid;
+        const uidDi = async email => uidEvento((await db.doc('indirizzi/' + email).get()).data());
         const UID3 = {};
         // quello che l'azzeramento NON deve toccare, com'era prima (Timestamp come millisecondi, chiavi in ordine)
         const canonico = v => Array.isArray(v) ? '[' + v.map(canonico).join(',') + ']'

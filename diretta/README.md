@@ -712,8 +712,8 @@ provano a mano, con Azoto che trasmette una prova:
    inviare le credenziali agli indirizzi del file**).
    L'**anteprima** controlla riga per riga le **email** e mostra i problemi, a
    colori: email mancanti o non valide, nome o cognome vuoti, doppioni nel
-   file, persone già presenti (vengono solo aggiunte all'evento, senza password
-   nuova), la stessa email per persone diverse (da correggere), un file salvato
+   file, persone già nell'evento (o tolte e da rimettere, con il loro account),
+   la stessa email per persone diverse dello stesso evento (da correggere), un file salvato
    con la codifica sbagliata (lettere come `Ã²`). Il filtro "Solo da controllare"
    mostra solo quelle. Per ogni riga puoi correggere o escludere;
    **"Crea gli account" resta spento finché c'è qualcosa da sistemare**. Gli
@@ -724,9 +724,10 @@ provano a mano, con Azoto che trasmette una prova:
    **Una persona sola, senza file** (chi vi scrive o telefona, un'azienda iscritta
    in presenza che non potrà venire): nella stessa scheda, **«Aggiungi un
    partecipante»**, con nome, cognome, email e, se c'è, l'azienda. Stessi
-   controlli del file: una email = un account; la stessa email di un'altra
-   persona è rifiutata con il nome registrato. Chi ha già un account per un
-   altro evento viene solo aggiunto. Nell'elenco compare **«aggiunto a mano»**
+   controlli del file: in un evento una email = un account; la stessa email di
+   un'altra persona dello stesso evento è rifiutata con il nome di chi c'è già.
+   Un'email usata in un altro evento non è un problema: per questo evento nasce
+   un account suo. Nell'elenco compare **«aggiunto a mano»**
    (con chi e quando), nell'Excel la colonna *Origine*. Anche qui **non parte
    nessuna email**. Subito sotto c'è **«Invia ora le credenziali»**, con la
    conferma: manda quello che manderebbe «Invia le credenziali», cioè le
@@ -1041,20 +1042,38 @@ da Excel, e un `mailto:` davanti); punti e `+` restano come sono. È una sola
 regola (`email-service/lib/diretta-email.js`), la stessa per pagina, gestione e
 servizio.
 
-**Un'email = un account = una persona.** Chi è iscritto a più eventi ha un solo
-account con più eventi.
-1. Se l'email c'è già, o compare due volte nel file, non si crea niente di
-   nuovo: la persona viene solo aggiunta all'evento. Ricaricare lo stesso file
-   non crea niente.
-2. **La stessa email per persone diverse** (nel file, o rispetto a un account
-   che c'è già con un altro nome) è da correggere prima di creare: con l'email
-   come accesso non può valere per due persone. L'anteprima la segna in rosso e
-   "Crea gli account" resta spento.
-3. **Garanzia tecnica.** Ogni email si **prenota** con una transazione nel
-   server (`indirizzi/{email}`): due caricamenti contemporanei, o un
-   caricamento e un'iscrizione dal modulo del sito nello stesso momento, non
-   possono creare due account per la stessa email. Le prove lo dimostrano
-   (§10).
+**Ogni evento, i suoi partecipanti (dal 25 novembre 2026).** Gli iscritti di
+un evento sono distinti da quelli degli altri: **in un evento un'email = un
+account = una persona**, ma la stessa email in due eventi sono **due account
+diversi**, ognuno con il suo nome, la sua password e le sue credenziali.
+1. Se l'email è già nell'evento, o compare due volte nel file, non si crea
+   niente di nuovo. Ricaricare lo stesso file non crea niente. Chi era stato
+   tolto dall'evento ci torna con il suo account.
+2. **Un'email già usata in un altro evento** (dalla stessa persona o da
+   un'altra, anche con un altro nome) non è un problema e non si segnala: per
+   questo evento nasce un account suo, e l'account dell'altro evento non si
+   tocca (né il nome, né la password).
+3. **La stessa email per persone diverse dello stesso evento** (nel file, o
+   rispetto a chi c'è già con un altro nome) è da correggere prima di creare:
+   con l'email come accesso non può valere per due persone. L'anteprima la
+   segna in rosso e "Crea gli account" resta spento.
+4. **L'accesso.** Si entra sempre con email e password: con più account per la
+   stessa email (uno per evento) entra quello di cui è la password, provato per
+   primo quello dell'evento del link (`?e=`). Con le credenziali di un altro
+   evento sul link di questa diretta non si entra: la pagina dice per quale
+   evento sono quelle credenziali, e non apre mai un'altra diretta al posto di
+   quella dell'invito. Se sul dispositivo era rimasto aperto l'account di un
+   altro evento, la pagina esce e chiede di entrare con le credenziali di
+   questa diretta. **«Password dimenticata?»** dalla pagina di un evento
+   reimposta l'account di quell'evento (l'email dice di quale evento è la
+   password); senza un evento, ne parte una per ogni account dell'email.
+5. **Garanzia tecnica.** Ogni email si **prenota** con una transazione nel
+   server (`indirizzi/{email}`, con `perEvento.{evento}` → l'account di quel
+   evento; gli account nati prima di questa regola, con più eventi, restano
+   validi per i loro eventi): due caricamenti contemporanei, o un caricamento
+   e un'iscrizione dal modulo del sito nello stesso momento, non possono
+   creare due account per la stessa email nello stesso evento. Le prove lo
+   dimostrano (§10).
 
 **L'email tecnica.** Dietro ogni persona c'è un account Firebase con un'email
 tecnica che nessuno vede e a cui non arriva niente
@@ -1187,12 +1206,14 @@ una password nuova** e con il collegamento alla **diretta di quell'evento**
 sia nel pulsante «Accedi alla diretta»). Anche a chi una password l'aveva già:
 le credenziali di un altro evento, una password detta a voce ("Nuova password
 da comunicare a voce"), una scelta con **"Password dimenticata?"**, o è già
-entrato. L'account resta uno solo, con una sola password per tutti gli eventi:
-quella nuova prende il posto della vecchia, e l'email lo scrive in testa
-(«Avevi già ricevuto le credenziali per un altro evento…», «Questa password
-sostituisce quella che usavi finora…», «Questa email sostituisce le
-precedenti…»). Chi in quel momento segue un'altra diretta con la password
-vecchia viene scollegato entro un'ora e rientra con quella nuova. L'avviso
+entrato. Con gli account distinti per evento (vedi «Ogni evento, i suoi
+partecipanti») la password nuova vale per l'account di quell'evento e prende il
+posto di quella che l'account aveva, e l'email lo scrive in testa («Questa
+password sostituisce quella che usavi finora…», «Questa email sostituisce le
+precedenti…»; per gli account di prima, con più eventi, anche «Avevi già
+ricevuto le credenziali per un altro evento…»: lì la password è una per tutti i
+loro eventi, e chi in quel momento segue un'altra diretta viene scollegato
+entro un'ora e rientra con quella nuova). L'avviso
 "Sei iscritto anche a…" senza password, che si mandava prima a chi una
 password l'aveva già, **non parte più** (nelle email di prova non c'è più).
 Chi per un evento aveva ricevuto solo quell'avviso (prima di questa regola) non
@@ -1291,8 +1312,9 @@ Promozioni e segna il mittente come sicuro."
   gli antispam che aprono i collegamenti non eseguono); le password che partono
   da sole al clic hanno un limite per rete e uno orario complessivo (tenuti
   nel progetto della diretta, in `limiti/`), e al massimo il 60 % del tetto
-  giornaliero; la stessa email di un'altra persona non si unisce mai al suo
-  account (finisce fra le iscrizioni "da verificare").
+  giornaliero; la stessa email di un'altra persona dello stesso evento non si
+  unisce mai al suo account (finisce fra le iscrizioni "da verificare"); in
+  un altro evento nasce un account suo.
 - **Gestori**: l'elenco sta nella variabile `DIRETTA_ADMIN_EMAILS` e si
   controlla a ogni chiamata; l'account di gestione lo attiva solo il servizio
   ("Primo accesso o password dimenticata" nella pagina di gestione), e chi
@@ -1485,11 +1507,11 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-domande.prove.js` | **le domande al relatore**, dalla porta vera (`api/diretta-domande.js`) con Firestore e Auth finti: testo ripulito, troppo corto, lungo o con troppe righe, una ogni 8 secondi; non iscritto, disattivato, altro dispositivo; chiuse dopo «Termina» e con l'interruttore spento; «mie» solo le proprie (e se chi chiama è relatore); i relatori sono partecipanti segnati dalla regia (`relatore-segna`: solo iscritti all'evento, più d'uno, al massimo 10); il relatore vede le domande del suo evento (senza email), non quelle di un altro; un partecipante non segnato, un account qualsiasi con email e password: 403; account disattivato, tolto dall'evento, segno tolto: 403 da subito; «Risposta data» messa e tolta, da relatore e regia; i partecipanti con chi è collegato e chi è relatore; il segno anche nel profilo (`relatoreDi`), rimesso in pari da «mie» e da «Segna come relatore» | 68 verdi, 0 rossi |
 | `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) e il registro di «Torna alla fase iniziale» (`azzeramenti`) chiusi a tutti i browser, anche al gestore; presenze e registro non si cancellano dal browser; **i promemoria programmati** (`programmate`) né letti né scritti dal browser, nemmeno dal gestore | 111 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio; l'unico ponte (`lib/sito-iscrizioni.js`, per la riconciliazione) è in sola lettura: un'app con un nome suo, la sola raccolta `iscrizioni`, filtri solo su `ricevuto` ed `emailConfermata.quando`, nessuna scrittura, nessun account, e lo carica solo la riconciliazione | 20 verdi, 0 rossi |
-| `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse, correzioni: **zero account doppi, un account per email**; **l'aggiunta a mano** con le stesse regole (email normalizzata, l'email di un'altra persona rifiutata con il suo nome, errori sul campo, account disattivato, due aggiunte insieme = un account, una persona di un altro evento aggiunta senza account nuovo, origine «manuale» con chi e quando), mai un'email | 102 verdi, 0 rossi |
-| `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 201 verdi, 0 rossi |
+| `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse dello stesso evento, correzioni: **zero account doppi, in ogni evento un account per email**; **ogni evento i suoi partecipanti**: le stesse persone in un secondo evento hanno account loro (uid diversi, claims del solo evento, gli altri intatti), l'email di un account di un altro evento non è mai «condivisa», la correzione dell'email verso un indirizzo usato solo in un altro evento si può; **l'aggiunta a mano** con le stesse regole (email normalizzata, l'email di un'altra persona dello stesso evento rifiutata con il suo nome, errori sul campo, account disattivato, due aggiunte insieme = un account, una persona di un altro evento: un account nuovo per questo, origine «manuale» con chi e quando), mai un'email | 104 verdi, 0 rossi |
+| `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player; **la stessa email in due eventi**: entra l'account di cui è la password (prima quello del link), con le credenziali di un altro evento sul link di questa diretta 403 «altro-evento» con il titolo di quell'evento, «Password dimenticata?» dalla pagina di un evento reimposta solo il suo account (oggetto con il titolo, collegamento con `&e=`) e la password dell'altro resta | 210 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password; ogni evento le sue credenziali (chi ha già le credenziali di un altro evento riceve quelle nuove, con il collegamento alla diretta del nuovo evento, e la password di prima non vale più); il modulo del sito al massimo al 60 % del tetto giornaliero, le credenziali del gestore passano anche dietro un lotto tutto fermo | 164 verdi, 0 rossi |
 | `programmate.prova.js` | **le email programmate, lato servizio**, con gli emulatori e l'orologio spostato: i testi del gestore (obbligatori, lunghezze, 12 righe, niente HTML né collegamenti; nell'email la nota è testo), orari non validi, nel passato o dopo la fine, destinatari; chi lo riceve (credenziali «inviata» prima dell'ora, account attivo, ancora nell'evento; mai «da confermare», «da inviare», «respinta», «incerto»; «Solo chi non è ancora mai entrato»); modifica e annullamento con chi e quando, al massimo 10; il cron: niente prima dell'ora, **una email per persona anche con due giri insieme**, il collegamento dell'evento, «Password dimenticata?», mai la password; il tetto al 70 % con le credenziali che passano ancora; «in corso» si può solo fermare, e un giro in corso si ferma al lotto dopo; evento terminato o finito; anteprima e prova al gestore; le azioni della gestione (401, 403, 200, 400); nei log solo numeri | 88 verdi, 0 rossi |
-| `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`), **la conferma dell'indirizzo vera** (l'azione `conferma-email`, con la firma vera) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account subito, «da confermare», nessuna email; la password al clic sulla conferma), due clic insieme (una email), il clic che arriva prima dell'account (lo crea il clic), il clic a interruttore spento o a evento terminato (niente), «Invia le credenziali» che non li raggiunge e «Invia anche a loro» che sì, il gestore che corregge l'email di chi aspetta la conferma, iscrizione ripetuta (una sola password), email già con un account (evento aggiunto e le credenziali del nuovo evento, con una password nuova e il suo collegamento; quella di prima non vale più), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto (contati al clic); la conferma del sito per chi segue online (con il pulsante chiede prima il clic); su Vercel anche la pagina della conferma non aspetta l'invio; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione e durante il clic (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta** a chi aveva confermato, «da confermare» a chi no; il clic perso di chi aveva già l'account ritrovato dalla seconda passata (le schede confermate); la conferma d'ufficio (pregresso) che non manda niente; la scheda di prima dell'accensione che non parte nemmeno al clic; le schede di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, chi annulla prima di cliccare (credenziali «da confermare» cancellate, e il clic sulla scheda annullata non manda niente), la riattivazione con l'interruttore acceso («anche» subito se la scheda era confermata, altrimenti «da confermare» e la password al clic) e spento (solo la riga) | 173 verdi, 0 rossi |
+| `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`), **la conferma dell'indirizzo vera** (l'azione `conferma-email`, con la firma vera) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account subito, «da confermare», nessuna email; la password al clic sulla conferma), due clic insieme (una email), il clic che arriva prima dell'account (lo crea il clic), il clic a interruttore spento o a evento terminato (niente), «Invia le credenziali» che non li raggiunge e «Invia anche a loro» che sì, il gestore che corregge l'email di chi aspetta la conferma, iscrizione ripetuta (una sola password), email già con un account per un altro evento (per questo evento un account suo, con le sue credenziali e il suo collegamento; quello dell'altro evento e la sua password restano; la stessa email di un'altra persona in un altro evento non è «da verificare»), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto (contati al clic); la conferma del sito per chi segue online (con il pulsante chiede prima il clic); su Vercel anche la pagina della conferma non aspetta l'invio; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione e durante il clic (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta** a chi aveva confermato, «da confermare» a chi no; il clic perso di chi aveva già l'account ritrovato dalla seconda passata (le schede confermate); la conferma d'ufficio (pregresso) che non manda niente; la scheda di prima dell'accensione che non parte nemmeno al clic; le schede di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, chi annulla prima di cliccare (credenziali «da confermare» cancellate, e il clic sulla scheda annullata non manda niente), la riattivazione con l'interruttore acceso («anche» subito se la scheda era confermata, altrimenti «da confermare» e la password al clic) e spento (solo la riga) | 174 verdi, 0 rossi |
 | `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, senza «Non sei ancora iscritto? Iscriviti qui.» (`iscrizione` vuoto in `diretta/config.js`: il webinar è su invito; con un evento pubblico la frase torna, sotto «Entra» e sotto la risposta di «Password dimenticata?»), «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando | 61 verdi, 0 rossi |
 | `ascolti.prova.js` | **gli ascolti, lato servizio**, con gli emulatori e l'orologio spostato a mano: una curva nota (attesa, in onda, pausa, rientri), un buco del cron di 2 minuti (i tratti continuano) e uno di 6 (la linea si interrompe, ma chi c'era prima e dopo resta: niente finti rientri), il cron doppio o in ritardo (niente doppioni), gli eventi fuori finestra (nessuna lettura oltre agli eventi); controlli **esatti** di picco (a parità il primo), minimo in onda (senza i primi e gli ultimi 5 minuti), media, cali, ascolto per voce del programma (ore di Roma), ingressi ogni 5 minuti, dispositivi per persona, persone e linee del tempo; la cache di 60 s (poi 10 minuti) compressa; 404 e 400; la funzione del cron con e senza `CRON_SECRET`; **1000 persone**: fotografia in 75-110 ms con 1003 letture, documento degli ascolti di 120-243 KB, risultato di 793 KB che in cache diventa 111 KB | 85 verdi, 0 rossi |
 | `ascolti-pagina.prova.js` | **la scheda *Ascolti* della gestione**, con un risultato realistico (380 persone, 8 ore, pausa pranzo, 13 voci del programma) che coincide voce per voce con quello che calcola il servizio: le tessere del riepilogo, picco e minimo nel grafico nel punto giusto, le pause, le voci del programma, il riquadro con ora e numero al passaggio, al tocco e con le frecce, «Vedi i dati del grafico», la voce più seguita, l'istogramma degli ingressi, i dispositivi, l'elenco delle persone (ricerca, filtri, ordinamento, «Mostra altre», linea del tempo), i non collegati con «Copia gli indirizzi», l'Excel con i sei fogli, la stampa (solo la scheda), l'aggiornamento ogni minuto solo con la scheda aperta, l'evento senza dati, il telefono senza scorrimento di lato; e la risposta vera del servizio per un evento vuoto | 107 verdi, 0 rossi |

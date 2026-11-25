@@ -249,7 +249,7 @@ comuni('iscritto anche', anche);
 const FRASE_ANCHE = 'Sei iscritto anche a Next Generation Business 2026 · Napoli: entra con la tua email e la password che hai già; se non la ricordi usa "Password dimenticata?"';
 vero(anche.testo.indexOf(FRASE_ANCHE) >= 0, 'iscritto anche: «' + FRASE_ANCHE + '» nel testo');
 vero(anche.html.indexOf(comeHtml('Sei iscritto anche a Next Generation Business 2026 · Napoli: entra con la tua email e la password che hai già; se non la ricordi usa ')
-    + '"<a href="' + SITO + '/diretta/?dimenticata=1"') >= 0 && />Password dimenticata\?<\/a>"/.test(anche.html), 'iscritto anche: la stessa frase nell\'HTML, con "Password dimenticata?" cliccabile');
+    + '"<a href="' + SITO + '/diretta/?dimenticata=1&amp;e=napoli-2026"') >= 0 && />Password dimenticata\?<\/a>"/.test(anche.html), 'iscritto anche: la stessa frase nell\'HTML, con "Password dimenticata?" cliccabile (per questo evento, &e=)');
 vero(/^Sei iscritto anche a Next Generation Business 2026 · Napoli$/.test(anche.oggetto), 'iscritto anche: oggetto «Sei iscritto anche a <evento>»');
 vero((anche.oggetto + anche.html + anche.testo).indexOf(PASSWORD_SEGRETA) < 0 && !/Password:\s*\S/.test(anche.testo) && !/>Password</.test(anche.html),
     'iscritto anche: la password NON c\'e\', nemmeno se passata (nessun campo "Password")');
@@ -280,8 +280,9 @@ comuni('promemoria dell\'ora prima', promOra);
     vero(/venerdì 2 ottobre 2026/.test(m.testo) && /9\.00/.test(m.testo), 'promemoria ' + t + ': data e ora');
     vero(/Password dimenticata\?/.test(m.html), 'promemoria ' + t + ': come recuperare la password');
     // R12: la frase e il collegamento diretto alla vista "Password dimenticata?"
-    const dimenticata = SITO + '/diretta/?dimenticata=1';
-    vero(m.html.indexOf('Non trovi la password? Usa <a href="' + dimenticata + '"') >= 0
+    // con l'evento (&e=): la stessa email puo' avere un account per ogni evento
+    const dimenticata = SITO + '/diretta/?dimenticata=1&e=napoli-2026';
+    vero(m.html.indexOf('Non trovi la password? Usa <a href="' + dimenticata.replace('&', '&amp;') + '"') >= 0
         && /«Password dimenticata\?»<\/a> nella pagina di accesso/.test(m.html), 'promemoria ' + t + ': "Non trovi la password? Usa «Password dimenticata?» nella pagina di accesso" con il collegamento');
     vero(m.testo.indexOf('Non trovi la password? Usa «Password dimenticata?» nella pagina di accesso: ' + dimenticata) >= 0, 'promemoria ' + t + ': la stessa frase, con il collegamento, nel testo');
     vero(/\(ora italiana\)/.test(m.testo) && /\(ora italiana\)/.test(m.html), 'promemoria ' + t + ': "(ora italiana)" accanto agli orari');
@@ -316,6 +317,16 @@ vero(reset.html.indexOf('>' + EMAIL + '</td>') >= 0 && /La tua email: mario\.ros
 vero(/con la tua email e la password nuova/.test(reset.testo), 'reimpostazione: dice che poi si entra con l\'email e la password nuova');
 vero(/vale un&#39;ora e si può usare una volta sola/.test(reset.html) && /vale un'ora e si può usare una volta sola/.test(reset.testo), 'reimpostazione: "vale un\'ora e si può usare una volta sola"');
 vero(/ignora questa email/.test(reset.testo), 'reimpostazione: se non l\'hai chiesta tu, ignora');
+// un account per evento: l'email dice di quale evento e' la password, e il collegamento porta l'evento (&e=)
+const resetEvento = M.reimpostazione({ nome: 'Mario Rossi', email: EMAIL, link: LINK_RESET + '&e=napoli-2026', titoloEvento: EVENTO.titolo, assistenza: ASSISTENZA });
+comuni('reimpostazione di un evento', resetEvento);
+vero(resetEvento.oggetto === 'Nuova password per la diretta - ' + EVENTO.titolo
+    && resetEvento.testo.indexOf('nuova password per la diretta «' + EVENTO.titolo + '»') >= 0
+    && resetEvento.testo.indexOf('Poi entri nella diretta «' + EVENTO.titolo + '» con la tua email e la password nuova.') >= 0,
+    'reimpostazione di un evento: l\'oggetto e il testo dicono di quale evento e\' la password');
+vero(resetEvento.html.indexOf('href="' + (LINK_RESET + '&e=napoli-2026').replace('&', '&amp;') + '"') >= 0 && resetEvento.testo.indexOf(LINK_RESET + '&e=napoli-2026') >= 0,
+    '...e il collegamento porta l\'evento (&e=), cosi\' dopo la nuova password si entra li\'');
+vero(reset.oggetto === 'Nuova password per la diretta - Next Generation Business' && !/«/.test(reset.testo.split('\n\n')[1] || ''), 'senza evento: l\'oggetto e il saluto di sempre');
 const resetSenza = M.reimpostazione({ nome: 'Mario', link: LINK_RESET, assistenza: ASSISTENZA });
 vero(!/La tua email/.test(resetSenza.testo) && !/>Per entrare, la tua email</.test(resetSenza.html), 'reimpostazione senza email: niente riquadro vuoto');
 const resetGestore = M.reimpostazione({ perGestore: true, email: 'gestore@prova.it', link: SITO + '/diretta/reimposta.html?oobCode=Zz9&per=gestione', assistenza: ASSISTENZA });
@@ -367,6 +378,8 @@ vero(idStrani.every(m => m.html.indexOf('href="' + SITO + '/diretta/"') >= 0 && 
     'un identificativo dell\'evento non valido non entra nel collegamento (resta /diretta/)');
 vero(M.linkAccesso('roma-2026') === SITO + '/diretta/?e=roma-2026' && M.linkAccesso('') === SITO + '/diretta/', 'linkAccesso: /diretta/?e=evento (e /diretta/ senza evento)');
 vero(M.linkDimenticata() === SITO + '/diretta/?dimenticata=1', 'linkDimenticata: la vista "Password dimenticata?" (senza email nel collegamento)');
+vero(M.linkDimenticata('napoli-2026') === SITO + '/diretta/?dimenticata=1&e=napoli-2026' && M.linkDimenticata('../x"') === SITO + '/diretta/?dimenticata=1',
+    'linkDimenticata con l\'evento: &e=<evento> (un account per evento); un evento non valido non entra nel collegamento');
 vero(dirottata.html.indexOf('javascript:') < 0 && !/pagina dell'evento/.test(dirottata.html) && /home del sito/.test(dirottata.html), 'una pagina dell\'evento non valida non compare (resta la home)');
 vero(M.linkPaginaEvento('/napoli_ottobre_2026/') === SITO + '/napoli_ottobre_2026/' && M.linkPaginaEvento('//evil.example/') === '', 'pagina dell\'evento: forma /cartella/ (e niente //host)');
 vero(M.linkPaginaEvento('https://evil.example/') === '' && M.linkPaginaEvento('/pagina"x/') === '' && M.linkPaginaEvento('/Maiuscole/') === '', 'pagina dell\'evento: indirizzi esterni, apici e maiuscole rifiutati');

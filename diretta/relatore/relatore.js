@@ -426,7 +426,9 @@
         b.disabled = true;
         b.setAttribute('aria-busy', 'true');
         try {
-            const r = await chiamaAccesso({ azione: 'entra', email: email, password: password });
+            // l'evento del collegamento (?e=): con un account per evento, la password giusta e' quella di questo
+            const delLink = eventoDelLink();
+            const r = await chiamaAccesso({ azione: 'entra', email: email, password: password, idEvento: ID_EVENTO_VALIDO.test(delLink) ? delLink : undefined });
             if (!r.token) throw new ErroreServizio(500, 'servizio', 'Accesso non riuscito: riprova tra poco.');
             if (SESSIONE_VALIDA.test(String(r.sessione || ''))) archivio.scrivi(CHIAVE_SESSIONE, String(r.sessione));
             archivio.scrivi(CHIAVE_EMAIL, email);
@@ -448,6 +450,8 @@
         }
         if (c === 'disattivato') return 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
         if (c === 'nessun-evento') return 'Non risulti iscritto a nessuna diretta: chiedi alla regia.';
+        // le credenziali di un altro evento (un account per evento): il servizio dice quale
+        if (c === 'altro-evento') return err.msg ? String(err.msg).slice(0, 400) : 'Queste credenziali sono di un altro evento: usa quelle che hai ricevuto per questa diretta.';
         if (c === 'credenziali' || (err && err.stato === 401)) {
             const rimasti = Number(d.rimasti);
             return 'Email o password non corretti. Usa l\'email e la password delle credenziali della diretta (l\'email che hai ricevuto).'
@@ -467,9 +471,11 @@
     /* ---------------------------------------------------------------
        GLI EVENTI
        --------------------------------------------------------------- */
+    // l'evento del collegamento (?e=), cosi' com'e' scritto ('' se non c'e')
+    function eventoDelLink() { return new URLSearchParams(location.search).get('e') || ''; }
     // il preferito: quello del collegamento (?e=), poi l'ultimo scelto, poi in onda > il prossimo > il piu' recente
     function eventoPreferito(eventi) {
-        const par = new URLSearchParams(location.search).get('e') || '';
+        const par = eventoDelLink();
         const salvato = archivio.leggi(CHIAVE_EVENTO) || '';
         const c = [par, salvato].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.some(e => e.id === x))[0];
         if (c) return c;

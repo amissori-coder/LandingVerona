@@ -1149,7 +1149,7 @@ async function inviaReimpostazione(ctx, opz) {
         if (!E.emailValida(a)) return { ok: false, motivo: 'indirizzo non valido' };
         const mail = M.reimpostazione({
             nome: o.nome, cognome: o.cognome, email: o.perGestore ? '' : a, link: o.link, perGestore: !!o.perGestore,
-            assistenza: C.assistenza(), adesso: ctx.adesso()
+            titoloEvento: o.perGestore ? '' : o.titoloEvento, assistenza: C.assistenza(), adesso: ctx.adesso()
         });
         trasporto = creaTrasporto(ctx);
         const prenotazione = await riserva(ctx, 1, 0.8);

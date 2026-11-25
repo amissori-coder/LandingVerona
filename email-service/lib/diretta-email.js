@@ -118,9 +118,13 @@ function pulito(v, max) {
      'nuovo'             account nuovo (password generata, mai salvata;
                          NESSUNA email: le credenziali partono solo da
                          «Invia le credenziali»)
-     'gia-presente'      c'e' gia' un account con questa email: nessun
-                         account nuovo e nessuna password nuova, la
-                         persona viene aggiunta all'evento
+     'gia-presente'      c'e' gia' l'account di questa email PER
+                         QUESTO EVENTO, ma non e' nell'evento (tolto dal
+                         gestore, annullato dal sito): torna con il suo
+                         account, nessun account nuovo. Gli account della
+                         stessa email in ALTRI eventi non contano (chi
+                         chiama passa solo quello di questo evento: vedi
+                         UN EVENTO, I SUOI ACCOUNT in diretta-dati.js)
      'gia-iscritto'      l'account c'e' ed e' gia' in questo evento:
                          non cambia niente
      'doppia-nel-file'   la stessa persona (stessa email, stesso nome)
@@ -136,9 +140,10 @@ function pulito(v, max) {
      'email-condivisa'   la stessa email e' di persone diverse: nel file
                          (nome diverso in un'altra riga: tutte le righe
                          coinvolte) oppure rispetto all'account gia'
-                         registrato con quel nome. Un account e' di una
-                         persona sola: serve un indirizzo per ciascuno
-                         (oppure si esclude la riga).
+                         in questo evento con quel nome. In un evento
+                         un'email e' di una persona sola: serve un
+                         indirizzo per ciascuno (oppure si esclude la
+                         riga).
    Se una riga ha piu' problemi, l'esito e' il primo grave nell'ordine
    qui sopra; in `problemi` ci sono tutti. Avvisi non gravi: 'disattivato'
    (l'account esistente e' disattivato).
@@ -212,15 +217,15 @@ function analizzaImport(righe, esistenti, idEvento) {
         if (!stessaPersona(o, gia)) {
             o.problemi.push({
                 codice: 'email-condivisa', grave: true,
-                testo: 'Con questa email è già registrato ' + (nomeCompleto(gia) || 'un altro account') + ': se è la stessa persona scrivi il nome come è registrato, '
-                    + 'altrimenti serve un indirizzo suo (un account è di una persona sola).'
+                testo: 'In questo evento con questa email c\'è già ' + (nomeCompleto(gia) || 'un\'altra persona') + ': se è la stessa persona scrivi il nome come è registrato, '
+                    + 'altrimenti serve un indirizzo suo (in un evento un\'email è di una persona sola).'
             });
             return;
         }
         const nelEvento = Array.isArray(gia.eventi) && !!idEvento && gia.eventi.indexOf(idEvento) >= 0;
         o.problemi.push(nelEvento
             ? { codice: 'gia-iscritto', grave: false, testo: 'Già iscritta a questo evento: non cambia niente.' }
-            : { codice: 'gia-presente', grave: false, testo: 'Account già esistente: nessun nuovo account e nessuna password nuova, la persona viene aggiunta all\'evento.' });
+            : { codice: 'gia-presente', grave: false, testo: 'Era già in questo evento (tolta o annullata): torna con il suo account, nessun account nuovo.' });
         if (gia.stato === 'disattivato') o.problemi.push({ codice: 'disattivato', grave: false, testo: 'Account disattivato: riattivalo per farla entrare.' });
     });
 

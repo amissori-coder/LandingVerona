@@ -652,6 +652,14 @@
             msg('msg-accesso', 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.', 'errore');
             return;
         }
+        /* password giusta, ma di un account di un ALTRO evento rispetto al link
+           (ogni evento ha i suoi partecipanti: la stessa email puo' avere un
+           account per evento). Il servizio dice di quale evento sono. */
+        if (codice === 'altro-evento') {
+            msg('msg-accesso', r.msg && String(r.msg).length < 400 ? String(r.msg) : MSG_ALTRO_EVENTO, 'errore');
+            $('campo-password').select();
+            return;
+        }
         // password giusta, ma la persona non e' (piu') iscritta a nessun evento
         // (per esempio dopo «Togli da questo evento» in gestione)
         if (codice === 'nessun-evento') {
@@ -710,7 +718,9 @@
         b.disabled = true;
         testo(b.querySelector('.btn-testo'), 'Invio in corso…');
         esitoDimenticata('');
-        const r = await chiamaServizio({ azione: 'password-dimenticata', email: email });
+        // l'evento della pagina: la stessa email puo' avere un account per ogni evento, si reimposta quello di questo
+        const delLink = parametro('e');
+        const r = await chiamaServizio({ azione: 'password-dimenticata', email: email, idEvento: ID_EVENTO_VALIDO.test(delLink) ? delLink : undefined });
         b.disabled = false;
         testo(b.querySelector('.btn-testo'), 'Invia il collegamento');
         if (r.ok) {
@@ -882,6 +892,9 @@
         const eventi = eventiDelProfilo(p);
         // senza eventi: se ha annullato l'iscrizione dal sito, lo si dice cosi'
         if (!eventi.length) { mostraMessaggio(p.annullatoDalSito && Object.keys(p.annullatoDalSito).length ? 'evento-tolto' : 'nessun-evento'); return; }
+        // il link porta a un evento che non e' di questo account: niente altro evento al suo posto
+        const delLink = parametro('e');
+        if (ID_EVENTO_VALIDO.test(delLink) && eventi.indexOf(delLink) < 0) { await esciPerAltroEvento(); return; }
 
         /* T8: il profilo dice che la persona e' iscritta, il suo token no
            (i permessi sono cambiati da poco): si chiede al servizio di
@@ -1006,6 +1019,24 @@
         // una scheda aperta a mano (non da «Vedi come un partecipante») il
         // browser non la lascia chiudere: si torna alla gestione
         setTimeout(() => { if (!window.closed) location.href = '/diretta/gestione/'; }, 300);
+    }
+
+    /* Il link porta a un evento (&e=) che non e' fra quelli dell'account
+       aperto su questo dispositivo: e' l'account di un altro evento (ogni
+       evento ha i suoi partecipanti, e la stessa email puo' avere un account
+       per evento). Non si apre un altro evento al posto di quello
+       dell'invito: si esce, e la pagina chiede di entrare con le credenziali
+       di questa diretta. */
+    const MSG_ALTRO_EVENTO = 'Su questo dispositivo eri entrato con le credenziali di un altro evento. '
+        + 'Per questa diretta entra con l\'email e la password che hai ricevuto per questo evento.';
+    async function esciPerAltroEvento() {
+        stato.motivoUscita = 'messaggio';
+        fermaTutto();
+        dimenticaSessione();
+        stato.nomePersona = '';
+        mostraAccesso({ messaggio: MSG_ALTRO_EVENTO, tipo: 'info' });
+        try { if (fb.auth && fb.auth.currentUser) await fb.A.signOut(fb.auth); else stato.motivoUscita = null; }
+        catch (e) { stato.motivoUscita = null; }
     }
 
     async function esciConMessaggio(tipo) {
@@ -3375,8 +3406,11 @@
         const par = new URLSearchParams(location.search);
         const oob = par.get('oobCode') || '';
         const perGestione = par.get('per') === 'gestione';
-        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/';
-        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1';
+        // l'evento dell'account (il servizio lo mette nel collegamento): dopo la nuova password si entra li'
+        const delCollegamento = perGestione ? '' : (par.get('e') || '');
+        const ev = ID_EVENTO_VALIDO.test(delCollegamento) ? delCollegamento : '';
+        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/' + (ev ? '?e=' + encodeURIComponent(ev) : '');
+        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1' + (ev ? '&e=' + encodeURIComponent(ev) : '');
 
         function avviso(t, tipo) { msg('msg-reimposta', t, tipo); }
         function mostraScaduto() {
@@ -3388,7 +3422,7 @@
             a.hidden = false;
         }
 
-        $('link-reimposta-accesso').setAttribute('href', perGestione ? '/diretta/gestione/' : '/diretta/');
+        $('link-reimposta-accesso').setAttribute('href', perGestione ? '/diretta/gestione/' : destinazione);
         $('btn-mostra-nuova').addEventListener('click', () => {
             const b = $('btn-mostra-nuova');
             const visibili = b.getAttribute('aria-pressed') !== 'true';
@@ -3479,7 +3513,7 @@
             }
             // R24: si entra da soli, come se la persona avesse scritto email e password
             avviso('Password salvata. Ti stiamo portando nella diretta…', 'ok');
-            const r = await chiamaServizio({ azione: 'entra', email: emailPersona, password: p1 });
+            const r = await chiamaServizio({ azione: 'entra', email: emailPersona, password: p1, idEvento: ev || undefined });
             if (r.ok && r.token) {
                 try {
                     ricordaSessione(r.sessione);
