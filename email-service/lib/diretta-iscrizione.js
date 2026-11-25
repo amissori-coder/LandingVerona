@@ -21,8 +21,8 @@
      - il clic (daConferma, da lib/conferma-email.js, solo alla PRIMA
        conferma della scheda, e solo quella della persona: come 'mail')
        fa quello che prima faceva l'iscrizione: i limiti del modulo, la
-       coda, l'invio subito delle credenziali o di «Sei iscritto anche
-       a…», una volta sola anche con due clic;
+       coda, l'invio subito delle credenziali, una volta sola anche con
+       due clic;
      - se il clic arriva PRIMA che l'iscrizione abbia creato l'account
        (la persona e' velocissima, o il servizio della diretta non
        rispondeva), l'account lo crea il clic e manda lui; l'iscrizione,
@@ -80,12 +80,12 @@
        giorno finita) restano in coda e le manda il cron di ogni 5
        minuti;
      - email che ha gia' un account DELLA STESSA PERSONA (nome e cognome
-       uguali, E.stessaPersona): si aggiunge l'evento, e parte l'avviso
-       «Sei iscritto anche a <evento>: entra con la tua email e la
-       password che hai gia'...», SENZA password nuova (lo decide
-       tipoInvio in diretta-invio.js: se la persona non aveva ancora
-       nessuna password, riceve le credenziali). Una volta sola per
-       evento: dalla seconda iscrizione l'evento c'e' gia';
+       uguali, E.stessaPersona): si aggiunge l'evento, e partono le
+       credenziali di QUESTO evento, con una password nuova e il
+       collegamento alla sua diretta (OGNI EVENTO, LE SUE CREDENZIALI in
+       diretta-invio.js: la password di prima non vale piu', e l'email
+       lo dice). Una volta sola per evento: dalla seconda iscrizione
+       l'evento c'e' gia';
      - iscrizione ripetuta (gia' nell'evento): niente di nuovo, ne' una
        seconda password ne' una seconda email. Solo chi era stato
        caricato dal file e aspettava ancora le credenziali ('da
@@ -714,16 +714,14 @@ async function ritiraDaModulo(ctx, dati) {
    scheda torna attiva):
      - interruttore ACCESO: come una nuova iscrizione dal modulo
        (iscriviDaModulo, con i suoi limiti): l'evento torna nel suo
-       account, e parte «Sei iscritto anche a…» o le credenziali secondo
-       le regole di sempre (lib/diretta-invio.js, tipoInvio). Solo se
-       la scheda era gia' confermata con il clic (dati.confermata: lo
-       dice api/iscrizione-nuova.js, che ha la scheda); altrimenti la
-       voce resta 'da confermare' e l'email parte al clic. Per la
-       diretta le credenziali partite prima dell'annullamento sono la
-       storia di QUESTO evento: se la persona non si e' fatta nel
-       frattempo una password sua (accesso, «Password dimenticata?»),
-       riceve le credenziali con una password nuova, e l'email dice che
-       quella di prima non vale piu';
+       account, e partono le credenziali, con una password nuova
+       (lib/diretta-invio.js, tipoInvio: OGNI EVENTO, LE SUE
+       CREDENZIALI). Solo se la scheda era gia' confermata con il clic
+       (dati.confermata: lo dice api/iscrizione-nuova.js, che ha la
+       scheda); altrimenti la voce resta 'da confermare' e l'email parte
+       al clic. Le credenziali partite prima dell'annullamento sono la
+       storia di QUESTO evento: l'email dice che la password di prima
+       non vale piu';
      - interruttore SPENTO: niente di automatico (chi entra lo decide il
        gestore), solo una riga «da verificare» 'riattivata-dal-sito'; se
        e' gia' nell'evento (nessuno l'aveva tolta), niente.

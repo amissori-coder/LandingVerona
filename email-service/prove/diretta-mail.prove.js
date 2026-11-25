@@ -24,14 +24,15 @@
    "domani" o "oggi" guardando l'ora vera; che chi aveva gia' una
    password legge che non vale piu' (anche quella scelta con «Password
    dimenticata?»); che l'email di prova si riconosce come prova; che i
-   collegamenti non si possono dirottare. E le regole di UNA PASSWORD
-   PER PERSONA (lib/diretta-invio.js: tipoInvio, haPassword,
-   sostituzione), con profili scritti a mano: chi ha gia' ricevuto il
-   collegamento di «Password dimenticata?», chi e' gia' entrato o ha una
-   password data a voce riceve «anche» e non credenziali nuove; le
-   credenziali partite a un indirizzo poi corretto non contano (niente
-   seconda password a chi l'ha appena ricevuta al nuovo indirizzo); il
-   "Reinvia" del gestore manda sempre le credenziali, con la nota giusta.
+   collegamenti non si possono dirottare; che la frase «vai su ...»
+   porta alla diretta dell'evento (/diretta/?e=<id>). E le regole di
+   OGNI EVENTO, LE SUE CREDENZIALI (lib/diretta-invio.js: tipoInvio,
+   haPassword, sostituzione), con profili scritti a mano: parte sempre
+   una password nuova, anche a chi ha gia' ricevuto il collegamento di
+   «Password dimenticata?», e' gia' entrato, ha una password data a voce
+   o le credenziali di un altro evento, con la nota giusta su quale
+   password non vale piu'; le credenziali partite a un indirizzo poi
+   corretto non contano (nessuna nota su quella casella).
    ============================================================ */
 'use strict';
 delete process.env.APP_BASE_URL;
@@ -112,10 +113,10 @@ const cred = M.credenziali({
     paginaEvento: '/napoli_ottobre_2026/', assistenza: ASSISTENZA
 });
 comuni('credenziali', cred);
-const FRASE_ENTRA = 'Per entrare nella diretta: vai su ' + SITO + '/diretta/, scrivi la tua email ' + EMAIL + ' e questa password: Esempio7Kq';
+const FRASE_ENTRA = 'Per entrare nella diretta: vai su ' + SITO + '/diretta/?e=napoli-2026, scrivi la tua email ' + EMAIL + ' e questa password: Esempio7Kq';
 vero(cred.testo.indexOf(FRASE_ENTRA) >= 0, 'credenziali: «' + FRASE_ENTRA + '» nel testo');
-vero(/Per entrare nella diretta: vai su <a href="https:\/\/nextgenerationbusiness\.it\/diretta\/"[^>]*>https:\/\/nextgenerationbusiness\.it\/diretta\/<\/a>, scrivi la tua email <strong[^>]*>mario\.rossi@esempio\.it<\/strong> e questa password: <span style="font-family:'Courier New', Courier, monospace;[^"]*">Esempio7Kq<\/span>/.test(cred.html),
-    'credenziali: la stessa frase nell\'HTML, con l\'indirizzo cliccabile, l\'email in evidenza e la password a spaziatura fissa');
+vero(/Per entrare nella diretta: vai su <a href="https:\/\/nextgenerationbusiness\.it\/diretta\/\?e=napoli-2026"[^>]*>https:\/\/nextgenerationbusiness\.it\/diretta\/\?e=napoli-2026<\/a>, scrivi la tua email <strong[^>]*>mario\.rossi@esempio\.it<\/strong> e questa password: <span style="font-family:'Courier New', Courier, monospace;[^"]*">Esempio7Kq<\/span>/.test(cred.html),
+    'credenziali: la stessa frase nell\'HTML, con l\'indirizzo della diretta dell\'evento cliccabile, l\'email in evidenza e la password a spaziatura fissa');
 vero(inMonospace(cred.html, 'Esempio7Kq'), 'credenziali: password in carattere a spaziatura fissa (anche nel riquadro)');
 vero(/Courier New/.test(cred.html) && /letter-spacing:3px/.test(cred.html), 'credenziali: Courier New con le lettere spaziate');
 vero(/>La tua email</.test(cred.html) && />Password</.test(cred.html) && cred.html.indexOf('>' + EMAIL + '</td>') >= 0, 'credenziali: riquadro con «La tua email» e «Password»');
@@ -167,10 +168,11 @@ vero(credPrec.testo.indexOf(M.FRASE_PRECEDENTE) >= 0 && credPrec.html.indexOf(M.
     && credPrec.testo.indexOf(M.FRASE_PRECEDENTE) < credPrec.testo.indexOf('La tua email:'),
 'credenziali a chi aveva una password scelta da sé (Reinvia del gestore): «' + M.FRASE_PRECEDENTE + '», prima delle credenziali');
 
-/* ---------- che cosa parte: credenziali o «anche» (lib/diretta-invio.js) ----------
-   Le regole di UNA PASSWORD PER PERSONA, con profili scritti a mano:
-   tipoInvio (che cosa parte), haPassword (la persona ne ha gia' una che
-   funziona?) e sostituzione (la nota delle credenziali). */
+/* ---------- che cosa parte: sempre le credenziali (lib/diretta-invio.js) ----------
+   OGNI EVENTO, LE SUE CREDENZIALI, con profili scritti a mano: tipoInvio
+   (che cosa parte: sempre le credenziali, con una password nuova) e
+   sostituzione (la nota delle credenziali: quale password non vale piu').
+   haPassword dice ancora se la persona ne aveva gia' una. */
 {
     const I = require('../lib/diretta-invio')._interni;
     const T = ms => ({ toMillis: () => ms });           // un Timestamp di Firestore finto
@@ -179,21 +181,20 @@ vero(credPrec.testo.indexOf(M.FRASE_PRECEDENTE) >= 0 && credPrec.html.indexOf(M.
     const base = { stato: 'attivo', eventi: ['milano-2026'], invii: { 'milano-2026': { stato: 'in coda', aggiornato: T(ORA) } } };
     const con = extra => Object.assign({}, base, extra);
     vero(I.tipoInvio(base, 'milano-2026') === 'credenziali' && I.sostituzione(base, 'milano-2026') === '', 'nessuna password prima: credenziali, senza note');
-    // punto 1: «Password dimenticata?» PRIMA di «Invia le credenziali» -> la password scelta non si tocca
+    // «Password dimenticata?» PRIMA di «Invia le credenziali»: password nuova, e l'email dice che quella scelta non vale piu'
     const reset = con({ resetInviato: T(ORA - 30 * MIN) });
-    vero(I.haPassword(reset, 'milano-2026') === true && I.tipoInvio(reset, 'milano-2026') === 'anche',
-        'collegamento di «Password dimenticata?» gia\' partito: «anche» (la password scelta resta), non credenziali nuove');
-    vero(I.tipoInvio(reset, 'milano-2026', true) === 'credenziali' && I.sostituzione(reset, 'milano-2026') === 'precedente',
-        '...il "Reinvia" del gestore manda comunque le credenziali, con la nota che la password di prima non vale piu\' (precedente)');
+    vero(I.haPassword(reset, 'milano-2026') === true && I.tipoInvio(reset, 'milano-2026') === 'credenziali' && I.sostituzione(reset, 'milano-2026') === 'precedente',
+        'collegamento di «Password dimenticata?» gia\' partito: le credenziali, con la nota che la password di prima non vale piu\' (precedente)');
+    vero(I.tipoInvio(reset, 'milano-2026', true) === 'credenziali', '...e lo stesso con il "Reinvia" del gestore');
     const entrata = con({ ultimoAccesso: T(ORA - 10 * MIN) });
-    vero(I.tipoInvio(entrata, 'milano-2026') === 'anche' && I.sostituzione(entrata, 'milano-2026') === 'precedente', 'gia\' entrata nella diretta: «anche» (la sua password funziona)');
+    vero(I.tipoInvio(entrata, 'milano-2026') === 'credenziali' && I.sostituzione(entrata, 'milano-2026') === 'precedente', 'gia\' entrata nella diretta: le credenziali (precedente)');
     const voceData = con({ passwordAVoce: T(ORA - 10 * MIN) });
-    vero(I.tipoInvio(voceData, 'milano-2026') === 'anche' && I.sostituzione(voceData, 'milano-2026') === 'precedente', 'password data a voce: «anche»');
+    vero(I.tipoInvio(voceData, 'milano-2026') === 'credenziali' && I.sostituzione(voceData, 'milano-2026') === 'precedente', 'password data a voce: le credenziali (precedente)');
     // l'indirizzo corretto dopo il reset o l'accesso: quello di prima non conta (era un'altra casella)
     const resetPrimaDelCambio = con({ resetInviato: T(ORA - 30 * MIN), ultimoAccesso: T(ORA - 25 * MIN), emailCambiata: T(ORA - 20 * MIN) });
     vero(I.tipoInvio(resetPrimaDelCambio, 'milano-2026') === 'credenziali' && I.sostituzione(resetPrimaDelCambio, 'milano-2026') === '',
         'reset e accesso PRIMA della correzione dell\'email: non contano, credenziali (senza note)');
-    // punto 2: credenziali di Milano all'indirizzo vecchio, email corretta, poi Napoli dal modulo all'indirizzo nuovo
+    // credenziali di Milano all'indirizzo vecchio, email corretta, poi Napoli dal modulo all'indirizzo nuovo
     const cambio = {
         stato: 'attivo', eventi: ['milano-2026', 'napoli-2026'], emailCambiata: T(ORA - 20 * MIN),
         invii: {
@@ -201,20 +202,28 @@ vero(credPrec.testo.indexOf(M.FRASE_PRECEDENTE) >= 0 && credPrec.html.indexOf(M.
             'napoli-2026': { stato: 'inviata', tipo: 'credenziali', inviata: T(ORA - 10 * MIN), aggiornato: T(ORA - 10 * MIN) }
         }
     };
-    vero(I.tipoInvio(cambio, 'milano-2026') === 'anche',
-        'email corretta: le credenziali di Milano partite al VECCHIO indirizzo non contano, e la password di Napoli (nuovo indirizzo) si tiene: «anche»');
-    vero(I.sostituzione(cambio, 'milano-2026') === 'altro-evento', '...e un "Reinvia" di Milano direbbe che sostituisce la password dell\'altro evento');
+    vero(I.tipoInvio(cambio, 'milano-2026') === 'credenziali' && I.sostituzione(cambio, 'milano-2026') === 'altro-evento',
+        'email corretta, poi le credenziali di Napoli al nuovo indirizzo: Milano manda le sue, con la nota che la password dell\'altro evento non vale piu\'');
     const soloCambio = { stato: 'attivo', eventi: ['milano-2026'], emailCambiata: T(ORA - 20 * MIN),
         invii: { 'milano-2026': { stato: 'in coda', tipo: 'credenziali', inviata: T(ORA - 60 * MIN), aggiornato: T(ORA) } } };
     vero(I.tipoInvio(soloCambio, 'milano-2026') === 'credenziali' && I.sostituzione(soloCambio, 'milano-2026') === '',
         'email corretta e nessuna password al nuovo indirizzo: credenziali (la prima per quella casella)');
-    // le credenziali di QUESTO evento partite all'indirizzo di adesso (respinta, poi "a chi non l'ha ricevuta"): credenziali, come sempre
+    // le credenziali di QUESTO evento partite all'indirizzo di adesso (respinta, poi "a chi non l'ha ricevuta")
     const respinta = { stato: 'attivo', eventi: ['milano-2026'], invii: { 'milano-2026': { stato: 'in coda', tipo: 'credenziali', inviata: T(ORA - 60 * MIN), aggiornato: T(ORA) } }, resetInviato: T(ORA - 90 * MIN) };
     vero(I.tipoInvio(respinta, 'milano-2026') === 'credenziali' && I.sostituzione(respinta, 'milano-2026') === 'evento',
         'credenziali di questo evento gia\' partite all\'indirizzo di adesso (reset di prima): credenziali, con la nota «sostituisce le precedenti»');
     const resetDopo = Object.assign({}, respinta, { resetInviato: T(ORA - 5 * MIN) });
-    vero(I.tipoInvio(resetDopo, 'milano-2026') === 'anche',
-        '...ma se DOPO quelle credenziali la persona ha chiesto «Password dimenticata?»: «anche» (la password scelta resta)');
+    vero(I.tipoInvio(resetDopo, 'milano-2026') === 'credenziali' && I.sostituzione(resetDopo, 'milano-2026') === 'evento',
+        '...anche se DOPO quelle credenziali la persona ha chiesto «Password dimenticata?»: credenziali nuove, «sostituisce le precedenti»');
+    // un vecchio avviso «anche» (partito prima di questa regola): adesso partono le credenziali
+    const vecchioAnche = { stato: 'attivo', eventi: ['milano-2026', 'napoli-2026'],
+        invii: {
+            'milano-2026': { stato: 'in coda', tipo: 'anche', inviata: T(ORA - 60 * MIN), aggiornato: T(ORA) },
+            'napoli-2026': { stato: 'inviata', tipo: 'credenziali', inviata: T(ORA - 120 * MIN), aggiornato: T(ORA - 120 * MIN) }
+        }
+    };
+    vero(I.tipoInvio(vecchioAnche, 'milano-2026') === 'credenziali' && I.sostituzione(vecchioAnche, 'milano-2026') === 'altro-evento',
+        'un vecchio avviso «anche» riaccodato: partono le credenziali, e la password di Napoli non vale piu\'');
 }
 
 /* ---------- l'email di prova ---------- */
@@ -368,7 +377,7 @@ vero(!/<script|<b>123/.test(assistenzaCattiva.html) && assistenzaCattiva.html.in
 process.env.APP_BASE_URL = 'http://127.0.0.1:8090/';
 const locale = M.credenziali({ evento: EVENTO, email: EMAIL, password: 'Esempio7Kq', paginaEvento: '/napoli_ottobre_2026/', assistenza: ASSISTENZA });
 vero(locale.html.indexOf('href="http://127.0.0.1:8090/diretta/?e=napoli-2026"') >= 0, 'con APP_BASE_URL i collegamenti puntano a quel sito');
-vero(locale.testo.indexOf('vai su http://127.0.0.1:8090/diretta/, scrivi la tua email') >= 0, '...anche nella frase «vai su ...»');
+vero(locale.testo.indexOf('vai su http://127.0.0.1:8090/diretta/?e=napoli-2026, scrivi la tua email') >= 0, '...anche nella frase «vai su ...», con la diretta dell\'evento');
 vero(locale.html.indexOf(SITO + '/assets/logo-revilaw-bianco.png') >= 0, '...ma le immagini restano quelle del sito pubblico');
 delete process.env.APP_BASE_URL;
 

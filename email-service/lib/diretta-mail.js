@@ -448,14 +448,15 @@ function annoDi(adesso) {
    email usa quasi sempre la piu' vecchia.
      true | 'evento'  -> credenziali gia' ricevute per QUESTO evento
                           (reinvio, indirizzo corretto...);
-     'altro-evento'   -> ricevute per un altro evento (succede solo con
-                          il "Reinvia" del gestore: di solito chi ha gia'
-                          una password riceve l'avviso «anche», senza);
+     'altro-evento'   -> ricevute per un altro evento (ogni evento manda
+                          le sue credenziali, con una password nuova:
+                          OGNI EVENTO, LE SUE CREDENZIALI in
+                          lib/diretta-invio.js);
      'precedente'     -> nessuna email di credenziali, ma una password
                           c'era: scelta con «Password dimenticata?», data
-                          a voce dal gestore o gia' usata per entrare
-                          (anche qui solo con il "Reinvia" del gestore:
-                          vedi sostituzione() in lib/diretta-invio.js).
+                          a voce dal gestore, gia' usata per entrare o
+                          con un vecchio avviso «anche» (vedi
+                          sostituzione() in lib/diretta-invio.js).
    ============================================================ */
 const FRASE_SOSTITUISCE = 'Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.';
 const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento: l\'email per entrare è la stessa, '
@@ -469,10 +470,12 @@ function fraseSostituzione(v) {
     return '';
 }
 /* «Per entrare nella diretta: vai su <indirizzo>, scrivi la tua email
-   <email> e questa password: <password>». Nell'HTML l'indirizzo e' un
-   collegamento e la password sta a spaziatura fissa. */
-function frasePerEntrare(email, password) {
-    const pagina = C.linkDiretta();
+   <email> e questa password: <password>». L'indirizzo e' quello della
+   diretta dell'evento a cui la persona e' invitata (/diretta/?e=<id>).
+   Nell'HTML l'indirizzo e' un collegamento e la password sta a
+   spaziatura fissa. */
+function frasePerEntrare(email, password, idEvento) {
+    const pagina = linkAccesso(idEvento);
     return {
         testo: 'Per entrare nella diretta: vai su ' + pagina + ', scrivi la tua email ' + email + ' e questa password: ' + password,
         html: paragrafoHtml(esc('Per entrare nella diretta: vai su ') + link(pagina, pagina) + esc(', scrivi la tua email ')
@@ -494,7 +497,7 @@ function credenziali(opz) {
     const sommario = saluto(o.nome, o.cognome) + ' ecco come entrare nella diretta di ' + ev.titolo
         + (ev.giorno ? ', ' + ev.giorno + (ev.dalle ? ' dalle ' + ev.dalle + ORA_ITALIANA : '') : '') + ': la tua email e la password qui sotto.';
     const fraseSostituisce = fraseSostituzione(o.sostituisce);
-    const perEntrare = frasePerEntrare(email, password);
+    const perEntrare = frasePerEntrare(email, password, idEventoDi(o));
     const fraseCopia = 'La password va scritta così com\'è: maiuscole e minuscole contano. È la stessa per tutti gli eventi a cui sei iscritto.';
     const frasePersonali = 'Le credenziali sono personali: ti chiediamo di non inoltrare questa email.';
 

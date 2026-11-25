@@ -8,13 +8,15 @@
    email mario.rossi@esempio.it, password Esempio7Kq), cosi' come le
    compone il servizio (email-service/lib/diretta-mail.js). Si entra
    con l'email: nessun nome utente.
-     credenziali.html            le credenziali (primo invio): «vai su...,
-                                 scrivi la tua email ... e questa password: ...»
-     iscritto-anche.html         «Sei iscritto anche a...»: chi ha gia' una
-                                 password, iscritto a un evento in piu' (niente password)
+     credenziali.html            le credenziali (primo invio): «vai su
+                                 .../diretta/?e=<evento>, scrivi la tua email ...
+                                 e questa password: ...»
+     iscritto-anche.html         «Sei iscritto anche a...» (niente password): non
+                                 parte piu' dal 25 novembre 2026, ogni evento
+                                 manda le sue credenziali; resta per vederla
      credenziali-reinvio.html    il reinvio ("sostituisce le precedenti")
-     credenziali-altro-evento.html  il "Reinvia" del gestore a chi aveva gia'
-                                 le credenziali di un altro evento (stessa email, password nuova)
+     credenziali-altro-evento.html  le credenziali di un evento a chi aveva gia'
+                                 quelle di un altro (stessa email, password nuova)
      credenziali-prova.html      l'email di prova per il gestore
      promemoria-giorno.html      il giorno prima
      promemoria-ora.html         un'ora prima
@@ -66,7 +68,7 @@ const LINK_RESET = C.baseSito() + '/diretta/reimposta.html?oobCode=ESEMPIO-codic
 
 const EMAIL = [
     ['credenziali', 'Credenziali (primo invio)', M.credenziali(Object.assign({ password: PERSONA.password, adesso: QUANDO_CREDENZIALI }, comuni))],
-    ['iscritto-anche', 'Sei iscritto anche a... (chi ha già una password: nessuna password nuova)', M.iscrittoAnche(Object.assign({ adesso: QUANDO_CREDENZIALI }, comuni))],
+    ['iscritto-anche', 'Sei iscritto anche a... (non parte più: ogni evento manda le sue credenziali)', M.iscrittoAnche(Object.assign({ adesso: QUANDO_CREDENZIALI }, comuni))],
     ['credenziali-reinvio', 'Credenziali (reinvio: sostituisce le precedenti)', M.credenziali(Object.assign({ password: 'Nuova4Hwz8', sostituisce: 'evento', adesso: QUANDO_CREDENZIALI }, comuni))],
     ['credenziali-altro-evento', 'Credenziali di chi le aveva già per un altro evento', M.credenziali(Object.assign({ password: 'Nuova6Rtk9', sostituisce: 'altro-evento', adesso: QUANDO_CREDENZIALI }, comuni))],
     ['credenziali-prova', 'Email di prova per il gestore', M.credenziali(Object.assign({ password: PERSONA.password, prova: true, adesso: QUANDO_CREDENZIALI }, comuni))],

@@ -33,12 +33,16 @@
         password», mai un nome utente), e 20 password prese dalla posta
         funzionano davvero (Identity Toolkit REST sull'emulatore); due
         "Reinvia" premuti insieme = una email sola; il reinvio dice che
-        la password di prima non vale piu'. UNA PASSWORD PER PERSONA:
-        chi ha gia' le credenziali di Napoli e viene aggiunto a Roma
-        riceve «Sei iscritto anche a...» SENZA password (quella di
-        Napoli continua a valere); chi aggiunto a Roma non aveva mai
-        ricevuto una password riceve le credenziali; il "Reinvia" del
-        gestore manda sempre una password.
+        la password di prima non vale piu'. OGNI EVENTO, LE SUE
+        CREDENZIALI: chi ha gia' le credenziali di Napoli e viene
+        aggiunto a Roma riceve le credenziali di Roma, con una password
+        nuova (quella di Napoli non vale piu', e l'email lo dice) e il
+        collegamento alla diretta di Roma; chi aggiunto a Roma non aveva
+        mai ricevuto una password riceve le credenziali, senza note; il
+        "Reinvia" del gestore manda una password nuova; «Invia loro le
+        credenziali» (accoda 'solo-avviso') rimette in coda solo chi per
+        l'evento aveva ricevuto il vecchio avviso «anche», e gli manda le
+        credenziali.
      M. l'invio SUBITO (inviaSubito, quello delle iscrizioni dal modulo
         del sito) insieme a un giro della coda e a un secondo invio
         subito: una email sola; con Brevo che rifiuta il login la
@@ -92,7 +96,6 @@ const EVENTO_TETTO = 'tetto-2026';     // per il tetto giornaliero
 const EVENTO_INCERTO = 'incerto-2026'; // per la connessione che cade dopo l'invio
 // le frasi dell'email per chi aveva gia' una password (D14)
 const FRASE_D14 = 'Questa email sostituisce le precedenti: la password che avevi ricevuto prima non è più valida.';
-const FRASE_ANCHE = 'entra con la tua email e la password che hai già; se non la ricordi usa "Password dimenticata?"';
 const FRASE_ALTRO_EVENTO = 'Avevi già ricevuto le credenziali per un altro evento: l\'email per entrare è la stessa, la password è nuova e quella di prima non è più valida.';
 const SEGRETO_CRON = 'segreto-della-prova-coda';
 
@@ -649,28 +652,46 @@ async function prova() {
     vero(roma.inviate === 21, 'Roma: 21 email inviate (20 + una persona di Napoli)');
     const postaMulti = perUid('credenziali', EVENTO_SENZA)[multi.id] || [];
     const ancheMulti = perUid('iscritto-anche', EVENTO_SENZA)[multi.id] || [];
-    vero(postaMulti.length === 0 && ancheMulti.length === 1, 'chi aveva gia\' le credenziali di Napoli: NESSUNA password nuova per Roma, ma l\'avviso «Sei iscritto anche a...»');
-    vero(ancheMulti.length === 1 && ancheMulti[0].testo.indexOf(FRASE_ANCHE) >= 0 && /^Sei iscritto anche a /.test(ancheMulti[0].oggetto)
-        && !/Password:\s*\S/.test(ancheMulti[0].testo) && ancheMulti[0].html.indexOf(passwordViste[1]) < 0,
-        '...«' + FRASE_ANCHE + '», senza password');
-    vero(ancheMulti.length === 1 && ancheMulti[0].html.indexOf('/diretta/?e=' + EVENTO_SENZA + '"') >= 0, '...e il suo collegamento porta a Roma (?e=' + EVENTO_SENZA + ')');
-    vero(await accedi2(multi.id, passwordViste[1]), '...e la password di Napoli continua a valere');
+    vero(postaMulti.length === 1 && ancheMulti.length === 0, 'chi aveva gia\' le credenziali di Napoli: per Roma riceve le SUE credenziali, con una password nuova (nessun avviso «Sei iscritto anche a...»)');
+    const pwRoma = postaMulti.length ? passwordDi(postaMulti[0]) : '';
+    vero(/^[A-HJ-NP-Za-km-np-z2-9]{10}$/.test(pwRoma) && pwRoma !== passwordViste[1] && postaMulti[0].testo.indexOf(FRASE_ALTRO_EVENTO) >= 0 && postaMulti[0].testo.indexOf(FRASE_D14) < 0,
+        '...con la nota «' + FRASE_ALTRO_EVENTO + '»');
+    vero(postaMulti.length === 1 && postaMulti[0].testo.indexOf('vai su ' + C.linkDiretta() + '?e=' + EVENTO_SENZA + ', scrivi la tua email') >= 0
+        && postaMulti[0].html.indexOf('/diretta/?e=' + EVENTO_SENZA + '"') >= 0 && postaMulti[0].html.indexOf('/diretta/?e=' + EVENTO + '"') < 0,
+        '...e «vai su ...» e il pulsante portano alla diretta di Roma (?e=' + EVENTO_SENZA + '), non a quella di Napoli');
+    vero(!(await accedi2(multi.id, passwordViste[1])) && await accedi2(multi.id, pwRoma), '...la password di Napoli non vale piu\', quella nuova si\' (per tutti e due gli eventi)');
     const vMulti = (await multi.ref.get()).data().invii[EVENTO_SENZA];
-    vero(vMulti.stato === 'inviata' && vMulti.tipo === 'anche', 'sulla voce di Roma: inviata, tipo "anche" (riceve i promemoria come gli altri)');
+    vero(vMulti.stato === 'inviata' && vMulti.tipo === 'credenziali', 'sulla voce di Roma: inviata, tipo "credenziali"');
     const credSenzaPw = perUid('credenziali', EVENTO_SENZA)[senzaPw.uid] || [];
-    vero(credSenzaPw.length === 1 && /^[A-HJ-NP-Za-km-np-z2-9]{10}$/.test(passwordDi(credSenzaPw[0])) && !(perUid('iscritto-anche', EVENTO_SENZA)[senzaPw.uid]),
-        'chi era iscritto anche a un altro evento ma non aveva MAI ricevuto una password: riceve le credenziali');
+    vero(credSenzaPw.length === 1 && /^[A-HJ-NP-Za-km-np-z2-9]{10}$/.test(passwordDi(credSenzaPw[0])) && !(perUid('iscritto-anche', EVENTO_SENZA)[senzaPw.uid])
+        && credSenzaPw[0].testo.indexOf(FRASE_ALTRO_EVENTO) < 0 && credSenzaPw[0].testo.indexOf(FRASE_D14) < 0,
+        'chi era iscritto anche a un altro evento ma non aveva MAI ricevuto una password: le credenziali, senza note');
     vero((await ctx.db.collection('partecipanti').doc(senzaPw.uid).get()).data().invii[EVENTO_SENZA].tipo === 'credenziali', '...e sulla voce resta tipo "credenziali"');
-    // il "Reinvia" del gestore manda sempre una password, anche a chi aveva avuto l'avviso «anche»
+    // il "Reinvia" del gestore: di nuovo le credenziali di Roma, con una password nuova
     avanti(2 * 60 * 1000);
     const reMulti = await invio.inviaCredenziali(ctx, { uid: multi.id, idEvento: EVENTO_SENZA });
     const credReMulti = perUid('credenziali', EVENTO_SENZA)[multi.id] || [];
-    /* la nota: la password che aveva era quella delle credenziali di Napoli (l'avviso «anche» di Roma non
-       ne portava una), quindi «Avevi già ricevuto le credenziali per un altro evento... quella di prima non è più valida» */
-    vero(reMulti.stato === 'inviata' && credReMulti.length === 1 && credReMulti[0].testo.indexOf(FRASE_ALTRO_EVENTO) >= 0 && credReMulti[0].testo.indexOf(FRASE_D14) < 0,
-        '"Reinvia" del gestore a chi aveva l\'avviso «anche»: le credenziali con una password nuova (e la nota che quella dell\'altro evento non vale piu\')');
-    vero(!(await accedi2(multi.id, passwordViste[1])) && await accedi2(multi.id, passwordDi(credReMulti[0])), '...la password di prima non vale piu\', quella nuova si\'');
+    vero(reMulti.stato === 'inviata' && credReMulti.length === 2 && credReMulti[1].testo.indexOf(FRASE_D14) >= 0,
+        '"Reinvia" del gestore: le credenziali di Roma di nuovo, con una password nuova e «' + FRASE_D14 + '»');
+    vero(!(await accedi2(multi.id, pwRoma)) && await accedi2(multi.id, passwordDi(credReMulti[1])), '...la password di prima non vale piu\', quella nuova si\'');
+    vero((await multi.ref.get()).data().invii[EVENTO_SENZA].tipo === 'credenziali', '...e la voce di Roma resta tipo "credenziali"');
+    /* chi per Roma aveva ricevuto solo il vecchio avviso «anche» (partiva fino al 25 novembre 2026):
+       «Invia loro le credenziali» della gestione, accoda 'solo-avviso'. Lo si scrive sulla voce di Roma
+       di chi e' appena passato dal "Reinvia" (cosi' i conti di Roma restano 21). */
+    avanti(2 * 60 * 1000);
+    await multi.ref.update(new ctx.FieldPath('invii', EVENTO_SENZA, 'tipo'), 'anche');
+    const accAvviso = await invio.accoda(ctx, { idEvento: EVENTO_SENZA, chi: 'solo-avviso' });
+    vero(accAvviso.accodate === 1 && accAvviso.saltate === 0,
+        'accoda «solo-avviso» (Invia loro le credenziali): in coda solo chi aveva l\'avviso; le altre 20 di Roma, con le credenziali, non si toccano e non sono «saltate»', JSON.stringify(accAvviso));
+    const giroAvviso = await finoAllaFine(EVENTO_SENZA, 'roma-avviso');
+    const credAvviso = perUid('credenziali', EVENTO_SENZA)[multi.id] || [];
+    const ultimaAvviso = credAvviso[credAvviso.length - 1] || { testo: '', html: '' };
+    vero(giroAvviso.inviate === 1 && credAvviso.length === 3 && ultimaAvviso.testo.indexOf(FRASE_ALTRO_EVENTO) >= 0 && ultimaAvviso.html.indexOf('/diretta/?e=' + EVENTO_SENZA + '"') >= 0,
+        '...partono le credenziali di Roma, con il collegamento a Roma e la nota sulla password dell\'altro evento');
+    vero(!(await accedi2(multi.id, passwordDi(credReMulti[1]))) && await accedi2(multi.id, passwordDi(ultimaAvviso)), '...la password di prima non vale piu\', quella nuova si\'');
     vero((await multi.ref.get()).data().invii[EVENTO_SENZA].tipo === 'credenziali', '...e la voce di Roma torna tipo "credenziali"');
+    const ancoraAvviso = await invio.accoda(ctx, { idEvento: EVENTO_SENZA, chi: 'solo-avviso' });
+    vero(ancoraAvviso.accodate === 0 && ancoraAvviso.saltate === 0, 'una seconda volta: nessuno da mettere in coda', JSON.stringify(ancoraAvviso));
 
     /* ---------- I ---------- */
     titolo('I. Tetto giornaliero e rimbalzi letti da Brevo');
