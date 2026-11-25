@@ -23,3 +23,9 @@ diretta/firebase/*.log
 
 # Dipendenze installate al volo dai workflow (Playwright per le anteprime).
 node_modules/
+
+# Prove delle regole di Firestore: dipendenze e registri dell'emulatore.
+scripts/regole/node_modules/
+scripts/regole/package-lock.json
+firestore-debug.log
+firebase-debug.log

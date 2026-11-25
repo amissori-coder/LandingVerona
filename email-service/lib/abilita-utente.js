@@ -49,6 +49,7 @@
 'use strict';
 
 const { eRuoloAdmin } = require('./utente-effettivo');
+const N = require('./nomi-incarichi');
 
 // il titolare dello studio: come in area-riservata/app.js e in lib/utente-effettivo.js
 const PROPRIETARIO = 'a.missori@emvas.tax';
@@ -155,7 +156,45 @@ async function abilita(db, ue, dati) {
     }
     return { ok: true, stato: 200, email: email, nome: nome, ruolo: ruolo, nomeRuolo: NOMI_RUOLI[ruolo], come: come };
 }
+/* L'elenco che mostra la sezione "Nuovi accessi": le persone attive di Aderenti
+   Revilaw che hanno un indirizzo email e non hanno ancora un accesso (con quanti
+   incarichi le citano), e gli accessi abilitati da chi chiama. Lo prepara il
+   servizio perche' chi abilita puo' avere a sua volta il ruolo Revisore, e a un
+   Revisore il database non consegna ne' l'anagrafica ne' l'elenco degli utenti.
+   Torna { ok, stato, msg } e, se va bene, { come, candidati, miei }. */
+async function candidati(db, ue) {
+    const persone = await leggiPersone(db);
+    const come = await qualifica(db, ue, persone);
+    if (!come) return { ok: false, stato: 403, msg: 'Nuovi accessi li abilitano l\'amministratore, i responsabili della qualità, gli equity partner e i founding partner.' };
+    let incarichi = [];
+    try {
+        const s = await db.collection('archivio').doc('incarichi').get();
+        const j = s.exists ? (s.data() || {}).json : null;
+        const l = typeof j === 'string' ? JSON.parse(j) : j;
+        incarichi = Array.isArray(l) ? l : [];
+    } catch (_) { incarichi = []; }
+    const utenti = (await db.collection('utenti').get()).docs.map(d => Object.assign({}, d.data() || {}, { email: String(d.id).toLowerCase() }));
+    const conAccesso = new Set(utenti.map(u => u.email));
+    // quanti incarichi citano ciascuna scheda: una sola passata
+    const risolvi = N.risolutorePersone(persone), conta = new Map();
+    incarichi.forEach(inc => N.personeDiIncarico(inc, risolvi).forEach(p => conta.set(p.id, (conta.get(p.id) || 0) + 1)));
+    const visti = new Set();
+    const elenco = persone
+        .filter(p => p && p.attivo && !p.eliminato && p.email && !conAccesso.has(String(p.email).trim().toLowerCase()))
+        // due schede con la stessa email darebbero due righe per lo stesso accesso
+        .filter(p => { const e = String(p.email).trim().toLowerCase(); if (visti.has(e)) return false; visti.add(e); return true; })
+        .map(p => ({
+            id: p.id, nome: pulito(p.nome, 120), nomeProprio: pulito(p.nomeProprio, 120), email: String(p.email).trim(),
+            incarichi: conta.get(p.id) || 0,
+            equityPartner: p.equityPartner === true, foundingPartner: p.foundingPartner === true, qualita: p.qualita === true,
+            respIncarico: p.respIncarico === true, coordinatore: p.coordinatore === true, viceCoordinatore: p.viceCoordinatore === true
+        }));
+    const miei = utenti.filter(u => String(u.creatoDa || '').toLowerCase() === ue.email)
+        .map(u => ({ email: u.email, nome: pulito(u.nome, 120), ruolo: pulito(u.ruolo, 40), creato: Number(u.creato) || 0, attivo: u.attivo !== false, ultimoAccesso: Number(u.ultimoAccesso) || 0 }));
+    return { ok: true, stato: 200, come: come, candidati: elenco, miei: miei };
+}
+
 // una chiave di campo senza punti (Firestore li leggerebbe come percorso)
 function chiaveDi(email) { return String(email || '').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 200); }
 
-module.exports = { abilita, qualifica, RUOLI_DELEGABILI, MAX_AL_GIORNO, _interni: { schedaDi, leggiPersone, chiaveDi } };
+module.exports = { abilita, qualifica, candidati, RUOLI_DELEGABILI, MAX_AL_GIORNO, _interni: { schedaDi, leggiPersone, chiaveDi } };

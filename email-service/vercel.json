@@ -26,6 +26,7 @@
     "api/invii-programmati.js": { "maxDuration": 300 },
     "api/sblocco-incarico.js": { "maxDuration": 30 },
     "api/abilita-utente.js": { "maxDuration": 30 },
+    "api/revisore.js": { "maxDuration": 30 },
     "api/promemoria-eventi.js": { "maxDuration": 300 },
     "api/diretta-cron.js": { "maxDuration": 300 },
     "api/diretta-gestione.js": { "maxDuration": 60 },

@@ -1,0 +1,142 @@
+// Regole di sicurezza di Firestore dell'area riservata.
+// QUESTO e' il testo da incollare nella console Firebase (Firestore Database >
+// Regole > Pubblica). E' lo stesso riportato in FIREBASE-SETUP.md, che spiega
+// ogni scelta; le due copie sono tenute uguali da scripts/regole/prova-regole.cjs,
+// che prova anche le regole sull'emulatore, ruolo per ruolo.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function mia() {
+      return request.auth.token.email;
+    }
+    function esisteScheda(email) {
+      return exists(/databases/$(database)/documents/utenti/$(email));
+    }
+    function schedaDi(email) {
+      return get(/databases/$(database)/documents/utenti/$(email)).data;
+    }
+    // Il "collaboratore" (ruolo 'collaboratore', campo collaboratoreDi = l'email
+    // di un altro utente) lavora a nome di quell'utente: il ruolo che conta e'
+    // quello del suo riferimento, non il suo. Senza collaboratoreDi l'email
+    // effettiva e' vuota e l'accesso e' negato (fail-closed). I campi si leggono
+    // con get(campo, '') cosi' una scheda senza ruolo non manda in errore la regola.
+    function eCollaboratore() {
+      return schedaDi(mia()).get('ruolo', '') == 'collaboratore';
+    }
+    function emailEffettiva() {
+      return eCollaboratore() ? schedaDi(mia()).get('collaboratoreDi', '') : mia();
+    }
+    function ruoloUtente() {
+      return schedaDi(emailEffettiva()).ruolo;
+    }
+    function abilitato() {
+      return request.auth != null
+        && esisteScheda(mia())
+        && schedaDi(mia()).attivo == true
+        // un collaboratore entra solo se il suo riferimento e' indicato, esiste,
+        // e' attivo e non e' l'amministratore, il vice amministratore o il titolare
+        // (i loro poteri non si delegano), un altro collaboratore (niente catene) o
+        // un invitato "solo sondaggio" (le stesse regole dell'app e del servizio email)
+        && (!eCollaboratore()
+            || (emailEffettiva() != ''
+                && emailEffettiva() != 'a.missori@emvas.tax'
+                && esisteScheda(emailEffettiva())
+                && schedaDi(emailEffettiva()).attivo == true
+                && !(schedaDi(emailEffettiva()).get('ruolo', '') in ['admin', 'viceadmin', 'collaboratore', 'sondaggio_compila', 'sondaggio_risultati'])));
+    }
+    // amministratore e vice amministratore ('viceadmin'): stessi poteri, in tutto
+    function admin() {
+      return abilitato() && ruoloUtente() in ['admin', 'viceadmin'];
+    }
+    // utente "solo sondaggio" (invitato esterno): accede SOLO ai dati del sondaggio
+    function soloSondaggio() {
+      return abilitato() && (ruoloUtente() == 'sondaggio_compila' || ruoloUtente() == 'sondaggio_risultati');
+    }
+    // "interno" = abilitato che NON e' un invitato solo-sondaggio: lo staff pieno piu'
+    // i revisori. Puo' usare i servizi comuni dell'area (messaggi, ruoli, modelli).
+    // NB: abilitato() va valutata UNA volta sola per regola. Per un collaboratore
+    // costa molto (rilegge la sua scheda e quella del suo riferimento) e Firestore
+    // mette un tetto ai calcoli di una regola: ripetuta tre volte nella stessa
+    // regola lo superava, e il collaboratore restava chiuso fuori da tutto (lo si
+    // vede sull'emulatore: scripts/regole/prova-regole.cjs).
+    function interno() {
+      return abilitato() && !(ruoloUtente() in ['sondaggio_compila', 'sondaggio_risultati']);
+    }
+    // "staff pieno" = chi legge e scrive gli archivi: un interno che NON e' un revisore.
+    // Il "Revisore" (ruolo 'revisore') vede solo cio' che riguarda i SUOI incarichi, ma
+    // gli archivi sono salvati in blocco e le regole non sanno aprirli per dargliene una
+    // parte: per questo il database a lui NON consegna nessun archivio, ne' l'elenco
+    // degli utenti. I suoi dati glieli prepara il servizio email (api/revisore.js), che
+    // gli passa solo quelli dei suoi incarichi. Vale anche per il collaboratore di un
+    // revisore (ruoloUtente() e' il ruolo del suo utente di riferimento).
+    function staff() {
+      return interno() && ruoloUtente() != 'revisore';
+    }
+    // elenco degli utenti abilitati: lo legge lo STAFF (ogni utente attivo puo
+    // comunque leggere la PROPRIA scheda, serve al login: anche un collaboratore
+    // rimasto senza riferimento, cosi' la schermata di accesso gli dice perche'
+    // non entra); lo modifica solo l'admin (o il suo vice); ogni utente puo aggiornare soltanto
+    // il proprio "ultimoAccesso". Cosi gli invitati esterni "solo sondaggio" non
+    // vedono l'elenco dello staff.
+    // Il revisore NON legge l'elenco: solo la propria scheda (e il suo collaboratore
+    // anche quella del revisore a nome del quale lavora: serve all'accesso).
+    match /utenti/{email} {
+      allow read: if (request.auth != null && request.auth.token.email == email && resource.data.attivo == true)
+        || (interno() && (ruoloUtente() != 'revisore' || emailEffettiva() == email));
+      allow create, delete: if admin();
+      allow update: if admin()
+        || (abilitato()
+            && request.auth.token.email == email
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAccesso']));
+    }
+    // dati generali dell'area riservata (incarichi, persone, fatture, ...):
+    // SOLO lo staff pieno. Gli utenti "solo sondaggio" NON possono leggerli
+    // ne scriverli. La definizione dei ruoli ha una regola dedicata sotto.
+    match /archivio/{documento} {
+      allow read: if staff();
+      allow write: if staff() && documento != 'ruoli';
+    }
+    // definizione dei ruoli e dei permessi: la legge lo STAFF (serve a sapere
+    // cosa puo' vedere ciascuno) ma la scrive SOLO l'admin. Gli utenti "solo
+    // sondaggio" non ne hanno bisogno e non devono vederla.
+    match /archivio/ruoli {
+      allow read: if interno();
+      allow write: if admin();
+    }
+    // risposte del sondaggio: le leggono tutti gli abilitati (staff +
+    // compilatori + visualizzatori); le scrivono lo staff e i compilatori
+    // (NON i "solo risultati").
+    match /archivio/sondaggi {
+      allow read: if abilitato() && ruoloUtente() != 'revisore';
+      allow write: if staff() || (abilitato() && ruoloUtente() == 'sondaggio_compila');
+    }
+    // configurazione del sondaggio (scadenza, invitati): la leggono tutti gli
+    // abilitati, la scrive solo lo staff (l'admin la modifica dall'app).
+    match /archivio/sondaggiConfig {
+      allow read: if abilitato() && ruoloUtente() != 'revisore';
+      allow write: if staff();
+    }
+    // modelli PDF delle lettere di incarico: li leggono gli abilitati,
+    // li carica solo l'amministratore
+    match /modelli/{documento} {
+      allow read: if interno();
+      allow write: if admin();
+    }
+    // messaggi privati tra utenti: OGNUNO legge SOLO il proprio documento
+    // (messaggi/<propria email>); qualunque utente staff puo scrivere per
+    // recapitare. Cosi le conversazioni NON sono visibili a tutti, ma solo al
+    // destinatario (nemmeno via strumenti per sviluppatori o API).
+    match /messaggi/{email} {
+      allow read: if interno() && request.auth.token.email == email;
+      allow write: if interno();
+    }
+    // contatore delle modifiche all'archivio iscrizioni: solo un numero e una
+    // data, nessun dato personale. L'area riservata lo ASCOLTA per aggiornare
+    // la sezione Eventi in tempo reale (una lettura per cambiamento, non una
+    // per utente al minuto). Lo scrive solo il servizio email, mai il browser.
+    match /meta/iscrizioni {
+      allow read: if staff();
+      allow write: if false;
+    }
+  }
+}

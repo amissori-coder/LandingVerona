@@ -10,6 +10,10 @@
 
    POST { idToken, azione }
      'stato'    -> { ok, puo, come, ruoli }   se chi chiama puo' abilitare
+     'candidati'-> { ok, come, candidati, miei } le persone di Aderenti Revilaw
+                   senza accesso e gli accessi abilitati da chi chiama: lo
+                   usa la sezione quando chi abilita ha il ruolo Revisore, a
+                   cui il database non consegna anagrafica ne' elenco utenti
      'abilita'  -> { ok, email, nome, ruolo } crea la scheda in "utenti"
                    con { email, ruolo }: la persona deve avere gia' una
                    scheda attiva in Aderenti Revilaw con quell'indirizzo
@@ -83,6 +87,12 @@ module.exports = async (req, res) => {
         if (azione === 'stato') {
             const come = await ABILITA.qualifica(db, ue);
             res.status(200).json({ ok: true, puo: !!come, come: come, ruoli: ABILITA.RUOLI_DELEGABILI });
+            return;
+        }
+        if (azione === 'candidati') {
+            const r = await ABILITA.candidati(db, ue);
+            if (!r.ok) { res.status(r.stato || 400).json({ ok: false, msg: r.msg }); return; }
+            res.status(200).json({ ok: true, come: r.come, candidati: r.candidati, miei: r.miei });
             return;
         }
         if (azione === 'abilita') {
