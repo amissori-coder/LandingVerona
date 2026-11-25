@@ -609,7 +609,7 @@ decide davvero (`lib/abilita-utente.js`).
 | Azione | Che cosa fa |
 |---|---|
 | `stato` | dice se chi chiama puo' abilitare (`puo`), a che titolo (`come`) e con quali ruoli |
-| `abilita` | con `{ email, nome, ruolo }` crea `utenti/<email>` con `attivo: true`, `creatoDa` (chi ha abilitato) e `delega` (a che titolo: `qualita`, `equity`, `founding`, `amministratore`) |
+| `abilita` | con `{ email, ruolo }` crea `utenti/<email>` con il nome preso dalla scheda, `attivo: true`, `creatoDa` (chi ha abilitato) e `delega` (a che titolo: `qualita`, `equity`, `founding`, `amministratore`) |
 
 **Chi puo'.** Equity e founding partner sono qualifiche della scheda in
 Aderenti Revilaw (`archivio/persone`, agganciata per email, scheda attiva);
@@ -619,6 +619,9 @@ collaboratore no: i poteri sugli utenti non si delegano.
 
 **Che cosa non si puo' fare da qui**, nemmeno per l'amministratore:
 
+- abilitare un indirizzo che non ha una scheda **attiva in Aderenti Revilaw**
+  (400): non si abilita un indirizzo scritto a mano. Un revisore nuovo si
+  inserisce prima in anagrafica (e negli incarichi), poi gli si da' l'accesso;
 - assegnare un ruolo diverso dai tre (400);
 - toccare un indirizzo che ha gia' una scheda, anche disabilitata (409): chi e'
   stato tolto dall'amministratore non rientra da questa porta, e nessuno si
@@ -634,7 +637,7 @@ del nome (l'area lo ricava da sola da `RV_EMAIL_SERVICE_URL`).
 Il ruolo `revisore` non cambia niente nel servizio: nelle circolarizzazioni,
 per esempio, ognuno vede gia' solo gli incarichi in cui compare.
 
-Prove: `node prove/abilita-utente.prove.js` (52 verifiche).
+Prove: `node prove/abilita-utente.prove.js`.
 
 ## Sblocco del calcolo congelato (`/api/sblocco-incarico`)
 

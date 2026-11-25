@@ -10,8 +10,10 @@
 
    POST { idToken, azione }
      'stato'    -> { ok, puo, come, ruoli }   se chi chiama puo' abilitare
-     'abilita'  -> { ok, email, ruolo }       crea la scheda in "utenti"
-                   con { email, nome, ruolo }
+     'abilita'  -> { ok, email, nome, ruolo } crea la scheda in "utenti"
+                   con { email, ruolo }: la persona deve avere gia' una
+                   scheda attiva in Aderenti Revilaw con quell'indirizzo
+                   (il nome si prende da li')
 
    La scheda sola non fa entrare nessuno: l'email per impostare la
    password la manda poi l'area riservata, come dalla sezione Utenti
@@ -84,10 +86,10 @@ module.exports = async (req, res) => {
             return;
         }
         if (azione === 'abilita') {
-            const r = await ABILITA.abilita(db, ue, { email: body.email, nome: body.nome, ruolo: body.ruolo });
+            const r = await ABILITA.abilita(db, ue, { email: body.email, ruolo: body.ruolo });
             if (!r.ok) { res.status(r.stato || 400).json({ ok: false, msg: r.msg }); return; }
             console.log('abilita-utente: ' + r.email + ' (' + r.ruolo + ') abilitato da ' + ue.email + ' come ' + r.come);
-            res.status(200).json({ ok: true, email: r.email, ruolo: r.ruolo, nomeRuolo: r.nomeRuolo });
+            res.status(200).json({ ok: true, email: r.email, nome: r.nome, ruolo: r.ruolo, nomeRuolo: r.nomeRuolo });
             return;
         }
         res.status(400).json({ ok: false, msg: 'Azione non riconosciuta.' });

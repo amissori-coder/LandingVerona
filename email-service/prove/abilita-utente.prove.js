@@ -10,7 +10,8 @@
    founding partner possono AGGIUNGERE utenti con i soli ruoli
    Revisore, Coordinatore territoriale e Vice coordinatore, e
    nient'altro: nessun altro ruolo, nessuna modifica a chi c'e' gia',
-   nessun potere a chi non ha la qualifica. La decisione e' del
+   nessun potere a chi non ha la qualifica, e solo per chi ha gia' una
+   scheda attiva in Aderenti Revilaw. La decisione e' del
    servizio (api/abilita-utente.js): l'app mostra solo i comandi.
    ============================================================ */
 'use strict';
@@ -48,6 +49,13 @@ const persone = [
     { id: 'p6', nome: 'Bruni', nomeProprio: 'Ivo', email: 'ivo@studio.it', attivo: true, eliminato: true, foundingPartner: true },
     { id: 'p7', nome: 'Verdi', nomeProprio: 'Anna', email: 'ANNA@studio.it', attivo: true, qualita: true }                 // email scritta in maiuscolo sulla scheda
 ];
+// le persone che verranno abilitate: tutte gia' in anagrafica, con il loro indirizzo
+[['Nuovo.Revisore@studio.it', 'Mario', 'Bianchi'], ['coord@studio.it', 'Carla', 'Coordina'], ['vice.coord@studio.it', 'Vito', 'Vice'], ['da.admin@studio.it', 'Dario', 'Admin'],
+    ['altro@studio.it', 'Alba', 'Altro'], ['domani@studio.it', 'Dino', 'Domani'], ['senza.freno@studio.it', 'Sara', 'Freno'], ['troppi@studio.it', 'Tina', 'Troppi'], ['scalata@studio.it', 'Sandro', 'Scalata'], ['x@studio.it', 'Ics', 'Ipsilon']]
+    .forEach(([email, nomeProprio, nome], i) => persone.push({ id: 'n' + i, nome: nome, nomeProprio: nomeProprio, email: email, attivo: true, team: true }));
+persone.push({ id: 'f1', nome: 'Fermo', nomeProprio: 'Fabio', email: 'fermo@studio.it', attivo: false });                      // scheda disattivata
+persone.push({ id: 'f2', nome: 'Tolta', nomeProprio: 'Tea', email: 'tolta@studio.it', attivo: true, eliminato: true });        // scheda eliminata
+persone.push({ id: 'f3', nome: 'Senzamail', nomeProprio: 'Sem', email: '', attivo: true });
 dati.set('archivio/persone', { json: JSON.stringify(persone) });
 utente('a.missori@emvas.tax', { ruolo: 'procuratore' });           // il titolare: amministratore qualunque cosa dica la scheda
 utente('admin@studio.it', { ruolo: 'admin' });
@@ -95,10 +103,10 @@ utente('vecchio@studio.it', { ruolo: 'procuratore', attivo: false, nome: 'Tolto 
 
     // ---------- 3. si aggiunge, e solo con i tre ruoli ----------
     const t0 = Date.now();
-    r = await chiama('qualita@studio.it', { azione: 'abilita', email: '  Nuovo.Revisore@Studio.IT ', nome: '  Mario   Bianchi ', ruolo: 'revisore' });
+    r = await chiama('qualita@studio.it', { azione: 'abilita', email: '  Nuovo.Revisore@Studio.IT ', nome: 'Un Nome Scritto Da Chi Chiama', ruolo: 'revisore' });
     let s = scheda('nuovo.revisore@studio.it');
-    verifica('un responsabile della qualita\' abilita un Revisore', r.ok && r.http === 200 && r.email === 'nuovo.revisore@studio.it' && r.ruolo === 'revisore' && r.nomeRuolo === 'Revisore', r);
-    verifica('la scheda: indirizzo in minuscolo, nome pulito, attiva, con chi l\'ha creata e a che titolo', s && s.nome === 'Mario Bianchi' && s.ruolo === 'revisore' && s.attivo === true && s.creatoDa === 'qualita@studio.it' && s.delega === 'qualita' && s.creato >= t0 && !dati.has('utenti/  Nuovo.Revisore@Studio.IT '), s);
+    verifica('un responsabile della qualita\' abilita un Revisore', r.ok && r.http === 200 && r.email === 'nuovo.revisore@studio.it' && r.ruolo === 'revisore' && r.nomeRuolo === 'Revisore' && r.nome === 'Mario Bianchi', r);
+    verifica('la scheda: indirizzo in minuscolo, nome preso da Aderenti Revilaw (non da chi chiama), attiva, con chi l\'ha creata e a che titolo', s && s.nome === 'Mario Bianchi' && s.ruolo === 'revisore' && s.attivo === true && s.creatoDa === 'qualita@studio.it' && s.delega === 'qualita' && s.creato >= t0 && !dati.has('utenti/  Nuovo.Revisore@Studio.IT '), s);
     r = await chiama('elena@studio.it', { azione: 'abilita', email: 'coord@studio.it', nome: 'Coordinatore Nuovo', ruolo: 'coordinatore' });
     verifica('un equity partner abilita un Coordinatore territoriale', r.ok && scheda('coord@studio.it').ruolo === 'coordinatore' && scheda('coord@studio.it').delega === 'equity' && scheda('coord@studio.it').creatoDa === 'elena@studio.it', r);
     r = await chiama('piero@studio.it', { azione: 'abilita', email: 'vice.coord@studio.it', nome: 'Vice Nuovo', ruolo: 'vicecoordinatore' });
@@ -114,7 +122,12 @@ utente('vecchio@studio.it', { ruolo: 'procuratore', attivo: false, nome: 'Tolto 
     verifica('nemmeno l\'amministratore crea amministratori da questa porta: usa la sezione Utenti', r.http === 400 && !scheda('scalata@studio.it'));
     verifica('indirizzo non valido: 400', (await chiama('elena@studio.it', { azione: 'abilita', email: 'non-un-indirizzo', nome: 'X', ruolo: 'revisore' })).http === 400
         && (await chiama('elena@studio.it', { azione: 'abilita', email: 'a@b.it, c@d.it', nome: 'X', ruolo: 'revisore' })).http === 400);
-    verifica('senza nome: 400', (await chiama('elena@studio.it', { azione: 'abilita', email: 'senza.nome@studio.it', nome: '   ', ruolo: 'revisore' })).http === 400 && !scheda('senza.nome@studio.it'));
+    // solo chi e' gia' in Aderenti Revilaw: niente indirizzi scritti a mano
+    r = await chiama('elena@studio.it', { azione: 'abilita', email: 'fuori.anagrafica@esempio.it', nome: 'Fuori Anagrafica', ruolo: 'revisore' });
+    verifica('un indirizzo che non e\' in Aderenti Revilaw NON si abilita: 400, e dice cosa fare prima', r.http === 400 && /non c'è una scheda attiva con questo indirizzo email: prima va inserita la persona in anagrafica/.test(r.msg) && !scheda('fuori.anagrafica@esempio.it'), r);
+    verifica('nemmeno se la scheda c\'e\' ma e\' disattivata o eliminata', (await chiama('piero@studio.it', { azione: 'abilita', email: 'fermo@studio.it', ruolo: 'revisore' })).http === 400 && (await chiama('piero@studio.it', { azione: 'abilita', email: 'tolta@studio.it', ruolo: 'revisore' })).http === 400
+        && !scheda('fermo@studio.it') && !scheda('tolta@studio.it'));
+    verifica('vale anche per l\'amministratore, da questa porta (lui ha la sezione Utenti per il resto)', (await chiama('admin@studio.it', { azione: 'abilita', email: 'fuori.anagrafica@esempio.it', ruolo: 'revisore' })).http === 400 && !scheda('fuori.anagrafica@esempio.it'));
     verifica('azione sconosciuta: 400', (await chiama('elena@studio.it', { azione: 'elimina', email: 'marta@studio.it' })).http === 400 && scheda('marta@studio.it').attivo === true);
     verifica('nessuno di questi tentativi ha scritto qualcosa', quanti() === dopo);
 
