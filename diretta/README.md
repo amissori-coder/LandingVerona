@@ -1609,7 +1609,9 @@ Dentro ci sono le **pagine vere** (`diretta/index.html`, `reimposta.html`,
 `gestione/`, `relatore/`) e il **servizio vero** (`email-service/api/diretta-*.js`),
 impacchettato con un Firebase finto in memoria che applica le stesse regole di
 `firestore.rules`. Le email finiscono nella scheda «Posta di prova»; al posto
-del player incorporato c'è un riquadro «Player YouTube (anteprima)» o «Player Azoto (anteprima)»
+del video di YouTube c'è un riquadro «Registrazione YouTube (anteprima)» con il
+punto della registrazione, uguale per tutti (`anteprima/player-youtube-anteprima.js`),
+al posto del player di Azoto un riquadro «Player Azoto (anteprima)»
 (`anteprima/player-azoto-anteprima.js`) e al posto del flusso diretto un video
 di prova (`anteprima/player-anteprima.js`), con le stesse interfacce dei player
 veri (con `node anteprima/costruisci.js --player-vero` c'è invece il player
@@ -1984,24 +1986,67 @@ che oggi nessun fornitore ha confermato per iscritto.
 Dal webinar del 10 dicembre 2026 il video arriva da **YouTube** e i
 partecipanti possono **mandare domande al relatore** durante la diretta.
 
-### 13.1 Il video su YouTube
+### 13.1 Il video su YouTube: una registrazione che sembra una diretta
 
 Il link di YouTube va nella scheda Evento (o in Regia) nel campo **«Player
-YouTube o Azoto»**, lo stesso del player di Azoto: è la modalità A, il player
-incorporato nella nostra pagina, con i comandi di YouTube. Vanno bene il link
-del video o della diretta (`youtube.com/watch?v=…`, `youtube.com/live/…`,
+YouTube o Azoto»**, lo stesso del player di Azoto (modalità A). Vanno bene il
+link del video o della diretta (`youtube.com/watch?v=…`, `youtube.com/live/…`,
 `youtu.be/…`): `sorgente-video.js` ne prende solo l'identificativo e lo mette
 nel player di `www.youtube-nocookie.com` (l'unico indirizzo di YouTube che la
 CSP delle pagine lascia entrare in un iframe). Un canale, una playlist o la
 pagina iniziale di YouTube sono rifiutati con il motivo.
 
-Su YouTube la diretta va creata **«Non in elenco»** (non «Privata», che non si
+Dal 26 novembre 2026 il video di YouTube è di solito una **registrazione**,
+ma la pagina dei partecipanti lo mostra **come una diretta**: con un link di
+YouTube il player è `diretta/player-youtube.js` (al posto di
+`player-azoto.js`).
+
+- **Tutti allo stesso punto.** È il punto in cui «si è» adesso:
+  `inizioVideo + onda.secondi + (adesso − onda.da)`. `onda` lo scrive il
+  servizio nel documento pubblico dell'evento a ogni cambio di stato
+  (`email-service/lib/diretta-dati.js`, `ondaDopo`): «Vai in onda» fa partire
+  il conto, «Metti in pausa» lo ferma (la pausa non conta: con «Riprendi la
+  diretta» si riparte da dove ci si era fermati), «Termina» lo ferma, «Riporta
+  in attesa» e «Torna alla fase iniziale» lo azzerano. `inizioVideo` è
+  **«Parti dal punto»** della scheda Evento (minuti:secondi, facoltativo, si
+  vede solo con un link di YouTube): da dove parte la registrazione, per
+  saltarne l'inizio. Cambiato in onda, chi guarda salta al nuovo punto (la
+  gestione lo chiede prima). Chi entra tardi parte dal punto giusto; chi resta
+  indietro (rete lenta, scheda in secondo piano) ci torna da solo; finita la
+  registrazione compare «La diretta si è conclusa».
+- **L'ora giusta.** Il conto usa l'ora del sito, non quella del dispositivo:
+  la pagina la legge dall'intestazione `Date` di una richiesta a `config.js`
+  (al più ogni 10 minuti). Un computer con l'orologio avanti o indietro vede lo
+  stesso punto degli altri.
+- **Niente di YouTube.** L'iframe ha `controls=0` (niente barra, durata, tasti
+  o schermo intero di YouTube), non riceve clic né tocchi (sopra c'è uno scudo
+  trasparente: niente menu del tasto destro, niente clic verso YouTube) ed è
+  più alto del riquadro, così il titolo e il logo che YouTube disegna in alto e
+  in basso restano fuori vista. Prima che il video parta e alla fine c'è una
+  nostra schermata. I comandi sono i nostri: «Attiva l'audio», audio e
+  volume, «In diretta», «Schermo intero» (niente pausa né barra per tornare
+  indietro).
+- **Il link non si vede da nessuna parte**: né nella pagina né nei comandi;
+  fuori onda il documento pubblico dice solo `videoYouTube` (sì o no). Il
+  limite: per mostrare il video il browser deve sapere quale video è, quindi
+  chi sa usare gli strumenti per sviluppatori del browser lo può ancora trovare
+  (nell'iframe, mentre si è in onda).
+- **L'audio.** I browser fanno partire un video da solo solo senza audio:
+  «Attiva l'audio» lo accende. Se il browser non lo concede (succede su
+  iPhone) compare «Tocca il video»: il tocco arriva a YouTube e l'audio parte.
+- **Se YouTube non risponde** ai messaggi dell'iframe (entro 12 secondi) la
+  pagina mostra il player di YouTube con i suoi comandi: meglio il logo di
+  YouTube che uno schermo nero.
+- **In Regia**, con il video di YouTube, sotto lo stato c'è il punto della
+  registrazione in cui sono i partecipanti, e va avanti da solo.
+
+Su YouTube il video va caricato **«Non in elenco»** (non «Privato», che non si
 può incorporare) e con **«Consenti incorporamento»** acceso. «Prova il player»
 della gestione chiede a YouTube (oEmbed) se il video esiste e si può
-incorporare, e ne mostra titolo e canale. Il link resta nel documento
-pubblico dell'evento solo mentre si è in onda, come quello di Azoto; ma chi
-lo vede (un iscritto) lo può copiare e condividere: un video «Non in elenco»
-non è protetto da password (vedi §5.5).
+incorporare, e ne mostra titolo e canale; l'anteprima della gestione è il
+player di YouTube con i suoi comandi (la vede solo la regia). Il link resta nel
+documento pubblico dell'evento solo mentre si è in onda, come quello di Azoto;
+un video «Non in elenco» non è protetto da password (vedi §5.5).
 
 ### 13.2 Le domande: chi vede che cosa
 
@@ -2078,4 +2123,15 @@ domande non passano dal documento dell'evento che tutti ascoltano.
   Poi: «Vai in onda», una domanda dal telefono con il partecipante, la pagina
   del relatore dal computer con le credenziali del relatore, «Segna come
   risposta», e il controllo che un altro partecipante non veda la domanda.
+  Per la registrazione che sembra una diretta: apri la diretta su due
+  dispositivi (sono allo stesso punto, quello che dice la Regia), «Metti in
+  pausa» e dopo un minuto «Riprendi la diretta» (si riparte da dove ci si era
+  fermati), e ricarica la pagina su uno dei due (torna allo stesso punto).
   Alla fine «Torna alla fase iniziale» o elimina l'evento di prova.
+- **Le prove automatiche**: `diretta/prove/player-youtube.prova.js` (il player
+  da solo, con un YouTube finto: punto giusto, salti, audio, «Tocca il
+  video», fine, errori), `pagina.prova.js` (la pagina vera: pausa e ripresa,
+  «Parti dal punto» in onda, un dispositivo con l'orologio avanti di 10
+  minuti), `gestione.prova.js` («Parti dal punto», la conferma in onda, il
+  punto in Regia) e `email-service/prove/diretta-video.prove.js` (`ondaDopo`,
+  `leggiInizioVideo`).

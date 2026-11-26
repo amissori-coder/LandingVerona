@@ -440,6 +440,12 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
     .firma > summary::before, .blocco-regia > summary::before { transition: none; }
 }
 .regia-orari { text-align: center; color: var(--tenue); font-size: 0.92rem; margin-bottom: 18px; }
+/* con un video di YouTube: il punto della registrazione (lo stesso per tutti) */
+.regia-registrazione { margin: -10px 0 16px; text-align: center; color: var(--testo); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.regia-registrazione strong { font-size: 1.05rem; }
+/* «Parti dal punto»: un campo corto (minuti:secondi) */
+.campo-punto-video { margin-top: 14px; }
+.campo-punto-video input { max-width: 9em; font-variant-numeric: tabular-nums; }
 .regia-comandi { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 12px; }
 .regia-comandi .btn-grande { flex: 1 1 200px; }
 .regia-pausa {

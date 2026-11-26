@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20261125a">
+    <link rel="stylesheet" href="gestione.css?v=20261126a">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -196,15 +196,23 @@
                                         oppure il codice che vi ha dato Azoto (quello con &lt;iframe src='…'&gt;) o solo l'indirizzo del suo player.
                                         Si salva SOLO l'indirizzo del player: per YouTube quello di youtube-nocookie.com ricostruito dal video, per Azoto
                                         l'indirizzo https di cdn.azotosolutions.com; il resto (script, stili, altri tag, parametri) si scarta e non entra
-                                        mai nella pagina. Su YouTube la diretta va impostata «Non in elenco», con «Consenti incorporamento» attivo. L'indirizzo resta riservato: arriva solo a chi è entrato con la sua email e la password,
+                                        mai nella pagina. Su YouTube il video (o la diretta) va impostato «Non in elenco», con «Consenti incorporamento» attivo. L'indirizzo resta riservato: arriva solo a chi è entrato con la sua email e la password,
                                         mentre l'evento è in onda. Puoi lasciarlo vuoto e inserirlo più tardi, anche dalla scheda Regia.</p>
                                     <p id="ev-azoto-indirizzo" class="link-tipo indirizzo-azoto" role="status" hidden></p>
-                                    <p class="aiuto nota-azoto">Con il player incorporato (YouTube o Azoto) restano i suoi comandi e il suo logo: per usare i nostri comandi serve il link .m3u8 di un flusso diretto.</p>
+                                    <p class="aiuto nota-azoto">Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Azoto restano invece i suoi comandi e il suo logo.</p>
                                     <div id="ev-azoto-esito" class="esito-prova" role="group" aria-label="Risultato della prova del player YouTube o Azoto" hidden></div>
                                     <div id="ev-azoto-anteprima" class="video-anteprima" hidden>
                                         <div class="video-anteprima-cornice"></div>
                                         <button type="button" class="btn btn-secondario btn-piccolo btn-chiudi-anteprima-video">Chiudi l'anteprima del video</button>
                                     </div>
+                                </div>
+                                <!-- solo con un video di YouTube (gestione.js, aggiornaCampoPunto): da dove parte la registrazione -->
+                                <div id="campo-inizio-video" class="campo campo-punto-video" hidden>
+                                    <label for="ev-inizio-video">Parti dal punto <span class="facoltativo">(facoltativo, minuti:secondi)</span></label>
+                                    <input type="text" id="ev-inizio-video" name="inizioVideo" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="9" placeholder="0:00" aria-describedby="ev-inizio-video-aiuto">
+                                    <p id="ev-inizio-video-aiuto" class="aiuto">Il punto della registrazione da cui parte la diretta quando premi «Vai in onda», per saltarne l'inizio
+                                        (per esempio 2:30, oppure 1:02:30 con le ore). Vuoto: dall'inizio. Da lì il video va avanti per tutti insieme:
+                                        «Metti in pausa» lo ferma e «Riprendi la diretta» riparte dal punto in cui si era fermato; «Riporta in attesa» lo rimette qui.</p>
                                 </div>
                             </section>
 
@@ -411,6 +419,8 @@
                                 <span id="regia-stato-testo">—</span>
                             </div>
                             <p id="regia-orari" class="regia-orari"></p>
+                            <!-- con un video di YouTube: il punto della registrazione, lo stesso per tutti (gestione.js, aggiornaPuntoRegia) -->
+                            <p id="regia-registrazione" class="regia-registrazione" hidden></p>
                             <p id="regia-avviso-orario" class="msg msg-attenzione" hidden></p>
                             <div class="regia-comandi">
                                 <button type="button" id="btn-in-onda" class="btn btn-onda btn-grande">
@@ -429,7 +439,8 @@
                                 <button type="button" id="btn-pausa" class="btn btn-secondario">Metti in pausa</button>
                             </div>
                             <p class="aiuto">Ogni comando chiede conferma. I partecipanti collegati vedono il cambio da soli, senza ricaricare la pagina.
-                                In pausa il video sparisce e compare «Pausa», con l'orario di ripresa se lo indichi.</p>
+                                In pausa il video sparisce e compare «Pausa», con l'orario di ripresa se lo indichi. Con un video di YouTube anche la
+                                registrazione si ferma, e con «Riprendi la diretta» riparte dal punto in cui si era fermata.</p>
                             <p id="msg-regia" class="msg" role="status" hidden></p>
                             <!-- dopo una prova: tornare all'attesa, o proprio all'inizio (gestione.js, "FASE INIZIALE") -->
                             <section class="regia-fase" aria-labelledby="regia-fase-titolo">
@@ -1442,9 +1453,9 @@
     <!-- le regole dei link della web TV (le stesse del player e del servizio)
          e gli stessi player della pagina dei partecipanti, per l'anteprima:
          player-webtv.js per il flusso diretto, player-azoto.js per il player Azoto -->
-    <script src="../sorgente-video.js?v=20261121a"></script>
+    <script src="../sorgente-video.js?v=20261126a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20261125d"></script>
+    <script src="gestione.js?v=20261126a"></script>
 </body>
 </html>

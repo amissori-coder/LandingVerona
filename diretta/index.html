@@ -35,16 +35,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20261125b">
+    <link rel="stylesheet" href="diretta.css?v=20261126a">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
     <script src="config.js?v=20260926b" defer></script>
-    <script src="sorgente-video.js?v=20261121a" defer></script>
+    <script src="sorgente-video.js?v=20261126a" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
+    <!-- il video di YouTube: la registrazione che sembra una diretta, con i nostri comandi -->
+    <script src="player-youtube.js?v=20261126a" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20261125c" defer></script>
+    <script src="diretta.js?v=20261126a" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -215,6 +217,7 @@
                     <ul class="consigli">
                         <li data-solo="flusso">Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
                         <li data-solo="azoto">Quando il video compare, se non parte da solo premi il tasto <strong>play</strong> nel player; l'audio si regola con il <strong>pulsante del volume</strong> del player.</li>
+                        <li data-solo="youtube">Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
                         <li>Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
                         <li>Se chiudi la pagina, al ritorno non serve rifare l'accesso su questo dispositivo.</li>
                     </ul>
@@ -352,6 +355,9 @@
                         <li data-solo="flusso">Sei rimasto indietro? Premi <strong>«Torna in diretta»</strong>.</li>
                         <li data-solo="flusso">Scorciatoie da tastiera (con un clic sul video, o raggiungendolo con <kbd>Tab</kbd>): <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
                         <li data-solo="azoto">Il video non parte? Premi il tasto <strong>play</strong> al centro del player.</li>
+                        <li data-solo="youtube">Non senti niente? Premi <strong>«Attiva l'audio»</strong> e controlla il volume del dispositivo.</li>
+                        <li data-solo="youtube">Il video si blocca? <strong>Ricarica la pagina</strong>: non serve rifare l'accesso.</li>
+                        <li data-solo="youtube">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
                         <li data-solo="azoto">Non senti niente? Premi il <strong>pulsante del volume</strong> nel player e controlla il volume del dispositivo.</li>
                         <li data-solo="azoto">Il video si blocca? <strong>Ricarica la pagina</strong>: non serve rifare l'accesso.</li>
                         <li data-solo="azoto-computer">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>

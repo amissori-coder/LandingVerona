@@ -432,6 +432,12 @@ function eventoIniziale(T) {
         await eventoProva('ev-azoto', 'Prova: il player di Azoto', { videoId: F.PLAYER_AZOTO });
         // un evento con la sua pagina: l'annullamento dal sito lo trova da li'
         await eventoProva('ev-ritiro', 'Prova: iscrizione annullata dal sito', { paginaEvento: '/ritiro_prova/' });
+        /* il video di YouTube, la registrazione che sembra una diretta: in onda da un minuto, dopo 10 minuti
+           gia' andati in onda prima di una pausa, dal punto 0:30 della registrazione (il video e' finto) */
+        const YT_PROVA = 'https://www.youtube-nocookie.com/embed/ngbProva002?autoplay=1&playsinline=1&rel=0';
+        await eventoProva('ev-youtube', 'Prova: la registrazione di YouTube', {
+            tipoPlayer: 'azoto', videoId: YT_PROVA, videoYouTube: true, inizioVideo: 30, onda: { secondi: 600, da: T.fromMillis(ORA - 60e3) }
+        });
 
         // una password sola per queste persone (mai stampata)
         const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
@@ -455,6 +461,7 @@ function eventoIniziale(T) {
         await nuovoPartecipante('paolovideo', 'Paolo', 'Video', ['ev-video']);
         await nuovoPartecipante('annaazoto', 'Anna', 'Azoto', ['ev-azoto']);
         await nuovoPartecipante('martaritiro', 'Marta', 'Ritiro', ['ev-ritiro']);
+        await nuovoPartecipante('yuritube', 'Yuri', 'Tube', ['ev-youtube']);
         // il servizio vero trova l'account dall'email (indirizzi/{email}), come per chi si iscrive dal modulo
         await db.doc('indirizzi/martaritiro@esempio.it').set({ uid: utentiProva.martaritiro.uid, creato: T.now() });
         const personaProva = email => Object.values(utentiProva).find(u => u.email === email) || null;
@@ -1729,6 +1736,111 @@ function eventoIniziale(T) {
             vero(!A.webtv.richieste.some(r => /^\/player\//.test(r)), 'la pagina dell\'altro sito e\' stata scaricata');
         });
         await A.context.close();
+
+        /* =================== IL VIDEO DI YOUTUBE: LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA ===================
+           Il player vero (player-youtube.js) con il finto YouTube di flusso-prova.js al posto di
+           youtube-nocookie; la regia (qui: la prova) scrive il documento dell'evento come il servizio
+           (onda, inizioVideo; vedi email-service/lib/diretta-dati.js, ondaDopo). */
+        console.log('\nIl video di YouTube: la registrazione che sembra una diretta');
+        const evYt = db.doc('eventi/ev-youtube');
+        // il punto atteso adesso: inizioVideo + onda.secondi + (adesso - onda.da)
+        const puntoAtteso = async () => {
+            const d = (await evYt.get()).data();
+            return (d.inizioVideo || 0) + d.onda.secondi + (d.onda.da ? (Date.now() - d.onda.da.toMillis()) / 1000 : 0);
+        };
+        const frameYt = pg => pg.frames().find(f => /^https:\/\/www\.youtube-nocookie\.com\/embed\//.test(f.url()));
+        const comandiYt = async pg => { const f = frameYt(pg); if (!f) return []; try { return await f.evaluate(() => window.__comandi.slice()); } catch (e) { return []; } };
+        const ultimoSalto = async pg => (await comandiYt(pg)).filter(c => c[0] === 'seekTo').map(c => c[1]).pop();
+        const statoYt = pg => pg.evaluate(() => {
+            const f = document.querySelector('#video-player .yt-palco iframe');
+            const vede = id => { const e = document.getElementById(id); return !!e && !!(e.offsetWidth || e.offsetHeight); };
+            return {
+                youtube: document.documentElement.classList.contains('modo-youtube'), azoto: document.documentElement.classList.contains('modo-azoto'),
+                src: f ? f.getAttribute('src') : '', pe: f ? getComputedStyle(f).pointerEvents : '', scudo: !!document.querySelector('.yt-scudo:not([hidden])'),
+                sipario: !!document.querySelector('.yt-sipario:not([hidden])'), audio: vede('btn-attiva-audio'), muto: vede('btn-muto'), live: vede('indicatore-live'),
+                intero: vede('btn-schermo-intero'), nota: vede('nota-azoto'), play: vede('btn-play')
+            };
+        });
+        const Y = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+        const yt = await F.instradaYouTube(Y.context);
+        const py = Y.page;
+
+        await prova('la registrazione di YouTube si vede come una diretta: il nostro player, al punto giusto, senza niente di YouTube e con i nostri comandi', async () => {
+            await accedi(py, 'yuritube@esempio.it', PASSWORD_PROVA);
+            await vistaE(py, 'diretta', 30000);
+            await aspetta(async () => (await statoYt(py)).src, 15000, 'l\'iframe di YouTube');
+            const s = await statoYt(py);
+            const u = new URL(s.src);
+            const atteso = await puntoAtteso();
+            vero(s.youtube && s.azoto && u.origin === 'https://www.youtube-nocookie.com' && u.pathname === '/embed/ngbProva002' && u.searchParams.get('controls') === '0'
+                && u.searchParams.get('enablejsapi') === '1' && u.searchParams.get('disablekb') === '1' && Math.abs(Number(u.searchParams.get('start')) - atteso) < 5,
+                'iframe: ' + s.src + ' (atteso il punto ' + atteso.toFixed(1) + ')');
+            vero(s.pe === 'none' && s.scudo, 'il video non si tocca (scudo e pointer-events)');
+            await aspetta(async () => (await ultimoSalto(py)) !== undefined, 10000, 'il salto al punto giusto');
+            const salto = await ultimoSalto(py);
+            const atteso2 = await puntoAtteso();
+            vero(Math.abs(salto - atteso2) < 4, 'seekTo ' + salto.toFixed(1) + ' (atteso ' + atteso2.toFixed(1) + ': 0:30 + 10 minuti + 1 minuto, piu\' il tempo della prova)');
+            await aspetta(async () => !(await statoYt(py)).sipario, 10000, 'il sipario che si toglie');
+            const s2 = await statoYt(py);
+            vero(s2.audio && s2.muto && s2.live && s2.intero && !s2.nota && !s2.play, 'i nostri comandi: «Attiva l\'audio», audio, «In diretta», «Schermo intero»; niente pausa e niente nota di Azoto ' + JSON.stringify(s2));
+            const fuori = await py.evaluate(() => document.documentElement.outerHTML.replace(/<iframe[^>]*>/g, '') + document.body.innerText);
+            vero(!/ngbProva002|youtube\.com\/(watch|live)|youtu\.be/.test(fuori), 'fuori dall\'iframe la pagina non contiene il video né un link a YouTube');
+            await py.click('#btn-attiva-audio');
+            await aspetta(async () => (await comandiYt(py)).some(c => c[0] === 'unMute'), 5000, 'unMute');
+            await aspetta(async () => !(await statoYt(py)).audio, 5000, '«Attiva l\'audio» che sparisce');
+            vero((await comandiYt(py)).some(c => c[0] === 'setVolume' && c[1] === 100), '«Attiva l\'audio»: unMute e volume 100 al player, e il pulsante sparisce');
+            await foto(py, 'youtube-diretta-computer');
+        });
+
+        await prova('«Pausa» della regia: il video sparisce e la registrazione si ferma; «Riprendi»: riparte da dove si era fermata, non da dove sarebbe arrivata', async () => {
+            const d = (await evYt.get()).data();
+            const fermo = Math.round((d.onda.secondi + (Date.now() - d.onda.da.toMillis()) / 1000) * 10) / 10;
+            await evYt.update({ stato: 'pausa', statoAggiornato: T.now(), onda: { secondi: fermo, da: null }, videoId: '' });
+            await vistaE(py, 'pausa', 10000);
+            vero(!(await py.$('#video-player .yt-palco iframe')), 'in pausa l\'iframe di YouTube non c\'e\' piu\'');
+            await pausa(4000);
+            await evYt.update({ stato: 'in_onda', statoAggiornato: T.now(), onda: { secondi: fermo, da: T.now() }, videoId: YT_PROVA });
+            await vistaE(py, 'diretta', 10000);
+            await aspetta(async () => (await ultimoSalto(py)) !== undefined, 15000, 'il salto dopo la ripresa');
+            const salto = await ultimoSalto(py);
+            const atteso = 30 + fermo;
+            vero(salto >= atteso - 0.5 && salto < atteso + 4, 'dopo 4 secondi di pausa riparte da ' + salto.toFixed(1) + ' (fermo a ' + atteso.toFixed(1) + '): i secondi di pausa non contano');
+        });
+
+        await prova('la regia cambia «Parti dal punto» in onda: chi guarda salta al nuovo punto, senza ricaricare niente', async () => {
+            const iframePrima = await py.$('#video-player .yt-palco iframe');
+            await evYt.update({ inizioVideo: 330 });
+            await aspetta(async () => { const s = await ultimoSalto(py); return s !== undefined && Math.abs(s - await puntoAtteso()) < 4; }, 10000, 'il salto al nuovo punto');
+            const iframeDopo = await py.$('#video-player .yt-palco iframe');
+            vero(await iframePrima.evaluate((a, b) => a === b, iframeDopo), 'lo stesso iframe: solo un seekTo (' + (await ultimoSalto(py)).toFixed(1) + ')');
+        });
+
+        await prova('nessuna violazione della CSP e nessun errore con il video di YouTube; solo youtube-nocookie nell\'iframe', async () => {
+            vero((await py.evaluate(() => window.__violazioniCsp)).length === 0, 'violazioni: ' + (await py.evaluate(() => window.__violazioniCsp)).join(' | '));
+            vero(py.__erroriPagina.length === 0, 'errori: ' + py.__erroriPagina.join(' | '));
+            vero(yt.richieste.length > 0 && yt.richieste.every(r => /^https:\/\/www\.youtube-nocookie\.com\/embed\/ngbProva002\?/.test(r)), 'richieste a YouTube: ' + yt.richieste.join(', '));
+        });
+        await Y.context.close();
+
+        await prova('un dispositivo con l\'orologio avanti di 10 minuti vede lo stesso punto degli altri (l\'ora la dice il sito, intestazione Date)', async () => {
+            const Z = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, {
+                prove: { ritardoPresenzaMs: 999999 },
+                initScript: () => { const vero = Date.now.bind(Date); Date.now = () => vero() + 600000; }
+            });
+            await F.instradaYouTube(Z.context);
+            const pz = Z.page;
+            try {
+                await accedi(pz, 'yuritube@esempio.it', PASSWORD_PROVA);
+                await vistaE(pz, 'diretta', 30000);
+                vero(await pz.evaluate(() => Date.now() - new Date().getTime()) > 590000, 'l\'orologio del dispositivo e\' davvero avanti di 10 minuti');
+                await aspetta(async () => { const s = await ultimoSalto(pz); return s !== undefined && Math.abs(s - await puntoAtteso()) < 5; }, 15000, 'il punto giusto con l\'orologio sbagliato')
+                    .catch(() => null);
+                const salto = await ultimoSalto(pz);
+                const atteso = await puntoAtteso();
+                vero(salto !== undefined && Math.abs(salto - atteso) < 5, 'seekTo ' + (salto === undefined ? '-' : salto.toFixed(1)) + ', atteso ' + atteso.toFixed(1) + ' (senza la correzione sarebbe ' + (atteso + 600).toFixed(1) + ')');
+                vero(pz.__erroriPagina.length === 0, 'errori: ' + pz.__erroriPagina.join(' | '));
+            } finally { await Z.context.close(); }
+        });
 
         /* =================== CARICAMENTO DELL'SDK =================== */
         console.log('\nSDK di Firebase non scaricato');

@@ -329,6 +329,10 @@ function eventoJSON(id, dati, riservati) {
     out.firma = F.pubblica(r.firma);
     out.iscrizioniAutomatiche = iscrizioniDi(riservati);
     out.iscrizioniAutomaticheDa = out.iscrizioniAutomatiche ? ms(riservati.iscrizioniAutomaticheDa) : null;
+    // la registrazione che sembra una diretta (vedi ondaDopo): da in millisecondi
+    const onda = pubblico.onda && typeof pubblico.onda === 'object' ? pubblico.onda : {};
+    out.onda = { secondi: Math.max(0, Number(onda.secondi) || 0), da: ms(onda.da) || null };
+    out.inizioVideo = Math.max(0, Number(pubblico.inizioVideo) || 0);
     return out;
 }
 /* L'interruttore delle iscrizioni dal modulo del sito, dal documento
@@ -512,14 +516,19 @@ function campiVideo(pubblico, ris, stato) {
     const attuali = {
         tipoPlayer: p.tipoPlayer || '',
         videoId: p.videoId || '', videoRiserva: p.videoRiserva || '',
-        sorgente: p.sorgente === 'riserva' ? 'riserva' : 'principale', videoFirmato: p.videoFirmato === true
+        sorgente: p.sorgente === 'riserva' ? 'riserva' : 'principale', videoFirmato: p.videoFirmato === true,
+        videoYouTube: p.videoYouTube === true
     };
     const nuovi = {
         tipoPlayer: r.tipoPlayer,
         videoId: !inOnda ? '' : (flusso ? flussoValido(r.videoId) : azotoValido(r.azotoUrl)),
         videoRiserva: inOnda && flusso ? riserva : '',
         sorgente: attuali.sorgente === 'riserva' && !riserva ? 'principale' : attuali.sorgente,
-        videoFirmato: inOnda && flusso ? F.attiva(r.firma) : false
+        videoFirmato: inOnda && flusso ? F.attiva(r.firma) : false,
+        /* il video sara' quello di YouTube (la registrazione che sembra una
+           diretta): un si' o un no, MAI il link, anche fuori onda, perche' la
+           pagina mostri da subito i comandi e i consigli giusti */
+        videoYouTube: !flusso && V.eYouTube(r.azotoUrl || '')
     };
     const cambiati = {};
     Object.keys(nuovi).forEach(k => { if (nuovi[k] !== attuali[k]) cambiati[k] = nuovi[k]; });
@@ -614,6 +623,8 @@ async function salvaEvento(ctx, ingresso) {
         const unSoloDispositivo = val('unSoloDispositivo', false) === true;
         // «Domande al relatore»: la pagina della diretta mostra il riquadro delle domande (lib/diretta-domande.js)
         const domande = val('domande', false) === true;
+        // da dove parte la registrazione di YouTube (secondi; vedi ondaDopo)
+        const inizioVideo = leggiInizioVideo(val('inizioVideo', 0));
         const prom = val('promemoria', {}) || {};
         const promemoria = { giornoPrima: prom.giornoPrima === true, oraPrima: prom.oraPrima === true };
         if (e.iscrizioniAutomatiche !== undefined && typeof e.iscrizioniAutomatiche !== 'boolean') {
@@ -639,11 +650,13 @@ async function salvaEvento(ctx, ingresso) {
         const campi = {
             titolo, luogo, data, oraInizio, oraFine,
             inizio: ctx.Timestamp.fromMillis(inizio), fine: ctx.Timestamp.fromMillis(fine),
-            programma, paginaEvento, unSoloDispositivo, domande, promemoria
+            programma, paginaEvento, unSoloDispositivo, domande, promemoria, inizioVideo
         };
         if (nuovo) {
             tx.create(rif, Object.assign(campi, {
                 tipoPlayer: nuoviRis.tipoPlayer, videoId: '', videoRiserva: '', sorgente: 'principale', videoFirmato: false,
+                videoYouTube: nuoviRis.tipoPlayer !== 'flusso' && V.eYouTube(nuoviRis.azotoUrl || ''),
+                onda: { secondi: 0, da: null },
                 stato: 'programmato', statoAggiornato: ts, videoAggiornato: ts, ripresa: '', avviso: '', creato: ts, aggiornato: ts
             }));
         } else {
@@ -683,6 +696,45 @@ async function cambiaIscrizioni(ctx, { idEvento, iscrizioniAutomatiche }) {
     return salvaEvento(ctx, { id: id, iscrizioniAutomatiche: iscrizioniAutomatiche });
 }
 
+/* ============================================================
+   LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA (dal 26 novembre 2026)
+   Con un video di YouTube (di solito una registrazione) la pagina dei
+   partecipanti lo fa sembrare una diretta: tutti vedono lo stesso punto,
+   quello in cui "si e'" adesso, senza barra, durata, titolo o link di
+   YouTube (diretta/player-youtube.js). Il punto lo dice `onda`, nel
+   documento pubblico dell'evento, scritto qui a ogni cambio di stato:
+     onda: { secondi, da }  secondi: quanto si e' gia' stati in onda prima
+                            (le pause non contano); da: il Timestamp di
+                            quando si e' andati (o tornati) in onda, null
+                            fuori onda.
+   In onda il punto e' inizioVideo + secondi + (adesso - da): la pausa lo
+   ferma e la ripresa riparte da li'; «In attesa» (e l'azzeramento) lo
+   riportano all'inizio. inizioVideo (secondi, facoltativo, dalla scheda
+   Evento): da dove parte la registrazione, per saltarne l'inizio.
+   Un evento gia' in onda prima di `onda` conta da statoAggiornato.
+   -> il nuovo `onda`, o null se non cambia. */
+const MAX_INIZIO_VIDEO = 12 * 3600;
+function ondaDopo(vecchio, stato, adessoMs, ts) {
+    const v = vecchio || {};
+    const o = v.onda && typeof v.onda === 'object' ? v.onda : {};
+    const secondi = Math.max(0, Number(o.secondi) || 0);
+    const da = ms(o.da) || (v.stato === 'in_onda' && v.onda === undefined ? ms(v.statoAggiornato) : null);
+    if (stato === 'programmato') return { secondi: 0, da: null };
+    if (stato === 'in_onda') return da ? null : { secondi: secondi, da: ts };
+    // pausa, terminato: il tempo in onda si ferma dov'e'
+    if (!da) return null;
+    return { secondi: Math.round((secondi + Math.max(0, (adessoMs - da) / 1000)) * 10) / 10, da: null };
+}
+// inizioVideo: secondi interi da 0 a 12 ore (0 se vuoto)
+function leggiInizioVideo(v) {
+    if (v === undefined || v === null || v === '') return 0;
+    const n = typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN;
+    if (!Number.isInteger(n) || n < 0 || n > MAX_INIZIO_VIDEO) {
+        throw C.errore(400, 'Punto di partenza della registrazione non valido: minuti e secondi (per esempio 2:30), al massimo 12 ore.', 'inizioVideo');
+    }
+    return n;
+}
+
 /* evento-stato: programmato, in onda, in pausa, terminato. Il video
    (l'indirizzo di Azoto, oppure principale, riserva e videoFirmato del
    flusso) passa nel documento pubblico solo andando in onda, e ne esce
@@ -702,7 +754,13 @@ async function cambiaStato(ctx, { idEvento, stato, ripresa }) {
         const video = campiVideo(v, snapRis.exists ? snapRis.data() : {}, stato);
         const ts = adessoTs(ctx);
         const agg = {};
-        if (v.stato !== stato) { agg.stato = stato; agg.statoAggiornato = ts; }
+        if (v.stato !== stato) {
+            agg.stato = stato;
+            agg.statoAggiornato = ts;
+            // il tempo in onda della registrazione che sembra una diretta (vedi ondaDopo)
+            const onda = ondaDopo(v, stato, ctx.adesso(), ts);
+            if (onda) agg.onda = onda;
+        }
         if (Object.keys(video).length) Object.assign(agg, video, { videoAggiornato: ts });
         if ((v.ripresa || '') !== oraRipresa) agg.ripresa = oraRipresa;
         if (Object.keys(agg).length) { agg.aggiornato = ts; tx.update(rif, agg); }
@@ -1560,7 +1618,7 @@ module.exports = {
     inParallelo, conRiprova, transazione, leggiProgramma, normalizzaOra, leggiVideo, leggiAzoto, campiVideo, riservatiDa,
     // eventi
     eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, cambiaPlayer, linkVideo, cambiaAvviso, scegliEvento,
-    cambiaIscrizioni, iscrizioniDi, percorsoPagina,
+    cambiaIscrizioni, iscrizioniDi, percorsoPagina, ondaDopo, leggiInizioVideo, MAX_INIZIO_VIDEO,
     // partecipanti
     partecipanteJSON, elencoPartecipanti, anteprima, crea, aggiungiAMano, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
     accountDellEvento, accountDiEmailPerEvento, uidDellEmail, mappaPerEvento, vecchioPerEvento, MAX_ACCOUNT_EMAIL, titoliEventi,

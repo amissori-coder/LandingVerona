@@ -1323,13 +1323,21 @@
         player: null,
         url: '',                  // l'indirizzo in uso (eventi.videoId, in onda)
         titolo: '',
-        errore: ''                // '' | 'link' (indirizzo non di Azoto) | 'player' (player-azoto.js non caricato)
+        errore: '',               // '' | 'link' (indirizzo non di Azoto) | 'player' (player-azoto.js non caricato) | 'video' (YouTube non lo mostra)
+        /* Con il video di YouTube il player e' player-youtube.js: la
+           registrazione che sembra una diretta (vedi LA REGISTRAZIONE CHE
+           SEMBRA UNA DIRETTA, qui sotto). */
+        youtube: false,           // il player in uso e' quello di YouTube
+        semplice: false,          // YouTube non risponde ai messaggi: i comandi sono i suoi (niente nostri)
+        ytStato: '',              // quello che dice player-youtube.js (onStato): 'video' = si vede
+        audio: { muto: true, volume: 100 }
     };
     const TESTO_LENTO = 'La diretta sta arrivando, attendi qualche secondo';
     // la descrizione del riquadro per i lettori di schermo (aria-describedby), secondo la modalita'
     const AIUTO_TASTI = {
         flusso: 'Scorciatoie da tastiera, con il lettore selezionato: Spazio mette in pausa e riprende, F schermo intero, M attiva o disattiva l\'audio, frecce su e giù per il volume.',
-        azoto: 'Scorciatoia da tastiera, con il lettore selezionato: F schermo intero. Play, audio e qualità si regolano con i comandi del player della diretta.'
+        azoto: 'Scorciatoia da tastiera, con il lettore selezionato: F schermo intero. Play, audio e qualità si regolano con i comandi del player della diretta.',
+        youtube: 'Scorciatoie da tastiera, con il lettore selezionato: F schermo intero, M attiva o disattiva l\'audio, frecce su e giù per il volume.'
     };
 
     /* L'indirizzo e' di un player di Azoto? La regola e' una sola, in
@@ -1340,6 +1348,78 @@
         if (typeof url !== 'string' || !url || !V || typeof V.eAzoto !== 'function') return false;
         try { return V.eAzoto(url) === true; } catch (e) { return false; }
     }
+    // l'indirizzo e' il player di YouTube? (la regola e' quella di sorgente-video.js)
+    function eYouTubeUrl(url) {
+        const V = window.NGBSorgenteVideo;
+        if (typeof url !== 'string' || !url || !V || typeof V.eYouTube !== 'function') return false;
+        try { return V.eYouTube(url) === true; } catch (e) { return false; }
+    }
+    // il player di YouTube con i NOSTRI comandi (non quello "semplice")
+    function youtubeAttivo() {
+        return modoVideo === 'azoto' && azoto.youtube && !!azoto.player && !azoto.semplice;
+    }
+
+    /* ---------------------------------------------------------------
+       LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA
+       ---------------------------------------------------------------
+       Con il video di YouTube tutti vedono lo stesso punto, quello in cui
+       "si e'" adesso: lo dice l'evento (onda, scritto dal servizio a ogni
+       «In onda» e «Pausa» della regia, e inizioVideo, da dove parte la
+       registrazione; vedi email-service/lib/diretta-dati.js, ondaDopo):
+           inizioVideo + onda.secondi + (adesso - onda.da)
+       Un evento in onda da prima che esistesse onda conta da
+       statoAggiornato. player-youtube.js lo chiede con posizione() e ci
+       torna da solo se resta indietro; quando cambia (la regia riprende,
+       cambia il punto di partenza) la pagina gli dice sincronizza(). */
+    let ondaEvento = null;        // { secondi, da (ms o null), inizio }
+    function aggiornaOnda(d) {
+        const o = d && d.onda && typeof d.onda === 'object' ? d.onda : null;
+        const da = o ? ms(o.da) : (d && d.stato === 'in_onda' ? ms(d.statoAggiornato) : null);
+        const nuova = {
+            secondi: o ? Math.max(0, Number(o.secondi) || 0) : 0,
+            da: Number.isFinite(da) && da > 0 ? da : null,
+            inizio: Math.max(0, Number(d && d.inizioVideo) || 0)
+        };
+        const cambiata = !ondaEvento || ondaEvento.secondi !== nuova.secondi || ondaEvento.da !== nuova.da || ondaEvento.inizio !== nuova.inizio;
+        ondaEvento = nuova;
+        if (cambiata && youtubeAttivo() && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+    }
+    function posizioneRegistrazione() {
+        const o = ondaEvento;
+        if (!o) return null;
+        return o.inizio + o.secondi + (o.da ? Math.max(0, (Date.now() + scartoOrologio - o.da) / 1000) : 0);
+    }
+    /* L'ORA DEL SITO. onda.da e' scritto con l'orologio del servizio: un
+       dispositivo con l'ora avanti o indietro di qualche minuto vedrebbe un
+       altro punto della registrazione (e la fine prima, o dopo, degli
+       altri). L'ora giusta la dice l'intestazione Date di una richiesta al
+       sito (stessa origine, senza cache, al secondo; con Age se arriva da
+       una copia): scartoOrologio = ora del sito - ora del dispositivo. Si
+       legge con il video di YouTube, al piu' ogni 10 minuti; sotto i 2
+       secondi di differenza non si tocca niente. Se non si riesce, resta
+       l'ora del dispositivo. */
+    let scartoOrologio = 0;
+    let orologioLetto = 0;
+    // config.js, accanto a questo file (si legge solo l'intestazione)
+    const INDIRIZZO_ORA = new URL('config.js', (document.currentScript && document.currentScript.src) || location.href).pathname;
+    async function leggiOraDelSito() {
+        if (orologioLetto && Date.now() - orologioLetto < 10 * 60 * 1000) return;
+        orologioLetto = Date.now();
+        try {
+            const t0 = Date.now();
+            const r = await fetch(INDIRIZZO_ORA + '?ora=' + t0, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' });
+            const t1 = Date.now();
+            const data = Date.parse(r.headers.get('date') || '');
+            if (!r.ok || !Number.isFinite(data) || t1 - t0 > 5000) return;
+            const eta = Math.max(0, Number(r.headers.get('age')) || 0);
+            const scarto = data + eta * 1000 + 500 - (t0 + t1) / 2;
+            const nuovo = Math.abs(scarto) >= 2000 ? Math.round(scarto) : 0;
+            if (nuovo === scartoOrologio) return;
+            scartoOrologio = nuovo;
+            if (youtubeAttivo() && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+        } catch (e) { /* resta l'ora del dispositivo */ }
+    }
+
     function modoDi(d) {
         const t = d ? d.tipoPlayer : '';
         if (t === 'azoto' || t === 'flusso') return t;
@@ -1349,7 +1429,14 @@
         const h = document.documentElement;
         h.classList.toggle('modo-azoto', m === 'azoto');
         h.classList.toggle('modo-flusso', m !== 'azoto');
-        const aiuto = AIUTO_TASTI[m] || AIUTO_TASTI.flusso;
+        /* il video di YouTube con i nostri comandi (diretta.css: quali comandi e
+           consigli si vedono). Fuori onda il link non c'e': lo dice
+           videoYouTube dell'evento (un si' o un no, mai il link). */
+        const ev = stato.evento || {};
+        const ytEvento = ev.videoYouTube === true || eYouTubeUrl(String(ev.videoId || ''));
+        const yt = m === 'azoto' && !azoto.semplice && (azoto.player ? azoto.youtube : ytEvento);
+        h.classList.toggle('modo-youtube', yt);
+        const aiuto = (yt ? AIUTO_TASTI.youtube : AIUTO_TASTI[m]) || AIUTO_TASTI.flusso;
         if ($('aiuto-scorciatoie').textContent !== aiuto) testo('aiuto-scorciatoie', aiuto);
     }
 
@@ -1361,11 +1448,12 @@
             if (modoVideo === 'azoto') distruggiAzoto();
             else if (modoVideo === 'flusso') distruggiFlusso();
             modoVideo = m;
-            // sul telefono lo schermo intero con Azoto e' del suo player: il nostro si chiude
-            if (TELEFONO && m === 'azoto' && (intero.finto || elementoSchermoIntero())) esciSchermoIntero();
+            // sul telefono lo schermo intero con Azoto e' del suo player: il nostro si chiude (con YouTube resta il nostro)
+            const conYouTube = eYouTubeUrl(String((d && d.videoId) || ''));
+            if (TELEFONO && m === 'azoto' && !conYouTube && (intero.finto || elementoSchermoIntero())) esciSchermoIntero();
             if (cambio) {
-                annuncia(m === 'azoto' ? 'Il video è cambiato: audio e pausa ora si regolano con i comandi del player.'
-                    : 'Il video è cambiato: audio e pausa ora si regolano con i pulsanti sotto il video.');
+                annuncia(m === 'azoto' && !conYouTube ? 'Il video è cambiato: audio e pausa ora si regolano con i comandi del player.'
+                    : 'Il video è cambiato: l\'audio ora si regola con i pulsanti sotto il video.');
             }
         }
         if (m === 'azoto') aggiornaAzoto(d);
@@ -1376,6 +1464,13 @@
     function aggiornaAzoto(d) {
         const url = String(d.videoId || '');
         const titolo = String(d.titolo || 'Diretta').trim();
+        aggiornaOnda(d);
+        // un video di YouTube vuole il suo player (e viceversa): quello dell'altro tipo si toglie
+        const yt = eYouTubeUrl(url);
+        if (azoto.player && url && yt !== azoto.youtube) {
+            try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ }
+            Object.assign(azoto, { player: null, url: '', errore: '', semplice: false, ytStato: '' });
+        }
         if (!url) {
             // in onda, ma la regia non ha ancora messo l'indirizzo: «Il video sta per arrivare», niente iframe
             if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
@@ -1384,7 +1479,8 @@
             aggiornaSchermo();
             return;
         }
-        if (!azoto.player && !creaAzoto()) { aggiornaSchermo(); return; }
+        if (!azoto.player && !creaAzoto(yt)) { aggiornaSchermo(); return; }
+        impostaModoPagina('azoto');
         if (url === azoto.url) {
             // lo stesso indirizzo: niente ricarica (magari e' cambiato solo il titolo)
             if (titolo !== azoto.titolo) {
@@ -1400,13 +1496,40 @@
         azoto.player.carica(url, { titolo: titolo });
         aggiornaSchermo();
     }
-    function creaAzoto() {
-        const P = window.NGBPlayerAzoto;
+    function creaAzoto(conYouTube) {
+        const P = conYouTube ? window.NGBPlayerYouTube : window.NGBPlayerAzoto;
         if (!P || typeof P.crea !== 'function') {
             azoto.errore = 'player';
             return null;
         }
         azoto.errore = '';
+        azoto.youtube = !!conYouTube;
+        azoto.semplice = false;
+        azoto.ytStato = '';
+        azoto.audio = { muto: true, volume: 100 };
+        if (conYouTube) {
+            leggiOraDelSito();
+            azoto.player = P.crea($('video-player'), {
+                posizione: posizioneRegistrazione,
+                onPronto: () => { mostraLento(false); aggiornaSchermo(); },
+                onStato: st => {
+                    azoto.ytStato = st;
+                    // YouTube non risponde ai messaggi: restano i suoi comandi, come con Azoto
+                    if (st === 'semplice' && !azoto.semplice) { azoto.semplice = true; impostaModoPagina('azoto'); }
+                    if (st === 'video') mostraLento(false);
+                    aggiornaComandi();
+                },
+                onAudio: a => { azoto.audio = { muto: !!a.muto, volume: Number(a.volume) || 0 }; aggiornaComandi(); },
+                onErrore: e => {
+                    const c = String((e && e.codice) || '');
+                    if (c === 'lento') { mostraLento(true); return; }
+                    azoto.errore = c || 'link';
+                    mostraLento(false);
+                    aggiornaSchermo();
+                }
+            });
+            return azoto.player;
+        }
         azoto.player = P.crea($('video-player'), {
             // la pagina di Azoto e' arrivata: via l'avviso dei 15 secondi
             onPronto: () => {
@@ -1426,7 +1549,8 @@
     }
     function distruggiAzoto() {
         if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
-        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '' });
+        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '', youtube: false, semplice: false, ytStato: '' });
+        document.documentElement.classList.remove('modo-youtube');
         mostraLento(false);
     }
     /* «La diretta sta arrivando, attendi qualche secondo», SOTTO il
@@ -1589,6 +1713,11 @@
     const ERRORE_LINK = {
         titolo: 'Video non disponibile',
         testo: 'Il collegamento al video della diretta non è valido. Resta su questa pagina: appena la regia lo corregge, il video compare qui da solo, senza ricaricare.'
+    };
+    // il video di YouTube che YouTube non mostra (privato, tolto, non incorporabile): lo sistema la regia
+    const ERRORE_VIDEO = {
+        titolo: 'Video non disponibile',
+        testo: 'Il video della diretta non si può vedere in questo momento. Resta su questa pagina: appena la regia lo sistema, compare qui da solo, senza ricaricare.'
     };
 
     function creaPlayer() {
@@ -2154,7 +2283,7 @@
         mostra('schermo-pausa', s === 'pausa');
         const sv = $('schermo-video');
         const codiceErrore = modoVideo === 'azoto' ? azoto.errore : String((video.errore && video.errore.codice) || '');
-        const t = s === 'errore' && codiceErrore === 'link' ? ERRORE_LINK : SCHERMATE[s];
+        const t = s === 'errore' && codiceErrore === 'link' ? ERRORE_LINK : (s === 'errore' && codiceErrore === 'video' ? ERRORE_VIDEO : SCHERMATE[s]);
         if (t) {
             if ($('schermo-video-titolo').textContent !== t.titolo) testo('schermo-video-titolo', t.titolo);
             if ($('schermo-video-testo').textContent !== t.testo) testo('schermo-video-testo', t.testo);
@@ -2169,6 +2298,7 @@
     }
 
     function aggiornaComandi() {
+        if (youtubeAttivo()) { aggiornaComandiYouTube(); return; }
         const inRiproduzione = video.stato === 'riproduzione' || video.stato === 'buffering';
         const conVideo = !!(video.player && video.id);
         const play = $('btn-play');
@@ -2192,6 +2322,32 @@
            e sotto il video restano «Schermo intero» e la nota. */
         mostra('btn-attiva-audio', conVideo && video.muto && !video.errore && !ricollega.attivo);
         aggiornaDiretta();
+        aggiornaStriscia();
+    }
+
+    /* Con il video di YouTube (la registrazione che sembra una diretta): i
+       pulsanti dell'audio e il volume parlano con player-youtube.js;
+       «IN DIRETTA» quando il video si vede; niente play, «Torna in
+       diretta», barra per tornare indietro o qualita' (diretta.css,
+       html.modo-youtube). */
+    function aggiornaComandiYouTube() {
+        const a = azoto.audio;
+        const siVede = azoto.ytStato === 'video';
+        const muto = $('btn-muto');
+        muto.setAttribute('data-muto', a.muto ? '1' : '0');
+        muto.setAttribute('aria-pressed', a.muto ? 'true' : 'false');
+        muto.setAttribute('aria-label', a.muto ? 'Audio disattivato: premi per attivarlo' : 'Audio attivo: premi per disattivarlo');
+        muto.disabled = !siVede;
+        const vol = $('volume');
+        const valore = a.muto ? 0 : a.volume;
+        if (document.activeElement !== vol) vol.value = String(valore);
+        vol.setAttribute('aria-valuetext', a.muto ? 'Audio disattivato' : 'Volume ' + valore + ' per cento');
+        vol.disabled = !siVede;
+        vol.hidden = IOS;
+        mostra('btn-attiva-audio', siVede && a.muto);
+        mostra('indicatore-live', siVede);
+        mostra('btn-live', false);
+        mostra('barra-dvr', false);
         aggiornaStriscia();
     }
 
@@ -2310,6 +2466,8 @@
     /* T3: tutto nello STESSO gestore del clic (i browser concedono l'audio
        solo come risposta diretta a un gesto della persona). */
     function attivaAudio() {
+        // YouTube: unMute e volume nello stesso gestore del clic (player-youtube.js controlla se il browser l'ha concesso)
+        if (youtubeAttivo()) { azoto.player.attivaAudio(); return; }
         const p = video.player;
         if (!p) return;
         video.fermo = false;
@@ -2346,6 +2504,11 @@
     }
     // solo l'audio: un video in pausa resta in pausa (a far partire con l'audio c'e' «Attiva l'audio»)
     function alternaMuto() {
+        if (youtubeAttivo()) {
+            if (azoto.audio.muto) azoto.player.attivaAudio();
+            else azoto.player.muto();
+            return;
+        }
         const p = video.player;
         if (!p) return;
         if (video.muto) {
@@ -2356,6 +2519,15 @@
         }
     }
     function cambiaVolume(delta) {
+        if (youtubeAttivo()) {
+            if (IOS) return;
+            const base = azoto.audio.muto ? 0 : azoto.audio.volume;
+            const n = Math.max(0, Math.min(100, base + delta));
+            if (n === 0) { azoto.player.muto(); return; }
+            if (azoto.audio.muto) azoto.player.attivaAudio();
+            azoto.player.volume(n);
+            return;
+        }
         const p = video.player;
         if (!p || IOS) return;
         const base = video.muto ? 0 : video.volume;
@@ -2454,8 +2626,8 @@
     }
     function alternaSchermoIntero() {
         if (vista !== 'diretta') return;
-        // sul telefono, con Azoto, lo schermo intero e' quello del suo player (vedi TELEFONO)
-        if (TELEFONO && modoVideo === 'azoto' && !intero.finto && !elementoSchermoIntero()) return;
+        // sul telefono, con Azoto, lo schermo intero e' quello del suo player (vedi TELEFONO); con YouTube e' il nostro
+        if (TELEFONO && modoVideo === 'azoto' && !youtubeAttivo() && !intero.finto && !elementoSchermoIntero()) return;
         const r = $('riquadro-video');
         if (intero.finto) { esciFinto(); return; }
         if (elementoSchermoIntero()) { esciSchermoIntero(); return; }
@@ -2502,8 +2674,11 @@
         if (t && t.closest && t.closest(USANO_I_TASTI)) return;
         const k = e.key;
         /* modalita' A: play, audio e volume sono del player di Azoto (dentro
-           il suo iframe, con i suoi tasti): qui resta solo F */
-        if (modoVideo === 'azoto' && k !== 'f' && k !== 'F') return;
+           il suo iframe, con i suoi tasti): qui resta solo F. Con il video
+           di YouTube (i nostri comandi) anche M e le frecce, ma niente pausa:
+           e' una diretta. */
+        if (modoVideo === 'azoto' && !youtubeAttivo() && k !== 'f' && k !== 'F') return;
+        if (youtubeAttivo() && (k === ' ' || k === 'Spacebar')) return;
         if (k === ' ' || k === 'Spacebar') {
             e.preventDefault();
             alternaPlay();
@@ -2551,6 +2726,13 @@
             video.player.impostaQualita(e.target.value);
         });
         $('volume').addEventListener('input', e => {
+            if (youtubeAttivo()) {
+                const v = Number(e.target.value) || 0;
+                if (v === 0) { azoto.player.muto(); return; }
+                if (azoto.audio.muto) azoto.player.attivaAudio();
+                azoto.player.volume(v);
+                return;
+            }
             const p = video.player;
             if (!p) return;
             const n = Number(e.target.value) || 0;

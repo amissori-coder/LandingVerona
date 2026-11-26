@@ -1945,6 +1945,89 @@ async function sheetJSNode() {
         await nuovaScheda.close();
         await foto('regia');
 
+        /* ---------- 6a. la registrazione di YouTube che sembra una diretta ----------
+           Con un video di YouTube la pagina dei partecipanti mostra lo stesso
+           punto a tutti: inizioVideo («Parti dal punto», scheda Evento) +
+           onda (il tempo in onda, scritto dal servizio a ogni cambio di
+           stato). Qui: il servizio (evento-video, evento-player, evento-salva
+           con inizioVideo e i suoi limiti), il campo nella scheda Evento, la
+           conferma in onda e il punto in Regia. Poi si torna com'era (player
+           Azoto salvato, flusso diretto in uso). Il video e' finto
+           (ngbProva001): nessun video vero nel codice. */
+        console.log('\n-- la registrazione di YouTube: «Parti dal punto» e il punto in regia');
+        const YT_PROVA = 'https://youtu.be/ngbProva001';
+        const ytVideo = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, azotoUrl: YT_PROVA }, tokGestore);
+        const ytPlayer = await api('diretta-gestione', { azione: 'evento-player', idEvento: ID, tipoPlayer: 'azoto' }, tokGestore);
+        const ytPunto = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: 90 } }, tokGestore);
+        let pubYt = await docPubblico();
+        vero(ytVideo.stato === 200 && ytPlayer.stato === 200 && ytPunto.stato === 200 && pubYt.stato === 'in_onda' && pubYt.tipoPlayer === 'azoto'
+            && pubYt.videoYouTube === true && /^https:\/\/www\.youtube-nocookie\.com\/embed\/ngbProva001\?/.test(pubYt.videoId) && pubYt.inizioVideo === 90
+            && pubYt.onda && pubYt.onda.da && typeof pubYt.onda.da.toMillis === 'function',
+            'il servizio: il video di YouTube in onda (videoYouTube sì, il player youtube-nocookie), inizioVideo 90 secondi, onda con il momento in cui si è andati in onda',
+            JSON.stringify({ v: ytVideo.stato, p: ytPlayer.stato, s: ytPunto.stato, tipo: pubYt.tipoPlayer, yt: pubYt.videoYouTube, inizio: pubYt.inizioVideo, onda: pubYt.onda }));
+        const puntiSbagliati = [];
+        for (const v of [-5, 43201, 2.5, 'abc', '1:30']) {
+            const sp = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: v } }, tokGestore);
+            if (!(sp.stato === 400 && sp.dati.codice === 'inizioVideo' && /Punto di partenza della registrazione non valido/.test(sp.dati.msg))) puntiSbagliati.push(JSON.stringify(v) + ' -> ' + sp.stato + ' ' + JSON.stringify(sp.dati));
+        }
+        vero(puntiSbagliati.length === 0 && (await docPubblico()).inizioVideo === 90,
+            'inizioVideo si rifiuta se non è un numero intero di secondi fra 0 e 12 ore (-5, 43201, 2.5, "abc", "1:30"): 400 «Punto di partenza della registrazione non valido…»', puntiSbagliati.join('\n'));
+        // la gestione rilegge l'evento (un altro gestore lo ha cambiato): si ricarica la pagina
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await $('#sel-evento').inputValue() === ID, 10000, 'evento dopo la ricarica');
+        await page.click('[data-scheda="evento"]');
+        vero(await $('#campo-inizio-video').isVisible() && await $('#ev-inizio-video').inputValue() === '1:30' && /ngbProva001/.test(await $('#ev-azoto').inputValue()),
+            'scheda Evento: con il video di YouTube compare «Parti dal punto», con il punto salvato scritto minuti:secondi (1:30)');
+        await page.click('[data-scheda="regia"]');
+        await aspetta(async () => /Registrazione YouTube al punto \d+:\d\d/.test(await testo('#regia-registrazione')), 5000, 'punto in regia');
+        const punto1 = await testo('#regia-registrazione');
+        await pausa(2200);
+        const punto2 = await testo('#regia-registrazione');
+        const secondiDi = t => { const m = /al punto (?:(\d+):)?(\d+):(\d\d)/.exec(t) || []; return (Number(m[1]) || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]); };
+        vero(/^Registrazione YouTube al punto \d+:\d\d(:\d\d)?, lo stesso per tutti i partecipanti\.$/.test(punto1) && secondiDi(punto1) >= 90 && secondiDi(punto2) >= secondiDi(punto1) + 1,
+            'Regia: «' + punto1 + '», e va avanti da sola (' + punto2 + ')');
+        // «Parti dal punto» sbagliato: si ferma prima del servizio
+        await page.click('[data-scheda="evento"]');
+        const salvaPrimaPunto = chiamate('evento-salva').length;
+        await $('#ev-inizio-video').fill('2:75');
+        await $('#btn-salva-evento').click();
+        vero(/Parti dal punto: minuti e secondi, per esempio 2:30/.test(await testo('#msg-evento')) && await $('#ev-inizio-video').getAttribute('aria-invalid') === 'true'
+            && chiamate('evento-salva').length === salvaPrimaPunto,
+            '«Parti dal punto» 2:75: l\'errore sul campo, senza chiamare il servizio — «' + await testo('#msg-evento') + '»');
+        // un punto nuovo, in onda: si chiede, e chi guarda salta li'
+        await $('#ev-inizio-video').fill('1:02:30');
+        await $('#btn-salva-evento').click();
+        await confermaDialogo(/^Spostare la registrazione per tutti\? La diretta è in onda: chi è collegato salta da solo al nuovo punto della registrazione \(1:02:30 più il tempo già andato in onda\)\./s, 'Sposta la registrazione');
+        await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')), 10000, 'punto salvato');
+        const salvaPunto = chiamate('evento-salva').pop().dati.evento;
+        pubYt = await docPubblico();
+        vero(await testo('#msg-evento') === 'Modifiche salvate. I partecipanti collegati saltano al nuovo punto della registrazione.'
+            && salvaPunto.inizioVideo === 3750 && ['azotoUrl', 'tipoPlayer', 'videoUrl'].every(k => !(k in salvaPunto)) && pubYt.inizioVideo === 3750,
+            'salvato: evento-salva manda inizioVideo 3750 (1:02:30) e niente link; nel documento pubblico inizioVideo 3750 — «' + await testo('#msg-evento') + '»', JSON.stringify(salvaPunto));
+        await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior');
+        await $('#btn-salva-evento').click();
+        await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')) && chiamate('evento-salva').length > salvaPrimaPunto + 1, 10000, 'luogo salvato di nuovo');
+        const soloLuogo2 = chiamate('evento-salva').pop().dati.evento;
+        vero(!('inizioVideo' in soloLuogo2) && (await docPubblico()).inizioVideo === 3750, 'correggendo il luogo «Parti dal punto» non si manda (non è cambiato)', JSON.stringify(soloLuogo2));
+        await page.click('[data-scheda="regia"]');
+        await aspetta(async () => secondiDi(await testo('#regia-registrazione')) >= 3750, 5000, 'nuovo punto in regia');
+        vero(true, 'in Regia il punto riparte da 1:02:30 più il tempo in onda: «' + await testo('#regia-registrazione') + '»');
+        // si torna com'era: player Azoto salvato, flusso diretto in uso, nessun punto di partenza
+        const ritorno = [
+            await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: 0 } }, tokGestore),
+            await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, azotoUrl: AZOTO_29 }, tokGestore),
+            await api('diretta-gestione', { azione: 'evento-player', idEvento: ID, tipoPlayer: 'flusso' }, tokGestore)
+        ];
+        pubYt = await docPubblico();
+        vero(ritorno.every(x => x.stato === 200) && pubYt.tipoPlayer === 'flusso' && pubYt.videoYouTube === false && pubYt.inizioVideo === 0,
+            'di nuovo com\'era: flusso diretto in uso, player Azoto salvato (videoYouTube no), inizioVideo 0', JSON.stringify({ tipo: pubYt.tipoPlayer, yt: pubYt.videoYouTube, inizio: pubYt.inizioVideo }));
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await $('#sel-evento').inputValue() === ID, 10000, 'evento dopo la seconda ricarica');
+        await page.click('[data-scheda="regia"]');
+        vero(await $('#regia-registrazione').isHidden() && await testo('#regia-tipo-player') === 'Flusso diretto', 'con il flusso diretto in Regia non c\'è il punto della registrazione');
+
         /* ---------- 6b. i link firmati ----------
            Valgono per il flusso diretto (modalita' B, qui in uso dalla scheda
            Evento). La web TV di prova non controlla la firma (la ignora): qui

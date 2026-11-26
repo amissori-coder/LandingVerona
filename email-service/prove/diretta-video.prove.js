@@ -39,6 +39,12 @@
    - I DUE CAMPI della gestione: perAzoto (un .m3u8 li' -> «va nel campo
      Flusso diretto») e perFlusso (l'indirizzo di Azoto li' -> «va nel
      campo Player Azoto»); eAzoto per il player della pagina.
+   - LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA: ondaDopo (il tempo in
+     onda: «Vai in onda», «Pausa», «Riprendi», «Termina», «Riporta in
+     attesa», un evento di prima senza onda), leggiInizioVideo («Parti
+     dal punto»: secondi interi fino a 12 ore) e, sul Firestore in
+     memoria, onda e inizioVideo scritti con il cambio di stato (una sola
+     scrittura) e videoYouTube: un si' o un no, mai il link fuori onda.
    - IL SERVIZIO: leggiAzoto e leggiVideo; campiVideo per le due
      modalita', dentro e fuori onda (con Azoto niente videoRiserva ne'
      videoFirmato; fuori onda nessun indirizzo); eventoJSON con
@@ -222,7 +228,14 @@ vero(/un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/.te
 vero(/non porta a un video/.test(V.messaggio({ errore: 'youtube' })), 'messaggio youtube: «' + V.messaggio({ errore: 'youtube' }) + '»');
 {
     const r = V.leggi('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-    vero(r.youtube === true && V.messaggio(r) === 'Video YouTube: si vede dentro la nostra pagina con i comandi di YouTube.', 'un video YouTube si riconosce e lo si dice: «' + V.messaggio(r) + '»');
+    vero(r.youtube === true && V.messaggio(r) === 'Video YouTube: si vede come una diretta, con i nostri comandi (tutti allo stesso punto, senza barra, titolo o link di YouTube).', 'un video YouTube si riconosce e lo si dice: «' + V.messaggio(r) + '»');
+    // l'identificativo per il player della registrazione che sembra una diretta (diretta/player-youtube.js)
+    vero(V.idYouTube(r.valore) === 'dQw4w9WgXcQ', 'idYouTube: l\'identificativo del video dal valore salvato (' + V.idYouTube(r.valore) + ')');
+    vero(V.idYouTube('https://cdn.azotosolutions.com/cloudtv/livetv9/player') === '' && V.idYouTube('<iframe src="https://www.youtube.com/embed/ngbProva003">') === '' && V.idYouTube(null) === '',
+        'idYouTube: niente per il player di Azoto, per il codice da incollare e per un valore vuoto');
+    vero(V.idYouTube('https://www.youtube.com/live/ngbProva003?feature=share') === 'ngbProva003' && V.idYouTube('https://youtu.be/ngbProva003') === 'ngbProva003'
+        && V.idYouTube('https://www.youtube.com/watch?v=ngbProva003&t=30') === 'ngbProva003' && V.idYouTube('https://www.youtube.com/@canale') === '',
+        'idYouTube: anche dal link di YouTube (live, youtu.be, watch); niente per un canale');
     vero(V.eYouTube(YT) && V.eAzoto(YT) && !V.eYouTube(AZOTO) && V.eAzoto(AZOTO) && !V.eYouTube('https://www.youtube.com/watch?v=dQw4w9WgXcQ<x>'),
         'eYouTube solo per il player di YouTube; eAzoto (player da incorporare) per YouTube e per Azoto');
     vero(V.perAzoto('https://youtu.be/dQw4w9WgXcQ').valore === YT && V.perFlusso('https://youtu.be/dQw4w9WgXcQ').errore === 'e-azoto',
@@ -294,7 +307,7 @@ vero(V.tipoDi('') === '' && V.tipoDi('abcdefghijk') === '' && V.tipoDi('http://x
 vero(/nostro player/.test(V.descrizione('hls')) && /senza loghi/.test(V.descrizione('hls')), 'descrizione HLS: «' + V.descrizione('hls') + '»');
 vero(/DASH/.test(V.descrizione('dash')) && V.descrizione('incorporato') === 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.' && V.descrizione('altro') === '',
     'descrizioni DASH e del player Azoto, niente per un tipo sconosciuto');
-vero(V.AVVISO_INCORPORATO === 'Con il player incorporato (YouTube o Azoto) restano i suoi comandi e il suo logo: per usare i nostri comandi serve il link .m3u8 di un flusso diretto.',
+vero(V.AVVISO_INCORPORATO === 'Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Azoto restano invece i suoi comandi e il suo logo.',
     'AVVISO_INCORPORATO informativo, come da contratto');
 vero(!/ripiego/i.test(sito.replace(/\/\*[\s\S]*?\*\//g, '')), 'il player di Azoto non e\' piu\' un "ripiego" (e\' la modalita\' predefinita)');
 vero(V.messaggio(V.leggi(HLS)) === V.descrizione('hls') && V.messaggio(V.leggi(AZOTO)) === V.descrizione('incorporato'), 'messaggio di un link valido: la sua descrizione');
@@ -609,6 +622,74 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
         await D.cambiaStato(mem3.ctx, { idEvento: 'vecchio-2026', stato: 'in_onda' });
         const v3 = mem3.dati['eventi/vecchio-2026'];
         vero(v3.tipoPlayer === 'azoto' && v3.videoId === AZOTO, 'un evento di prima con il player di Azoto nel link principale: in onda lo mostra come player Azoto');
+
+        /* ---------- la registrazione che sembra una diretta: onda e inizioVideo ---------- */
+        const T = ms => ({ toMillis: () => ms });
+        const od = (v, st, ora) => D.ondaDopo(v, st, ora, T(ora));
+        const daMs = o => (o && o.da ? o.da.toMillis() : null);
+        let o = od({ stato: 'programmato', onda: { secondi: 0, da: null } }, 'in_onda', 10000);
+        vero(o && o.secondi === 0 && daMs(o) === 10000, 'onda: «Vai in onda» -> secondi 0, da adesso ' + JSON.stringify({ s: o && o.secondi, da: daMs(o) }));
+        vero(od({ stato: 'in_onda', onda: { secondi: 0, da: T(10000) } }, 'in_onda', 20000) === null, 'onda: gia\' in onda -> non cambia (null)');
+        o = od({ stato: 'in_onda', onda: { secondi: 30, da: T(10000) } }, 'pausa', 71000);
+        vero(o && o.secondi === 91 && o.da === null, 'onda: «Pausa» dopo 61 secondi in onda (con 30 di prima) -> secondi 91, da null (il tempo si ferma) ' + JSON.stringify(o));
+        o = od({ stato: 'pausa', onda: { secondi: 91, da: null } }, 'in_onda', 500000);
+        vero(o && o.secondi === 91 && daMs(o) === 500000, '«Riprendi la diretta» -> riparte da 91 secondi, da adesso (la pausa non conta)');
+        o = od({ stato: 'in_onda', onda: { secondi: 91, da: T(500000) } }, 'terminato', 510500);
+        vero(o && o.secondi === 101.5 && o.da === null, '«Termina» -> secondi 101,5 (al decimo), da null');
+        o = od({ stato: 'terminato', onda: { secondi: 101.5, da: null } }, 'programmato', 600000);
+        vero(o && o.secondi === 0 && o.da === null, '«Riporta in attesa» -> di nuovo dall\'inizio (secondi 0)');
+        vero(od({ stato: 'pausa', onda: { secondi: 5, da: null } }, 'terminato', 700000) === null, 'dalla pausa a terminato: il tempo era gia\' fermo (null)');
+        o = od({ stato: 'in_onda', statoAggiornato: T(1000) }, 'pausa', 61000);
+        vero(o && o.secondi === 60 && o.da === null, 'un evento in onda da prima che esistesse onda: si conta da statoAggiornato (60 secondi)');
+        o = od({ stato: 'in_onda', onda: { secondi: 0, da: T(5000) } }, 'pausa', 4000);
+        vero(o && o.secondi === 0, 'un orologio che torna indietro non da\' secondi negativi');
+
+        const sbagliati = [-1, 1.5, 43201, 'abc', '1:30', NaN, {}, true];
+        vero(D.leggiInizioVideo(undefined) === 0 && D.leggiInizioVideo(null) === 0 && D.leggiInizioVideo('') === 0 && D.leggiInizioVideo(0) === 0
+            && D.leggiInizioVideo(150) === 150 && D.leggiInizioVideo('90') === 90 && D.leggiInizioVideo(43200) === 43200 && D.MAX_INIZIO_VIDEO === 43200,
+            'inizioVideo: vuoto -> 0; secondi interi da 0 a 12 ore');
+        const rifiuti = sbagliati.map(x => [x, errore(() => Promise.resolve().then(() => D.leggiInizioVideo(x)))]);
+        const esitiRifiuti = await Promise.all(rifiuti.map(([x, pr]) => pr.then(e => [x, e])));
+        vero(esitiRifiuti.every(([, e]) => e && e.stato === 400 && e.codice === 'inizioVideo' && /Punto di partenza della registrazione non valido/.test(e.message)),
+            'inizioVideo: -1, 1.5, 43201, "abc", "1:30", NaN, un oggetto, true -> 400 «Punto di partenza della registrazione non valido…»',
+            esitiRifiuti.filter(([, e]) => !(e && e.stato === 400)).map(([x]) => JSON.stringify(x)).join(' '));
+
+        // sul Firestore in memoria: evento-salva ed evento-stato con il video di YouTube
+        const memYt = memoria();
+        const YT_LINK = 'https://www.youtube.com/live/ngbProva001?feature=share';
+        let jsYt = await D.salvaEvento(memYt.ctx, Object.assign({ nuovo: true }, EVENTO, { id: 'yt-2026', azotoUrl: YT_LINK, inizioVideo: 150 }));
+        const pubYt = () => memYt.dati['eventi/yt-2026'];
+        vero(pubYt().videoYouTube === true && pubYt().videoId === '' && pubYt().inizioVideo === 150 && pubYt().onda && pubYt().onda.secondi === 0 && pubYt().onda.da === null
+            && !/ngbProva001|youtube-nocookie|youtube\.com|youtu\.be/i.test(JSON.stringify(pubYt())),
+            'evento nuovo con il video di YouTube: nel documento pubblico videoYouTube sì (un sì, non il link), inizioVideo 150, onda all\'inizio; nessun link fuori onda');
+        vero(jsYt.inizioVideo === 150 && jsYt.onda && jsYt.onda.secondi === 0 && jsYt.onda.da === null && jsYt.videoYouTube === true, 'e la gestione riceve inizioVideo, onda e videoYouTube');
+        memYt.ora = 1000000;
+        jsYt = await D.cambiaStato(memYt.ctx, { idEvento: 'yt-2026', stato: 'in_onda' });
+        vero(daMs(pubYt().onda) === 1000000 && pubYt().onda.secondi === 0 && /^https:\/\/www\.youtube-nocookie\.com\/embed\/ngbProva001\?/.test(pubYt().videoId) && jsYt.onda.da === 1000000,
+            'in onda: onda.da = adesso (alla gestione in millisecondi), e il player arriva ai partecipanti');
+        const scrittureYt = memYt.scritture.length;
+        memYt.ora = 1060000;
+        await D.cambiaStato(memYt.ctx, { idEvento: 'yt-2026', stato: 'pausa' });
+        vero(pubYt().onda.secondi === 60 && pubYt().onda.da === null && pubYt().videoId === '' && memYt.scritture.length === scrittureYt + 1,
+            'pausa dopo un minuto: onda.secondi 60, da null, nella STESSA scrittura del cambio di stato (una sola)');
+        memYt.ora = 1300000;
+        await D.cambiaStato(memYt.ctx, { idEvento: 'yt-2026', stato: 'in_onda' });
+        vero(pubYt().onda.secondi === 60 && daMs(pubYt().onda) === 1300000, 'ripresa: riparte da 60 secondi, da adesso: il punto e\' 150 + 60 + (adesso - da)');
+        await D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'yt-2026', inizioVideo: 30 }));
+        vero(pubYt().inizioVideo === 30 && pubYt().onda.secondi === 60 && daMs(pubYt().onda) === 1300000, 'cambiare «Parti dal punto» in onda sposta il punto (inizioVideo 30), il tempo in onda resta');
+        await D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'yt-2026', titolo: 'Evento di Roma (webinar)' }));
+        vero(pubYt().inizioVideo === 30, 'salvando senza inizioVideo il punto resta quello di prima');
+        const puntoNo = await errore(() => D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'yt-2026', inizioVideo: 99999 })));
+        vero(puntoNo && puntoNo.stato === 400 && puntoNo.codice === 'inizioVideo' && pubYt().inizioVideo === 30, 'inizioVideo fuori misura: 400, niente salvato');
+        memYt.ora = 1400000;
+        await D.cambiaStato(memYt.ctx, { idEvento: 'yt-2026', stato: 'terminato' });
+        vero(pubYt().onda.secondi === 160 && pubYt().onda.da === null, 'terminato: il tempo si ferma (160 secondi in onda)');
+        await D.cambiaStato(memYt.ctx, { idEvento: 'yt-2026', stato: 'programmato' });
+        vero(pubYt().onda.secondi === 0 && pubYt().onda.da === null, 'di nuovo in attesa: la registrazione ripartira\' dall\'inizio');
+        await D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'yt-2026', azotoUrl: AZOTO }));
+        vero(pubYt().videoYouTube === false, 'con il player di Azoto al posto di YouTube: videoYouTube no');
+        await D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'yt-2026', azotoUrl: YT_LINK, videoUrl: HLS, tipoPlayer: 'flusso' }));
+        vero(pubYt().videoYouTube === false && pubYt().tipoPlayer === 'flusso', 'con il flusso diretto in uso: videoYouTube no (anche se il player salvato e\' di YouTube)');
     } catch (e) {
         rossi++;
         console.log('ROSSO  prova del servizio interrotta: ' + (e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e));

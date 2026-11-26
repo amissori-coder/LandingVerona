@@ -72,6 +72,11 @@
                       il codice da incollare): il nome resta quello di
                       quando c'era solo Azoto;
    eYouTube(url)   -> true se url e' il player di YouTube (per i nomi a video);
+   idYouTube(url)  -> l'identificativo del video (11 caratteri) di un
+                      valore gia' salvato del player di YouTube (o di un
+                      link di YouTube), '' se non lo e': lo usa diretta/player-youtube.js, che con il
+                      video di YouTube costruisce il SUO iframe (la
+                      registrazione che sembra una diretta);
    oembedYouTube(url) -> l'indirizzo di oEmbed di quel video (la prova del link).
    Il valore e' quello che si salva e che il player riceve: l'indirizzo
    https normalizzato (per HLS e DASH senza il #...).
@@ -102,7 +107,7 @@
     // file video e segmenti: si possono scaricare, ma non sono una diretta
     var RE_FILE = /\.(mp4|m4v|mov|webm|mkv|avi|flv|ts|m4s)$/;
 
-    var AVVISO_INCORPORATO = 'Con il player incorporato (YouTube o Azoto) restano i suoi comandi e il suo logo: per usare i nostri comandi serve il link .m3u8 di un flusso diretto.';
+    var AVVISO_INCORPORATO = 'Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Azoto restano invece i suoi comandi e il suo logo.';
 
     /* Dal codice incollato si prende l'indirizzo (src) del PRIMO <iframe>,
        e nient'altro. Si leggono gli attributi del tag uno per uno, come
@@ -232,6 +237,17 @@
         return !!s && s.youtube === true;
     }
 
+    /* L'identificativo del video (11 caratteri) di un video di YouTube: dal
+       valore salvato (il player youtube-nocookie) o da un link di YouTube
+       (watch, youtu.be, live, embed, shorts); '' se non lo e'. */
+    function idYouTubeDi(valore) {
+        if (typeof valore !== 'string' || valore.indexOf('<') >= 0) return '';
+        var s = leggi(valore);
+        if (!s || s.youtube !== true) return '';
+        var m = /\/embed\/([A-Za-z0-9_-]{11})(?:\?|$)/.exec(s.valore);
+        return m ? m[1] : '';
+    }
+
     /* Per la prova del link del servizio: l'indirizzo di oEmbed, il
        servizio pubblico con cui YouTube dice se un video c'e', se si puo'
        incorporare, e come si chiama. '' se il valore non e' YouTube. */
@@ -251,7 +267,7 @@
         hls: 'Flusso HLS (.m3u8): lo riproduce il nostro player, con i nostri comandi e senza loghi.',
         dash: 'Flusso DASH (.mpd): lo riproduce il nostro player.',
         incorporato: 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.',
-        youtube: 'Video YouTube: si vede dentro la nostra pagina con i comandi di YouTube.'
+        youtube: 'Video YouTube: si vede come una diretta, con i nostri comandi (tutti allo stesso punto, senza barra, titolo o link di YouTube).'
     };
     function descrizione(tipo) {
         return DESCRIZIONI[tipo] || '';
@@ -290,6 +306,7 @@
         perFlusso: perFlusso,
         eAzoto: eAzoto,
         eYouTube: eYouTube,
+        idYouTube: idYouTubeDi,
         oembedYouTube: oembedYouTube,
         tipoDi: tipoDi,
         messaggio: messaggio,
