@@ -381,8 +381,26 @@ async function elencoEventi(ctx) {
     const conteggi = await Promise.all(snap.docs.map(d =>
         ctx.db.collection('partecipanti').where('eventi', 'array-contains', d.id).count().get()
             .then(c => c.data().count).catch(() => null)));
+    await segnaYouTubeDiPrima(ctx, snap.docs, riservati);
     return snap.docs.map((d, i) => Object.assign(eventoJSON(d.id, d.data(), riservati[i].exists ? riservati[i].data() : {}), { iscritti: conteggi[i] }))
         .sort((a, b) => (b.inizio || 0) - (a.inizio || 0));
+}
+
+/* Gli eventi salvati prima di videoYouTube (26 novembre 2026) con il video
+   di YouTube: la pagina dei partecipanti, fuori onda, non saprebbe che il
+   video e' di YouTube e mostrerebbe i consigli di Azoto finche' l'evento
+   non si salva o non va in onda. Quando la gestione apre l'elenco, il
+   segno si scrive una volta sola (solo dove manca e solo se e' si'). Se
+   non riesce, si riprova alla prossima apertura: l'elenco arriva lo stesso. */
+async function segnaYouTubeDiPrima(ctx, docs, riservati) {
+    const da = docs.filter((d, i) => {
+        if (d.data().videoYouTube !== undefined) return false;
+        const r = riservatiDa(riservati[i].exists ? riservati[i].data() : {});
+        return r.tipoPlayer !== 'flusso' && V.eYouTube(r.azotoUrl || '');
+    });
+    for (const d of da) {
+        try { await d.ref.update({ videoYouTube: true }); } catch (e) { /* alla prossima apertura */ }
+    }
 }
 
 // "9:00", "09.00", "09:00" -> "09:00"; '' se non e' un'ora
@@ -569,6 +587,13 @@ function uguali(a, b) {
    (iscrizioniAutomaticheDa). Acceso vuole la pagina dell'evento (400 campo 'pagina'), e
    una pagina puo' avere l'interruttore acceso su un evento solo (409
    'iscrizioni-doppie'): il modulo del sito deve portare a UN evento. */
+/* L'identificativo di un evento si vede nel link che ricevono i
+   partecipanti (/diretta/?e=<id>): niente nome della piattaforma del video
+   (per esempio prova-youtube), che dice da dove arriva il video. Vale per
+   gli eventi nuovi: quelli che ci sono gia' non si rinominano. */
+const RE_ID_PIATTAFORMA = /you-?tu|azoto/;
+const MSG_ID_PIATTAFORMA = 'L\'identificativo si vede nel link che ricevono i partecipanti: non usare il nome della piattaforma del video (YouTube, Azoto). Per esempio: webinar-10-dicembre-2026.';
+
 async function salvaEvento(ctx, ingresso) {
     const e = ingresso || {};
     const nuovo = e.nuovo === true;
@@ -576,6 +601,7 @@ async function salvaEvento(ctx, ingresso) {
     if (!RE_ID_EVENTO.test(id)) {
         throw C.errore(400, 'Identificativo dell\'evento non valido: lettere minuscole, numeri e trattini, da 3 a 41 caratteri.', 'evento');
     }
+    if (nuovo && RE_ID_PIATTAFORMA.test(id)) throw C.errore(400, MSG_ID_PIATTAFORMA, 'evento');
     const db = ctx.db;
     const rif = db.collection('eventi').doc(id);
     const rifRis = db.collection('eventiRiservati').doc(id);
@@ -1618,7 +1644,7 @@ module.exports = {
     inParallelo, conRiprova, transazione, leggiProgramma, normalizzaOra, leggiVideo, leggiAzoto, campiVideo, riservatiDa,
     // eventi
     eventoJSON, leggiEvento, elencoEventi, salvaEvento, cambiaStato, cambiaVideo, cambiaSorgente, cambiaPlayer, linkVideo, cambiaAvviso, scegliEvento,
-    cambiaIscrizioni, iscrizioniDi, percorsoPagina, ondaDopo, leggiInizioVideo, MAX_INIZIO_VIDEO,
+    cambiaIscrizioni, iscrizioniDi, percorsoPagina, ondaDopo, leggiInizioVideo, MAX_INIZIO_VIDEO, RE_ID_PIATTAFORMA, MSG_ID_PIATTAFORMA,
     // partecipanti
     partecipanteJSON, elencoPartecipanti, anteprima, crea, aggiungiAMano, prenotaPersona, completaDopoPrenotazione, operazionePartecipante, impostaClaims, allineaClaims,
     accountDellEvento, accountDiEmailPerEvento, uidDellEmail, mappaPerEvento, vecchioPerEvento, MAX_ACCOUNT_EMAIL, titoliEventi,

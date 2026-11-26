@@ -696,7 +696,11 @@ provano a mano, con Azoto che trasmette una prova:
 ### 6.2 La settimana prima
 
 1. **Evento** (scheda *Evento*): identificativo (per Napoli `napoli-2026`,
-   lo stesso scritto in `assets/diretta-stato.js`), titolo, luogo, data, ora
+   lo stesso scritto in `assets/diretta-stato.js`; si vede nel link che
+   ricevono i partecipanti, `/diretta/?e=<identificativo>`, che la gestione
+   mostra sotto il campo: per gli eventi nuovi la gestione e il servizio non
+   accettano il nome della piattaforma del video, come `prova-youtube`, e dal
+   titolo la proposta lo toglie da sola), titolo, luogo, data, ora
    di inizio e di fine, **tipo di player** e codice (o indirizzo) del player di
    Azoto (§5), programma (una voce per
    riga: `09.00 Accoglienza`), pagina dell'evento (`/napoli_ottobre_2026/`),
@@ -1983,8 +1987,10 @@ che oggi nessun fornitore ha confermato per iscritto.
 
 ## 13. Le domande al relatore e il video su YouTube
 
-Dal webinar del 10 dicembre 2026 il video arriva da **YouTube** e i
-partecipanti possono **mandare domande al relatore** durante la diretta.
+Dal webinar del 10 dicembre 2026 il video arriva da **YouTube**. Se la
+regia le accende (evento per evento), i partecipanti possono anche **mandare
+domande al relatore** durante la diretta: per il webinar non servono, e
+restano spente (§13.3).
 
 ### 13.1 Il video su YouTube: una registrazione che sembra una diretta
 
@@ -2039,6 +2045,19 @@ YouTube il player è `diretta/player-youtube.js` (al posto di
   YouTube che uno schermo nero.
 - **In Regia**, con il video di YouTube, sotto lo stato c'è il punto della
   registrazione in cui sono i partecipanti, e va avanti da solo.
+- **La pagina, in ordine.** Nell'attesa le carte (programma, «Prima di
+  cominciare», domande se accese) stanno in una colonna sola, centrata sotto il
+  titolo e tutte della stessa larghezza; nella diretta sono larghe quanto il
+  video (programma e consigli affiancati, o una carta sola su tutta la riga). I
+  consigli hanno un segno di spunta e il testo delle carte è allineato a
+  sinistra (il giustificato del sito, `assets/testo.css`, nelle carte strette
+  apriva buchi fra le parole). Se l'ora d'inizio è passata e la regia non è
+  ancora in onda, al posto del conto alla rovescia a zero resta solo «La
+  diretta sta per iniziare». Con YouTube, nell'attesa e nella pausa, i
+  consigli sono quelli del nostro player (non quelli di Azoto): lo dice
+  `videoYouTube` dell'evento. Negli eventi salvati prima del 26 novembre 2026
+  il servizio lo scrive da solo la prima volta che la gestione apre l'elenco
+  degli eventi (`segnaYouTubeDiPrima`).
 
 Su YouTube il video va caricato **«Non in elenco»** (non «Privato», che non si
 può incorporare) e con **«Consenti incorporamento»** acceso. «Prova il player»
@@ -2060,6 +2079,11 @@ Gli altri partecipanti **non vedono mai** le domande: non c'è una chat, e le
 domande non passano dal documento dell'evento che tutti ascoltano.
 
 ### 13.3 Come si prepara
+
+Le domande si accendono evento per evento, e di base sono spente: per il
+webinar del 10 dicembre (novembre 2026) **non servono**, quindi la casella
+«Domande al relatore» va lasciata spenta (togliendola e salvando, il riquadro
+sparisce subito dalla pagina di chi è collegato). Se un giorno serviranno:
 
 1. Gestione → Evento: spunta **«Domande al relatore»** e salva.
 2. Il relatore è un **partecipante dell'evento**: se non c'è già, aggiungilo in

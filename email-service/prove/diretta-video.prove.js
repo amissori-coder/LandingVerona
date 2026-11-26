@@ -566,18 +566,18 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
         vero(assente && assente.stato === 404, 'evento-player di un evento che non c\'e\': 404');
 
         const mem2 = memoria();
-        const pub2 = () => mem2.dati['eventi/solo-azoto'];
-        await D.salvaEvento(mem2.ctx, Object.assign({ nuovo: true }, EVENTO, { id: 'solo-azoto', azotoUrl: AZOTO }));
-        await D.cambiaStato(mem2.ctx, { idEvento: 'solo-azoto', stato: 'in_onda' });
+        const pub2 = () => mem2.dati['eventi/solo-player'];
+        await D.salvaEvento(mem2.ctx, Object.assign({ nuovo: true }, EVENTO, { id: 'solo-player', azotoUrl: AZOTO }));
+        await D.cambiaStato(mem2.ctx, { idEvento: 'solo-player', stato: 'in_onda' });
         mem2.ora = 9000;
-        const bSenza = await errore(() => D.cambiaPlayer(mem2.ctx, { idEvento: 'solo-azoto', tipoPlayer: 'flusso' }));
+        const bSenza = await errore(() => D.cambiaPlayer(mem2.ctx, { idEvento: 'solo-player', tipoPlayer: 'flusso' }));
         vero(bSenza && bSenza.stato === 400 && bSenza.codice === 'tipoPlayer' && /^Per il flusso diretto serve prima il link \.m3u8/.test(bSenza.message)
             && pub2().tipoPlayer === 'azoto' && pub2().videoId === AZOTO && pub2().videoAggiornato.toMillis() === 1000,
         'evento-player B senza il flusso: 400 («' + (bSenza && bSenza.message) + '»), e tutto resta com\'era');
-        await D.cambiaVideo(mem2.ctx, { idEvento: 'solo-azoto', azotoUrl: '' });
-        const aSenza = await errore(() => D.cambiaPlayer(mem2.ctx, { idEvento: 'solo-azoto', tipoPlayer: 'azoto' }));
+        await D.cambiaVideo(mem2.ctx, { idEvento: 'solo-player', azotoUrl: '' });
+        const aSenza = await errore(() => D.cambiaPlayer(mem2.ctx, { idEvento: 'solo-player', tipoPlayer: 'azoto' }));
         vero(aSenza && aSenza.stato === 400 && aSenza.codice === 'tipoPlayer' && /player Azoto/.test(aSenza.message), 'evento-player A senza l\'indirizzo di Azoto: 400 («' + (aSenza && aSenza.message) + '»)');
-        const linkSenza = await errore(() => D.linkVideo(mem2.ctx, { idEvento: 'solo-azoto', sorgente: 'principale', soloInOnda: true }));
+        const linkSenza = await errore(() => D.linkVideo(mem2.ctx, { idEvento: 'solo-player', sorgente: 'principale', soloInOnda: true }));
         vero(linkSenza && linkSenza.stato === 409 && linkSenza.codice === 'non-flusso', 'link-video in modalita\' Azoto: 409 non-flusso');
 
         /* ---------- link-video / link-firmato: solo per il flusso ---------- */
@@ -690,6 +690,48 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
         vero(pubYt().videoYouTube === false, 'con il player di Azoto al posto di YouTube: videoYouTube no');
         await D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'yt-2026', azotoUrl: YT_LINK, videoUrl: HLS, tipoPlayer: 'flusso' }));
         vero(pubYt().videoYouTube === false && pubYt().tipoPlayer === 'flusso', 'con il flusso diretto in uso: videoYouTube no (anche se il player salvato e\' di YouTube)');
+
+        /* ---------- l'identificativo si vede nel link dei partecipanti: niente nome della piattaforma ---------- */
+        const idNo = [];
+        for (const id of ['prova-youtube', 'webinar-you-tube-2026', 'youtu-2026', 'azoto-dicembre']) {
+            const x = await errore(() => D.salvaEvento(memYt.ctx, Object.assign({ nuovo: true }, EVENTO, { id: id })));
+            if (!(x && x.stato === 400 && x.codice === 'evento' && x.message === D.MSG_ID_PIATTAFORMA) || memYt.dati['eventi/' + id]) idNo.push(id);
+        }
+        vero(idNo.length === 0 && /si vede nel link che ricevono i partecipanti/.test(D.MSG_ID_PIATTAFORMA),
+            'evento nuovo con il nome della piattaforma nell\'identificativo (prova-youtube, you-tube, youtu, azoto): 400, niente creato', idNo.join(' '));
+        await D.salvaEvento(memYt.ctx, Object.assign({ nuovo: true }, EVENTO, { id: 'webinar-10-dicembre-2026' }));
+        memYt.dati['eventi/prova-youtube'] = Object.assign({}, memYt.dati['eventi/webinar-10-dicembre-2026']);
+        memYt.dati['eventiRiservati/prova-youtube'] = Object.assign({}, memYt.dati['eventiRiservati/webinar-10-dicembre-2026']);
+        const vecchioYt = await errore(() => D.salvaEvento(memYt.ctx, Object.assign({}, EVENTO, { id: 'prova-youtube', titolo: 'Prova (vecchia)' })));
+        vero(!!memYt.dati['eventi/webinar-10-dicembre-2026'] && !vecchioYt && memYt.dati['eventi/prova-youtube'].titolo === 'Prova (vecchia)',
+            'un identificativo neutro si crea; un evento che c\'era gia\' (prova-youtube) si modifica ancora');
+
+        /* ---------- gli eventi di prima con YouTube: il segno videoYouTube quando la gestione apre l'elenco ---------- */
+        const docsElenco = {
+            'vecchio-yt': { pub: { titolo: 'Vecchio YouTube', stato: 'programmato' }, ris: { tipoPlayer: 'azoto', azotoUrl: V.leggi('https://youtu.be/ngbProva004').valore } },
+            'vecchio-azoto': { pub: { titolo: 'Vecchio Azoto', stato: 'programmato' }, ris: { tipoPlayer: 'azoto', azotoUrl: AZOTO } },
+            'vecchio-flusso': { pub: { titolo: 'Vecchio flusso', stato: 'programmato' }, ris: { tipoPlayer: 'flusso', azotoUrl: V.leggi('https://youtu.be/ngbProva005').valore, videoUrl: HLS, videoId: HLS } },
+            'nuovo-yt': { pub: { titolo: 'Nuovo', stato: 'programmato', videoYouTube: true }, ris: { tipoPlayer: 'azoto', azotoUrl: V.leggi('https://youtu.be/ngbProva006').valore } }
+        };
+        const scritteElenco = [];
+        const ctxElenco = {
+            db: {
+                collection: nome => ({
+                    get: async () => ({
+                        empty: false,
+                        docs: Object.keys(docsElenco).map(id => ({ id, data: () => Object.assign({}, docsElenco[id].pub), ref: { update: async campi => { scritteElenco.push([id, campi]); Object.assign(docsElenco[id].pub, campi); } } }))
+                    }),
+                    doc: id => ({ nome, id }),
+                    where: () => ({ count: () => ({ get: async () => ({ data: () => ({ count: 0 }) }) }) })
+                }),
+                getAll: async (...r) => r.map(x => ({ exists: true, data: () => Object.assign({}, docsElenco[x.id].ris) }))
+            }
+        };
+        const elenco1 = await D.elencoEventi(ctxElenco);
+        vero(elenco1.length === 4 && scritteElenco.length === 1 && scritteElenco[0][0] === 'vecchio-yt' && scritteElenco[0][1].videoYouTube === true && Object.keys(scritteElenco[0][1]).length === 1,
+            'aprendo l\'elenco: l\'evento di prima con YouTube riceve videoYouTube (solo quel campo); Azoto, flusso diretto ed eventi gia\' segnati non si toccano', JSON.stringify(scritteElenco));
+        await D.elencoEventi(ctxElenco);
+        vero(scritteElenco.length === 1, 'alla seconda apertura nessuna scrittura (il segno c\'e\' gia\')');
     } catch (e) {
         rossi++;
         console.log('ROSSO  prova del servizio interrotta: ' + (e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e));

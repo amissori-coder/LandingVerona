@@ -23,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- La "v=" cambia a ogni modifica: GitHub Pages tiene i file in cache e
          senza un indirizzo nuovo il browser userebbe la copia vecchia. -->
-    <link rel="stylesheet" href="gestione.css?v=20261126a">
+    <link rel="stylesheet" href="gestione.css?v=20261126b">
 </head>
 <body data-vista="caricamento">
     <a class="salta" href="#principale">Vai al contenuto</a>
@@ -127,8 +127,10 @@
                         <div class="griglia-campi">
                             <div class="campo">
                                 <label for="ev-id">Identificativo</label>
-                                <input type="text" id="ev-id" name="id" maxlength="41" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-id-aiuto" placeholder="es. napoli-2026">
-                                <p id="ev-id-aiuto" class="aiuto">Lettere minuscole, numeri e trattini. Non si cambia dopo la creazione.</p>
+                                <input type="text" id="ev-id" name="id" maxlength="41" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="ev-id-aiuto ev-id-link" placeholder="es. webinar-10-dicembre-2026">
+                                <p id="ev-id-aiuto" class="aiuto">Lettere minuscole, numeri e trattini. Si vede nel link che ricevono i partecipanti: non usare il nome della piattaforma del video. Non si cambia dopo la creazione.</p>
+                                <!-- il link della diretta per i partecipanti (gestione.js, mostraLinkEvento) -->
+                                <p id="ev-id-link" class="aiuto link-partecipanti" hidden></p>
                             </div>
                             <div class="campo campo-titolo">
                                 <label for="ev-titolo">Titolo</label>
@@ -169,7 +171,7 @@
                                 <label class="opzione">
                                     <input type="radio" name="ev-tipo-player" value="azoto" checked>
                                     <span><strong>Player YouTube o Azoto (iframe)</strong> <span class="predefinito">predefinito</span>
-                                        <span class="opzione-riga">Il video di YouTube (o il player della web TV Azoto) dentro la nostra pagina, con i suoi comandi. È quello da usare adesso.</span></span>
+                                        <span class="opzione-riga">Il video di YouTube (che si vede come una diretta, con i nostri comandi) o il player della web TV Azoto (con i suoi), dentro la nostra pagina. È quello da usare adesso.</span></span>
                                 </label>
                                 <label class="opzione">
                                     <input type="radio" name="ev-tipo-player" value="flusso" aria-describedby="ev-tipo-flusso-nota">
@@ -1456,6 +1458,6 @@
     <script src="../sorgente-video.js?v=20261126a"></script>
     <script src="../player-webtv.js?v=20260925a"></script>
     <script src="../player-azoto.js?v=20260925a"></script>
-    <script src="gestione.js?v=20261126a"></script>
+    <script src="gestione.js?v=20261126b"></script>
 </body>
 </html>

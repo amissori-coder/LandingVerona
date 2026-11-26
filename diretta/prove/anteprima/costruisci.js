@@ -228,6 +228,10 @@ async function costruisci() {
     const immagini = new Set(['assets/newsletter/fascia-filigrana.png', 'assets/logo-revilaw-bianco.png', 'assets/favicon.png']);
     Object.values(pagine).join('\n').replace(/"(assets\/[^"]+\.(?:png|jpg|jpeg|svg|webp|ico))"/g, (t, f) => { immagini.add(f); return t; });
     immagini.forEach(f => copia(f));
+    // i fogli di stile e gli script comuni del sito citati dalle pagine (il testo giustificato, la stampa): come sul sito
+    const comuni = new Set();
+    Object.values(pagine).join('\n').replace(/"(assets\/[^"]+\.(?:css|js))"/g, (t, f) => { comuni.add(f); return t; });
+    comuni.forEach(f => copia(f));
 
     copia('diretta/prove/anteprima/guscio.html', 'index.html');
     copia('diretta/prove/anteprima/guscio.js', 'anteprima/guscio.js');

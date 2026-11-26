@@ -445,6 +445,9 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
 .regia-registrazione strong { font-size: 1.05rem; }
 /* «Parti dal punto»: un campo corto (minuti:secondi) */
 .campo-punto-video { margin-top: 14px; }
+/* sotto l'identificativo: il link che ricevono i partecipanti */
+.link-partecipanti { margin-top: 6px; overflow-wrap: break-word; }
+.link-partecipanti .avviso-link { display: block; margin-top: 4px; color: var(--ambra); font-weight: 600; }
 .campo-punto-video input { max-width: 9em; font-variant-numeric: tabular-nums; }
 .regia-comandi { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 12px; }
 .regia-comandi .btn-grande { flex: 1 1 200px; }
