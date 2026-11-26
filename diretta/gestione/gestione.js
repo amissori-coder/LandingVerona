@@ -250,6 +250,39 @@
     // i campi del player Azoto; gli altri (ev-video, ev-riserva, regia-video, regia-riserva) sono il flusso diretto
     const CAMPI_AZOTO = { 'ev-azoto': true, 'regia-azoto': true };
 
+    /* «Parti dal punto» (inizioVideo, in secondi): con un video di YouTube
+       il punto della registrazione da cui parte la diretta. Si scrive
+       minuti:secondi (2:30), ore:minuti:secondi (1:02:30) o solo i minuti
+       (5); vanno bene anche il punto e la virgola al posto dei due punti.
+       Al massimo 12 ore, come per il servizio (diretta-dati.js,
+       leggiInizioVideo). -> secondi (0 se vuoto) | null se non si capisce */
+    const MAX_PUNTO_VIDEO = 12 * 3600;
+    function leggiPuntoVideo(testo) {
+        const t = String(testo == null ? '' : testo).trim().replace(/[.,]/g, ':');
+        if (!t) return 0;
+        let p;
+        if (/^\d{1,3}$/.test(t)) p = [Number(t), 0];
+        else if (/^\d{1,3}:\d{2}$/.test(t) || /^\d{1,2}:\d{2}:\d{2}$/.test(t)) p = t.split(':').map(Number);
+        else return null;
+        if (p.slice(1).some(n => n > 59)) return null;
+        const sec = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+        return sec <= MAX_PUNTO_VIDEO ? sec : null;
+    }
+    // secondi -> "2:30" / "1:02:30" ('' per 0)
+    function scriviPuntoVideo(secondi) {
+        const n = Math.max(0, Math.floor(Number(secondi) || 0));
+        if (!n) return '';
+        const h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), x = n % 60;
+        const due = v => (v < 10 ? '0' : '') + v;
+        return h ? h + ':' + due(m) + ':' + due(x) : m + ':' + due(x);
+    }
+    // il campo si vede solo con un video di YouTube nel player (o se ha gia' un valore)
+    function aggiornaCampoPunto() {
+        const l = leggiAzoto($('#ev-azoto').value);
+        const yt = !!(l && !l.errore && SV && typeof SV.eYouTube === 'function' && SV.eYouTube(l.valore));
+        $('#campo-inizio-video').hidden = !yt && !$('#ev-inizio-video').value.trim();
+    }
+
     /* Il player Azoto: il codice incollato o l'indirizzo.
        -> null (vuoto) | { tipo: 'incorporato', valore, daCodice } | { errore, messaggio } */
     function leggiAzoto(testo) {
@@ -937,6 +970,8 @@
             $('#' + t.getAttribute('aria-controls')).hidden = !attiva;
         });
         if (nome === 'regia') { avviaConnessi(); caricaFase(); } else fermaConnessi();
+        // il punto della registrazione (YouTube): si aggiorna ogni secondo solo con la Regia in vista
+        if (stato.evento) aggiornaPuntoRegia();
         if (nome === 'ascolti') avviaAscolti(); else fermaAscolti();
         /* L'anteprima di un video provato in un'altra scheda non serve piu'
            (e continuerebbe a scaricare il video): si chiude, ma non a meta'
@@ -1015,6 +1050,9 @@
         $('#ev-ora-inizio').value = ev ? ev.oraInizio || '' : '';
         $('#ev-ora-fine').value = ev ? ev.oraFine || '' : '';
         // i link con cui si apre il modulo: al salvataggio si mandano solo se cambiati
+        $('#ev-inizio-video').value = ev ? scriviPuntoVideo(ev.inizioVideo) : '';
+        $('#ev-inizio-video').dataset.iniziale = String(ev ? Math.max(0, Math.floor(Number(ev.inizioVideo) || 0)) : 0);
+        $('#ev-inizio-video').removeAttribute('aria-invalid');
         riempiCampoLink('ev-azoto', ev ? ev.azotoUrl : '');
         riempiCampoLink('ev-video', ev ? ev.videoUrl : '');
         riempiCampoLink('ev-riserva', ev ? ev.riservaUrl : '');
@@ -1484,6 +1522,8 @@
             segna('input[name="ev-tipo-player"][value="flusso"]', 'Tipo di player: per il flusso diretto serve prima il link .m3u8, nel riquadro «Flusso diretto (.m3u8)».');
         }
         if (pagina && !/^\/[a-z0-9_\/-]*\/?$/.test(pagina)) segna('#ev-pagina', 'Pagina dell\'evento: solo il percorso, per esempio /napoli_ottobre_2026/.');
+        const inizioVideo = leggiPuntoVideo($('#ev-inizio-video').value);
+        if (inizioVideo === null) segna('#ev-inizio-video', 'Parti dal punto: minuti e secondi, per esempio 2:30 (oppure ore:minuti:secondi, come 1:02:30), al massimo 12 ore.');
         if (programma.errori.length) { $('#ev-programma').setAttribute('aria-invalid', 'true'); errori.push.apply(errori, programma.errori); }
         const firma = leggiFirma(segna);
 
@@ -1499,6 +1539,9 @@
             domande: $('#ev-domande').checked,
             promemoria: { giornoPrima: $('#ev-promemoria-giorno').checked, oraPrima: $('#ev-promemoria-ora').checked }
         };
+        // «Parti dal punto»: come i link, si manda solo se cambiato qui (un altro gestore puo' averlo cambiato)
+        const puntoCambiato = inizioVideo !== null && (stato.nuovo ? inizioVideo > 0 : inizioVideo !== Number($('#ev-inizio-video').dataset.iniziale || 0));
+        if (puntoCambiato) evento.inizioVideo = inizioVideo;
 
         // al servizio va solo l'indirizzo ricavato qui, mai il codice incollato
         if (azotoCambiato) evento.azotoUrl = la && !la.errore ? la.valore : '';
@@ -1512,6 +1555,7 @@
             azotoDaCodice: !!(la && la.daCodice),
             videoCambiato: videoCambiato,
             riservaCambiata: riservaCambiata,
+            puntoCambiato: puntoCambiato,
             firma: firma,
             evento: evento
         };
@@ -1593,6 +1637,17 @@
             if (riservaInUsoTolta && !inOnda) dettagli.push('La riserva è la scelta della regia: togliendola, quando si userà il flusso diretto si partirà dal link principale.');
             if (letto.firma.tolta) dettagli.push('Link firmati: si tolgono, e la chiave segreta salvata viene cancellata.');
             const suAzoto = tipo === 'azoto';
+            /* Il punto della registrazione cambiato durante la diretta (o la
+               pausa): con il video di YouTube chi e' collegato salta al nuovo
+               punto. Si dice nella domanda (una riga in piu', o la domanda
+               intera se non c'e' altro da chiedere). */
+            const urlYouTube = azotoCambiato ? evento.azotoUrl : (evPrima && evPrima.azotoUrl);
+            const conYouTube = suAzoto && !!urlYouTube && !!SV && typeof SV.eYouTube === 'function' && SV.eYouTube(urlYouTube);
+            const inPausa = !eraNuovo && !!evPrima && evPrima.stato === 'pausa';
+            const salto = letto.puntoCambiato && conYouTube && (inOnda || inPausa)
+                ? (inOnda ? 'La diretta è in onda: chi è collegato salta da solo al nuovo punto della registrazione (' + (scriviPuntoVideo(evento.inizioVideo) || '0:00') + ' più il tempo già andato in onda).'
+                    : 'La diretta è in pausa: alla ripresa la registrazione riparte dal nuovo punto (' + (scriviPuntoVideo(evento.inizioVideo) || '0:00') + ' più il tempo già andato in onda).')
+                : '';
             let domanda = null;
             if (avvisi.length) {
                 domanda = {
@@ -1621,6 +1676,10 @@
                     dettagli: dettagli, ok: 'Togli la firma', pericolo: true
                 };
             }
+            if (salto) {
+                if (domanda) domanda.dettagli = (domanda.dettagli || []).concat([salto]);
+                else domanda = { titolo: 'Spostare la registrazione per tutti?', testo: salto, dettagli: dettagli, ok: 'Sposta la registrazione' };
+            }
             if (domanda && !(await conferma(domanda))) return;
             try {
                 const r = await chiama('evento-salva', { evento: evento });
@@ -1636,6 +1695,7 @@
                 } else if (fraseOnda) {
                     detto.push(suAzoto ? (azotoTolto ? 'Player Azoto tolto.' : 'I partecipanti collegati passano al nuovo player Azoto.') : 'I partecipanti collegati ricevono i link nuovi.');
                 }
+                if (salto) detto.push(inOnda ? 'I partecipanti collegati saltano al nuovo punto della registrazione.' : 'Alla ripresa la registrazione riparte dal nuovo punto.');
                 if (azotoCambiato && evento.azotoUrl && letto.azotoDaCodice) detto.push('Dal codice di Azoto ho salvato solo l\'indirizzo del player.');
                 if (evento.firma && evento.firma.segreto) detto.push('La chiave segreta è salvata sul servizio.');
                 if (avvisi.length) detto.push('Ricorda i problemi segnalati dalla prova: riprova quando Azoto li ha risolti.');
@@ -1648,6 +1708,10 @@
                     mostraMsg('#msg-evento', err.msg || 'Esiste già un evento con questo identificativo: scegline un altro.', 'errore');
                 } else if (err.stato === 400 && (err.codice === 'azoto' || err.codice === 'video')) {
                     $(err.codice === 'azoto' ? '#ev-azoto' : '#ev-video').setAttribute('aria-invalid', 'true');
+                    erroreGenerico(err, '#msg-evento');
+                } else if (err.stato === 400 && err.codice === 'inizioVideo') {
+                    $('#campo-inizio-video').hidden = false;
+                    $('#ev-inizio-video').setAttribute('aria-invalid', 'true');
                     erroreGenerico(err, '#msg-evento');
                 } else if (err.stato === 400 && err.codice === 'tipoPlayer') {
                     RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
@@ -1686,6 +1750,7 @@
         $('#regia-orari').textContent = righe.join(' · ');
 
         aggiornaAvvisoOrario();
+        aggiornaPuntoRegia();
 
         aggiornaVideoRegia();
         $('#regia-avviso-attuale').textContent = ev && ev.avviso ? '«' + ev.avviso + '»' : 'nessuno';
@@ -1694,6 +1759,41 @@
         aggiornaDettaglioConnessi();
         aggiornaFase();
     }
+
+    /* Con un video di YouTube: il punto della registrazione in cui sono i
+       partecipanti, lo stesso per tutti (la pagina della diretta lo conta
+       allo stesso modo: inizioVideo + onda.secondi + adesso - onda.da; vedi
+       diretta.js, LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA). In onda si
+       aggiorna ogni secondo, finche' la scheda Regia e' aperta. */
+    function puntoRegistrazione(ev) {
+        const o = ev && ev.onda && typeof ev.onda === 'object' ? ev.onda : {};
+        let da = Number(o.da) || 0;
+        // un evento in onda da prima che esistesse onda conta da statoAggiornato
+        if (!da && !ev.onda && ev.stato === 'in_onda') da = Number(ev.statoAggiornato) || 0;
+        return Math.max(0, Number(ev.inizioVideo) || 0) + Math.max(0, Number(o.secondi) || 0) + (da ? Math.max(0, (Date.now() - da) / 1000) : 0);
+    }
+    function aggiornaPuntoRegia() {
+        clearTimeout(stato.timerPuntoRegia);
+        stato.timerPuntoRegia = null;
+        const ev = stato.evento;
+        const riga = $('#regia-registrazione');
+        const yt = !!ev && !stato.nuovo && tipoPlayerDi(ev) === 'azoto' && !!ev.azotoUrl && !!SV && typeof SV.eYouTube === 'function' && SV.eYouTube(ev.azotoUrl);
+        riga.hidden = !yt;
+        if (!yt) { svuota(riga); return; }
+        const s = ev.stato || 'programmato';
+        const punto = scriviPuntoVideo(puntoRegistrazione(ev)) || '0:00';
+        const parti = s === 'in_onda' ? ['Registrazione YouTube al punto ', el('strong', { testo: punto }), ', lo stesso per tutti i partecipanti.']
+            : s === 'pausa' ? ['Registrazione ferma al punto ', el('strong', { testo: punto }), ': con «Riprendi la diretta» riparte da qui.']
+                : s === 'terminato' ? ['Registrazione fermata al punto ', el('strong', { testo: punto }), '.']
+                    : ['Con «Vai in onda» la registrazione parte dal punto ', el('strong', { testo: punto }), (Number(ev.inizioVideo) > 0 ? ' (scelto nella scheda Evento).' : ', l\'inizio.')];
+        svuota(riga);
+        parti.forEach(x => riga.append(x));
+        // in onda si aggiorna ogni secondo, solo con la scheda Regia in vista
+        if (s === 'in_onda' && !$('#scheda-regia').hidden && document.visibilityState === 'visible') {
+            stato.timerPuntoRegia = setTimeout(aggiornaPuntoRegia, 1000 - (Date.now() % 1000) + 20);
+        }
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && stato.evento) aggiornaPuntoRegia(); });
 
     // l'orario d'inizio e' passato e nessuno ha premuto "Vai in onda"
     // (si ricontrolla a ogni aggiornamento dei collegati, ogni 20 secondi)
@@ -2195,6 +2295,7 @@
     function riconosciLink(id) {
         const campo = $('#' + id);
         const testo = campo.value.trim();
+        if (id === 'ev-azoto') aggiornaCampoPunto();
         const p = stato.prove[id];
         if (p && p.testo === testo) return;
         if (p) dimenticaProva(id);

@@ -37,7 +37,13 @@
                       lascia com'e'. firma { schema, segreto?,
                       durataOre?, parametri? } (i link firmati del
                       flusso): la chiave non torna MAI indietro, la
-                      risposta dice solo firma.segretoImpostato
+                      risposta dice solo firma.segretoImpostato.
+                      inizioVideo (secondi interi, 0-43200; assente lo
+                      lascia com'e'): con un video di YouTube, «Parti dal
+                      punto» della registrazione che sembra una diretta
+                      (400 campo 'inizioVideo' altrimenti). L'evento porta
+                      anche onda { secondi, da } (il tempo in onda, scritto
+                      da evento-stato) e videoYouTube (si' o no, mai il link)
      evento-video     { idEvento, azotoUrl?, videoUrl?, videoId?,
                       riservaUrl? } il cambio degli indirizzi durante
                       la diretta (solo quelli che arrivano)

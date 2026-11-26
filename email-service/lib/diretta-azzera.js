@@ -136,7 +136,8 @@ async function azzera(ctx, { idEvento, conferma, accessi }, chi) {
         }
         statoPrima = v.stato || 'programmato';
         const video = D.campiVideo(v, snapRis.exists ? snapRis.data() : {}, 'programmato');
-        const agg = Object.assign({ stato: 'programmato', statoAggiornato: ts, avviso: '', ripresa: '', aggiornato: ts }, video);
+        // anche il tempo in onda della registrazione torna all'inizio (diretta-dati.js, ondaDopo)
+        const agg = Object.assign({ stato: 'programmato', statoAggiornato: ts, avviso: '', ripresa: '', onda: { secondi: 0, da: null }, aggiornato: ts }, video);
         if (v.sorgente === 'riserva') agg.sorgente = 'principale';
         if (Object.keys(video).length || agg.sorgente) agg.videoAggiornato = ts;
         tx.update(rif, agg);

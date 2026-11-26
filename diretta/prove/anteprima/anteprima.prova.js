@@ -111,16 +111,30 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await A.locator('#tab-partecipante').click();
         await P.locator('body[data-vista="diretta"]').waitFor({ timeout: 20000 });
         vero(true, 'la pagina del partecipante passa alla diretta da sola');
-        // modalita' A: il riquadro di prova al posto dell'iframe di Azoto; dei nostri comandi solo «Schermo intero» e la nota
-        await P.locator('.player-azoto-anteprima').waitFor({ timeout: 10000 });
+        /* modalita' A con il video di YouTube: la registrazione che sembra una diretta (qui il riquadro di
+           prova, che mostra il punto della registrazione), con i NOSTRI comandi: audio, volume, «In diretta»,
+           «Schermo intero»; niente pausa e niente nota di Azoto */
+        await P.locator('.player-youtube-anteprima').waitFor({ timeout: 10000 });
         await page.waitForTimeout(1000);
         const modoA = await P.locator('html').evaluate(h => {
             const vede = id => { const e = document.getElementById(id); return !!e && !!(e.offsetWidth || e.offsetHeight); };
-            return { azoto: h.classList.contains('modo-azoto'), intero: vede('btn-schermo-intero'), nota: vede('nota-azoto'), play: vede('btn-play'), audio: vede('btn-attiva-audio'), iframe: document.querySelectorAll('iframe').length };
+            return {
+                azoto: h.classList.contains('modo-azoto'), youtube: h.classList.contains('modo-youtube'), intero: vede('btn-schermo-intero'), nota: vede('nota-azoto'),
+                play: vede('btn-play'), audio: vede('btn-attiva-audio'), muto: vede('btn-muto'), live: vede('indicatore-live'), iframe: document.querySelectorAll('iframe').length
+            };
         });
-        vero(modoA.azoto && modoA.intero && modoA.nota && !modoA.play && !modoA.audio && modoA.iframe === 0,
-            'modalità A: il riquadro del player incorporato, sotto solo «Schermo intero» e la nota ' + JSON.stringify(modoA));
-        vero(/Player YouTube \(anteprima\)/.test(await P.locator('.player-azoto-anteprima').innerText()), 'il video dell\'evento di prova è di YouTube');
+        vero(modoA.azoto && modoA.youtube && modoA.intero && !modoA.nota && !modoA.play && modoA.audio && modoA.muto && modoA.live && modoA.iframe === 0,
+            'il video di YouTube: la registrazione con i nostri comandi (audio, «In diretta», «Schermo intero»), niente pausa né nota di Azoto ' + JSON.stringify(modoA));
+        const orologio = async () => ((await P.locator('.player-youtube-anteprima').innerText()).match(/\b\d+:\d\d(?::\d\d)?\b/) || [''])[0];
+        const t1 = await orologio();
+        await page.waitForTimeout(2300);
+        const t2 = await orologio();
+        vero(/Registrazione YouTube \(anteprima\)/.test(await P.locator('.player-youtube-anteprima').innerText()) && t1 && t2 && t1 !== t2,
+            'il riquadro mostra il punto della registrazione, che va avanti da «In onda» (' + t1 + ' → ' + t2 + ')');
+        await P.locator('#btn-attiva-audio').click();
+        await page.waitForTimeout(300);
+        vero(/Audio attivo/.test(await P.locator('.player-youtube-anteprima').innerText()) && !(await P.locator('#btn-attiva-audio').isVisible()),
+            '«Attiva l\'audio» lo attiva (e il pulsante sparisce)');
         await page.screenshot({ path: path.join(FOTO, '04-diretta.png') });
 
         // 2b. LE DOMANDE AL RELATORE: il riquadro sotto il video, l'invio, la pagina del relatore, la regia
@@ -211,7 +225,7 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await page.waitForTimeout(1200);
         const modoB = await P.locator('html').evaluate(h => ({
             flusso: h.classList.contains('modo-flusso'), play: !!document.getElementById('btn-play').offsetWidth,
-            nota: !!document.getElementById('nota-azoto').offsetWidth, azoto: !!document.querySelector('.player-azoto-anteprima')
+            nota: !!document.getElementById('nota-azoto').offsetWidth, azoto: !!document.querySelector('.player-youtube-anteprima')
         }));
         vero(modoB.flusso && modoB.play && !modoB.nota && !modoB.azoto, 'la regia passa al flusso diretto: il video di prova con i nostri comandi ' + JSON.stringify(modoB));
         await page.screenshot({ path: path.join(FOTO, '04b-flusso.png') });
@@ -219,9 +233,9 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await G.locator('#btn-passa-azoto').click();
         await G.locator('#conferma-ok').click();
         await A.locator('#tab-partecipante').click();
-        await P.locator('.player-azoto-anteprima').waitFor({ timeout: 15000 });
+        await P.locator('.player-youtube-anteprima').waitFor({ timeout: 15000 });
         vero(await P.locator('canvas.ngb-player-anteprima').count() === 0 && await P.locator('html').evaluate(() => window.__nonRicaricata === true),
-            'e torna al player Azoto, senza ricaricare la pagina');
+            'e torna al video di YouTube, senza ricaricare la pagina');
 
         // 3. posta: le credenziali di Mario con la password della guida
         await A.locator('#tab-posta').click();

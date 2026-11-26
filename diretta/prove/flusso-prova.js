@@ -87,6 +87,7 @@
        const trasmissione = await F.avviaTrasmissione(cartella);   // { ferma() }
        const controllo = await F.instradaWebTv(context, cartella);
        const azoto = await F.instradaAzoto(context);          // { fermo, richieste }
+       const youtube = await F.instradaYouTube(context);      // { richieste }
        await F.inoltraPubblico(context);
        // nel processo del servizio (server-locale.js):
        const { fetch, lookup } = F.servizioWebTv(cartella, { fetchVero, lookupVero });
@@ -249,6 +250,89 @@ async function instradaAzoto(context, opzioni) {
     return controllo;
 }
 
+/* ---------- 4. il player di YouTube finto (youtube-nocookie) ----------
+   Al posto di https://www.youtube-nocookie.com/embed/<id>: una pagina che
+   parla con gli stessi messaggi del player vero di YouTube (listening,
+   command, onReady, initialDelivery, infoDelivery, onStateChange,
+   onError: vedi diretta/player-youtube.js), fa scorrere il tempo da sola
+   e scrive i comandi ricevuti in window.__comandi (dentro l'iframe).
+   Il comportamento lo sceglie l'identificativo del video (11 caratteri):
+     mutoXXXXXXX  non toglie il muto ai messaggi finche' non lo si tocca
+     fermoXXXXXX  non parte da solo finche' non lo si tocca
+     cortoXXXXXX  dura 30 secondi (gli altri un'ora)
+     erroreXXXXX  risponde con l'errore 150 (non incorporabile)
+     silenzioXXX  non risponde ai messaggi
+     liveXXXXXXX  una diretta vera di YouTube (videoData.isLive)
+     tutti gli altri: parte da solo, senza audio, e accetta tutto.
+   Un tocco sul video (quando lo scudo e' tolto) lo ferma o lo fa partire,
+   come YouTube senza comandi. instradaYouTube(context) -> { richieste }
+   (gli indirizzi chiesti). */
+const PAGINA_YOUTUBE = `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#234;color:#fff;font:32px sans-serif">
+<div id="titolo" style="position:absolute;top:0;left:0;right:0;height:48px;background:#000">TITOLO DI YOUTUBE</div>
+<div id="t" style="position:absolute;top:45%;left:45%">0</div>
+<script>
+(function () {
+    var q = new URLSearchParams(location.search);
+    var id = location.pathname.split('/').pop();
+    var tipo = id.replace(/X+$/, '').replace(/0+1$/, '');
+    var stato = -1, tempo = Number(q.get('start') || 0), muto = q.get('mute') === '1', volume = 100;
+    var durata = tipo === 'corto' ? 30 : 3600, live = tipo === 'live';
+    var ultimo = Date.now(), genitore = null;
+    var origine = q.get('origin') || '*';
+    window.__comandi = [];
+    window.__toccato = false;
+    function ora() { if (stato === 1) tempo += (Date.now() - ultimo) / 1000; ultimo = Date.now(); if (!live && tempo >= durata) { tempo = durata; if (stato === 1) cambia(0); } }
+    function manda(o) { if (!genitore) return; o.id = 1; o.channel = 'widget'; genitore.postMessage(JSON.stringify(o), origine); }
+    function info() { ora(); return { playerState: stato, currentTime: tempo, duration: live ? 0 : durata, muted: muto, volume: volume, videoData: { video_id: id, isLive: live } }; }
+    function cambia(s) { stato = s; manda({ event: 'onStateChange', info: s }); manda({ event: 'infoDelivery', info: info() }); }
+    window.__pausaDelBrowser = function () { ora(); cambia(2); };
+    window.__stato = function () { return stato; };
+    window.__salta = function (s) { tempo = s; ultimo = Date.now(); };
+    window.addEventListener('message', function (e) {
+        if (tipo === 'silenzio') return;
+        var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+        if (d.event === 'listening') {
+            if (genitore) return;
+            genitore = e.source;
+            manda({ event: 'initialDelivery', info: info() });
+            manda({ event: 'onReady' });
+            if (tipo === 'errore') { manda({ event: 'onError', info: 150 }); return; }
+            if (tipo !== 'fermo') setTimeout(function () { cambia(3); setTimeout(function () { cambia(1); }, 300); }, 200);
+            setInterval(function () { manda({ event: 'infoDelivery', info: info() }); document.getElementById('t').textContent = Math.floor(tempo); }, 250);
+            return;
+        }
+        if (d.event !== 'command') return;
+        window.__comandi.push([d.func].concat(d.args || []));
+        if (tipo === 'errore') return;   // il video non c'e': non parte niente
+        ora();
+        if (d.func === 'seekTo') { tempo = Number(d.args[0]); }
+        else if (d.func === 'playVideo') { if (stato !== 1 && !(tipo === 'fermo' && !window.__toccato)) cambia(1); }
+        else if (d.func === 'pauseVideo') { cambia(2); }
+        else if (d.func === 'mute') { muto = true; }
+        else if (d.func === 'unMute') { if (tipo !== 'muto' || window.__toccato) muto = false; }
+        else if (d.func === 'setVolume') { volume = Number(d.args[0]); }
+        manda({ event: 'infoDelivery', info: info() });
+    });
+    // il tocco della persona sul video (quando lo scudo e' tolto): come YouTube senza comandi,
+    // mette in pausa o fa partire; da li' il browser concede a YouTube anche l'audio
+    document.addEventListener('click', function () {
+        window.__toccato = true;
+        window.__tocchi = (window.__tocchi || 0) + 1;
+        ora();
+        cambia(stato === 1 ? 2 : 1);
+    });
+})();
+</script></body></html>`;
+function paginaYouTube() { return PAGINA_YOUTUBE; }
+async function instradaYouTube(context) {
+    const controllo = { richieste: [] };
+    await context.route(/^https:\/\/www\.youtube-nocookie\.com\//, route => {
+        controllo.richieste.push(route.request().url());
+        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA_YOUTUBE });
+    });
+    return controllo;
+}
+
 /* ---------- la web TV finta vista dal SERVIZIO (solo per le prove) ---------- */
 const IP_PUBBLICO_FINTO = '93.184.216.34';
 const IP_INTERNO_FINTO = '10.20.30.40';
@@ -319,5 +403,5 @@ async function inoltraPubblico(context) {
 
 module.exports = {
     WEBTV, FLUSSO_PUBBLICO_HLS, FLUSSO_PUBBLICO_DASH, IP_PUBBLICO_FINTO, IP_INTERNO_FINTO, AZOTO, PLAYER_AZOTO, trovaFfmpeg, avviaTrasmissione,
-    rispostaWebTv, instradaWebTv, rispostaAzoto, instradaAzoto, paginaAzoto, inoltraPubblico, servizioWebTv, leggiControllo, scriviControllo
+    rispostaWebTv, instradaWebTv, rispostaAzoto, instradaAzoto, paginaAzoto, paginaYouTube, instradaYouTube, inoltraPubblico, servizioWebTv, leggiControllo, scriviControllo
 };
