@@ -1218,14 +1218,15 @@
             testo('attesa-titolo', 'La diretta non è ancora iniziata');
             return;
         }
-        conto.hidden = false;
         const resto = inizio - Date.now();
         if (resto <= 0) {
-            ['conto-giorni', 'conto-ore', 'conto-minuti', 'conto-secondi'].forEach(id => testo(id, '00'));
+            // l'ora d'inizio e' passata e la regia non e' ancora in onda: niente quattro «00», solo il titolo
+            conto.hidden = true;
             conto.classList.add('imminente');
             if ($('attesa-titolo').textContent !== 'La diretta sta per iniziare') testo('attesa-titolo', 'La diretta sta per iniziare');
             return;
         }
+        conto.hidden = false;
         conto.classList.remove('imminente');
         const s = Math.floor(resto / 1000);
         testo('conto-giorni', due(Math.floor(s / 86400)));
@@ -1550,7 +1551,10 @@
     function distruggiAzoto() {
         if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
         Object.assign(azoto, { player: null, url: '', titolo: '', errore: '', youtube: false, semplice: false, ytStato: '' });
-        document.documentElement.classList.remove('modo-youtube');
+        /* senza player la modalita' la dice l'evento (videoYouTube): nell'attesa,
+           nella pausa e alla fine restano i comandi e i consigli di YouTube */
+        if (stato.evento) impostaModoPagina(modoDi(stato.evento));
+        else document.documentElement.classList.remove('modo-youtube');
         mostraLento(false);
     }
     /* «La diretta sta arrivando, attendi qualche secondo», SOTTO il

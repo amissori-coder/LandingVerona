@@ -314,6 +314,24 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .rotella-piccola { width: 18px; height: 18px; border-width: 3px; border-color: rgba(120, 53, 15, .25); border-top-color: var(--ambra-testo); }
 @keyframes gira { to { transform: rotate(360deg); } }
 
+/* ====================== IL TESTO ======================
+   Il sito giustifica il testo (assets/testo.css, con !important). La
+   diretta e' un'applicazione: frasi brevi in carte strette, dove il
+   giustificato aprirebbe buchi fra le parole. Qui il testo delle carte e
+   dei consigli e' allineato a sinistra, senza sillabazione (le schermate
+   centrate, come la pausa e la fine, restano centrate). */
+.consigli li,
+.programma li,
+.carta-consigli p.aiuto,
+.nota-programma,
+.carta-domande p,
+.carta-domande li {
+    text-align: left !important;
+    text-align-last: auto;
+    -webkit-hyphens: manual !important;
+    hyphens: manual !important;
+}
+
 /* ====================== CARTE ====================== */
 .carta {
     background: #fff;
@@ -531,21 +549,41 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
     color: rgba(255, 255, 255, .88);
     font-size: 16px;
 }
-.dettagli-evento li { display: flex; align-items: center; gap: 9px; }
+.dettagli-evento li { display: flex; align-items: center; gap: 9px; text-align: center !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
 .dettagli-evento .icona { color: var(--su-scuro); }
 .nota-chiara { color: var(--su-scuro); font-size: 15px; }
 
+/* LE CARTE SOTTO IL TITOLO E SOTTO IL VIDEO: una colonna ordinata, centrata.
+   - Nell'attesa e' larga quanto il riquadro del titolo (--colonna-attesa):
+     il programma (se c'e'), i consigli e le domande uno sotto l'altro, tutti
+     della stessa larghezza.
+   - Nella diretta e' larga quanto il video (--colonna-video, le stesse regole
+     del riquadro): il programma e i consigli affiancati se ci sono tutti e
+     due; una carta sola prende tutta la riga (mai una mezza riga vuota). */
+:root { --colonna-attesa: 880px; }
+#vista-diretta { --colonna-video: min(1180px, max(560px, calc((100vh - 330px) * 16 / 9))); }
+html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((100vh - 245px) * 16 / 9))); }
+@supports (height: 1dvh) {
+    #vista-diretta { --colonna-video: min(1180px, max(560px, calc((100dvh - 330px) * 16 / 9))); }
+    html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((100dvh - 245px) * 16 / 9))); }
+}
 .griglia-carte {
     width: 100%;
-    max-width: 1180px;
+    max-width: calc(var(--colonna-attesa) + 32px + var(--sicuro-destra) + var(--sicuro-sinistra));
     margin: 0 auto;
     padding: 28px calc(16px + var(--sicuro-destra)) 40px calc(16px + var(--sicuro-sinistra));
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-    gap: 22px;
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: stretch;
 }
 #vista-attesa .griglia-carte { margin-top: -28px; position: relative; }
+#vista-diretta .griglia-carte {
+    max-width: calc(var(--colonna-video) + 32px + var(--sicuro-destra) + var(--sicuro-sinistra));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* una carta sola (il programma non c'e'): tutta la riga */
+#vista-diretta .griglia-carte > .carta[hidden] ~ .carta { grid-column: 1 / -1; }
 
 .programma { list-style: none; margin: 0; padding: 0; }
 .voce-programma {
@@ -580,7 +618,18 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
     vertical-align: 2px;
 }
 .nota-programma { margin-top: 10px; font-size: 13.5px; color: var(--tenue); }
-.consigli { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 8px; color: var(--testo); }
+/* i consigli: righe allineate, ognuna con il suo segno di spunta */
+.consigli { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; color: var(--testo); }
+.consigli li { position: relative; padding-left: 34px; line-height: 1.55; }
+.consigli li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 1px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #E8F1FA url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23164068' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+.carta-consigli .aiuto { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--bordo); }
 .aiuto { font-size: 15px; color: var(--tenue); }
 .aiuto:empty { display: none; }
 .aiuto a { font-weight: 600; }
@@ -591,10 +640,11 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
    la carta della pausa. */
 .posto-domande {
     width: 100%;
-    max-width: 1180px;
+    max-width: calc(var(--colonna-attesa) + 32px + var(--sicuro-destra) + var(--sicuro-sinistra));
     margin: 0 auto;
     padding: 0 calc(16px + var(--sicuro-destra)) 40px calc(16px + var(--sicuro-sinistra));
 }
+#vista-diretta .posto-domande { max-width: calc(var(--colonna-video) + 32px + var(--sicuro-destra) + var(--sicuro-sinistra)); }
 #vista-attesa .posto-domande { margin-top: -18px; }
 #vista-diretta .posto-domande { padding-top: 26px; padding-bottom: 0; }
 #vista-diretta .posto-domande + .griglia-carte { padding-top: 22px; }
@@ -1366,7 +1416,9 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
 
 /* ====================== TABLET ====================== */
 @media (max-width: 1024px) {
-    .griglia-carte { grid-template-columns: minmax(0, 1fr); }
+    .griglia-carte,
+    #vista-diretta .griglia-carte { grid-template-columns: minmax(0, 1fr); }
+    #vista-diretta { --colonna-video: 100%; }
     .riquadro-video,
     html.modo-azoto .riquadro-video { max-width: 100%; }
 }

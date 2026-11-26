@@ -34,6 +34,8 @@
     function pezzo(tag, stile, testo) {
         var e = document.createElement(tag);
         e.style.cssText = stile;
+        // come le schermate centrate della diretta: niente giustificato del sito (assets/testo.css)
+        if (tag === 'p') { e.style.setProperty('text-align', 'center', 'important'); e.style.setProperty('hyphens', 'manual', 'important'); }
         if (testo != null) e.textContent = testo;
         return e;
     }

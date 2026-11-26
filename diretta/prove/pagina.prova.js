@@ -1815,6 +1815,34 @@ function eventoIniziale(T) {
             vero(await iframePrima.evaluate((a, b) => a === b, iframeDopo), 'lo stesso iframe: solo un seekTo (' + (await ultimoSalto(py)).toFixed(1) + ')');
         });
 
+        await prova('di nuovo in attesa, con l\'ora d\'inizio passata: i consigli di YouTube (non quelli di Azoto), niente quattro «00», carte in una colonna centrata', async () => {
+            await evYt.update({ stato: 'programmato', statoAggiornato: T.now(), videoId: '', onda: { secondi: 0, da: null } });
+            await vistaE(py, 'attesa', 10000);
+            await pausa(600);
+            const a = await py.evaluate(() => {
+                const vede = e => !!e && !!(e.offsetWidth || e.offsetHeight);
+                const consigli = Array.from(document.querySelectorAll('#vista-attesa .consigli li'));
+                const carta = document.querySelector('#vista-attesa .carta-consigli').getBoundingClientRect();
+                const eroe = document.querySelector('#vista-attesa .attesa-eroe').getBoundingClientRect();
+                const li = document.querySelector('#vista-attesa .consigli li[data-solo="youtube"]');
+                return {
+                    youtube: document.documentElement.classList.contains('modo-youtube'),
+                    visibili: consigli.filter(vede).map(x => x.getAttribute('data-solo') || '-'),
+                    conto: vede(document.getElementById('conto-alla-rovescia')), titolo: document.getElementById('attesa-titolo').textContent,
+                    centro: Math.round((carta.left + carta.right) / 2 - (eroe.left + eroe.right) / 2), larga: Math.round(carta.width),
+                    allineamento: li ? getComputedStyle(li).textAlign : ''
+                };
+            });
+            vero(a.youtube && a.visibili.join() === 'youtube,-,-', 'consigli dell\'attesa: ' + JSON.stringify(a.visibili));
+            vero(!a.conto && a.titolo === 'La diretta sta per iniziare', 'ora d\'inizio passata: ' + JSON.stringify({ conto: a.conto, titolo: a.titolo }));
+            vero(Math.abs(a.centro) <= 1 && a.larga >= 600 && a.larga <= 900 && a.allineamento === 'left',
+                'la carta dei consigli e\' centrata sotto il titolo, larga come la colonna, testo a sinistra: ' + JSON.stringify(a));
+            await foto(py, 'youtube-attesa-computer');
+            // di nuovo in onda per le prove che seguono
+            await evYt.update({ stato: 'in_onda', statoAggiornato: T.now(), videoId: YT_PROVA, onda: { secondi: 600, da: T.fromMillis(Date.now() - 60e3) } });
+            await vistaE(py, 'diretta', 10000);
+        });
+
         await prova('nessuna violazione della CSP e nessun errore con il video di YouTube; solo youtube-nocookie nell\'iframe', async () => {
             vero((await py.evaluate(() => window.__violazioniCsp)).length === 0, 'violazioni: ' + (await py.evaluate(() => window.__violazioniCsp)).join(' | '));
             vero(py.__erroriPagina.length === 0, 'errori: ' + py.__erroriPagina.join(' | '));

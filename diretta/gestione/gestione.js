@@ -1044,6 +1044,7 @@
         nascondiMsg('#msg-evento');
         $('#ev-id').value = ev ? ev.id : '';
         $('#ev-id').readOnly = !!ev;
+        mostraLinkEvento();
         $('#ev-titolo').value = ev ? ev.titolo || '' : '';
         $('#ev-luogo').value = ev ? ev.luogo || '' : '';
         $('#ev-data').value = ev ? ev.data || '' : '';
@@ -1128,17 +1129,41 @@
     }
 
     // per un evento nuovo l'identificativo si propone da solo (luogo + anno)
+    /* L'identificativo si vede nel link dei partecipanti (/diretta/?e=<id>):
+       niente nome della piattaforma del video (lo stesso controllo del
+       servizio, diretta-dati.js RE_ID_PIATTAFORMA). Nella proposta fatta dal
+       titolo quelle parole si tolgono da sole. */
+    const RE_ID_PIATTAFORMA = /you-?tu|azoto/;
     function suggerisciId() {
         if (!stato.nuovo || stato.idModificatoAMano) return;
         const luogo = $('#ev-luogo').value.split(/[·,|]/)[0].trim();
         const base = luogo || $('#ev-titolo').value.split(/[·|]/)[0].trim();
         const anno = ($('#ev-data').value || '').slice(0, 4);
-        let s = perRicerca(base).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/, '');
+        let s = perRicerca(base).replace(/[^a-z0-9]+/g, '-').split('-').filter(p => p && !RE_ID_PIATTAFORMA.test(p)).join('-')
+            .slice(0, 30).replace(/-+$/, '');
         if (s && anno && !s.endsWith(anno)) s += '-' + anno;
         $('#ev-id').value = s;
+        mostraLinkEvento();
+    }
+    // sotto l'identificativo: il link che ricevono i partecipanti
+    function mostraLinkEvento() {
+        const id = $('#ev-id').value.trim();
+        const riga = $('#ev-id-link');
+        const valido = /^[a-z0-9][a-z0-9-]{2,40}$/.test(id);
+        riga.hidden = !valido;
+        svuota(riga);
+        if (!valido) return;
+        // si va a capo dopo /diretta/, non a meta' del nome del sito
+        const link = el('span', { classe: 'testo-fisso' });
+        link.append(SITO.replace(/^https:\/\//, '') + '/diretta/', document.createElement('wbr'), '?e=' + id);
+        riga.append('Link per i partecipanti: ', link);
+        // un evento creato prima della regola (per esempio prova-youtube): si dice, l'identificativo non si cambia
+        if (RE_ID_PIATTAFORMA.test(id)) {
+            riga.append(el('strong', { classe: 'avviso-link', testo: ' Questo link contiene il nome della piattaforma del video: per gli inviti usa un evento con un identificativo neutro.' }));
+        }
     }
     ['#ev-luogo', '#ev-titolo', '#ev-data'].forEach(s => $(s).addEventListener('input', suggerisciId));
-    $('#ev-id').addEventListener('input', () => { stato.idModificatoAMano = true; });
+    $('#ev-id').addEventListener('input', () => { stato.idModificatoAMano = true; mostraLinkEvento(); });
 
     function leggiProgramma(testo) {
         const voci = [];
@@ -1489,6 +1514,7 @@
         const programma = leggiProgramma($('#ev-programma').value);
 
         if (stato.nuovo && !/^[a-z0-9][a-z0-9-]{2,40}$/.test(id)) segna('#ev-id', 'Identificativo: da 3 a 41 caratteri, solo lettere minuscole, numeri e trattini (es. napoli-2026).');
+        else if (stato.nuovo && RE_ID_PIATTAFORMA.test(id)) segna('#ev-id', 'Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video (YouTube, Azoto). Per esempio: webinar-10-dicembre-2026.');
         if (titolo.length < 3 || titolo.length > 140) segna('#ev-titolo', 'Titolo: da 3 a 140 caratteri.');
         if (luogo.length > 140) segna('#ev-luogo', 'Luogo: al massimo 140 caratteri.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || isNaN(Date.parse(data + 'T12:00:00Z'))) segna('#ev-data', 'Data: scegli il giorno dell\'evento.');

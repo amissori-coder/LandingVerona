@@ -869,6 +869,19 @@ async function sheetJSNode() {
         console.log('\n-- creazione dell\'evento di Napoli');
         await $('#btn-nuovo-evento').click();
         vero(await $('#tab-partecipanti').isDisabled(), 'con un evento nuovo non ancora salvato le altre schede sono spente');
+        /* l'identificativo si vede nel link dei partecipanti: dal titolo «Prova YouTube» la proposta
+           toglie il nome della piattaforma, e scritto a mano non si salva */
+        await $('#ev-titolo').fill('Prova YouTube');
+        await $('#ev-data').fill('2026-10-02');
+        vero(await $('#ev-id').inputValue() === 'prova-2026' && await testo('#ev-id-link') === 'Link per i partecipanti: nextgenerationbusiness.it/diretta/?e=prova-2026',
+            'dal titolo «Prova YouTube» l\'identificativo proposto è «prova-2026», e sotto il campo il link che ricevono i partecipanti', await testo('#ev-id-link'));
+        await $('#ev-id').fill('prova-youtube');
+        await $('#btn-salva-evento').click();
+        vero(/Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video \(YouTube, Azoto\)/.test(await testo('#msg-evento'))
+            && await $('#ev-id').getAttribute('aria-invalid') === 'true' && chiamate('evento-salva').length === 0
+            && /Questo link contiene il nome della piattaforma del video/.test(await testo('#ev-id-link')),
+            '«prova-youtube» scritto a mano: non si salva, con il motivo — «' + await testo('#msg-evento') + '»');
+        await $('#btn-nuovo-evento').click();
         await $('#ev-titolo').fill('Next Generation Business 2026 · Napoli');
         await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior');
         await $('#ev-data').fill('2026-10-02');
