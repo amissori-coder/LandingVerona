@@ -426,8 +426,8 @@ async function sheetJSNode() {
         const VECCHIE = new RegExp(['vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
         vero(!VECCHIE.test(codiceGestione + htmlGestione + cssGestione),
             'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva da YouTube o dalla web TV Azoto');
-        vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="\.\.\/player-azoto\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
-            'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio), player-webtv.js e player-azoto.js (i player dei partecipanti, per l\'anteprima)');
+        vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*(<!--[^>]*-->\s*)?<script src="\.\.\/sigla\.js[^"]*"><\/script>\s*(<!--[\s\S]*?-->\s*)?<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="\.\.\/player-azoto\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
+            'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio), sigla.js (la durata della sigla d\'apertura, per il punto della registrazione in Regia), player-webtv.js e player-azoto.js (i player dei partecipanti, per l\'anteprima)');
         const cspGestione = (/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(htmlGestione) || [])[1] || '';
         const direttiva = nome => ((new RegExp('(?:^|;)\\s*' + nome + ' ([^;]*)').exec(cspGestione) || [])[1] || '').trim();
         vero(direttiva('frame-src') === 'https://www.youtube-nocookie.com https://cdn.azotosolutions.com' && !/azotosolutions|youtube/.test(direttiva('script-src')),
@@ -474,11 +474,16 @@ async function sheetJSNode() {
         await auth.createUser({ email: EMAIL_CURIOSO, password: PASSWORD_CURIOSO, emailVerified: true });
         await auth.createUser({ email: EMAIL_GESTORE, password: PASSWORD_ABUSIVA, emailVerified: false });
 
-        // si entra con l'email: la persona si trova dall'indirizzo (indirizzi/{email} -> uid)
-        const partecipante = async email => {
+        /* si entra con l'email: la persona si trova dall'indirizzo
+           (indirizzi/{email}.perEvento.{evento} -> uid: ogni evento ha i suoi
+           account). Di base l'account dell'evento di questa prova (ID). */
+        const partecipante = async (email, idEvento) => {
             const i = await db.doc('indirizzi/' + email).get();
             if (!i.exists) return null;
-            const p = await db.doc('partecipanti/' + i.data().uid).get();
+            const d = i.data();
+            const uid = (d.perEvento || {})[idEvento || ID] || d.uid || Object.values(d.perEvento || {})[0];
+            if (!uid) return null;
+            const p = await db.doc('partecipanti/' + uid).get();
             return p.exists ? Object.assign({ uid: p.id }, p.data()) : null;
         };
         const uidDi = async email => ((await partecipante(email)) || {}).uid;
@@ -864,6 +869,19 @@ async function sheetJSNode() {
         console.log('\n-- creazione dell\'evento di Napoli');
         await $('#btn-nuovo-evento').click();
         vero(await $('#tab-partecipanti').isDisabled(), 'con un evento nuovo non ancora salvato le altre schede sono spente');
+        /* l'identificativo si vede nel link dei partecipanti: dal titolo «Prova YouTube» la proposta
+           toglie il nome della piattaforma, e scritto a mano non si salva */
+        await $('#ev-titolo').fill('Prova YouTube');
+        await $('#ev-data').fill('2026-10-02');
+        vero(await $('#ev-id').inputValue() === 'prova-2026' && await testo('#ev-id-link') === 'Link per i partecipanti: nextgenerationbusiness.it/diretta/?e=prova-2026',
+            'dal titolo «Prova YouTube» l\'identificativo proposto è «prova-2026», e sotto il campo il link che ricevono i partecipanti', await testo('#ev-id-link'));
+        await $('#ev-id').fill('prova-youtube');
+        await $('#btn-salva-evento').click();
+        vero(/Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video \(YouTube, Azoto\)/.test(await testo('#msg-evento'))
+            && await $('#ev-id').getAttribute('aria-invalid') === 'true' && chiamate('evento-salva').length === 0
+            && /Questo link contiene il nome della piattaforma del video/.test(await testo('#ev-id-link')),
+            '«prova-youtube» scritto a mano: non si salva, con il motivo — «' + await testo('#msg-evento') + '»');
+        await $('#btn-nuovo-evento').click();
         await $('#ev-titolo').fill('Next Generation Business 2026 · Napoli');
         await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior');
         await $('#ev-data').fill('2026-10-02');
@@ -1209,8 +1227,8 @@ async function sheetJSNode() {
             && primaAnteprima.righe.every(r => JSON.stringify(Object.keys(r).sort()) === JSON.stringify(['azienda', 'cognome', 'email', 'escludi', 'nome', 'riga']) && r.escludi === false),
             'l\'anteprima la fa il servizio: UNA chiamata con le 42 righe del file (riga, nome, cognome, email, azienda, escludi), nessun nome utente', JSON.stringify(primaAnteprima.righe[0]));
         const esitiAttesi = {
-            2: 'nuovo', 3: 'nuovo', 4: 'nuovo', 5: 'gia-presente', 6: 'email-mancante', 7: 'email-non-valida', 8: 'nome-mancante', 9: 'nome-mancante',
-            10: 'doppia-nel-file', 11: 'nuovo', 12: 'email-condivisa', 13: 'nuovo', 15: 'nuovo', 25: 'nuovo', 31: 'doppia-nel-file', 32: 'nuovo', 33: 'nuovo',
+            2: 'nuovo', 3: 'nuovo', 4: 'nuovo', 5: 'nuovo', 6: 'email-mancante', 7: 'email-non-valida', 8: 'nome-mancante', 9: 'nome-mancante',
+            10: 'doppia-nel-file', 11: 'nuovo', 12: 'nuovo', 13: 'nuovo', 15: 'nuovo', 25: 'nuovo', 31: 'doppia-nel-file', 32: 'nuovo', 33: 'nuovo',
             34: 'doppia-nel-file', 35: 'email-condivisa', 36: 'email-condivisa', 44: 'nuovo'
         };
         const GRAVI = ['email-mancante', 'email-non-valida', 'nome-mancante', 'nome-non-valido', 'email-condivisa'];
@@ -1222,16 +1240,16 @@ async function sheetJSNode() {
         vero(!esitiSbagliati.length, 'esiti del servizio riga per riga, con i colori: ' + Object.keys(esitiAttesi).map(n => n + ' ' + esitiAttesi[n]).join(', '), esitiSbagliati.join('\n'));
         const problemiDi = async n => (await riga(n).locator('.problemi').textContent()) || '';
         const etichettaDi = async n => (await riga(n).locator('.etichette-esito').textContent()) || '';
-        vero(await etichettaDi(5) === 'Già registrata' && /Account già esistente: nessun nuovo account e nessuna password nuova/.test(await problemiDi(5)),
-            'riga 5, Giulia Ferri con « Giulia.Ferri@Ferri-Consulting.EXAMPLE » (maiuscole e spazi): è l\'email del suo account di Roma — «Già registrata», nessun account nuovo, nessuna password nuova');
+        vero(await etichettaDi(5) === 'Nuovo account' && !(await problemiDi(5)),
+            'riga 5, Giulia Ferri con « Giulia.Ferri@Ferri-Consulting.EXAMPLE »: ha un account per l\'evento di Roma, ma ogni evento ha i suoi partecipanti — qui «Nuovo account», nessun problema');
         vero(await etichettaDi(10) === 'Doppia nel file' && /Stessa persona e stessa email della riga 2/.test(await problemiDi(10))
             && /Stessa persona e stessa email della riga 3/.test(await problemiDi(31)) && /Stessa persona e stessa email della riga 33/.test(await problemiDi(34)),
             'la stessa email scritta in modi diversi è la stessa: MARIO.ROSSI@ROSSI-SRL.EXAMPLE (riga 10), «Annamaria Deluca» con AnnaMaria.DeLuca@Deluca-Figli.EXAMPLE (riga 31), LUCIA.FERRARO@… con uno spazio (riga 34): «Doppia nel file», non va corretta');
         vero(/La stessa email è anche alla riga 36 \(Marco Galli\): ogni persona deve avere il suo indirizzo/.test(await problemiDi(35)) && /anche alla riga 35 \(Federica Galli\)/.test(await problemiDi(36))
             && await etichettaDi(35) === 'Email condivisa',
             'la stessa email per due persone diverse (info@studiogalli.example): «Email condivisa» su tutte e due le righe, da correggere');
-        vero(/Con questa email è già registrato Mario Rossi: se è la stessa persona scrivi il nome come è registrato/.test(await problemiDi(12)),
-            'riga 12, Marta Rossi con l\'email dell\'account di Mario Rossi (Roma): «Email condivisa», da correggere (un account è di una persona sola)');
+        vero(!(await problemiDi(12)) && await etichettaDi(12) === 'Nuovo account',
+            'riga 12, Marta Rossi con l\'email dell\'account di Mario Rossi di Roma: un altro evento, quindi nessun problema (nessuna «Email condivisa»)');
         vero((await classeRiga(2)).includes('esito-nuovo') && (await classeRiga(11)).includes('esito-nuovo') && !(await problemiDi(2)) && !(await problemiDi(11))
             && (await classeRiga(13)).includes('esito-nuovo') && (await classeRiga(32)).includes('esito-nuovo'),
             'due Mario Rossi con email diverse sono due persone (nessun problema, niente numeri); i nomi in cirillico e in cinese vanno bene così');
@@ -1240,16 +1258,16 @@ async function sheetJSNode() {
             && await riga(35).locator('input.campo-email').getAttribute('aria-invalid') === 'true',
             'i campi da correggere sono segnati (l\'email mancante, il nome o il cognome vuoto, l\'email condivisa)');
         const riepilogoFile = await testo('#riepilogo-anteprima');
-        vero(/42\s*righe lette/.test(riepilogoFile) && /31\s*nuovi account/.test(riepilogoFile) && /1\s*già registrata, da aggiungere/.test(riepilogoFile)
-            && /3\s*doppie nel file/.test(riepilogoFile) && /7\s*da correggere/.test(riepilogoFile), 'riepilogo: ' + riepilogoFile);
+        vero(/42\s*righe lette/.test(riepilogoFile) && /33\s*nuovi account/.test(riepilogoFile) && !/torna/.test(riepilogoFile)
+            && /3\s*doppie nel file/.test(riepilogoFile) && /6\s*da correggere/.test(riepilogoFile), 'riepilogo: ' + riepilogoFile);
         vero(await $('#btn-crea-account').isDisabled()
-            && await testo('#motivo-blocco') === 'Per creare gli account correggi o escludi 7 righe: 1 email mancante, 1 email non valida, 2 senza nome o cognome, 3 email condivise da persone diverse.',
+            && await testo('#motivo-blocco') === 'Per creare gli account correggi o escludi 6 righe: 1 email mancante, 1 email non valida, 2 senza nome o cognome, 2 email condivise da persone diverse.',
             '«Crea gli account» spento finché c\'è da correggere, e il perché: «' + await testo('#motivo-blocco') + '»');
         const visibili = () => page.evaluate(() => Array.from(document.querySelectorAll('#tabella-anteprima tbody tr')).filter(t => !t.hidden).length);
-        vero(await $('input[name="filtro-anteprima"][value="problemi"]').isChecked() && await visibili() === 11, 'con dei problemi si parte dal filtro «Solo da controllare» (11 righe)', await visibili());
+        vero(await $('input[name="filtro-anteprima"][value="problemi"]').isChecked() && await visibili() === 9, 'con dei problemi si parte dal filtro «Solo da controllare» (9 righe)', await visibili());
         await foto('anteprima');
         await page.click('input[name="filtro-anteprima"][value="da-sistemare"] >> xpath=..');
-        vero(await visibili() === 7, 'filtro «Solo da sistemare»: le 7 righe da correggere', await visibili());
+        vero(await visibili() === 6, 'filtro «Solo da sistemare»: le 6 righe da correggere', await visibili());
         await page.click('input[name="filtro-anteprima"][value="tutte"] >> xpath=..');
         vero(await visibili() === 42, 'filtro «Tutte»: 42 righe');
         vero(leggiPosta().length === postaPrimaDelFile, 'l\'anteprima non manda niente a nessuno');
@@ -1268,24 +1286,24 @@ async function sheetJSNode() {
         await riga(36).locator('input.campo-email').fill('marco.galli@studiogalli.example');
         await aspetta(async () => (await classeRiga(8)).includes('esito-escluso') && (await classeRiga(6)).includes('esito-nuovo') && (await classeRiga(9)).includes('esito-nuovo')
             && (await classeRiga(12)).includes('esito-nuovo') && (await classeRiga(35)).includes('esito-nuovo') && (await classeRiga(36)).includes('esito-nuovo'), 8000, 'correzioni');
-        vero(!(await problemiDi(35)), 'righe 6, 9 e 12 corrette, riga 8 esclusa; data a Marco Galli la sua email, anche la riga 35 di Federica è a posto (l\'email condivisa era una sola)');
+        vero(!(await problemiDi(35)), 'righe 6 e 9 corrette (e la 12 con un\'altra email), riga 8 esclusa; data a Marco Galli la sua email, anche la riga 35 di Federica è a posto (l\'email condivisa era una sola)');
         vero(chiamate('anteprima').pop().dati.righe.find(r => r.riga === 8).escludi === true, 'l\'esclusione va al servizio (escludi: true) e la riga diventa «Esclusa»');
         await aspetta(async () => !(await $('#btn-crea-account').isDisabled()), 8000, 'pulsante acceso');
         const riepilogoPronto = await testo('#riepilogo-anteprima');
         vero(/Tutto pronto: nessun problema da sistemare\. Creare gli account non manda nessuna email\./.test(await testo('#motivo-blocco'))
-            && await testo('#btn-crea-account') === 'Crea 37 account e aggiungi 1 persona già registrata' && /0\s*da correggere/.test(riepilogoPronto) && /1\s*esclusa/.test(riepilogoPronto),
+            && await testo('#btn-crea-account') === 'Crea 38 account' && /0\s*da correggere/.test(riepilogoPronto) && /1\s*esclusa/.test(riepilogoPronto),
             '«Crea gli account» acceso: «' + await testo('#btn-crea-account') + '» — «' + await testo('#motivo-blocco') + '»');
 
         /* ---------- 4. creazione a gruppi: nessuna email, un account creato nel frattempo, la rete che cade ---------- */
         console.log('\n-- creazione degli account (non parte nessuna email)');
-        // un altro gestore, proprio adesso, carica Nicolò D'Angelo (la stessa persona, l'email scritta in maiuscolo) nell'evento di Roma
-        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: 'roma-2026', righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'N.DAngelo@StudioDAngelo.EXAMPLE', azienda: 'Studio D\'Angelo' }] }, tokGestore);
-        vero(altro.stato === 200 && altro.dati.risultati[0].esito === 'creato', 'nel frattempo un altro caricamento (vero) crea l\'account di Nicolò D\'Angelo, con la stessa email scritta in maiuscolo', JSON.stringify(altro.dati));
+        // un altro gestore, proprio adesso, carica Nicolò D'Angelo (la stessa persona, l'email scritta in maiuscolo) in questo stesso evento
+        const altro = await api('diretta-gestione', { azione: 'crea', idEvento: ID, righe: [{ riga: 9, nome: 'Nicolò', cognome: 'D\'Angelo', email: 'N.DAngelo@StudioDAngelo.EXAMPLE', azienda: 'Studio D\'Angelo' }] }, tokGestore);
+        vero(altro.stato === 200 && altro.dati.risultati[0].esito === 'creato', 'nel frattempo un altro caricamento (vero) crea in questo evento l\'account di Nicolò D\'Angelo, con la stessa email scritta in maiuscolo', JSON.stringify(altro.dati));
         const postaPrimaDiCrea = leggiPosta().length;
         guastoCrea.restanti = 3;
         guastoCrea.perse = 1;
         await $('#btn-crea-account').click();
-        await confermaDialogo(/Creare 37 account\?.*37 nuovi account: ognuno entrerà con la sua email.*1 persona già registrata aggiunta all'evento, senza un nuovo account e senza una password nuova.*Nessuna email parte adesso: le credenziali partono quando premi «Invia le credenziali» nella scheda Email\./s, 'Crea gli account');
+        await confermaDialogo(/Creare 38 account\?.*38 nuovi account: ognuno entrerà con la sua email.*Nessuna email parte adesso: le credenziali partono quando premi «Invia le credenziali» nella scheda Email\./s, 'Crea gli account');
         await $('#btn-riprendi-crea').waitFor({ state: 'visible', timeout: 30000 });
         vero(/Caricamento interrotto al gruppo 2 di 2.*Riprendi.*non si duplicano/.test(await testo('#avanzamento-crea .avanzamento-testo')),
             'la rete cade al secondo gruppo: dopo 3 tentativi la creazione si ferma e propone «Riprendi» (R18) — «' + await testo('#avanzamento-crea .avanzamento-testo') + '»');
@@ -1307,15 +1325,15 @@ async function sheetJSNode() {
         // 300 ms nella pagina; l'orologio finto di Playwright puo' anticipare un timer di qualche ms
         vero(tempiCrea.length === 5 && pausaGruppi >= 290, 'pausa fra un gruppo e l\'altro (' + pausaGruppi + ' ms)');
         const riepilogoCrea = await testo('#esito-crea-riepilogo');
-        vero(/23\s*account creati/.test(riepilogoCrea) && /2\s*persone aggiunte all'evento/.test(riepilogoCrea) && /13\s*righe già completate dal tentativo interrotto/.test(riepilogoCrea) && /0\s*errori/.test(riepilogoCrea),
-            'riepilogo onesto: 23 creati, 2 aggiunte (Giulia già registrata, Nicolò creato nel frattempo), 13 completate dal tentativo interrotto', riepilogoCrea);
+        vero(/24\s*account creati/.test(riepilogoCrea) && /1\s*già nell'evento/.test(riepilogoCrea) && !/aggiunt/.test(riepilogoCrea) && /13\s*righe già completate dal tentativo interrotto/.test(riepilogoCrea) && /0\s*errori/.test(riepilogoCrea),
+            'riepilogo onesto: 24 creati (Giulia compresa: un account suo per questo evento), 1 già nell\'evento (Nicolò, creato nel frattempo), 13 completate dal tentativo interrotto', riepilogoCrea);
         vero(await testo('#esito-crea-messaggio') === 'Account creati. Nessuna email è partita: le credenziali partono quando premi «Invia le credenziali» nella scheda Email.'
             && await visibile('#btn-vai-email'),
             'dopo la creazione, chiaro: «' + await testo('#esito-crea-messaggio') + '» (con «Vai alla scheda Email»)');
         const diversa = $('#tabella-esito-crea tr.riga-diversa');
         vero(await diversa.count() === 1 && /Nicolò D'Angelo/.test(await diversa.textContent()) && /n\.dangelo@studiodangelo\.example/.test(await diversa.textContent())
-            && /creato un account con questa email.*aggiunta all'evento, senza un secondo account/.test(await diversa.textContent()),
-            'la riga andata diversamente dall\'anteprima è evidenziata: Nicolò era «nuovo», ma nel frattempo il suo account è nato altrove — aggiunto all\'evento, niente doppione', await diversa.textContent());
+            && /Già nell'evento/.test(await diversa.textContent()) && /Nel frattempo era già stata aggiunta all'evento.*niente di doppio/.test(await diversa.textContent()),
+            'la riga andata diversamente dall\'anteprima è evidenziata: Nicolò era «nuovo», ma nel frattempo era già stato aggiunto all\'evento — niente doppione', await diversa.textContent());
         // nessuna email: la posta finta non ha ricevuto niente
         const postaDopoCrea = leggiPosta().slice(postaPrimaDiCrea);
         const kCrea = await statiEmail();
@@ -1326,23 +1344,30 @@ async function sheetJSNode() {
         const indirizzi = (await db.collection('indirizzi').get()).docs;
         const inNapoli = tutti.filter(p => (p.eventi || []).includes(ID));
         const utentiAuth = (await auth.listUsers(1000)).users;
-        vero(inNapoli.length === 38 && tutti.length === 39, 'sul servizio: 38 persone nell\'evento, 39 partecipanti in tutto (36 nuovi + Mario e Giulia di Roma + Nicolò)', inNapoli.length + ' / ' + tutti.length);
-        vero(new Set(tutti.map(p => p.emailNorm)).size === tutti.length && tutti.every(p => p.email === p.emailNorm && p.email === p.email.trim().toLowerCase()),
-            'zero account doppi: un\'email = un account, salvata come si confronta (senza spazi, in minuscolo)');
-        vero(indirizzi.length === tutti.length && indirizzi.every(d => tutti.some(p => p.uid === d.data().uid && p.emailNorm === d.id)),
-            'ogni indirizzo prenotato (indirizzi/{email}) appartiene a una sola persona, e nessuna prenotazione è rimasta orfana');
+        vero(inNapoli.length === 38 && tutti.length === 40, 'sul servizio: 38 persone nell\'evento (37 dal file + Nicolò), 40 partecipanti in tutto (con Mario e Giulia di Roma)', inNapoli.length + ' / ' + tutti.length);
+        const iscrizioni = tutti.flatMap(p => (p.eventi || []).map(ev => ev + '|' + p.emailNorm));
+        vero(new Set(iscrizioni).size === iscrizioni.length && tutti.every(p => p.email === p.emailNorm && p.email === p.email.trim().toLowerCase()),
+            'zero account doppi: in ogni evento un\'email = un account, salvata come si confronta (senza spazi, in minuscolo)');
+        const dellEmail = d => Object.values(d.data().perEvento || {}).concat(d.data().uid ? [d.data().uid] : []);
+        vero(indirizzi.length === new Set(tutti.map(p => p.emailNorm)).size && indirizzi.every(d => dellEmail(d).every(u => tutti.some(p => p.uid === u && p.emailNorm === d.id)))
+            && tutti.every(p => indirizzi.some(d => d.id === p.emailNorm && dellEmail(d).indexOf(p.uid) >= 0)),
+            'indirizzi/{email}: uno per indirizzo, porta agli account di quell\'email (uno per evento), e nessuna prenotazione è rimasta orfana');
+        const giuliaN = await partecipante('giulia.ferri@ferri-consulting.example', ID);
+        const giuliaR = await partecipante('giulia.ferri@ferri-consulting.example', 'roma-2026');
+        vero(giuliaN && giuliaR && giuliaN.uid !== giuliaR.uid && giuliaN.eventi.join() === ID && giuliaR.eventi.join() === 'roma-2026',
+            'Giulia Ferri: un account per Roma e uno per questo evento (ogni evento i suoi partecipanti)');
         const nicolo = await partecipante('n.dangelo@studiodangelo.example');
-        vero(nicolo && JSON.stringify(nicolo.eventi.slice().sort()) === JSON.stringify(['napoli-2026', 'roma-2026']), 'Nicolò: un account solo, con i due eventi');
+        vero(nicolo && JSON.stringify(nicolo.eventi) === JSON.stringify([ID]), 'Nicolò: un account solo, in questo evento');
         vero((await db.collection('nomiUtente').get()).size === 0 && tutti.every(p => !('nomeUtente' in p)), 'nessun nome utente: nomiUtente resta vuota e nessun profilo ha il campo nomeUtente');
-        vero(utentiAuth.filter(u => /^p[0-9a-f]{20}$/.test(u.uid)).length === 39 && tutti.every(p => p.authCreato === true),
-            'un account di accesso per persona (39), tutti completi');
+        vero(utentiAuth.filter(u => /^p[0-9a-f]{20}$/.test(u.uid)).length === 40 && tutti.every(p => p.authCreato === true),
+            'un account di accesso per account della diretta (40), tutti completi');
 
         /* ---------- 5. elenco e ricerca ---------- */
         console.log('\n-- elenco dei partecipanti');
         await aspetta(async () => (await $('#tabella-partecipanti tbody tr').count()) === 38, 10000, 'elenco con 38 persone');
         const intestazioni = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-partecipanti thead th')).map(t => t.textContent.trim()).join('|'));
         vero(intestazioni === 'Nome e cognome|Email|Azienda|Account|Email credenziali|Ultimo accesso|Azioni',
-            'elenco: 38 persone (36 nuove, Giulia già registrata, Nicolò) e le colonne senza nome utente: ' + intestazioni);
+            'elenco: 38 persone (37 dal file, Giulia compresa, e Nicolò) e le colonne senza nome utente: ' + intestazioni);
         vero(await page.locator('#tabella-partecipanti .stato-email.stato-da-inviare').count() === 38 && await page.locator('#tabella-partecipanti .origine-modulo').count() === 0,
             'tutte «da inviare»; nessuna «dal modulo del sito» (vengono tutte dal file)');
         const visibiliElenco = () => page.evaluate(() => Array.from(document.querySelectorAll('#tabella-partecipanti tbody tr')).filter(t => !t.hidden).map(t => t.dataset.uid));
@@ -1453,7 +1478,7 @@ async function sheetJSNode() {
         const ivanDopo = await partecipante(IVAN2);
         const [indVecchio, indNuovo] = await Promise.all([db.doc('indirizzi/' + IVAN).get(), db.doc('indirizzi/' + IVAN2).get()]);
         vero(corrIvan.email === IVAN2 && ivanDopo && ivanDopo.email === IVAN2 && ivanDopo.invii[ID].stato === 'da inviare' && !!ivanDopo.emailCambiata
-            && !indVecchio.exists && indNuovo.exists && indNuovo.data().uid === ivanDopo.uid,
+            && !indVecchio.exists && indNuovo.exists && (indNuovo.data().perEvento || {})[ID] === ivanDopo.uid,
             'sul servizio: l\'email (normalizzata già nella pagina) è cambiata, l\'indirizzo vecchio è libero, il nuovo è di Ivan, credenziali «da inviare»');
         await aspetta(async () => (await (await rp(IVAN2)).locator('.stato-email').textContent()) === 'da inviare'
             && (await (await rp(IVAN2)).locator('.col-email').textContent()) === IVAN2, 5000, 'riga di Ivan aggiornata');
@@ -1473,9 +1498,9 @@ async function sheetJSNode() {
         await (await rp('elena.ricci@ricci-partners.example')).locator('button[data-op="correggi"]').click();
         await $('#corr-email').fill('giulia.ferri@ferri-consulting.example');
         await $('#btn-corr-salva').click();
-        await aspetta(async () => /appartiene già a un'altra persona/.test(await testo('#msg-correggi')), 5000, '409');
+        await aspetta(async () => /in questo evento è già di un'altra persona/.test(await testo('#msg-correggi')), 5000, '409');
         vero(await $('#corr-email').getAttribute('aria-invalid') === 'true' && (await partecipante('elena.ricci@ricci-partners.example')) !== null,
-            'email già usata da un\'altra persona: il 409 «email-occupata» del servizio è mostrato nella finestra, niente salvato — «' + await testo('#msg-correggi') + '»');
+            'email già usata da un\'altra persona di questo evento: il 409 «email-occupata» del servizio è mostrato nella finestra, niente salvato — «' + await testo('#msg-correggi') + '»');
         await $('#btn-corr-annulla').click();
         // gli avvisi brevi (in basso a destra) se ne vanno da soli: la regia si guarda senza niente sopra
         await aspetta(async () => (await $('#avvisi .avviso').count()) === 0, 15000, 'avvisi spariti');
@@ -1933,6 +1958,89 @@ async function sheetJSNode() {
         await nuovaScheda.close();
         await foto('regia');
 
+        /* ---------- 6a. la registrazione di YouTube che sembra una diretta ----------
+           Con un video di YouTube la pagina dei partecipanti mostra lo stesso
+           punto a tutti: inizioVideo («Parti dal punto», scheda Evento) +
+           onda (il tempo in onda, scritto dal servizio a ogni cambio di
+           stato). Qui: il servizio (evento-video, evento-player, evento-salva
+           con inizioVideo e i suoi limiti), il campo nella scheda Evento, la
+           conferma in onda e il punto in Regia. Poi si torna com'era (player
+           Azoto salvato, flusso diretto in uso). Il video e' finto
+           (ngbProva001): nessun video vero nel codice. */
+        console.log('\n-- la registrazione di YouTube: «Parti dal punto» e il punto in regia');
+        const YT_PROVA = 'https://youtu.be/ngbProva001';
+        const ytVideo = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, azotoUrl: YT_PROVA }, tokGestore);
+        const ytPlayer = await api('diretta-gestione', { azione: 'evento-player', idEvento: ID, tipoPlayer: 'azoto' }, tokGestore);
+        const ytPunto = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: 90 } }, tokGestore);
+        let pubYt = await docPubblico();
+        vero(ytVideo.stato === 200 && ytPlayer.stato === 200 && ytPunto.stato === 200 && pubYt.stato === 'in_onda' && pubYt.tipoPlayer === 'azoto'
+            && pubYt.videoYouTube === true && /^https:\/\/www\.youtube-nocookie\.com\/embed\/ngbProva001\?/.test(pubYt.videoId) && pubYt.inizioVideo === 90
+            && pubYt.onda && pubYt.onda.da && typeof pubYt.onda.da.toMillis === 'function',
+            'il servizio: il video di YouTube in onda (videoYouTube sì, il player youtube-nocookie), inizioVideo 90 secondi, onda con il momento in cui si è andati in onda',
+            JSON.stringify({ v: ytVideo.stato, p: ytPlayer.stato, s: ytPunto.stato, tipo: pubYt.tipoPlayer, yt: pubYt.videoYouTube, inizio: pubYt.inizioVideo, onda: pubYt.onda }));
+        const puntiSbagliati = [];
+        for (const v of [-5, 43201, 2.5, 'abc', '1:30']) {
+            const sp = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: v } }, tokGestore);
+            if (!(sp.stato === 400 && sp.dati.codice === 'inizioVideo' && /Punto di partenza della registrazione non valido/.test(sp.dati.msg))) puntiSbagliati.push(JSON.stringify(v) + ' -> ' + sp.stato + ' ' + JSON.stringify(sp.dati));
+        }
+        vero(puntiSbagliati.length === 0 && (await docPubblico()).inizioVideo === 90,
+            'inizioVideo si rifiuta se non è un numero intero di secondi fra 0 e 12 ore (-5, 43201, 2.5, "abc", "1:30"): 400 «Punto di partenza della registrazione non valido…»', puntiSbagliati.join('\n'));
+        // la gestione rilegge l'evento (un altro gestore lo ha cambiato): si ricarica la pagina
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await $('#sel-evento').inputValue() === ID, 10000, 'evento dopo la ricarica');
+        await page.click('[data-scheda="evento"]');
+        vero(await $('#campo-inizio-video').isVisible() && await $('#ev-inizio-video').inputValue() === '1:30' && /ngbProva001/.test(await $('#ev-azoto').inputValue()),
+            'scheda Evento: con il video di YouTube compare «Parti dal punto», con il punto salvato scritto minuti:secondi (1:30)');
+        await page.click('[data-scheda="regia"]');
+        await aspetta(async () => /Registrazione YouTube al punto \d+:\d\d/.test(await testo('#regia-registrazione')), 5000, 'punto in regia');
+        const punto1 = await testo('#regia-registrazione');
+        await pausa(2200);
+        const punto2 = await testo('#regia-registrazione');
+        const secondiDi = t => { const m = /al punto (?:(\d+):)?(\d+):(\d\d)/.exec(t) || []; return (Number(m[1]) || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]); };
+        vero(/^Registrazione YouTube al punto \d+:\d\d(:\d\d)?, lo stesso per tutti i partecipanti\.$/.test(punto1) && secondiDi(punto1) >= 90 && secondiDi(punto2) >= secondiDi(punto1) + 1,
+            'Regia: «' + punto1 + '», e va avanti da sola (' + punto2 + ')');
+        // «Parti dal punto» sbagliato: si ferma prima del servizio
+        await page.click('[data-scheda="evento"]');
+        const salvaPrimaPunto = chiamate('evento-salva').length;
+        await $('#ev-inizio-video').fill('2:75');
+        await $('#btn-salva-evento').click();
+        vero(/Parti dal punto: minuti e secondi, per esempio 2:30/.test(await testo('#msg-evento')) && await $('#ev-inizio-video').getAttribute('aria-invalid') === 'true'
+            && chiamate('evento-salva').length === salvaPrimaPunto,
+            '«Parti dal punto» 2:75: l\'errore sul campo, senza chiamare il servizio — «' + await testo('#msg-evento') + '»');
+        // un punto nuovo, in onda: si chiede, e chi guarda salta li'
+        await $('#ev-inizio-video').fill('1:02:30');
+        await $('#btn-salva-evento').click();
+        await confermaDialogo(/^Spostare la registrazione per tutti\? La diretta è in onda: chi è collegato salta da solo al nuovo punto della registrazione \(1:02:30 più il tempo già andato in onda\)\./s, 'Sposta la registrazione');
+        await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')), 10000, 'punto salvato');
+        const salvaPunto = chiamate('evento-salva').pop().dati.evento;
+        pubYt = await docPubblico();
+        vero(await testo('#msg-evento') === 'Modifiche salvate. I partecipanti collegati saltano al nuovo punto della registrazione.'
+            && salvaPunto.inizioVideo === 3750 && ['azotoUrl', 'tipoPlayer', 'videoUrl'].every(k => !(k in salvaPunto)) && pubYt.inizioVideo === 3750,
+            'salvato: evento-salva manda inizioVideo 3750 (1:02:30) e niente link; nel documento pubblico inizioVideo 3750 — «' + await testo('#msg-evento') + '»', JSON.stringify(salvaPunto));
+        await $('#ev-luogo').fill('Napoli · Hotel Eurostars Excelsior');
+        await $('#btn-salva-evento').click();
+        await aspetta(async () => /Modifiche salvate/.test(await testo('#msg-evento')) && chiamate('evento-salva').length > salvaPrimaPunto + 1, 10000, 'luogo salvato di nuovo');
+        const soloLuogo2 = chiamate('evento-salva').pop().dati.evento;
+        vero(!('inizioVideo' in soloLuogo2) && (await docPubblico()).inizioVideo === 3750, 'correggendo il luogo «Parti dal punto» non si manda (non è cambiato)', JSON.stringify(soloLuogo2));
+        await page.click('[data-scheda="regia"]');
+        await aspetta(async () => secondiDi(await testo('#regia-registrazione')) >= 3750, 5000, 'nuovo punto in regia');
+        vero(true, 'in Regia il punto riparte da 1:02:30 più il tempo in onda: «' + await testo('#regia-registrazione') + '»');
+        // si torna com'era: player Azoto salvato, flusso diretto in uso, nessun punto di partenza
+        const ritorno = [
+            await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: 0 } }, tokGestore),
+            await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, azotoUrl: AZOTO_29 }, tokGestore),
+            await api('diretta-gestione', { azione: 'evento-player', idEvento: ID, tipoPlayer: 'flusso' }, tokGestore)
+        ];
+        pubYt = await docPubblico();
+        vero(ritorno.every(x => x.stato === 200) && pubYt.tipoPlayer === 'flusso' && pubYt.videoYouTube === false && pubYt.inizioVideo === 0,
+            'di nuovo com\'era: flusso diretto in uso, player Azoto salvato (videoYouTube no), inizioVideo 0', JSON.stringify({ tipo: pubYt.tipoPlayer, yt: pubYt.videoYouTube, inizio: pubYt.inizioVideo }));
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await $('#sel-evento').inputValue() === ID, 10000, 'evento dopo la seconda ricarica');
+        await page.click('[data-scheda="regia"]');
+        vero(await $('#regia-registrazione').isHidden() && await testo('#regia-tipo-player') === 'Flusso diretto', 'con il flusso diretto in Regia non c\'è il punto della registrazione');
+
         /* ---------- 6b. i link firmati ----------
            Valgono per il flusso diretto (modalita' B, qui in uso dalla scheda
            Evento). La web TV di prova non controlla la firma (la ignora): qui
@@ -2248,12 +2356,12 @@ async function sheetJSNode() {
         await aspetta(async () => (await $('#tabella-anteprima tbody tr').count()) === 42 && /righe lette/.test(await testo('#riepilogo-anteprima')), 15000, 'ricarico');
         const esiti = await page.evaluate(() => Array.from(document.querySelectorAll('#tabella-anteprima tbody tr')).map(t => t.dataset.riga + ' ' + t.className));
         const giaIscritti = esiti.filter(c => /esito-gia-iscritto/.test(c)).length;
-        vero(JSON.stringify(esiti.filter(c => /esito-nuovo/.test(c)).map(c => c.split(' ')[0])) === '["13"]' && giaIscritti === 29,
-            'lo stesso file ricaricato: ' + giaIscritti + ' righe «già nell\'evento»; di nuovo c\'è solo la riga 13, il VECCHIO indirizzo di Ivan (corretto nella gestione: l\'account è dell\'email nuova)');
+        vero(JSON.stringify(esiti.filter(c => /esito-nuovo/.test(c)).map(c => c.split(' ')[0])) === '["12","13"]' && giaIscritti === 29,
+            'lo stesso file ricaricato: ' + giaIscritti + ' righe «già nell\'evento»; di nuovo ci sono solo la riga 12 (Marta Rossi con l\'email di Mario Rossi di Roma, corretta la prima volta: qui è nuova) e la 13, il VECCHIO indirizzo di Ivan (corretto nella gestione: l\'account è dell\'email nuova)');
         // Sara Barbieri era stata tolta dall'evento: ha gia' l'account, torna solo nell'evento
         vero(esiti.filter(c => /esito-gia-presente/.test(c)).length === 1 && (await classeRiga(42)).includes('esito-gia-presente'),
-            'la persona tolta dall\'evento risulta «Già registrata» (da aggiungere, nessun secondo account)');
-        vero((await classeRiga(15)).includes('esito-email-condivisa') && /Con questa email è già registrato Chloé Dupont/.test(await riga(15).locator('.problemi').textContent()),
+            'la persona tolta dall\'evento risulta «Torna nell\'evento» (con il suo account, nessun secondo account)');
+        vero((await classeRiga(15)).includes('esito-email-condivisa') && /In questo evento con questa email c'è già Chloé Dupont/.test(await riga(15).locator('.problemi').textContent()),
             'riga 15, «Chloé L\'Hôtel-Dupont»: il suo account ora si chiama Chloé Dupont (corretto nella gestione), quindi la riga va sistemata («Email condivisa»: se è la stessa persona si scrive il nome come è registrato)');
         vero((await classeRiga(41)).includes('esito-gia-iscritto') && (await classeRiga(41)).includes('con-avviso') && /Account disattivato/.test(await riga(41).locator('.etichette-esito').textContent()),
             'Roberto Moretti, disattivato: «Già nell\'evento» con l\'avviso «Account disattivato»');
@@ -2360,9 +2468,9 @@ async function sheetJSNode() {
         const nomeChloe = (await partecipante(CHLOE2)).nome;
         await $('#agg-email').fill(CHLOE2.toUpperCase());
         await $('#btn-aggiungi').click();
-        await aspetta(async () => /Con questa email è già registrato Chloé Dupont: se è la stessa persona, scrivi il nome come è registrato/.test(await testo('#msg-aggiungi')), 10000, 'email di un\'altra persona');
+        await aspetta(async () => /In questo evento con questa email c'è già Chloé Dupont\. Se è la stessa persona è già iscritta: per cambiarle il nome usa «Correggi» sulla sua riga\./.test(await testo('#msg-aggiungi')), 10000, 'email di un\'altra persona');
         vero(await $('#agg-email').getAttribute('aria-invalid') === 'true' && (await partecipante(CHLOE2)).nome === nomeChloe,
-            'l\'email di un\'altra persona (scritta in maiuscolo): il nome registrato, niente toccato');
+            'l\'email di un\'altra persona di questo evento (scritta in maiuscolo): chi c\'è già e che cosa fare, niente toccato');
         const PAOLA = 'paola.amano@esempio.it';
         const postaPrimaPaola = leggiPosta().length;
         await $('#agg-email').fill('  Paola.Amano@Esempio.IT ');
@@ -2408,7 +2516,7 @@ async function sheetJSNode() {
         await $('#agg-cognome').fill('De Luca');
         await $('#agg-email').fill(ANNA);
         await $('#btn-aggiungi').click();
-        await aspetta(async () => /^Aggiunto a questo evento: Anna Maria De Luca .* aveva già un account/.test(await testo('#msg-aggiungi')), 10000, 'Anna Maria aggiunta di nuovo');
+        await aspetta(async () => /^Di nuovo in questo evento: Anna Maria De Luca .* c'era già, con il suo account \(nessun account nuovo\)/.test(await testo('#msg-aggiungi')), 10000, 'Anna Maria aggiunta di nuovo');
         vero((await partecipante(ANNA)).uid === uidAnna, 'stesso account di prima, nessun account nuovo');
         const credPrima = postaPer(ANNA, 'credenziali').length;
         await $('#btn-invia-aggiunto').click();
@@ -2439,6 +2547,29 @@ async function sheetJSNode() {
         await stileTelAgg.evaluate(n => n.remove());
         await page.setViewportSize({ width: 1440, height: 900 });
         await pausa(200);
+
+        /* ---------- 9b-ter. un evento di prima con il nome della piattaforma nell'identificativo ----------
+           (per esempio prova-youtube, creato prima della regola: il servizio oggi non lo crea piu').
+           Sotto il campo, il link che ricevono i partecipanti ha al posto dell'identificativo il
+           codice neutro (c. + base64url, lo stesso del servizio), e lo si dice. */
+        console.log('\n-- un evento di prima con il nome della piattaforma nell\'identificativo');
+        const sNeutro = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'prova-neutra', nuovo: true, titolo: 'Prova di prima', luogo: 'Online', data: '2026-11-25', oraInizio: '15:00', oraFine: '16:00', videoUrl: '', programma: [], paginaEvento: '' } }, tokGestore);
+        vero(sNeutro.stato === 200, 'un evento preparato con il servizio', JSON.stringify(sNeutro.dati).slice(0, 300));
+        const [pubNeutro, risNeutro] = await Promise.all([db.doc('eventi/prova-neutra').get(), db.doc('eventiRiservati/prova-neutra').get()]);
+        await Promise.all([db.doc('eventi/prova-youtube').set(pubNeutro.data()), db.doc('eventiRiservati/prova-youtube').set(risNeutro.data())]);
+        await Promise.all([db.doc('eventi/prova-neutra').delete(), db.doc('eventiRiservati/prova-neutra').delete()]);
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await page.locator('#sel-evento option[value="prova-youtube"]').count() === 1, 10000, 'l\'evento di prima nell\'elenco');
+        await $('#sel-evento').selectOption('prova-youtube');
+        await aspetta(async () => await $('#ev-id').inputValue() === 'prova-youtube', 10000, 'l\'evento di prima scelto');
+        const linkDiPrima = await testo('#ev-id-link');
+        vero(linkDiPrima.startsWith('Link per i partecipanti: nextgenerationbusiness.it/diretta/?e=c.cHJvdmEteW91dHViZQ ')
+            && /nel link \(e nelle email\) c'è al suo posto un codice neutro/.test(linkDiPrima) && !/youtube/i.test(linkDiPrima.split(' ')[4] || 'youtube'),
+            'un evento di prima con «youtube» nell\'identificativo: nel link il codice neutro, e lo si dice — «' + linkDiPrima + '»');
+        await $('#sel-evento').selectOption(ID);
+        await aspetta(async () => await $('#ev-id').inputValue() === ID, 10000, 'di nuovo l\'evento di Napoli');
+        await Promise.all([db.doc('eventi/prova-youtube').delete(), db.doc('eventiRiservati/prova-youtube').delete()]);
 
         /* ---------- 9c. le email programmate ----------
            La sezione «Email programmate» della scheda Email, con il servizio

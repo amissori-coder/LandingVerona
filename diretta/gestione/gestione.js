@@ -250,6 +250,39 @@
     // i campi del player Azoto; gli altri (ev-video, ev-riserva, regia-video, regia-riserva) sono il flusso diretto
     const CAMPI_AZOTO = { 'ev-azoto': true, 'regia-azoto': true };
 
+    /* «Parti dal punto» (inizioVideo, in secondi): con un video di YouTube
+       il punto della registrazione da cui parte la diretta. Si scrive
+       minuti:secondi (2:30), ore:minuti:secondi (1:02:30) o solo i minuti
+       (5); vanno bene anche il punto e la virgola al posto dei due punti.
+       Al massimo 12 ore, come per il servizio (diretta-dati.js,
+       leggiInizioVideo). -> secondi (0 se vuoto) | null se non si capisce */
+    const MAX_PUNTO_VIDEO = 12 * 3600;
+    function leggiPuntoVideo(testo) {
+        const t = String(testo == null ? '' : testo).trim().replace(/[.,]/g, ':');
+        if (!t) return 0;
+        let p;
+        if (/^\d{1,3}$/.test(t)) p = [Number(t), 0];
+        else if (/^\d{1,3}:\d{2}$/.test(t) || /^\d{1,2}:\d{2}:\d{2}$/.test(t)) p = t.split(':').map(Number);
+        else return null;
+        if (p.slice(1).some(n => n > 59)) return null;
+        const sec = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+        return sec <= MAX_PUNTO_VIDEO ? sec : null;
+    }
+    // secondi -> "2:30" / "1:02:30" ('' per 0)
+    function scriviPuntoVideo(secondi) {
+        const n = Math.max(0, Math.floor(Number(secondi) || 0));
+        if (!n) return '';
+        const h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), x = n % 60;
+        const due = v => (v < 10 ? '0' : '') + v;
+        return h ? h + ':' + due(m) + ':' + due(x) : m + ':' + due(x);
+    }
+    // il campo si vede solo con un video di YouTube nel player (o se ha gia' un valore)
+    function aggiornaCampoPunto() {
+        const l = leggiAzoto($('#ev-azoto').value);
+        const yt = !!(l && !l.errore && SV && typeof SV.eYouTube === 'function' && SV.eYouTube(l.valore));
+        $('#campo-inizio-video').hidden = !yt && !$('#ev-inizio-video').value.trim();
+    }
+
     /* Il player Azoto: il codice incollato o l'indirizzo.
        -> null (vuoto) | { tipo: 'incorporato', valore, daCodice } | { errore, messaggio } */
     function leggiAzoto(testo) {
@@ -937,6 +970,8 @@
             $('#' + t.getAttribute('aria-controls')).hidden = !attiva;
         });
         if (nome === 'regia') { avviaConnessi(); caricaFase(); } else fermaConnessi();
+        // il punto della registrazione (YouTube): si aggiorna ogni secondo solo con la Regia in vista
+        if (stato.evento) aggiornaPuntoRegia();
         if (nome === 'ascolti') avviaAscolti(); else fermaAscolti();
         /* L'anteprima di un video provato in un'altra scheda non serve piu'
            (e continuerebbe a scaricare il video): si chiude, ma non a meta'
@@ -1009,12 +1044,16 @@
         nascondiMsg('#msg-evento');
         $('#ev-id').value = ev ? ev.id : '';
         $('#ev-id').readOnly = !!ev;
+        mostraLinkEvento();
         $('#ev-titolo').value = ev ? ev.titolo || '' : '';
         $('#ev-luogo').value = ev ? ev.luogo || '' : '';
         $('#ev-data').value = ev ? ev.data || '' : '';
         $('#ev-ora-inizio').value = ev ? ev.oraInizio || '' : '';
         $('#ev-ora-fine').value = ev ? ev.oraFine || '' : '';
         // i link con cui si apre il modulo: al salvataggio si mandano solo se cambiati
+        $('#ev-inizio-video').value = ev ? scriviPuntoVideo(ev.inizioVideo) : '';
+        $('#ev-inizio-video').dataset.iniziale = String(ev ? Math.max(0, Math.floor(Number(ev.inizioVideo) || 0)) : 0);
+        $('#ev-inizio-video').removeAttribute('aria-invalid');
         riempiCampoLink('ev-azoto', ev ? ev.azotoUrl : '');
         riempiCampoLink('ev-video', ev ? ev.videoUrl : '');
         riempiCampoLink('ev-riserva', ev ? ev.riservaUrl : '');
@@ -1090,17 +1129,48 @@
     }
 
     // per un evento nuovo l'identificativo si propone da solo (luogo + anno)
+    /* L'identificativo si vede nel link dei partecipanti (/diretta/?e=<id>):
+       niente nome della piattaforma del video (lo stesso controllo del
+       servizio, diretta-dati.js RE_ID_PIATTAFORMA). Nella proposta fatta dal
+       titolo quelle parole si tolgono da sole. */
+    const RE_ID_PIATTAFORMA = /you-?tu|azoto/;
     function suggerisciId() {
         if (!stato.nuovo || stato.idModificatoAMano) return;
         const luogo = $('#ev-luogo').value.split(/[·,|]/)[0].trim();
         const base = luogo || $('#ev-titolo').value.split(/[·|]/)[0].trim();
         const anno = ($('#ev-data').value || '').slice(0, 4);
-        let s = perRicerca(base).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/, '');
+        let s = perRicerca(base).replace(/[^a-z0-9]+/g, '-').split('-').filter(p => p && !RE_ID_PIATTAFORMA.test(p)).join('-')
+            .slice(0, 30).replace(/-+$/, '');
         if (s && anno && !s.endsWith(anno)) s += '-' + anno;
         $('#ev-id').value = s;
+        mostraLinkEvento();
+    }
+    // sotto l'identificativo: il link che ricevono i partecipanti
+    function mostraLinkEvento() {
+        const id = $('#ev-id').value.trim();
+        const riga = $('#ev-id-link');
+        const valido = /^[a-z0-9][a-z0-9-]{2,40}$/.test(id);
+        riga.hidden = !valido;
+        svuota(riga);
+        if (!valido) return;
+        const piattaforma = RE_ID_PIATTAFORMA.test(id);
+        /* un evento nuovo con il nome della piattaforma non si salva: lo si dice gia' qui.
+           Un evento creato prima della regola (per esempio prova-youtube): nel link, al posto
+           dell'identificativo, il suo codice neutro (lo stesso del servizio, diretta-comune.js
+           eventoNelLink: "c." + base64url), e lo si dice */
+        const nelLink = piattaforma && !stato.nuovo ? 'c.' + btoa(id).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : id;
+        // si va a capo dopo /diretta/, non a meta' del nome del sito
+        const link = el('span', { classe: 'testo-fisso' });
+        link.append(SITO.replace(/^https:\/\//, '') + '/diretta/', document.createElement('wbr'), '?e=' + nelLink);
+        riga.append('Link per i partecipanti: ', link);
+        if (piattaforma && stato.nuovo) {
+            riga.append(el('strong', { classe: 'avviso-link', testo: ' Questo link contiene il nome della piattaforma del video: scegli un identificativo senza (l\'evento non si salva così).' }));
+        } else if (nelLink !== id) {
+            riga.append(el('span', { classe: 'avviso-link', testo: ' L\'identificativo contiene il nome della piattaforma del video: nel link (e nelle email) c\'è al suo posto un codice neutro.' }));
+        }
     }
     ['#ev-luogo', '#ev-titolo', '#ev-data'].forEach(s => $(s).addEventListener('input', suggerisciId));
-    $('#ev-id').addEventListener('input', () => { stato.idModificatoAMano = true; });
+    $('#ev-id').addEventListener('input', () => { stato.idModificatoAMano = true; mostraLinkEvento(); });
 
     function leggiProgramma(testo) {
         const voci = [];
@@ -1451,6 +1521,7 @@
         const programma = leggiProgramma($('#ev-programma').value);
 
         if (stato.nuovo && !/^[a-z0-9][a-z0-9-]{2,40}$/.test(id)) segna('#ev-id', 'Identificativo: da 3 a 41 caratteri, solo lettere minuscole, numeri e trattini (es. napoli-2026).');
+        else if (stato.nuovo && RE_ID_PIATTAFORMA.test(id)) segna('#ev-id', 'Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video (YouTube, Azoto). Per esempio: webinar-10-dicembre-2026.');
         if (titolo.length < 3 || titolo.length > 140) segna('#ev-titolo', 'Titolo: da 3 a 140 caratteri.');
         if (luogo.length > 140) segna('#ev-luogo', 'Luogo: al massimo 140 caratteri.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || isNaN(Date.parse(data + 'T12:00:00Z'))) segna('#ev-data', 'Data: scegli il giorno dell\'evento.');
@@ -1484,6 +1555,8 @@
             segna('input[name="ev-tipo-player"][value="flusso"]', 'Tipo di player: per il flusso diretto serve prima il link .m3u8, nel riquadro «Flusso diretto (.m3u8)».');
         }
         if (pagina && !/^\/[a-z0-9_\/-]*\/?$/.test(pagina)) segna('#ev-pagina', 'Pagina dell\'evento: solo il percorso, per esempio /napoli_ottobre_2026/.');
+        const inizioVideo = leggiPuntoVideo($('#ev-inizio-video').value);
+        if (inizioVideo === null) segna('#ev-inizio-video', 'Parti dal punto: minuti e secondi, per esempio 2:30 (oppure ore:minuti:secondi, come 1:02:30), al massimo 12 ore.');
         if (programma.errori.length) { $('#ev-programma').setAttribute('aria-invalid', 'true'); errori.push.apply(errori, programma.errori); }
         const firma = leggiFirma(segna);
 
@@ -1499,6 +1572,9 @@
             domande: $('#ev-domande').checked,
             promemoria: { giornoPrima: $('#ev-promemoria-giorno').checked, oraPrima: $('#ev-promemoria-ora').checked }
         };
+        // «Parti dal punto»: come i link, si manda solo se cambiato qui (un altro gestore puo' averlo cambiato)
+        const puntoCambiato = inizioVideo !== null && (stato.nuovo ? inizioVideo > 0 : inizioVideo !== Number($('#ev-inizio-video').dataset.iniziale || 0));
+        if (puntoCambiato) evento.inizioVideo = inizioVideo;
 
         // al servizio va solo l'indirizzo ricavato qui, mai il codice incollato
         if (azotoCambiato) evento.azotoUrl = la && !la.errore ? la.valore : '';
@@ -1512,6 +1588,7 @@
             azotoDaCodice: !!(la && la.daCodice),
             videoCambiato: videoCambiato,
             riservaCambiata: riservaCambiata,
+            puntoCambiato: puntoCambiato,
             firma: firma,
             evento: evento
         };
@@ -1593,6 +1670,17 @@
             if (riservaInUsoTolta && !inOnda) dettagli.push('La riserva è la scelta della regia: togliendola, quando si userà il flusso diretto si partirà dal link principale.');
             if (letto.firma.tolta) dettagli.push('Link firmati: si tolgono, e la chiave segreta salvata viene cancellata.');
             const suAzoto = tipo === 'azoto';
+            /* Il punto della registrazione cambiato durante la diretta (o la
+               pausa): con il video di YouTube chi e' collegato salta al nuovo
+               punto. Si dice nella domanda (una riga in piu', o la domanda
+               intera se non c'e' altro da chiedere). */
+            const urlYouTube = azotoCambiato ? evento.azotoUrl : (evPrima && evPrima.azotoUrl);
+            const conYouTube = suAzoto && !!urlYouTube && !!SV && typeof SV.eYouTube === 'function' && SV.eYouTube(urlYouTube);
+            const inPausa = !eraNuovo && !!evPrima && evPrima.stato === 'pausa';
+            const salto = letto.puntoCambiato && conYouTube && (inOnda || inPausa)
+                ? (inOnda ? 'La diretta è in onda: chi è collegato salta da solo al nuovo punto della registrazione (' + (scriviPuntoVideo(evento.inizioVideo) || '0:00') + ' più il tempo già andato in onda).'
+                    : 'La diretta è in pausa: alla ripresa la registrazione riparte dal nuovo punto (' + (scriviPuntoVideo(evento.inizioVideo) || '0:00') + ' più il tempo già andato in onda).')
+                : '';
             let domanda = null;
             if (avvisi.length) {
                 domanda = {
@@ -1621,6 +1709,10 @@
                     dettagli: dettagli, ok: 'Togli la firma', pericolo: true
                 };
             }
+            if (salto) {
+                if (domanda) domanda.dettagli = (domanda.dettagli || []).concat([salto]);
+                else domanda = { titolo: 'Spostare la registrazione per tutti?', testo: salto, dettagli: dettagli, ok: 'Sposta la registrazione' };
+            }
             if (domanda && !(await conferma(domanda))) return;
             try {
                 const r = await chiama('evento-salva', { evento: evento });
@@ -1636,6 +1728,7 @@
                 } else if (fraseOnda) {
                     detto.push(suAzoto ? (azotoTolto ? 'Player Azoto tolto.' : 'I partecipanti collegati passano al nuovo player Azoto.') : 'I partecipanti collegati ricevono i link nuovi.');
                 }
+                if (salto) detto.push(inOnda ? 'I partecipanti collegati saltano al nuovo punto della registrazione.' : 'Alla ripresa la registrazione riparte dal nuovo punto.');
                 if (azotoCambiato && evento.azotoUrl && letto.azotoDaCodice) detto.push('Dal codice di Azoto ho salvato solo l\'indirizzo del player.');
                 if (evento.firma && evento.firma.segreto) detto.push('La chiave segreta è salvata sul servizio.');
                 if (avvisi.length) detto.push('Ricorda i problemi segnalati dalla prova: riprova quando Azoto li ha risolti.');
@@ -1648,6 +1741,10 @@
                     mostraMsg('#msg-evento', err.msg || 'Esiste già un evento con questo identificativo: scegline un altro.', 'errore');
                 } else if (err.stato === 400 && (err.codice === 'azoto' || err.codice === 'video')) {
                     $(err.codice === 'azoto' ? '#ev-azoto' : '#ev-video').setAttribute('aria-invalid', 'true');
+                    erroreGenerico(err, '#msg-evento');
+                } else if (err.stato === 400 && err.codice === 'inizioVideo') {
+                    $('#campo-inizio-video').hidden = false;
+                    $('#ev-inizio-video').setAttribute('aria-invalid', 'true');
                     erroreGenerico(err, '#msg-evento');
                 } else if (err.stato === 400 && err.codice === 'tipoPlayer') {
                     RADIO_FLUSSO.setAttribute('aria-invalid', 'true');
@@ -1686,6 +1783,7 @@
         $('#regia-orari').textContent = righe.join(' · ');
 
         aggiornaAvvisoOrario();
+        aggiornaPuntoRegia();
 
         aggiornaVideoRegia();
         $('#regia-avviso-attuale').textContent = ev && ev.avviso ? '«' + ev.avviso + '»' : 'nessuno';
@@ -1694,6 +1792,55 @@
         aggiornaDettaglioConnessi();
         aggiornaFase();
     }
+
+    /* Con un video di YouTube: il punto della registrazione in cui sono i
+       partecipanti, lo stesso per tutti (la pagina della diretta lo conta
+       allo stesso modo: inizioVideo + onda.secondi + adesso - onda.da; vedi
+       diretta.js, LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA). In onda si
+       aggiorna ogni secondo, finche' la scheda Regia e' aperta. */
+    // i secondi passati in onda (le pause non contano)
+    function secondiInOnda(ev) {
+        const o = ev && ev.onda && typeof ev.onda === 'object' ? ev.onda : {};
+        let da = Number(o.da) || 0;
+        // un evento in onda da prima che esistesse onda conta da statoAggiornato
+        if (!da && !ev.onda && ev.stato === 'in_onda') da = Number(ev.statoAggiornato) || 0;
+        return Math.max(0, Number(o.secondi) || 0) + (da ? Math.max(0, (Date.now() - da) / 1000) : 0);
+    }
+    // la sigla d'apertura (sigla.js, la stessa della pagina dei partecipanti): i suoi secondi
+    function durataSigla(ev) {
+        const S = window.NGBSigla;
+        if (!S || typeof S.durata !== 'function') return 0;
+        try { return Math.max(0, Number(S.durata(ev)) || 0); } catch (e) { return 0; }
+    }
+    // il punto della registrazione: dopo la sigla, da «Parti dal punto»
+    function puntoRegistrazione(ev) {
+        return Math.max(0, Number(ev.inizioVideo) || 0) + Math.max(0, secondiInOnda(ev) - durataSigla(ev));
+    }
+    function aggiornaPuntoRegia() {
+        clearTimeout(stato.timerPuntoRegia);
+        stato.timerPuntoRegia = null;
+        const ev = stato.evento;
+        const riga = $('#regia-registrazione');
+        const yt = !!ev && !stato.nuovo && tipoPlayerDi(ev) === 'azoto' && !!ev.azotoUrl && !!SV && typeof SV.eYouTube === 'function' && SV.eYouTube(ev.azotoUrl);
+        riga.hidden = !yt;
+        if (!yt) { svuota(riga); return; }
+        const s = ev.stato || 'programmato';
+        const punto = scriviPuntoVideo(puntoRegistrazione(ev)) || '0:00';
+        const mancaSigla = Math.ceil(durataSigla(ev) - secondiInOnda(ev));
+        const parti = s === 'in_onda' && mancaSigla > 0
+            ? ['Sigla d\'apertura in corso: il video parte tra ', el('strong', { testo: mancaSigla + ' s' }), ', dal punto ', el('strong', { testo: punto }), '.']
+            : s === 'in_onda' ? ['Registrazione YouTube al punto ', el('strong', { testo: punto }), ', lo stesso per tutti i partecipanti.']
+            : s === 'pausa' ? ['Registrazione ferma al punto ', el('strong', { testo: punto }), ': con «Riprendi la diretta» riparte da qui.']
+                : s === 'terminato' ? ['Registrazione fermata al punto ', el('strong', { testo: punto }), '.']
+                    : ['Con «Vai in onda» parte la sigla d\'apertura (' + Math.round(durataSigla(ev)) + ' secondi: le immagini del webinar e il conto alla rovescia), poi la registrazione dal punto ', el('strong', { testo: punto }), (Number(ev.inizioVideo) > 0 ? ' (scelto nella scheda Evento).' : ', l\'inizio.')];
+        svuota(riga);
+        parti.forEach(x => riga.append(x));
+        // in onda si aggiorna ogni secondo, solo con la scheda Regia in vista
+        if (s === 'in_onda' && !$('#scheda-regia').hidden && document.visibilityState === 'visible') {
+            stato.timerPuntoRegia = setTimeout(aggiornaPuntoRegia, 1000 - (Date.now() % 1000) + 20);
+        }
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && stato.evento) aggiornaPuntoRegia(); });
 
     // l'orario d'inizio e' passato e nessuno ha premuto "Vai in onda"
     // (si ricontrolla a ogni aggiornamento dei collegati, ogni 20 secondi)
@@ -2195,6 +2342,7 @@
     function riconosciLink(id) {
         const campo = $('#' + id);
         const testo = campo.value.trim();
+        if (id === 'ev-azoto') aggiornaCampoPunto();
         const p = stato.prove[id];
         if (p && p.testo === testo) return;
         if (p) dimenticaProva(id);
@@ -3581,9 +3729,10 @@
        riga torna l'esito:
          nuovo            account nuovo (la password la genera il
                           servizio; nessuna email adesso)
-         gia-presente     c'e' gia' un account con questa email (scritta
-                          in qualunque modo): si aggiunge l'evento, nessun
-                          account nuovo e nessuna password nuova
+         gia-presente     c'era gia' in questo evento (tolta, annullata):
+                          torna con il suo account, nessun account nuovo.
+                          La stessa email in un ALTRO evento non conta: ogni
+                          evento ha i suoi partecipanti, e qui e' 'nuovo'
          gia-iscritto     gia' in questo evento: non cambia niente
          doppia-nel-file  la stessa persona con la stessa email in una
                           riga precedente: non crea niente (non va corretta)
@@ -3602,7 +3751,7 @@
     const ESITI_GRAVI = ['email-mancante', 'email-non-valida', 'nome-mancante', 'nome-non-valido', 'email-condivisa', 'codifica'];
     const ETICHETTE_ESITO = {
         'nuovo': 'Nuovo account',
-        'gia-presente': 'Già registrata',
+        'gia-presente': 'Torna nell\'evento',
         'gia-iscritto': 'Già nell\'evento',
         'doppia-nel-file': 'Doppia nel file',
         'escluso': 'Esclusa',
@@ -3835,7 +3984,7 @@
         svuota(r);
         r.appendChild(gettone(k.totale, plurale(k.totale, 'riga letta', 'righe lette'), ''));
         r.appendChild(gettone(k.nuovi, plurale(k.nuovi, 'nuovo account', 'nuovi account'), 'verde'));
-        if (k.giaPresenti) r.appendChild(gettone(k.giaPresenti, plurale(k.giaPresenti, 'già registrata, da aggiungere', 'già registrate, da aggiungere'), 'blu'));
+        if (k.giaPresenti) r.appendChild(gettone(k.giaPresenti, plurale(k.giaPresenti, 'torna nell\'evento', 'tornano nell\'evento'), 'blu'));
         if (k.giaIscritti) r.appendChild(gettone(k.giaIscritti, 'già nell\'evento', 'blu'));
         if (k.doppie) r.appendChild(gettone(k.doppie, plurale(k.doppie, 'doppia nel file', 'doppie nel file'), ''));
         if (k.esclusi) r.appendChild(gettone(k.esclusi, plurale(k.esclusi, 'esclusa', 'escluse'), ''));
@@ -3866,7 +4015,7 @@
         let testo = 'Crea gli account';
         if (k) {
             testo = 'Crea ' + conNumero(k.nuovi, 'account', 'account');
-            if (k.giaPresenti) testo += ' e aggiungi ' + conNumero(k.giaPresenti, 'persona già registrata', 'persone già registrate');
+            if (k.giaPresenti) testo += ' e rimetti nell\'evento ' + conNumero(k.giaPresenti, 'persona che c\'era già', 'persone che c\'erano già');
         }
         b.textContent = testo;
         motivo.textContent = perche || 'Tutto pronto: nessun problema da sistemare. Creare gli account non manda nessuna email.';
@@ -3947,7 +4096,7 @@
             testo: 'Per l\'evento «' + (stato.evento && stato.evento.titolo || c.idEvento) + '»:',
             dettagli: [
                 conNumero(k.nuovi, 'nuovo account', 'nuovi account') + ': ognuno entrerà con la sua email e una password generata dal servizio',
-                k.giaPresenti ? conNumero(k.giaPresenti, 'persona già registrata aggiunta', 'persone già registrate aggiunte') + ' all\'evento, senza un nuovo account e senza una password nuova' : '',
+                k.giaPresenti ? conNumero(k.giaPresenti, 'persona che c\'era già torna', 'persone che c\'erano già tornano') + ' nell\'evento, con il suo account' : '',
                 'Nessuna email parte adesso: le credenziali partono quando premi «Invia le credenziali» nella scheda Email.'
             ],
             ok: 'Crea gli account'
@@ -4061,10 +4210,10 @@
         riepilogo.appendChild(gettone(k.errore, plurale(k.errore, 'errore', 'errori'), k.errore ? 'rosso' : ''));
 
         /* Qui sotto solo le righe da guardare: gli errori, quelle andate
-           diversamente dall'anteprima (un account con quell'email creato nel
+           diversamente dall'anteprima (la persona aggiunta a questo evento nel
            frattempo, per esempio da un altro caricamento o dal modulo del
-           sito: la persona e' stata aggiunta, senza un secondo account) e le
-           note del servizio (per esempio un account disattivato). */
+           sito: niente di doppio) e le note del servizio (per esempio un
+           account disattivato). */
         const ESITO_RIGA = { creato: 'Creato', aggiunto: 'Aggiunta all\'evento', 'gia-iscritto': 'Già nell\'evento' };
         const diversa = x => {
             const o = cr.previsti.get(x.riga);
@@ -4078,8 +4227,8 @@
             const cambiata = diversa(x);
             const nota = x.esito === 'errore' ? (x.motivo || 'Errore non specificato')
                 : [cambiata ? (x.esito === 'aggiunto'
-                    ? 'Nel frattempo è stato creato un account con questa email (per esempio da un altro caricamento): la persona è stata aggiunta all\'evento, senza un secondo account e senza una password nuova.'
-                    : 'Nel frattempo era già stata aggiunta all\'evento (per esempio da un altro caricamento): niente di doppio.') : '', x.motivo || ''].filter(Boolean).join(' ');
+                    ? 'Nel frattempo era tornata nell\'evento con il suo account (per esempio da un altro caricamento): nessun account nuovo.'
+                    : 'Nel frattempo era già stata aggiunta all\'evento (per esempio da un altro caricamento o dal modulo del sito): niente di doppio.') : '', x.motivo || ''].filter(Boolean).join(' ');
             tb.appendChild(el('tr', { classe: x.esito === 'errore' ? 'riga-errore' : (cambiata ? 'riga-diversa' : 'riga-nota'), dati: { riga: String(x.riga) } }, [
                 el('td', { classe: 'num', 'data-label': 'Riga', testo: x.riga }),
                 el('td', { 'data-label': 'Persona', testo: [o.nome, o.cognome].filter(Boolean).join(' ') }),
@@ -4572,7 +4721,7 @@
                 const chi = p ? nomeEmail(p) : d.email;
                 let testo;
                 if (r.esito === 'creato') testo = 'Aggiunto: ' + chi + '. Account creato, credenziali «da inviare»: non è partita nessuna email.';
-                else if (r.esito === 'aggiunto') testo = 'Aggiunto a questo evento: ' + chi + ' aveva già un account (per un altro evento), nessun account nuovo. Credenziali «da inviare»: non è partita nessuna email.';
+                else if (r.esito === 'aggiunto') testo = 'Di nuovo in questo evento: ' + chi + ' c\'era già, con il suo account (nessun account nuovo). Credenziali «da inviare»: non è partita nessuna email.';
                 else testo = chi + ' è già in questo evento' + (comeRelatore ? '.' : ': non è cambiato niente.');
                 if (r.motivo) testo += ' ' + r.motivo;
                 // «È un relatore»: il segno subito dopo (anche per chi c'era gia')

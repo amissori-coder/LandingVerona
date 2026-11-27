@@ -426,7 +426,9 @@
         b.disabled = true;
         b.setAttribute('aria-busy', 'true');
         try {
-            const r = await chiamaAccesso({ azione: 'entra', email: email, password: password });
+            // l'evento del collegamento (?e=): con un account per evento, la password giusta e' quella di questo
+            const delLink = eventoDelLink();
+            const r = await chiamaAccesso({ azione: 'entra', email: email, password: password, idEvento: ID_EVENTO_VALIDO.test(delLink) ? delLink : undefined });
             if (!r.token) throw new ErroreServizio(500, 'servizio', 'Accesso non riuscito: riprova tra poco.');
             if (SESSIONE_VALIDA.test(String(r.sessione || ''))) archivio.scrivi(CHIAVE_SESSIONE, String(r.sessione));
             archivio.scrivi(CHIAVE_EMAIL, email);
@@ -448,6 +450,8 @@
         }
         if (c === 'disattivato') return 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.';
         if (c === 'nessun-evento') return 'Non risulti iscritto a nessuna diretta: chiedi alla regia.';
+        // le credenziali di un altro evento (un account per evento): il servizio dice quale
+        if (c === 'altro-evento') return err.msg ? String(err.msg).slice(0, 400) : 'Queste credenziali sono di un altro evento: usa quelle che hai ricevuto per questa diretta.';
         if (c === 'credenziali' || (err && err.stato === 401)) {
             const rimasti = Number(d.rimasti);
             return 'Email o password non corretti. Usa l\'email e la password delle credenziali della diretta (l\'email che hai ricevuto).'
@@ -467,9 +471,27 @@
     /* ---------------------------------------------------------------
        GLI EVENTI
        --------------------------------------------------------------- */
+    // l'evento del collegamento (?e=), cosi' com'e' scritto ('' se non c'e')
+    /* l'evento del collegamento (?e=): l'identificativo oppure il suo codice "c." + base64url
+       (gli identificativi con il nome della piattaforma del video: vedi diretta.js, eventoDalLink) */
+    function eventoDelLink() {
+        const s = new URLSearchParams(location.search).get('e') || '';
+        if (s.indexOf('c.') !== 0) return s;
+        try {
+            let b = s.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+            while (b.length % 4) b += '=';
+            const id = atob(b);
+            return ID_EVENTO_VALIDO.test(id) ? id : '';
+        } catch (e) { return ''; }
+    }
+    function eventoNelLink(id) {
+        const s = String(id || '');
+        if (!/you-?tu|azoto/.test(s)) return s;
+        return 'c.' + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
     // il preferito: quello del collegamento (?e=), poi l'ultimo scelto, poi in onda > il prossimo > il piu' recente
     function eventoPreferito(eventi) {
-        const par = new URLSearchParams(location.search).get('e') || '';
+        const par = eventoDelLink();
         const salvato = archivio.leggi(CHIAVE_EVENTO) || '';
         const c = [par, salvato].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.some(e => e.id === x))[0];
         if (c) return c;
@@ -514,7 +536,7 @@
         stato.evento = stato.eventi.find(e => e.id === id) || null;
         $('sel-evento').value = id;
         // «Guarda la diretta»: lo stesso evento, e la diretta non rimanda qui (?vista=diretta)
-        $('link-guarda-diretta').setAttribute('href', '/diretta/?vista=diretta' + (ID_EVENTO_VALIDO.test(String(id || '')) ? '&e=' + encodeURIComponent(id) : ''));
+        $('link-guarda-diretta').setAttribute('href', '/diretta/?vista=diretta' + (ID_EVENTO_VALIDO.test(String(id || '')) ? '&e=' + encodeURIComponent(eventoNelLink(id)) : ''));
         archivio.scrivi(CHIAVE_EVENTO, id);
         aggiornaTestata();
         if (!stesso) { leggiDomande(); leggiPartecipanti(); }

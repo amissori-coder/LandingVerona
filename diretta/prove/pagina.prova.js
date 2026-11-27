@@ -106,7 +106,11 @@
      l'evento, ma le regole (eventiTolti) rifiutano il segnale di
      presenza e la pagina dice «Non sei più iscritto a questa diretta»;
      rientrando, lo stesso messaggio;
-   - 403 'nessun-evento' all'accesso; &e= mandato al servizio; il link
+   - 403 'nessun-evento' e 403 'altro-evento' all'accesso (le credenziali di
+     un altro evento: il messaggio del servizio); collegati con l'account di
+     un evento e il link di un ALTRO (&e=): si esce e si chiede di entrare
+     con le credenziali di quella diretta (nessun altro evento al suo posto);
+     &e= mandato al servizio; il link
      ?dimenticata=1 (un vecchio ?u=<nome utente> non si scrive nel campo
      dell'email, e da collegati si toglie dall'indirizzo); SDK di Firebase non scaricato (rete: nuovo
      tentativo; codice rotto: "browser non aggiornato");
@@ -163,6 +167,8 @@ const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco
    «Password dimenticata?»: le prove della frase andrebbero riadattate, e lo
    dicono da sole (controllano che il valore sia ancora vuoto). */
 const FRASE_ISCRIZIONE = 'Non sei ancora iscritto? Iscriviti qui.';
+// la sigla d'apertura (diretta/sigla.js, uno script del browser): la sua durata, come la calcola la pagina
+const NGBSigla = (() => { const c = { window: {}, document: {} }; require('vm').runInNewContext(fs.readFileSync(path.resolve(__dirname, '../sigla.js'), 'utf8'), c); return c.window.NGBSigla; })();
 const MODULO_ISCRIZIONE = (/\n\s*iscrizione: '([^']*)'/.exec(fs.readFileSync(path.resolve(__dirname, '../config.js'), 'utf8')) || [])[1];
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
@@ -428,6 +434,12 @@ function eventoIniziale(T) {
         await eventoProva('ev-azoto', 'Prova: il player di Azoto', { videoId: F.PLAYER_AZOTO });
         // un evento con la sua pagina: l'annullamento dal sito lo trova da li'
         await eventoProva('ev-ritiro', 'Prova: iscrizione annullata dal sito', { paginaEvento: '/ritiro_prova/' });
+        /* il video di YouTube, la registrazione che sembra una diretta: in onda da un minuto, dopo 10 minuti
+           gia' andati in onda prima di una pausa, dal punto 0:30 della registrazione (il video e' finto) */
+        const YT_PROVA = 'https://www.youtube-nocookie.com/embed/ngbProva002?autoplay=1&playsinline=1&rel=0';
+        await eventoProva('ev-youtube', 'Prova: la registrazione di YouTube', {
+            tipoPlayer: 'azoto', videoId: YT_PROVA, videoYouTube: true, inizioVideo: 30, onda: { secondi: 600, da: T.fromMillis(ORA - 60e3) }
+        });
 
         // una password sola per queste persone (mai stampata)
         const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
@@ -451,6 +463,7 @@ function eventoIniziale(T) {
         await nuovoPartecipante('paolovideo', 'Paolo', 'Video', ['ev-video']);
         await nuovoPartecipante('annaazoto', 'Anna', 'Azoto', ['ev-azoto']);
         await nuovoPartecipante('martaritiro', 'Marta', 'Ritiro', ['ev-ritiro']);
+        await nuovoPartecipante('yuritube', 'Yuri', 'Tube', ['ev-youtube']);
         // il servizio vero trova l'account dall'email (indirizzi/{email}), come per chi si iscrive dal modulo
         await db.doc('indirizzi/martaritiro@esempio.it').set({ uid: utentiProva.martaritiro.uid, creato: T.now() });
         const personaProva = email => Object.values(utentiProva).find(u => u.email === email) || null;
@@ -478,6 +491,10 @@ function eventoIniziale(T) {
                 // password giusta, ma nessun evento (per esempio dopo «Togli da questo evento»)
                 if (corpo.email === 'senza.eventi@esempio.it') {
                     return risposta(403, { ok: false, codice: 'nessun-evento', msg: 'Non risulti iscritto a nessuna diretta. Scrivi all\'assistenza.' });
+                }
+                // le credenziali di un altro evento (un account per evento): come il servizio vero, 403 altro-evento
+                if (corpo.email === 'altro.evento@esempio.it') {
+                    return risposta(403, { ok: false, codice: 'altro-evento', msg: 'Queste credenziali sono per «Evento di Milano», non per questa diretta. Entra con l\'email e la password che hai ricevuto per questa diretta (se non le trovi, usa «Password dimenticata?»).' });
                 }
                 /* Le persone dei casi della revisione: come il servizio vero
                    (lib/diretta-accesso.js), l'evento e' quello chiesto dal link se e'
@@ -895,9 +912,87 @@ function eventoIniziale(T) {
             await foto(p, 'attesa-computer', true);
         });
 
+        const giostra = () => p.evaluate(() => {
+            const punti = [...document.querySelectorAll('#schermo-attesa .giostra-punto')];
+            const imm = document.querySelector('#schermo-attesa .sigla-immagine');
+            return { punti: punti.length, ora: punti.findIndex(b => b.getAttribute('aria-current') === 'true'), testo: document.querySelector('#schermo-attesa .sigla-palco').innerText, gruppo: imm ? imm.getAttribute('aria-label') : '' };
+        });
+        await prova('attesa: le carte staccate dalla fascia del titolo; accanto ai testi «Mentre aspetti», le immagini Revilaw che girano da sole (puntini, «Ferma»/«Riprendi»)', async () => {
+            const a = await p.evaluate(() => {
+                const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
+                const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
+                const titolo = document.getElementById('attesa-titolo').getBoundingClientRect();
+                const schermo = document.querySelector('#schermo-attesa .giostra-schermo').getBoundingClientRect();
+                return {
+                    spazio: Math.round(carta.top - fascia.bottom), accanto: schermo.left > titolo.right && schermo.bottom < fascia.bottom,
+                    schermo: [Math.round(schermo.width), Math.round(schermo.height)],
+                    eroe: document.querySelector('#vista-attesa .attesa-eroe').classList.contains('con-schermo'), sigle: document.querySelectorAll('.sigla').length
+                };
+            });
+            vero(a.spazio >= 24, 'la prima carta e\' staccata dalla fascia del titolo (prima vi stava attaccata): ' + a.spazio + ' px');
+            vero(a.eroe && a.accanto && a.schermo[0] >= 480 && Math.abs(a.schermo[0] / a.schermo[1] - 16 / 9) < 0.03, 'sul computer lo schermo e\' accanto ai testi, 16:9: ' + JSON.stringify(a));
+            vero(a.sigle === 0, 'lo schermo dell\'attesa non e\' «la sigla» del video (.sigla): ' + a.sigle);
+            const g1 = await giostra();
+            vero(g1.punti === 5 && g1.ora === 0 && g1.gruppo === 'Immagine 1 di 5' && /Revilaw presenta/i.test(g1.testo) && /Next Generation Business/.test(g1.testo),
+                'la prima immagine, un puntino per immagine (apertura, titolo, programma, percorso, Milano): ' + JSON.stringify(g1));
+            await p.click('#schermo-attesa .giostra-punto:nth-child(3)');
+            const g3 = await giostra();
+            vero(g3.ora === 2 && g3.gruppo === 'Immagine 3 di 5' && /Il programma/.test(g3.testo) && g3.testo.includes(PROGRAMMA[0].titolo), 'il terzo puntino: il programma ' + JSON.stringify(g3));
+            // da sola, dopo SECONDI_GIOSTRA, la successiva: il percorso di Next Generation Business
+            await aspetta(async () => /Per gli imprenditori\. Dagli imprenditori\./.test((await giostra()).testo), 12000, 'l\'immagine successiva, da sola');
+            await p.click('#schermo-attesa .giostra-pausa');
+            vero(await p.textContent('#schermo-attesa .giostra-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .giostra-pausa', 'aria-label') === 'Riprendi le immagini',
+                '«Ferma» diventa «Riprendi»: ' + await p.textContent('#schermo-attesa .giostra-pausa'));
+            await pausa(10000);
+            vero((await giostra()).ora === 3, 'con «Ferma» l\'immagine resta quella');
+            await p.click('#schermo-attesa .giostra-pausa');
+            vero(await p.textContent('#schermo-attesa .giostra-pausa') === 'Ferma', '«Riprendi» torna «Ferma»');
+            await p.click('#schermo-attesa .giostra-punto:nth-child(5)');
+            const g5 = await giostra();
+            vero(/Il prossimo appuntamento · Milano, venerdì 26 febbraio 2027/i.test(g5.testo) && /Merito creditizio, crescita e competitività delle imprese\./.test(g5.testo), 'l\'ultima immagine: il prossimo appuntamento, Milano ' + JSON.stringify(g5));
+            await p.click('#schermo-attesa .giostra-punto:nth-child(1)');
+            await foto(p, 'attesa-mentre-aspetti');
+        });
+
+        await prova('attesa: «Mettiti alla prova», la risposta subito (giusta o no, con la spiegazione), il punteggio annunciato e «Ricomincia»', async () => {
+            vero(await visibile(p, '#carta-gioco'), 'manca «Mettiti alla prova»');
+            const domande = p.locator('#gioco-domande .gioco-domanda');
+            vero(await domande.count() === 3, 'domande: ' + await domande.count());
+            vero(await p.getAttribute('#gioco-esito', 'role') === 'status', 'il punteggio si annuncia (role=status)');
+            // 1: giusta
+            await domande.nth(0).locator('.gioco-scelta', { hasText: 'Sì' }).click();
+            const sp1 = await domande.nth(0).locator('.gioco-spiegazione').innerText();
+            vero(/^Giusto\. Sì: oltre al bilancio la banca guarda la Centrale dei rischi/.test(sp1), 'spiegazione della prima: ' + sp1);
+            vero(await p.textContent('#gioco-esito') === 'Giusto. Risposte giuste: 1 su 1.', 'esito: ' + await p.textContent('#gioco-esito'));
+            // 2: sbagliata: la giusta in verde, la tua in rosso; un altro clic non cambia niente
+            const scelte2 = domande.nth(1).locator('.gioco-scelta');
+            await scelte2.nth(0).click();
+            // il pulsante e' aria-disabled (Playwright non lo premerebbe): il clic forzato non deve cambiare niente
+            await scelte2.nth(1).click({ force: true });
+            const c2 = await domande.nth(1).evaluate(li => [...li.querySelectorAll('.gioco-scelta')].map(b => b.className + '|' + b.getAttribute('aria-disabled')));
+            vero(/gioco-scelta-sbagliata/.test(c2[0]) && /gioco-scelta-giusta/.test(c2[1]) && c2.every(x => /\|true$/.test(x)), 'le risposte della seconda: ' + JSON.stringify(c2));
+            vero(await p.textContent('#gioco-esito') === 'Non proprio: la risposta è «No». Risposte giuste: 1 su 2.', 'esito: ' + await p.textContent('#gioco-esito'));
+            // 3: giusta, finito
+            await domande.nth(2).locator('.gioco-scelta', { hasText: 'adeguati assetti' }).click();
+            vero(/Hai finito: 2 risposte giuste su 3\. Se ne parla nella diretta\.$/.test(await p.textContent('#gioco-esito')), 'esito finale: ' + await p.textContent('#gioco-esito'));
+            vero(!/Se ne parla alle/.test(await p.innerText('#carta-gioco')), 'gli orari del programma del webinar solo nel webinar');
+            await p.locator('#carta-gioco').scrollIntoViewIfNeeded();
+            await foto(p, 'attesa-gioco');
+            // «Ricomincia»: da capo, il fuoco sulla prima risposta
+            await p.click('.gioco-ricomincia');
+            const r = await p.evaluate(() => ({
+                esito: document.getElementById('gioco-esito').textContent, spiegazioni: [...document.querySelectorAll('.gioco-spiegazione')].filter(e => !e.hidden).length,
+                fuoco: document.activeElement ? document.activeElement.textContent : '', ricomincia: !document.querySelector('.gioco-ricomincia').hidden
+            }));
+            vero(r.esito === '' && r.spiegazioni === 0 && r.fuoco === 'Sì' && !r.ricomincia, '«Ricomincia»: ' + JSON.stringify(r));
+            await p.evaluate(() => window.scrollTo(0, 0));
+        });
+
+        let giostraInDiretta = null;
         await prova('la regia manda in onda: la pagina passa da sola alla diretta e il video della web TV scorre', async () => {
             await evento.update({ stato: 'in_onda', videoId: LINK, statoAggiornato: T.now() });
             await vistaE(p, 'diretta', 15000);
+            giostraInDiretta = { da: Date.now(), gruppo: (await giostra()).gruppo };
             await videoVa(p, 30000, 'la diretta della web TV');
             vero((await p.textContent('#stato-evento')).trim() === 'IN DIRETTA', 'bollino: ' + await p.textContent('#stato-evento'));
             vero(await p.getAttribute('#stato-evento', 'data-stato') === 'in_onda', 'bollino non rosso');
@@ -1047,6 +1142,13 @@ function eventoIniziale(T) {
             await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» di nuovo');
             vero(!(await visibile(p, '#btn-live')), '«Torna in diretta» resta al punto live');
             await p.waitForFunction(() => /Di nuovo in diretta/.test(document.getElementById('annuncio').textContent), null, { timeout: 3000 });
+        });
+
+        await prova('fuori dall\'attesa le immagini di «Mentre aspetti» non girano', async () => {
+            vero(giostraInDiretta && giostraInDiretta.gruppo, 'l\'immagine all\'inizio della diretta: ' + JSON.stringify(giostraInDiretta));
+            const resto = giostraInDiretta.da + 10000 - Date.now();
+            if (resto > 0) await pausa(resto);
+            vero(await vistaDi(p) !== 'attesa' && (await giostra()).gruppo === giostraInDiretta.gruppo, 'dopo 10 secondi fuori dall\'attesa la stessa immagine: ' + (await giostra()).gruppo);
         });
 
         await prova('la presenza viene scritta dopo il ritardo casuale (regole vere)', async () => {
@@ -1347,6 +1449,52 @@ function eventoIniziale(T) {
             await q.waitForSelector('body[data-vista="diretta"], body[data-vista="attesa"]', { timeout: 20000 });
             const c2 = chiamate.filter(x => x.azione === 'entra' && x.email === 'mario.rossi@esempio.it').pop();
             vero(!c2.conIdEvento, 'mandato un idEvento non valido: ' + c2.idEvento);
+            await esciDa(q);
+        });
+
+        await prova('le credenziali di un altro evento (403 altro-evento): il messaggio del servizio, nessun accesso', async () => {
+            await q.goto(SITO + '/diretta/?e=' + EVENTO);
+            await entraCome('altro.evento@esempio.it', 'una-password-qualsiasi');
+            await q.waitForFunction(() => /Queste credenziali sono per «Evento di Milano», non per questa diretta/.test(document.getElementById('msg-accesso').textContent), null, { timeout: 10000 });
+            vero(!/Errore del servizio/.test(await q.textContent('#msg-accesso')) && await vistaDi(q) === 'accesso', 'messaggio: ' + await q.textContent('#msg-accesso'));
+        });
+
+        await prova('collegato con l\'account di un evento, il link di un ALTRO evento (&e=): nessun altro evento al suo posto, si esce e si chiede di entrare con le credenziali di quella diretta', async () => {
+            await q.goto(SITO + '/diretta/?e=' + EVENTO);
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
+            const dentro = 'body[data-vista="diretta"], body[data-vista="attesa"], body[data-vista="pausa"], body[data-vista="fine"]';
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            await q.goto(SITO + '/diretta/?e=webinar-altro-2026');
+            await vistaE(q, 'accesso', 20000);
+            vero(/eri entrato con le credenziali di un altro evento\. Per questa diretta entra con l'email e la password che hai ricevuto per questo evento/.test(await q.textContent('#msg-accesso')),
+                'il messaggio sopra l\'accesso: «' + await q.textContent('#msg-accesso') + '»');
+            await q.reload();
+            await vistaE(q, 'accesso', 20000);
+            vero(await vistaDi(q) === 'accesso', 'ricaricando resta l\'accesso: la sessione dell\'altro evento e\' chiusa');
+            vero(q.__erroriPagina.length === 0, 'errori: ' + q.__erroriPagina.join(' | '));
+        });
+
+        await prova('il link di un evento con il nome della piattaforma nell\'identificativo (ev-youtube) ha un codice neutro (?e=c.…): l\'evento giusto, e nell\'indirizzo mai «youtube»', async () => {
+            const codice = 'c.' + Buffer.from('ev-youtube').toString('base64url');
+            vero(!/you-?tu/i.test(codice), 'il codice: ' + codice);
+            await q.goto(SITO + '/diretta/?e=' + codice);
+            await entraCome('yuritube@esempio.it', PASSWORD_PROVA);
+            const dentro = 'body[data-vista="diretta"], body[data-vista="attesa"], body[data-vista="pausa"], body[data-vista="fine"]';
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            const c = chiamate.filter(x => x.azione === 'entra' && x.email === 'yuritube@esempio.it').pop();
+            vero(c && c.idEvento === 'ev-youtube', 'al servizio l\'evento giusto: ' + (c && c.idEvento));
+            vero(!/you-?tu/i.test(q.url()) && new URL(q.url()).searchParams.get('e') === codice, 'l\'indirizzo resta con il codice: ' + q.url());
+            // ricaricando, gia' dentro: il codice vale per l'evento dell'account (nessun «altro evento»)
+            await q.reload();
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            vero(!/altro evento/.test(await q.textContent('#msg-accesso')), 'ricaricando resta nella diretta: ' + await q.textContent('#msg-accesso'));
+            await esciDa(q);
+            // un codice rovinato non vale niente: nessun evento al servizio
+            await q.goto(SITO + '/diretta/?e=c.%21%21');
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            const c2 = chiamate.filter(x => x.azione === 'entra' && x.email === 'mario.rossi@esempio.it').pop();
+            vero(!c2.conIdEvento, 'un codice rovinato manda un idEvento: ' + c2.idEvento);
             await esciDa(q);
         });
 
@@ -1700,6 +1848,166 @@ function eventoIniziale(T) {
         });
         await A.context.close();
 
+        /* =================== IL VIDEO DI YOUTUBE: LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA ===================
+           Il player vero (player-youtube.js) con il finto YouTube di flusso-prova.js al posto di
+           youtube-nocookie; la regia (qui: la prova) scrive il documento dell'evento come il servizio
+           (onda, inizioVideo; vedi email-service/lib/diretta-dati.js, ondaDopo). */
+        console.log('\nIl video di YouTube: la registrazione che sembra una diretta');
+        const evYt = db.doc('eventi/ev-youtube');
+        // il punto atteso adesso: inizioVideo + onda.secondi + (adesso - onda.da)
+        // il punto atteso adesso: inizioVideo + (tempo in onda - la sigla d'apertura)
+        const secondiYt = d => d.onda.secondi + (d.onda.da ? (Date.now() - d.onda.da.toMillis()) / 1000 : 0);
+        const durataSiglaYt = d => NGBSigla.durata(Object.assign({ id: 'ev-youtube' }, d));
+        const puntoAtteso = async () => {
+            const d = (await evYt.get()).data();
+            return (d.inizioVideo || 0) + Math.max(0, secondiYt(d) - durataSiglaYt(d));
+        };
+        const frameYt = pg => pg.frames().find(f => /^https:\/\/www\.youtube-nocookie\.com\/embed\//.test(f.url()));
+        const comandiYt = async pg => { const f = frameYt(pg); if (!f) return []; try { return await f.evaluate(() => window.__comandi.slice()); } catch (e) { return []; } };
+        const ultimoSalto = async pg => (await comandiYt(pg)).filter(c => c[0] === 'seekTo').map(c => c[1]).pop();
+        const statoYt = pg => pg.evaluate(() => {
+            const f = document.querySelector('#video-player .yt-palco iframe');
+            const vede = id => { const e = document.getElementById(id); return !!e && !!(e.offsetWidth || e.offsetHeight); };
+            return {
+                youtube: document.documentElement.classList.contains('modo-youtube'), azoto: document.documentElement.classList.contains('modo-azoto'),
+                src: f ? f.getAttribute('src') : '', pe: f ? getComputedStyle(f).pointerEvents : '', scudo: !!document.querySelector('.yt-scudo:not([hidden])'),
+                sipario: !!document.querySelector('.yt-sipario:not([hidden])'), audio: vede('btn-attiva-audio'), muto: vede('btn-muto'), live: vede('indicatore-live'),
+                intero: vede('btn-schermo-intero'), nota: vede('nota-azoto'), play: vede('btn-play')
+            };
+        });
+        const Y = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+        const yt = await F.instradaYouTube(Y.context);
+        const py = Y.page;
+
+        await prova('la registrazione di YouTube si vede come una diretta: il nostro player, al punto giusto, senza niente di YouTube e con i nostri comandi', async () => {
+            await accedi(py, 'yuritube@esempio.it', PASSWORD_PROVA);
+            await vistaE(py, 'diretta', 30000);
+            await aspetta(async () => (await statoYt(py)).src, 15000, 'l\'iframe di YouTube');
+            const s = await statoYt(py);
+            const u = new URL(s.src);
+            const atteso = await puntoAtteso();
+            vero(s.youtube && s.azoto && u.origin === 'https://www.youtube-nocookie.com' && u.pathname === '/embed/ngbProva002' && u.searchParams.get('controls') === '0'
+                && u.searchParams.get('enablejsapi') === '1' && u.searchParams.get('disablekb') === '1' && Math.abs(Number(u.searchParams.get('start')) - atteso) < 5,
+                'iframe: ' + s.src + ' (atteso il punto ' + atteso.toFixed(1) + ')');
+            vero(s.pe === 'none' && s.scudo, 'il video non si tocca (scudo e pointer-events)');
+            await aspetta(async () => (await ultimoSalto(py)) !== undefined, 10000, 'il salto al punto giusto');
+            const salto = await ultimoSalto(py);
+            const atteso2 = await puntoAtteso();
+            vero(Math.abs(salto - atteso2) < 4, 'seekTo ' + salto.toFixed(1) + ' (atteso ' + atteso2.toFixed(1) + ': 0:30 + 10 minuti + 1 minuto - la sigla d\'apertura, piu\' il tempo della prova)');
+            await aspetta(async () => !(await statoYt(py)).sipario, 10000, 'il sipario che si toglie');
+            const s2 = await statoYt(py);
+            vero(s2.audio && s2.muto && s2.live && s2.intero && !s2.nota && !s2.play, 'i nostri comandi: «Attiva l\'audio», audio, «In diretta», «Schermo intero»; niente pausa e niente nota di Azoto ' + JSON.stringify(s2));
+            const fuori = await py.evaluate(() => document.documentElement.outerHTML.replace(/<iframe[^>]*>/g, '') + document.body.innerText);
+            vero(!/ngbProva002|youtube\.com\/(watch|live)|youtu\.be/.test(fuori), 'fuori dall\'iframe la pagina non contiene il video né un link a YouTube');
+            await py.click('#btn-attiva-audio');
+            await aspetta(async () => (await comandiYt(py)).some(c => c[0] === 'unMute'), 5000, 'unMute');
+            await aspetta(async () => !(await statoYt(py)).audio, 5000, '«Attiva l\'audio» che sparisce');
+            vero((await comandiYt(py)).some(c => c[0] === 'setVolume' && c[1] === 100), '«Attiva l\'audio»: unMute e volume 100 al player, e il pulsante sparisce');
+            await foto(py, 'youtube-diretta-computer');
+        });
+
+        await prova('«Pausa» della regia: il video sparisce e la registrazione si ferma; «Riprendi»: riparte da dove si era fermata, non da dove sarebbe arrivata', async () => {
+            const d = (await evYt.get()).data();
+            const fermo = Math.round((d.onda.secondi + (Date.now() - d.onda.da.toMillis()) / 1000) * 10) / 10;
+            await evYt.update({ stato: 'pausa', statoAggiornato: T.now(), onda: { secondi: fermo, da: null }, videoId: '' });
+            await vistaE(py, 'pausa', 10000);
+            vero(!(await py.$('#video-player .yt-palco iframe')), 'in pausa l\'iframe di YouTube non c\'e\' piu\'');
+            await pausa(4000);
+            await evYt.update({ stato: 'in_onda', statoAggiornato: T.now(), onda: { secondi: fermo, da: T.now() }, videoId: YT_PROVA });
+            await vistaE(py, 'diretta', 10000);
+            await aspetta(async () => (await ultimoSalto(py)) !== undefined, 15000, 'il salto dopo la ripresa');
+            const salto = await ultimoSalto(py);
+            const atteso = 30 + fermo - durataSiglaYt(d);
+            vero(salto >= atteso - 0.5 && salto < atteso + 4, 'dopo 4 secondi di pausa riparte da ' + salto.toFixed(1) + ' (fermo a ' + atteso.toFixed(1) + '): i secondi di pausa non contano');
+        });
+
+        await prova('la regia cambia «Parti dal punto» in onda: chi guarda salta al nuovo punto, senza ricaricare niente', async () => {
+            const iframePrima = await py.$('#video-player .yt-palco iframe');
+            await evYt.update({ inizioVideo: 330 });
+            await aspetta(async () => { const s = await ultimoSalto(py); return s !== undefined && Math.abs(s - await puntoAtteso()) < 4; }, 10000, 'il salto al nuovo punto');
+            const iframeDopo = await py.$('#video-player .yt-palco iframe');
+            vero(await iframePrima.evaluate((a, b) => a === b, iframeDopo), 'lo stesso iframe: solo un seekTo (' + (await ultimoSalto(py)).toFixed(1) + ')');
+        });
+
+        await prova('di nuovo in attesa, con l\'ora d\'inizio passata: i consigli di YouTube (non quelli di Azoto), niente quattro «00», carte in una colonna centrata', async () => {
+            await evYt.update({ stato: 'programmato', statoAggiornato: T.now(), videoId: '', onda: { secondi: 0, da: null } });
+            await vistaE(py, 'attesa', 10000);
+            await pausa(600);
+            const a = await py.evaluate(() => {
+                const vede = e => !!e && !!(e.offsetWidth || e.offsetHeight);
+                const consigli = Array.from(document.querySelectorAll('#vista-attesa .consigli li'));
+                const carta = document.querySelector('#vista-attesa .carta-consigli').getBoundingClientRect();
+                const eroe = document.querySelector('#vista-attesa .attesa-eroe').getBoundingClientRect();
+                const li = document.querySelector('#vista-attesa .consigli li[data-solo="youtube"]');
+                return {
+                    youtube: document.documentElement.classList.contains('modo-youtube'),
+                    visibili: consigli.filter(vede).map(x => x.getAttribute('data-solo') || '-'),
+                    conto: vede(document.getElementById('conto-alla-rovescia')), titolo: document.getElementById('attesa-titolo').textContent,
+                    centro: Math.round((carta.left + carta.right) / 2 - (eroe.left + eroe.right) / 2), larga: Math.round(carta.width),
+                    allineamento: li ? getComputedStyle(li).textAlign : ''
+                };
+            });
+            vero(a.youtube && a.visibili.join() === 'youtube,-,-', 'consigli dell\'attesa: ' + JSON.stringify(a.visibili));
+            vero(!a.conto && a.titolo === 'La diretta sta per iniziare', 'ora d\'inizio passata: ' + JSON.stringify({ conto: a.conto, titolo: a.titolo }));
+            vero(Math.abs(a.centro) <= 1 && a.larga >= 600 && a.larga <= 900 && a.allineamento === 'left',
+                'la carta dei consigli e\' centrata sotto il titolo, larga come la colonna, testo a sinistra: ' + JSON.stringify(a));
+            await foto(py, 'youtube-attesa-computer');
+            // di nuovo in onda per le prove che seguono
+            await evYt.update({ stato: 'in_onda', statoAggiornato: T.now(), videoId: YT_PROVA, onda: { secondi: 600, da: T.fromMillis(Date.now() - 60e3) } });
+            await vistaE(py, 'diretta', 10000);
+        });
+
+        await prova('la sigla d\'apertura: a «Vai in onda» le immagini Revilaw e il conto alla rovescia, il video fermo all\'inizio sotto; poi il video dal punto di partenza', async () => {
+            // la diretta appena andata in onda: la prima immagine
+            await evYt.update({ inizioVideo: 30, onda: { secondi: 0, da: T.now() }, statoAggiornato: T.now() });
+            await aspetta(() => py.evaluate(() => { const s = document.querySelector('.sigla'); return !!s && !s.hidden && /Revilaw presenta/i.test(s.innerText); }), 8000, 'la prima immagine della sigla');
+            const durata = durataSiglaYt((await evYt.get()).data());
+            const s1 = await py.evaluate(() => ({ testo: document.querySelector('.sigla').innerText, audio: !!document.getElementById('btn-attiva-audio').offsetWidth, live: !!document.getElementById('indicatore-live').offsetWidth }));
+            vero(/Next Generation Business/.test(s1.testo) && s1.audio && s1.live, 'la sigla nel riquadro del video, con «Attiva l\'audio» e «IN DIRETTA» sotto (durata ' + durata + ' s) ' + JSON.stringify(s1));
+            await aspetta(async () => (await comandiYt(py)).some(c => c[0] === 'pauseVideo'), 10000, 'il video fermo sotto la sigla');
+            const fermo = await frameYt(py).evaluate(() => window.__stato());
+            vero(fermo === 2, 'sotto la sigla il video di YouTube si e\' caricato ed e\' fermo (stato ' + fermo + ')');
+            // il titolo, poi il conto alla rovescia (chi entra durante la sigla la vede dal punto giusto)
+            await evYt.update({ onda: { secondi: durata - 6, da: T.now() } });
+            await aspetta(() => py.evaluate(() => /La diretta inizia tra/.test(document.querySelector('.sigla').innerText)), 5000, 'il conto alla rovescia');
+            const cifra = Number(await py.evaluate(() => document.querySelector('.sigla-conto-numero').textContent));
+            vero(cifra >= 1 && cifra <= 6, 'a 6 secondi dalla fine: «La diretta inizia tra ' + cifra + '»');
+            await foto(py, 'youtube-sigla-conto');
+            const n = (await comandiYt(py)).length;
+            await aspetta(() => py.evaluate(() => document.querySelector('.sigla').hidden), 20000, 'la sigla che finisce');
+            const dopo = (await comandiYt(py)).slice(n);
+            const salto = dopo.filter(c => c[0] === 'seekTo').map(c => c[1]).pop();
+            vero(dopo.some(c => c[0] === 'playVideo') && salto !== undefined && salto >= 29 && salto <= 36 && (await statoYt(py)).src && !(await statoYt(py)).sipario,
+                'finito il conto il video parte dal punto di partenza (0:30, salto a ' + (salto === undefined ? '-' : salto.toFixed(1)) + ') e la sigla sparisce');
+        });
+
+        await prova('nessuna violazione della CSP e nessun errore con il video di YouTube; solo youtube-nocookie nell\'iframe', async () => {
+            vero((await py.evaluate(() => window.__violazioniCsp)).length === 0, 'violazioni: ' + (await py.evaluate(() => window.__violazioniCsp)).join(' | '));
+            vero(py.__erroriPagina.length === 0, 'errori: ' + py.__erroriPagina.join(' | '));
+            vero(yt.richieste.length > 0 && yt.richieste.every(r => /^https:\/\/www\.youtube-nocookie\.com\/embed\/ngbProva002\?/.test(r)), 'richieste a YouTube: ' + yt.richieste.join(', '));
+        });
+        await Y.context.close();
+
+        await prova('un dispositivo con l\'orologio avanti di 10 minuti vede lo stesso punto degli altri (l\'ora la dice il sito, intestazione Date)', async () => {
+            const Z = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, {
+                prove: { ritardoPresenzaMs: 999999 },
+                initScript: () => { const vero = Date.now.bind(Date); Date.now = () => vero() + 600000; }
+            });
+            await F.instradaYouTube(Z.context);
+            const pz = Z.page;
+            try {
+                await accedi(pz, 'yuritube@esempio.it', PASSWORD_PROVA);
+                await vistaE(pz, 'diretta', 30000);
+                vero(await pz.evaluate(() => Date.now() - new Date().getTime()) > 590000, 'l\'orologio del dispositivo e\' davvero avanti di 10 minuti');
+                await aspetta(async () => { const s = await ultimoSalto(pz); return s !== undefined && Math.abs(s - await puntoAtteso()) < 5; }, 15000, 'il punto giusto con l\'orologio sbagliato')
+                    .catch(() => null);
+                const salto = await ultimoSalto(pz);
+                const atteso = await puntoAtteso();
+                vero(salto !== undefined && Math.abs(salto - atteso) < 5, 'seekTo ' + (salto === undefined ? '-' : salto.toFixed(1)) + ', atteso ' + atteso.toFixed(1) + ' (senza la correzione sarebbe ' + (atteso + 600).toFixed(1) + ')');
+                vero(pz.__erroriPagina.length === 0, 'errori: ' + pz.__erroriPagina.join(' | '));
+            } finally { await Z.context.close(); }
+        });
+
         /* =================== CARICAMENTO DELL'SDK =================== */
         console.log('\nSDK di Firebase non scaricato');
         await prova('SDK non scaricato per la rete: «Non riusciamo a caricare la diretta» (non «browser non aggiornato») e nuovo tentativo da solo al ritorno della rete', async () => {
@@ -1777,6 +2085,21 @@ function eventoIniziale(T) {
             await t.fill('#campo-password', passwordIniziale);
             await t.tap('#btn-entra');
             await vistaE(t, 'attesa', 20000);
+            await pausa(500);
+            const m = await t.evaluate(() => {
+                const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
+                const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
+                const testi = document.querySelector('#vista-attesa .attesa-testi').getBoundingClientRect();
+                const s = document.querySelector('#schermo-attesa .giostra-schermo').getBoundingClientRect();
+                const scelta = document.querySelector('#gioco-domande .gioco-scelta').getBoundingClientRect();
+                const punto = document.querySelector('#schermo-attesa .giostra-punto').getBoundingClientRect();
+                return {
+                    spazio: Math.round(carta.top - fascia.bottom), sotto: s.top >= testi.bottom, quadrato: Math.abs(s.width - s.height) <= 1, largo: Math.round(s.width),
+                    scelta: Math.round(scelta.height), punto: [Math.round(punto.width), Math.round(punto.height)], orizzontale: document.documentElement.scrollWidth
+                };
+            });
+            vero(m.spazio >= 20 && m.sotto && m.quadrato && m.largo >= 330 && m.scelta >= 44 && m.punto[0] >= 24 && m.punto[1] >= 24 && m.orizzontale <= 390,
+                'attesa sul telefono: carte staccate, lo schermo sotto i testi (quadrato), pulsanti grandi, niente scorrimento orizzontale ' + JSON.stringify(m));
             await foto(t, 'attesa-telefono', true);
         });
 

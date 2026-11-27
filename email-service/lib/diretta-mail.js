@@ -179,16 +179,19 @@ function idEventoDi(o) {
     const id = String((o && o.idEvento) || (o && o.evento && o.evento.id) || '');
     return RE_ID_EVENTO.test(id) ? id : '';
 }
-// /diretta/?e=napoli-2026 (senza un evento valido: /diretta/)
+// /diretta/?e=napoli-2026 (senza un evento valido: /diretta/; con il nome della piattaforma: in codice, C.eventoNelLink)
 function linkAccesso(idEvento) {
     const url = C.linkDiretta();
     if (!RE_ID_EVENTO.test(String(idEvento || ''))) return url;
-    return url + '?e=' + encodeURIComponent(idEvento);
+    return url + '?e=' + encodeURIComponent(C.eventoNelLink(idEvento));
 }
 /* /diretta/?dimenticata=1: la pagina si apre direttamente su
-   "Password dimenticata?" (l'email la scrive la persona). */
-function linkDimenticata() {
-    return C.baseSito() + '/diretta/?dimenticata=1';
+   "Password dimenticata?" (l'email la scrive la persona). Con l'evento
+   (&e=): la stessa email puo' avere un account per ogni evento, e si
+   reimposta quello di questo evento. */
+function linkDimenticata(idEvento) {
+    const base = C.baseSito() + '/diretta/?dimenticata=1';
+    return RE_ID_EVENTO.test(String(idEvento || '')) ? base + '&e=' + encodeURIComponent(C.eventoNelLink(idEvento)) : base;
 }
 function linkPaginaEvento(pagina) {
     const p = String(pagina || '').trim();
@@ -573,7 +576,7 @@ function iscrittoAnche(opz) {
     const ev = datiEvento(o.evento);
     const email = emailDi(o);
     const accedi = linkAccesso(idEventoDi(o));
-    const dimenticata = linkDimenticata();
+    const dimenticata = linkDimenticata(idEventoDi(o));
     const a = contatti(o.assistenza);
     const altre = fraseAltreStrade(o.paginaEvento || (o.evento && o.evento.paginaEvento));
     const quando = [ev.giorno, orario(ev)].filter(Boolean).join(', ');
@@ -652,7 +655,7 @@ function promemoria(opz) {
     const adesso = Number.isFinite(Number(o.adesso)) ? Number(o.adesso) : Date.now();
     const email = emailDi(o);
     const accedi = linkAccesso(idEventoDi(o));
-    const dimenticata = linkDimenticata();
+    const dimenticata = linkDimenticata(idEventoDi(o));
     const a = contatti(o.assistenza);
     const altre = fraseAltreStrade(o.paginaEvento || (o.evento && o.evento.paginaEvento));
     const giorni = Number.isFinite(ev.inizio) ? giorniFra(adesso, ev.inizio) : NaN;
@@ -741,18 +744,24 @@ function reimpostazione(opz) {
     const a = contatti(o.assistenza);
     const gestore = !!o.perGestore;
     const email = gestore ? '' : emailDi(o);
+    /* Lo stesso indirizzo puo' avere un account per ogni evento: l'email
+       dice di quale evento e' la password (titoloEvento), se si sa. */
+    const titoloEvento = gestore ? '' : unaRiga(o.titoloEvento).slice(0, 160);
     const oggetto = gestore
         ? 'Accesso alla gestione della diretta - Next Generation Business'
-        : 'Nuova password per la diretta - Next Generation Business';
+        : 'Nuova password per la diretta - ' + (titoloEvento || 'Next Generation Business');
     const titolo = gestore ? 'Accesso alla gestione della diretta' : 'Scegli una nuova password';
     const sommario = gestore
         ? (unaRiga(o.nome) ? 'Gentile ' + unaRiga(o.nome) + ', per' : 'Per') + ' entrare nella gestione della diretta di Next Generation Business scegli la tua password dal pulsante qui sotto.'
-        : saluto(o.nome, o.cognome) + ' abbiamo ricevuto la richiesta di una nuova password per la diretta di Next Generation Business.';
+        : saluto(o.nome, o.cognome) + ' abbiamo ricevuto la richiesta di una nuova password per la diretta '
+            + (titoloEvento ? '«' + titoloEvento + '»' : 'di Next Generation Business') + '.';
     const fraseValidita = 'Il collegamento vale un\'ora e si può usare una volta sola.';
     const fraseIgnora = gestore
         ? 'Se non hai chiesto tu l\'accesso, ignora questa email: senza il collegamento nessuno può entrare.'
         : 'Se non hai chiesto tu una nuova password, ignora questa email: quella attuale resta valida.';
-    const fraseDopo = 'Poi entri nella diretta con la tua email e la password nuova, per tutti gli eventi a cui sei iscritto.';
+    const fraseDopo = titoloEvento
+        ? 'Poi entri nella diretta «' + titoloEvento + '» con la tua email e la password nuova.'
+        : 'Poi entri nella diretta con la tua email e la password nuova.';
     const etichetta = gestore ? 'Imposta la password' : 'Scegli la nuova password';
 
     const html = involucro(oggetto, sommario,

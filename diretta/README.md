@@ -696,7 +696,16 @@ provano a mano, con Azoto che trasmette una prova:
 ### 6.2 La settimana prima
 
 1. **Evento** (scheda *Evento*): identificativo (per Napoli `napoli-2026`,
-   lo stesso scritto in `assets/diretta-stato.js`), titolo, luogo, data, ora
+   lo stesso scritto in `assets/diretta-stato.js`; si vede nel link che
+   ricevono i partecipanti, `/diretta/?e=<identificativo>`, che la gestione
+   mostra sotto il campo: per gli eventi nuovi la gestione e il servizio non
+   accettano il nome della piattaforma del video, come `prova-youtube`, e dal
+   titolo la proposta lo toglie da sola; negli eventi di prima che ce l'hanno
+   nel link e nelle email c'è al suo posto un **codice neutro**,
+   `?e=c.<base64url dell'identificativo>`, per esempio `prova-youtube` →
+   `?e=c.cHJvdmEteW91dHViZQ`: lo fanno da soli il servizio,
+   `email-service/lib/diretta-comune.js` `eventoNelLink`, e le pagine; i link
+   vecchi con l'identificativo in chiaro funzionano ancora), titolo, luogo, data, ora
    di inizio e di fine, **tipo di player** e codice (o indirizzo) del player di
    Azoto (§5), programma (una voce per
    riga: `09.00 Accoglienza`), pagina dell'evento (`/napoli_ottobre_2026/`),
@@ -712,8 +721,8 @@ provano a mano, con Azoto che trasmette una prova:
    inviare le credenziali agli indirizzi del file**).
    L'**anteprima** controlla riga per riga le **email** e mostra i problemi, a
    colori: email mancanti o non valide, nome o cognome vuoti, doppioni nel
-   file, persone già presenti (vengono solo aggiunte all'evento, senza password
-   nuova), la stessa email per persone diverse (da correggere), un file salvato
+   file, persone già nell'evento (o tolte e da rimettere, con il loro account),
+   la stessa email per persone diverse dello stesso evento (da correggere), un file salvato
    con la codifica sbagliata (lettere come `Ã²`). Il filtro "Solo da controllare"
    mostra solo quelle. Per ogni riga puoi correggere o escludere;
    **"Crea gli account" resta spento finché c'è qualcosa da sistemare**. Gli
@@ -724,9 +733,10 @@ provano a mano, con Azoto che trasmette una prova:
    **Una persona sola, senza file** (chi vi scrive o telefona, un'azienda iscritta
    in presenza che non potrà venire): nella stessa scheda, **«Aggiungi un
    partecipante»**, con nome, cognome, email e, se c'è, l'azienda. Stessi
-   controlli del file: una email = un account; la stessa email di un'altra
-   persona è rifiutata con il nome registrato. Chi ha già un account per un
-   altro evento viene solo aggiunto. Nell'elenco compare **«aggiunto a mano»**
+   controlli del file: in un evento una email = un account; la stessa email di
+   un'altra persona dello stesso evento è rifiutata con il nome di chi c'è già.
+   Un'email usata in un altro evento non è un problema: per questo evento nasce
+   un account suo. Nell'elenco compare **«aggiunto a mano»**
    (con chi e quando), nell'Excel la colonna *Origine*. Anche qui **non parte
    nessuna email**. Subito sotto c'è **«Invia ora le credenziali»**, con la
    conferma: manda quello che manderebbe «Invia le credenziali», cioè le
@@ -1041,20 +1051,38 @@ da Excel, e un `mailto:` davanti); punti e `+` restano come sono. È una sola
 regola (`email-service/lib/diretta-email.js`), la stessa per pagina, gestione e
 servizio.
 
-**Un'email = un account = una persona.** Chi è iscritto a più eventi ha un solo
-account con più eventi.
-1. Se l'email c'è già, o compare due volte nel file, non si crea niente di
-   nuovo: la persona viene solo aggiunta all'evento. Ricaricare lo stesso file
-   non crea niente.
-2. **La stessa email per persone diverse** (nel file, o rispetto a un account
-   che c'è già con un altro nome) è da correggere prima di creare: con l'email
-   come accesso non può valere per due persone. L'anteprima la segna in rosso e
-   "Crea gli account" resta spento.
-3. **Garanzia tecnica.** Ogni email si **prenota** con una transazione nel
-   server (`indirizzi/{email}`): due caricamenti contemporanei, o un
-   caricamento e un'iscrizione dal modulo del sito nello stesso momento, non
-   possono creare due account per la stessa email. Le prove lo dimostrano
-   (§10).
+**Ogni evento, i suoi partecipanti (dal 25 novembre 2026).** Gli iscritti di
+un evento sono distinti da quelli degli altri: **in un evento un'email = un
+account = una persona**, ma la stessa email in due eventi sono **due account
+diversi**, ognuno con il suo nome, la sua password e le sue credenziali.
+1. Se l'email è già nell'evento, o compare due volte nel file, non si crea
+   niente di nuovo. Ricaricare lo stesso file non crea niente. Chi era stato
+   tolto dall'evento ci torna con il suo account.
+2. **Un'email già usata in un altro evento** (dalla stessa persona o da
+   un'altra, anche con un altro nome) non è un problema e non si segnala: per
+   questo evento nasce un account suo, e l'account dell'altro evento non si
+   tocca (né il nome, né la password).
+3. **La stessa email per persone diverse dello stesso evento** (nel file, o
+   rispetto a chi c'è già con un altro nome) è da correggere prima di creare:
+   con l'email come accesso non può valere per due persone. L'anteprima la
+   segna in rosso e "Crea gli account" resta spento.
+4. **L'accesso.** Si entra sempre con email e password: con più account per la
+   stessa email (uno per evento) entra quello di cui è la password, provato per
+   primo quello dell'evento del link (`?e=`). Con le credenziali di un altro
+   evento sul link di questa diretta non si entra: la pagina dice per quale
+   evento sono quelle credenziali, e non apre mai un'altra diretta al posto di
+   quella dell'invito. Se sul dispositivo era rimasto aperto l'account di un
+   altro evento, la pagina esce e chiede di entrare con le credenziali di
+   questa diretta. **«Password dimenticata?»** dalla pagina di un evento
+   reimposta l'account di quell'evento (l'email dice di quale evento è la
+   password); senza un evento, ne parte una per ogni account dell'email.
+5. **Garanzia tecnica.** Ogni email si **prenota** con una transazione nel
+   server (`indirizzi/{email}`, con `perEvento.{evento}` → l'account di quel
+   evento; gli account nati prima di questa regola, con più eventi, restano
+   validi per i loro eventi): due caricamenti contemporanei, o un caricamento
+   e un'iscrizione dal modulo del sito nello stesso momento, non possono
+   creare due account per la stessa email nello stesso evento. Le prove lo
+   dimostrano (§10).
 
 **L'email tecnica.** Dietro ogni persona c'è un account Firebase con un'email
 tecnica che nessuno vede e a cui non arriva niente
@@ -1187,12 +1215,14 @@ una password nuova** e con il collegamento alla **diretta di quell'evento**
 sia nel pulsante «Accedi alla diretta»). Anche a chi una password l'aveva già:
 le credenziali di un altro evento, una password detta a voce ("Nuova password
 da comunicare a voce"), una scelta con **"Password dimenticata?"**, o è già
-entrato. L'account resta uno solo, con una sola password per tutti gli eventi:
-quella nuova prende il posto della vecchia, e l'email lo scrive in testa
-(«Avevi già ricevuto le credenziali per un altro evento…», «Questa password
-sostituisce quella che usavi finora…», «Questa email sostituisce le
-precedenti…»). Chi in quel momento segue un'altra diretta con la password
-vecchia viene scollegato entro un'ora e rientra con quella nuova. L'avviso
+entrato. Con gli account distinti per evento (vedi «Ogni evento, i suoi
+partecipanti») la password nuova vale per l'account di quell'evento e prende il
+posto di quella che l'account aveva, e l'email lo scrive in testa («Questa
+password sostituisce quella che usavi finora…», «Questa email sostituisce le
+precedenti…»; per gli account di prima, con più eventi, anche «Avevi già
+ricevuto le credenziali per un altro evento…»: lì la password è una per tutti i
+loro eventi, e chi in quel momento segue un'altra diretta viene scollegato
+entro un'ora e rientra con quella nuova). L'avviso
 "Sei iscritto anche a…" senza password, che si mandava prima a chi una
 password l'aveva già, **non parte più** (nelle email di prova non c'è più).
 Chi per un evento aveva ricevuto solo quell'avviso (prima di questa regola) non
@@ -1291,8 +1321,9 @@ Promozioni e segna il mittente come sicuro."
   gli antispam che aprono i collegamenti non eseguono); le password che partono
   da sole al clic hanno un limite per rete e uno orario complessivo (tenuti
   nel progetto della diretta, in `limiti/`), e al massimo il 60 % del tetto
-  giornaliero; la stessa email di un'altra persona non si unisce mai al suo
-  account (finisce fra le iscrizioni "da verificare").
+  giornaliero; la stessa email di un'altra persona dello stesso evento non si
+  unisce mai al suo account (finisce fra le iscrizioni "da verificare"); in
+  un altro evento nasce un account suo.
 - **Gestori**: l'elenco sta nella variabile `DIRETTA_ADMIN_EMAILS` e si
   controlla a ogni chiamata; l'account di gestione lo attiva solo il servizio
   ("Primo accesso o password dimenticata" nella pagina di gestione), e chi
@@ -1485,12 +1516,12 @@ node e2e.prova.js              # solo il percorso completo
 | `email-service/prove/diretta-domande.prove.js` | **le domande al relatore**, dalla porta vera (`api/diretta-domande.js`) con Firestore e Auth finti: testo ripulito, troppo corto, lungo o con troppe righe, una ogni 8 secondi; non iscritto, disattivato, altro dispositivo; chiuse dopo «Termina» e con l'interruttore spento; «mie» solo le proprie (e se chi chiama è relatore); i relatori sono partecipanti segnati dalla regia (`relatore-segna`: solo iscritti all'evento, più d'uno, al massimo 10); il relatore vede le domande del suo evento (senza email), non quelle di un altro; un partecipante non segnato, un account qualsiasi con email e password: 403; account disattivato, tolto dall'evento, segno tolto: 403 da subito; «Risposta data» messa e tolta, da relatore e regia; i partecipanti con chi è collegato e chi è relatore; il segno anche nel profilo (`relatoreDi`), rimesso in pari da «mie» e da «Segna come relatore» | 68 verdi, 0 rossi |
 | `regole.prova.js` | le regole di Firestore: un partecipante legge solo il suo evento e il suo profilo; presenze solo nelle forme e nei tempi previsti; account disattivato o secondo dispositivo; un evento **tolto** (annullato dal sito, tolto dal gestore) non si legge e non riceve segnali, anche con il token di prima, e la controprova; **gli ascolti** (`ascolti`, `ascoltiCache`) e il registro di «Torna alla fase iniziale» (`azzeramenti`) chiusi a tutti i browser, anche al gestore; presenze e registro non si cancellano dal browser; **i promemoria programmati** (`programmate`) né letti né scritti dal browser, nemmeno dal gestore | 111 verdi, 0 rossi |
 | `separazione.prova.js` | nessun collegamento con l'area riservata; un token della diretta è rifiutato dal progetto dello studio; l'unico ponte (`lib/sito-iscrizioni.js`, per la riconciliazione) è in sola lettura: un'app con un nome suo, la sola raccolta `iscrizioni`, filtri solo su `ricevuto` ed `emailConfermata.quando`, nessuna scrittura, nessun account, e lo carica solo la riconciliazione | 20 verdi, 0 rossi |
-| `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse, correzioni: **zero account doppi, un account per email**; **l'aggiunta a mano** con le stesse regole (email normalizzata, l'email di un'altra persona rifiutata con il suo nome, errori sul campo, account disattivato, due aggiunte insieme = un account, una persona di un altro evento aggiunta senza account nuovo, origine «manuale» con chi e quando), mai un'email | 102 verdi, 0 rossi |
-| `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player | 201 verdi, 0 rossi |
+| `doppioni.prova.js` | stesso file due volte, stessa email scritta in modi diversi, **tre caricamenti contemporanei** con le stesse persone, email condivise da persone diverse dello stesso evento, correzioni: **zero account doppi, in ogni evento un account per email**; **ogni evento i suoi partecipanti**: le stesse persone in un secondo evento hanno account loro (uid diversi, claims del solo evento, gli altri intatti), l'email di un account di un altro evento non è mai «condivisa», la correzione dell'email verso un indirizzo usato solo in un altro evento si può; **l'aggiunta a mano** con le stesse regole (email normalizzata, l'email di un'altra persona dello stesso evento rifiutata con il suo nome, errori sul campo, account disattivato, due aggiunte insieme = un account, una persona di un altro evento: un account nuovo per questo, origine «manuale» con chi e quando), mai un'email | 104 verdi, 0 rossi |
+| `accesso.prova.js` | accesso con l'email (anche in maiuscolo o con spazi), 5 errori e attesa crescente, 20 tentativi contemporanei (ne arrivano 5), 100 password sbagliate insieme dalla stessa rete (ne arrivano alla verifica al massimo 40), raffiche di "password dimenticata" (mai più di 20 email l'ora per rete, e sul profilo resta quando è partita), risposte e tempi uguali (mai prima di 900 ms), un account riattivato entra subito anche dalla rete da cui aveva sbagliato, il "Reinvia" a chi aveva scelto la sua password dice che non vale più, gestori (anche chi si registra da solo con l'email di un gestore), stato pubblico; link della web TV salvati come indirizzo, http e RTMP rifiutati; `link-video` solo a chi è iscritto, in onda, dal dispositivo ammesso e solo con il flusso diretto; lo stato pubblico non dice mai niente del player; **la stessa email in due eventi**: entra l'account di cui è la password (prima quello del link), con le credenziali di un altro evento sul link di questa diretta 403 «altro-evento» con il titolo di quell'evento, «Password dimenticata?» dalla pagina di un evento reimposta solo il suo account (oggetto con il titolo, collegamento con `&e=`) e la password dell'altro resta | 210 verdi, 0 rossi |
 | `coda.prova.js` | 1000 credenziali con rifiuti, errori, un processo ucciso a metà, blocco di Brevo, tetto giornaliero, due giri insieme: **nessuna email doppia**; promemoria una volta sola e mai con la password; ogni evento le sue credenziali (chi ha già le credenziali di un altro evento riceve quelle nuove, con il collegamento alla diretta del nuovo evento, e la password di prima non vale più); il modulo del sito al massimo al 60 % del tetto giornaliero, le credenziali del gestore passano anche dietro un lotto tutto fermo | 164 verdi, 0 rossi |
 | `programmate.prova.js` | **le email programmate, lato servizio**, con gli emulatori e l'orologio spostato: i testi del gestore (obbligatori, lunghezze, 12 righe, niente HTML né collegamenti; nell'email la nota è testo), orari non validi, nel passato o dopo la fine, destinatari; chi lo riceve (credenziali «inviata» prima dell'ora, account attivo, ancora nell'evento; mai «da confermare», «da inviare», «respinta», «incerto»; «Solo chi non è ancora mai entrato»); modifica e annullamento con chi e quando, al massimo 10; il cron: niente prima dell'ora, **una email per persona anche con due giri insieme**, il collegamento dell'evento, «Password dimenticata?», mai la password; il tetto al 70 % con le credenziali che passano ancora; «in corso» si può solo fermare, e un giro in corso si ferma al lotto dopo; evento terminato o finito; anteprima e prova al gestore; le azioni della gestione (401, 403, 200, 400); nei log solo numeri | 88 verdi, 0 rossi |
-| `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`), **la conferma dell'indirizzo vera** (l'azione `conferma-email`, con la firma vera) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account subito, «da confermare», nessuna email; la password al clic sulla conferma), due clic insieme (una email), il clic che arriva prima dell'account (lo crea il clic), il clic a interruttore spento o a evento terminato (niente), «Invia le credenziali» che non li raggiunge e «Invia anche a loro» che sì, il gestore che corregge l'email di chi aspetta la conferma, iscrizione ripetuta (una sola password), email già con un account (evento aggiunto e le credenziali del nuovo evento, con una password nuova e il suo collegamento; quella di prima non vale più), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto (contati al clic); la conferma del sito per chi segue online (con il pulsante chiede prima il clic); su Vercel anche la pagina della conferma non aspetta l'invio; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione e durante il clic (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta** a chi aveva confermato, «da confermare» a chi no; il clic perso di chi aveva già l'account ritrovato dalla seconda passata (le schede confermate); la conferma d'ufficio (pregresso) che non manda niente; la scheda di prima dell'accensione che non parte nemmeno al clic; le schede di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, chi annulla prima di cliccare (credenziali «da confermare» cancellate, e il clic sulla scheda annullata non manda niente), la riattivazione con l'interruttore acceso («anche» subito se la scheda era confermata, altrimenti «da confermare» e la password al clic) e spento (solo la riga) | 173 verdi, 0 rossi |
-| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, senza «Non sei ancora iscritto? Iscriviti qui.» (`iscrizione` vuoto in `diretta/config.js`: il webinar è su invito; con un evento pubblico la frase torna, sotto «Entra» e sotto la risposta di «Password dimenticata?»), «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando | 61 verdi, 0 rossi |
+| `iscrizioni.prova.js` | **le iscrizioni dal modulo del sito**, con il modulo vero (`api/iscrizione-nuova.js`), **la conferma dell'indirizzo vera** (l'azione `conferma-email`, con la firma vera) e i due progetti Firebase separati: interruttore spento (nessun account, nessuna email), acceso (account subito, «da confermare», nessuna email; la password al clic sulla conferma), due clic insieme (una email), il clic che arriva prima dell'account (lo crea il clic), il clic a interruttore spento o a evento terminato (niente), «Invia le credenziali» che non li raggiunge e «Invia anche a loro» che sì, il gestore che corregge l'email di chi aspetta la conferma, iscrizione ripetuta (una sola password), email già con un account per un altro evento (per questo evento un account suo, con le sue credenziali e il suo collegamento; quello dell'altro evento e la sua password restano; la stessa email di un'altra persona in un altro evento non è «da verificare»), pagina che non corrisponde a nessun evento, diretta non configurata (il modulo risponde come sempre), Brevo fermo (resta in coda); su Vercel il modulo risponde **nello stesso tempo** per un indirizzo nuovo e per uno già iscritto; vince il percorso della pagina; «Password dimenticata?» prima delle credenziali (la password scelta resta: «anche»); email corretta dal gestore (niente seconda password); **email di un'altra persona** e **email non accettata** (nessun account toccato, righe «da verificare»); limiti per rete, orario e 60 % del tetto (contati al clic); la conferma del sito per chi segue online (con il pulsante chiede prima il clic); su Vercel anche la pagina della conferma non aspetta l'invio; **la riconciliazione**: il servizio della diretta che fallisce durante l'iscrizione e durante il clic (la scheda del sito c'è, l'account no) e il giro del cron che crea l'account e manda la password **una volta** a chi aveva confermato, «da confermare» a chi no; il clic perso di chi aveva già l'account ritrovato dalla seconda passata (le schede confermate); la conferma d'ufficio (pregresso) che non manda niente; la scheda di prima dell'accensione che non parte nemmeno al clic; le schede di un altro evento, in sala o annullate lasciate stare, il limite orario (si aspetta l'ora dopo) e il 60 % del tetto, un secondo giro che non fa niente, la chiave del sito che manca o la lettura che fallisce; **l'annullamento dal sito**: account senza l'evento, credenziali non partite cancellate, riga «da verificare», con il token di prima le regole vere non fanno più leggere l'evento, il cron non manda niente e la riconciliazione non lo rimette dentro, chi ha un'altra scheda attiva resta, un altro posto dell'ordine esce, chi annulla prima di cliccare (credenziali «da confermare» cancellate, e il clic sulla scheda annullata non manda niente), la riattivazione con l'interruttore acceso («anche» subito se la scheda era confermata, altrimenti «da confermare» e la password al clic) e spento (solo la riga) | 174 verdi, 0 rossi |
+| `pagina.prova.js` | la pagina della diretta su computer e iPhone (senza schermo intero, come Safari): accesso con l'email, senza «Non sei ancora iscritto? Iscriviti qui.» (`iscrizione` vuoto in `diretta/config.js`: il webinar è su invito; con un evento pubblico la frase torna, sotto «Entra» e sotto la risposta di «Password dimenticata?»), «Password dimenticata?» con la risposta sempre uguale e lo Spam; attesa, messa in onda, pausa dell'evento, fine e ritorno in onda, reimpostazione; **player Azoto**: un evento vecchio senza tipo di player che passa da solo alla modalità A, in onda senza indirizzo («Il video sta per arrivare»), indirizzo non ammesso (`javascript:`, http, un sito che imita Azoto: «Video non disponibile», nessun iframe, nessuna richiesta, e la CSP blocca davvero un iframe di un altro sito), player che non risponde con l'avviso a 15 secondi e «Ricarica il video»; **flusso diretto** con la web TV di prova: avvio muto con il grande «Attiva l'audio», il nostro `<video>` (niente comandi del browser, niente "scarica", niente picture-in-picture, tasto destro annullato), «IN DIRETTA», qualità, pausa e «Torna in diretta», scorciatoie, schermo intero, cambio del link senza ricaricare e senza aprire altri ascolti di Firestore, link non valido, connessione persa; e i casi difficili: un solo dispositivo con due browser veri, due schede e una congelata, localStorage bloccato, hls.js che arriva tardi, avvio automatico bloccato, anteprima del gestore, componenti di Firebase che non si scaricano; l'iscrizione **annullata dal sito con la pagina aperta** (il servizio vero): la pagina dice «Non sei più iscritto a questa diretta», anche rientrando; l'attesa con le carte staccate dalla fascia del titolo, **«Mentre aspetti»** (lo schermo accanto al conto alla rovescia, le immagini che girano da sole, i puntini, «Ferma»/«Riprendi», ferme fuori dall'attesa; sul telefono sotto e quadrato) e **«Mettiti alla prova»** (risposta giusta e sbagliata, spiegazione, punteggio annunciato, «Ricomincia»); il link con il **codice neutro** (`?e=c.…`) per un identificativo con il nome della piattaforma | 61 verdi, 0 rossi |
 | `ascolti.prova.js` | **gli ascolti, lato servizio**, con gli emulatori e l'orologio spostato a mano: una curva nota (attesa, in onda, pausa, rientri), un buco del cron di 2 minuti (i tratti continuano) e uno di 6 (la linea si interrompe, ma chi c'era prima e dopo resta: niente finti rientri), il cron doppio o in ritardo (niente doppioni), gli eventi fuori finestra (nessuna lettura oltre agli eventi); controlli **esatti** di picco (a parità il primo), minimo in onda (senza i primi e gli ultimi 5 minuti), media, cali, ascolto per voce del programma (ore di Roma), ingressi ogni 5 minuti, dispositivi per persona, persone e linee del tempo; la cache di 60 s (poi 10 minuti) compressa; 404 e 400; la funzione del cron con e senza `CRON_SECRET`; **1000 persone**: fotografia in 75-110 ms con 1003 letture, documento degli ascolti di 120-243 KB, risultato di 793 KB che in cache diventa 111 KB | 85 verdi, 0 rossi |
 | `ascolti-pagina.prova.js` | **la scheda *Ascolti* della gestione**, con un risultato realistico (380 persone, 8 ore, pausa pranzo, 13 voci del programma) che coincide voce per voce con quello che calcola il servizio: le tessere del riepilogo, picco e minimo nel grafico nel punto giusto, le pause, le voci del programma, il riquadro con ora e numero al passaggio, al tocco e con le frecce, «Vedi i dati del grafico», la voce più seguita, l'istogramma degli ingressi, i dispositivi, l'elenco delle persone (ricerca, filtri, ordinamento, «Mostra altre», linea del tempo), i non collegati con «Copia gli indirizzi», l'Excel con i sei fogli, la stampa (solo la scheda), l'aggiornamento ogni minuto solo con la scheda aperta, l'evento senza dati, il telefono senza scorrimento di lato; e la risposta vera del servizio per un evento vuoto | 107 verdi, 0 rossi |
 | `gestione.prova.js` | la gestione contro il servizio vero, su computer, tablet e telefono: anteprima di un file CSV ed Excel controllata per **email** (nuovi, già registrati, doppie, email condivise da persone diverse, email sbagliate, correzioni ed esclusioni), creazione a gruppi con "Riprendi" **senza nessuna email** (partono solo con «Invia le credenziali»), l'interruttore «Invia la password a chi si iscrive dal modulo del sito, dopo che ha confermato l'indirizzo» (con i suoi errori), chi non ha ancora confermato («da confermare» nell'elenco e nel filtro, il conteggio e il riquadro della scheda Email, «Copia gli indirizzi», «Invia anche a loro»), ricerca e azioni sul partecipante, cambio dell'email; **il tipo di player**: Azoto predefinito, flusso diretto sceglibile solo con un `.m3u8`; il **codice vero di Azoto** (si salva solo l'indirizzo, controllato nella richiesta e in Firestore); **codice malevolo** (script, `onload`, `onerror`, `srcdoc`, secondo iframe, `javascript:`): nessuno script eseguito, nessuna richiesta ad altri siti; 9 indirizzi non ammessi rifiutati dalla pagina e dal servizio; «Prova il player» (si può usare, non si lascia incorporare, rimanda altrove, non risponde); regia in onda: A→B→A per tutti, cambio del player per tutti, il flusso in uso che non si può togliere; il documento pubblico dell'evento seguito per tutta la prova (mai indirizzi fuori onda, mai HTML, mai la chiave); il flusso diretto come prima (riserva, CORS, link firmati: la chiave non esce mai); regia (in onda, pausa, termina, connessi, vedi come un partecipante), email (prova, invio, reinvio), esportazione Excel riletta; il riquadro **«Iscrizioni dal modulo da verificare»** (righe, testo mai HTML, «Segna come vista», azioni protette; anche le righe **annullata dal sito** e **annullamento ritirato**); accanto all'interruttore acceso, da quando; **le email programmate**: l'elenco di quello che partirà da solo (con il collegamento alla casella della scheda *Evento*), «Programma un promemoria» (oggetto e titolo già scritti, quante persone per ogni scelta, gli errori di orario prima della conferma, HTML e collegamenti nella nota rifiutati, l'anteprima solo testo, la prova al gestore, la conferma con l'ora e il numero), modifica, annullamento, un promemoria che parte con il cron vero, uno a metà che si può solo fermare, il telefono senza scorrimento di lato; **«Aggiungi un partecipante»**: campi vuoti, email non valida (con Invio), l'email di un'altra persona, una persona nuova senza email, il doppio clic (una richiesta), «Invia ora le credenziali» (la password, nuova anche per chi ne aveva già una, che non vale più), «aggiunto a mano» nell'elenco e la colonna *Origine* nell'Excel, 401 senza accesso, il telefono | 458 verdi, 0 rossi |
@@ -1587,7 +1618,9 @@ Dentro ci sono le **pagine vere** (`diretta/index.html`, `reimposta.html`,
 `gestione/`, `relatore/`) e il **servizio vero** (`email-service/api/diretta-*.js`),
 impacchettato con un Firebase finto in memoria che applica le stesse regole di
 `firestore.rules`. Le email finiscono nella scheda «Posta di prova»; al posto
-del player incorporato c'è un riquadro «Player YouTube (anteprima)» o «Player Azoto (anteprima)»
+del video di YouTube c'è un riquadro «Registrazione YouTube (anteprima)» con il
+punto della registrazione, uguale per tutti (`anteprima/player-youtube-anteprima.js`),
+al posto del player di Azoto un riquadro «Player Azoto (anteprima)»
 (`anteprima/player-azoto-anteprima.js`) e al posto del flusso diretto un video
 di prova (`anteprima/player-anteprima.js`), con le stesse interfacce dei player
 veri (con `node anteprima/costruisci.js --player-vero` c'è invece il player
@@ -1959,27 +1992,136 @@ che oggi nessun fornitore ha confermato per iscritto.
 
 ## 13. Le domande al relatore e il video su YouTube
 
-Dal webinar del 10 dicembre 2026 il video arriva da **YouTube** e i
-partecipanti possono **mandare domande al relatore** durante la diretta.
+Dal webinar del 10 dicembre 2026 il video arriva da **YouTube**. Se la
+regia le accende (evento per evento), i partecipanti possono anche **mandare
+domande al relatore** durante la diretta: per il webinar non servono, e
+restano spente (§13.3).
 
-### 13.1 Il video su YouTube
+### 13.1 Il video su YouTube: una registrazione che sembra una diretta
 
 Il link di YouTube va nella scheda Evento (o in Regia) nel campo **«Player
-YouTube o Azoto»**, lo stesso del player di Azoto: è la modalità A, il player
-incorporato nella nostra pagina, con i comandi di YouTube. Vanno bene il link
-del video o della diretta (`youtube.com/watch?v=…`, `youtube.com/live/…`,
+YouTube o Azoto»**, lo stesso del player di Azoto (modalità A). Vanno bene il
+link del video o della diretta (`youtube.com/watch?v=…`, `youtube.com/live/…`,
 `youtu.be/…`): `sorgente-video.js` ne prende solo l'identificativo e lo mette
 nel player di `www.youtube-nocookie.com` (l'unico indirizzo di YouTube che la
 CSP delle pagine lascia entrare in un iframe). Un canale, una playlist o la
 pagina iniziale di YouTube sono rifiutati con il motivo.
 
-Su YouTube la diretta va creata **«Non in elenco»** (non «Privata», che non si
+Dal 26 novembre 2026 il video di YouTube è di solito una **registrazione**,
+ma la pagina dei partecipanti lo mostra **come una diretta**: con un link di
+YouTube il player è `diretta/player-youtube.js` (al posto di
+`player-azoto.js`).
+
+- **Tutti allo stesso punto.** È il punto in cui «si è» adesso:
+  `inizioVideo + onda.secondi + (adesso − onda.da)`. `onda` lo scrive il
+  servizio nel documento pubblico dell'evento a ogni cambio di stato
+  (`email-service/lib/diretta-dati.js`, `ondaDopo`): «Vai in onda» fa partire
+  il conto, «Metti in pausa» lo ferma (la pausa non conta: con «Riprendi la
+  diretta» si riparte da dove ci si era fermati), «Termina» lo ferma, «Riporta
+  in attesa» e «Torna alla fase iniziale» lo azzerano. `inizioVideo` è
+  **«Parti dal punto»** della scheda Evento (minuti:secondi, facoltativo, si
+  vede solo con un link di YouTube): da dove parte la registrazione, per
+  saltarne l'inizio. Cambiato in onda, chi guarda salta al nuovo punto (la
+  gestione lo chiede prima). Chi entra tardi parte dal punto giusto; chi resta
+  indietro (rete lenta, scheda in secondo piano) ci torna da solo; finita la
+  registrazione compare «La diretta si è conclusa».
+- **L'ora giusta.** Il conto usa l'ora del sito, non quella del dispositivo:
+  la pagina la legge dall'intestazione `Date` di una richiesta a `config.js`
+  (al più ogni 10 minuti). Un computer con l'orologio avanti o indietro vede lo
+  stesso punto degli altri.
+- **Niente di YouTube.** L'iframe ha `controls=0` (niente barra, durata, tasti
+  o schermo intero di YouTube), non riceve clic né tocchi (sopra c'è uno scudo
+  trasparente: niente menu del tasto destro, niente clic verso YouTube) ed è
+  più alto del riquadro, così il titolo e il logo che YouTube disegna in alto e
+  in basso restano fuori vista. Prima che il video parta e alla fine c'è una
+  nostra schermata. I comandi sono i nostri: «Attiva l'audio», audio e
+  volume, «In diretta», «Schermo intero» (niente pausa né barra per tornare
+  indietro).
+- **Il link non si vede da nessuna parte**: né nella pagina né nei comandi;
+  fuori onda il documento pubblico dice solo `videoYouTube` (sì o no). Il
+  limite: per mostrare il video il browser deve sapere quale video è, quindi
+  chi sa usare gli strumenti per sviluppatori del browser lo può ancora trovare
+  (nell'iframe, mentre si è in onda).
+- **La sigla d'apertura** (`diretta/sigla.js`). A «Vai in onda» il video
+  non parte subito: nel riquadro del video ci sono prima le immagini Revilaw
+  sul webinar (8 secondi l'una: «Revilaw presenta – Next Generation
+  Business», il titolo, «Un dialogo in tre domande», il percorso Verona → Roma
+  → Napoli → Webinar → Milano) e poi il conto alla rovescia «La diretta
+  inizia tra 10… 1». Per il webinar del 10 dicembre i testi sono in
+  `sigla.js` (dalla sua pagina, `/webinar_dicembre_2026/`); per gli altri
+  eventi con YouTube le immagini si fanno dal titolo, dalla data, dal luogo e
+  dal programma dell'evento. Intanto il video di YouTube si carica sotto,
+  fermo al punto di partenza: alla fine del conto parte subito. La sigla fa
+  parte del tempo della diretta: tutti vedono la stessa immagine nello stesso
+  momento, chi entra durante la sigla la vede dal punto giusto e chi entra
+  dopo va diretto al video; il punto della registrazione conta dalla fine
+  della sigla (anche in Regia, che durante la sigla dice «Sigla d'apertura in
+  corso: il video parte tra … s»). «Attiva l'audio» si può già premere
+  durante la sigla: il video parte con l'audio.
+- **L'audio.** I browser fanno partire un video da solo solo senza audio:
+  «Attiva l'audio» lo accende. Se il browser non lo concede mentre il video
+  va (succede su iPhone) compare «Tocca il video»: il tocco arriva a YouTube e
+  l'audio parte.
+- **Mai le schermate di YouTube.** Il nostro sipario copre YouTube finché il
+  video non va. Se non parte da solo resta il nostro «Guarda la diretta»; se
+  nemmeno così, e YouTube conosce il video (la sua durata), il sipario lascia
+  libero solo un foro al centro, sul pulsante di YouTube, per il tocco (fuori
+  dal foro i tocchi non arrivano a YouTube). Se invece YouTube non ha caricato
+  il video, per esempio per il suo controllo «Accedi per confermare di non
+  essere un bot» (compare con certe VPN, reti aziendali, browser che bloccano
+  i cookie), il sipario resta e dice «Il video non riesce a partire», con
+  «Riprova» e il consiglio di provare un'altra connessione: la pagina di
+  YouTube non si vede mai. Quel controllo però lo decide YouTube: chi lo
+  riceve non vede il video. L'unico modo per toglierlo del tutto è non usare
+  YouTube: la registrazione su un nostro spazio (o sulla web TV di Azoto, come
+  diretta «simulata») e il nostro player, quello del flusso diretto.
+- **Se YouTube non risponde** ai messaggi dell'iframe (entro 12 secondi) la
+  pagina mostra il player di YouTube con i suoi comandi: meglio il logo di
+  YouTube che uno schermo nero.
+- **In Regia**, con il video di YouTube, sotto lo stato c'è il punto della
+  registrazione in cui sono i partecipanti, e va avanti da solo.
+- **La pagina, in ordine.** Nell'attesa le carte (programma, «Prima di
+  cominciare», domande se accese) stanno in una colonna sola, centrata sotto il
+  titolo e tutte della stessa larghezza; nella diretta sono larghe quanto il
+  video (programma e consigli affiancati, o una carta sola su tutta la riga). I
+  consigli hanno un segno di spunta e il testo delle carte è allineato a
+  sinistra (il giustificato del sito, `assets/testo.css`, nelle carte strette
+  apriva buchi fra le parole). Se l'ora d'inizio è passata e la regia non è
+  ancora in onda, al posto del conto alla rovescia a zero resta solo «La
+  diretta sta per iniziare». Con YouTube, nell'attesa e nella pausa, i
+  consigli sono quelli del nostro player (non quelli di Azoto): lo dice
+  `videoYouTube` dell'evento. Negli eventi salvati prima del 26 novembre 2026
+  il servizio lo scrive da solo la prima volta che la gestione apre l'elenco
+  degli eventi (`segnaYouTubeDiPrima`). Dal 27 novembre 2026 le carte
+  dell'attesa stanno sotto la fascia del titolo, staccate (prima la prima carta
+  vi stava attaccata).
+- **Mentre aspetti** (`sigla.js`, `creaGiostra` e `creaGioco`; `diretta.js`,
+  `mostraMentreAspetti`). Nell'attesa, con ogni tipo di video, la fascia del
+  titolo ha uno schermo con le immagini Revilaw a rotazione (9 secondi
+  l'una), le stesse della sigla d'apertura e in più il percorso di Next
+  Generation Business e «Il prossimo appuntamento» (Milano, 26 febbraio 2027,
+  per gli eventi che vengono prima); per il webinar del 10 dicembre anche
+  «Che cosa porti a casa», «Per chi è» e «Hai una domanda?» (dalla sua
+  pagina). Sul computer lo schermo sta accanto al conto alla rovescia e tutto
+  si vede senza scorrere; sul telefono sotto, quadrato. Sotto lo schermo un
+  puntino per immagine (premuto, va a quell'immagine) e «Ferma»/«Riprendi»;
+  fuori dall'attesa le immagini non girano. Fra le carte, **«Mettiti alla
+  prova»**: tre domande sul merito creditizio (l'azienda in utile e la banca
+  prudente, il bilancio revisionato che non garantisce un finanziamento, gli
+  adeguati assetti), con le risposte prese dalla pagina del webinar: chi
+  risponde vede subito se è giusto, con la spiegazione (per il webinar anche
+  l'ora del programma in cui se ne parla), e alla fine il punteggio e
+  «Ricomincia»; niente si salva. Le domande sono in `sigla.js` (`GIOCO`); per
+  un evento su un altro tema si scrivono le sue in `GIOCO_PER_TEMA`, con
+  l'identificativo dell'evento (una lista vuota toglie il gioco).
+
+Su YouTube il video va caricato **«Non in elenco»** (non «Privato», che non si
 può incorporare) e con **«Consenti incorporamento»** acceso. «Prova il player»
 della gestione chiede a YouTube (oEmbed) se il video esiste e si può
-incorporare, e ne mostra titolo e canale. Il link resta nel documento
-pubblico dell'evento solo mentre si è in onda, come quello di Azoto; ma chi
-lo vede (un iscritto) lo può copiare e condividere: un video «Non in elenco»
-non è protetto da password (vedi §5.5).
+incorporare, e ne mostra titolo e canale; l'anteprima della gestione è il
+player di YouTube con i suoi comandi (la vede solo la regia). Il link resta nel
+documento pubblico dell'evento solo mentre si è in onda, come quello di Azoto;
+un video «Non in elenco» non è protetto da password (vedi §5.5).
 
 ### 13.2 Le domande: chi vede che cosa
 
@@ -1993,6 +2135,11 @@ Gli altri partecipanti **non vedono mai** le domande: non c'è una chat, e le
 domande non passano dal documento dell'evento che tutti ascoltano.
 
 ### 13.3 Come si prepara
+
+Le domande si accendono evento per evento, e di base sono spente: per il
+webinar del 10 dicembre (novembre 2026) **non servono**, quindi la casella
+«Domande al relatore» va lasciata spenta (togliendola e salvando, il riquadro
+sparisce subito dalla pagina di chi è collegato). Se un giorno serviranno:
 
 1. Gestione → Evento: spunta **«Domande al relatore»** e salva.
 2. Il relatore è un **partecipante dell'evento**: se non c'è già, aggiungilo in
@@ -2056,4 +2203,15 @@ domande non passano dal documento dell'evento che tutti ascoltano.
   Poi: «Vai in onda», una domanda dal telefono con il partecipante, la pagina
   del relatore dal computer con le credenziali del relatore, «Segna come
   risposta», e il controllo che un altro partecipante non veda la domanda.
+  Per la registrazione che sembra una diretta: apri la diretta su due
+  dispositivi (sono allo stesso punto, quello che dice la Regia), «Metti in
+  pausa» e dopo un minuto «Riprendi la diretta» (si riparte da dove ci si era
+  fermati), e ricarica la pagina su uno dei due (torna allo stesso punto).
   Alla fine «Torna alla fase iniziale» o elimina l'evento di prova.
+- **Le prove automatiche**: `diretta/prove/player-youtube.prova.js` (il player
+  da solo, con un YouTube finto: punto giusto, salti, audio, «Tocca il
+  video», fine, errori), `pagina.prova.js` (la pagina vera: pausa e ripresa,
+  «Parti dal punto» in onda, un dispositivo con l'orologio avanti di 10
+  minuti), `gestione.prova.js` («Parti dal punto», la conferma in onda, il
+  punto in Regia) e `email-service/prove/diretta-video.prove.js` (`ondaDopo`,
+  `leggiInizioVideo`).

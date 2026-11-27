@@ -81,7 +81,8 @@ function uguale(ottenuto, atteso, descrizione) {
     /* ---------- 3. l'anteprima dell'import ---------- */
     const esistenti = {
         perEmail: {
-            'luigi.verdi@prova.it': { uid: 'pL', nome: 'Luigi', cognome: 'Verdi', eventi: ['milano-2026'], stato: 'attivo' },
+            // (chi chiama passa solo l'account di ogni email PER QUESTO EVENTO: Luigi c'era, ed e' stato tolto)
+            'luigi.verdi@prova.it': { uid: 'pL', nome: 'Luigi', cognome: 'Verdi', eventi: [], stato: 'attivo' },
             'anna.bianchi@prova.it': { uid: 'pA', nome: 'Anna', cognome: 'Bianchi', eventi: ['napoli-2026'], stato: 'attivo' },
             'info@studio.it': { uid: 'pI', nome: 'Carla', cognome: 'Neri', eventi: [], stato: 'attivo' },
             'spento@prova.it': { uid: 'pS', nome: 'Sandro', cognome: 'Spento', eventi: [], stato: 'disattivato' }
@@ -89,7 +90,7 @@ function uguale(ottenuto, atteso, descrizione) {
     };
     const righe = [
         { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@prova.it', azienda: 'ACME' },            // 2 nuovo
-        { nome: 'Luigi', cognome: 'Verdi', email: ' LUIGI.VERDI@prova.it ', azienda: '' },              // 3 gia' presente (altro evento)
+        { nome: 'Luigi', cognome: 'Verdi', email: ' LUIGI.VERDI@prova.it ', azienda: '' },              // 3 gia' presente (tolto: torna nell'evento)
         { nome: 'anna', cognome: 'BIANCHI', email: 'anna.bianchi@prova.it' },                           // 4 gia' iscritta
         { nome: 'Mario', cognome: 'Rossi', email: 'Mario.Rossi@Prova.it' },                             // 5 doppia nel file (riga 2)
         { nome: 'Paolo', cognome: 'Gialli', email: 'condivisa@ufficio.it' },                            // 6 email condivisa nel file
@@ -108,11 +109,11 @@ function uguale(ottenuto, atteso, descrizione) {
     uguale(a.righe.map(r => r.esito), ['nuovo', 'gia-presente', 'gia-iscritto', 'doppia-nel-file', 'email-condivisa', 'email-condivisa', 'email-condivisa',
         'email-mancante', 'email-non-valida', 'nome-mancante', 'nome-non-valido', 'escluso', 'gia-presente', 'nuovo'], 'anteprima: gli esiti riga per riga');
     uguale(a.righe.map(r => r.crea), [true, true, false, false, false, false, false, false, false, false, false, false, true, true], 'anteprima: da creare solo i nuovi e i gia\' presenti');
-    vero(a.righe[1].uidEsistente === 'pL' && /nessuna password nuova/.test(a.righe[1].problemi.find(p => p.codice === 'gia-presente').testo), 'gia\' presente: l\'account esistente, e nessuna password nuova');
+    vero(a.righe[1].uidEsistente === 'pL' && /torna con il suo account, nessun account nuovo/.test(a.righe[1].problemi.find(p => p.codice === 'gia-presente').testo), 'gia\' presente: torna nell\'evento con il suo account');
     vero(a.righe[3].primaRiga === 2 && a.righe[3].problemi.every(p => !p.grave), 'doppia nel file: vale la riga 2, e non c\'e\' niente da correggere');
     vero(/riga 7 \(Pia Gialli\)/.test(a.righe[4].problemi.find(p => p.codice === 'email-condivisa').testo) && /riga 6 \(Paolo Gialli\)/.test(a.righe[5].problemi.find(p => p.codice === 'email-condivisa').testo),
         'email condivisa nel file: tutte e due le righe, ognuna dice l\'altra');
-    vero(/già registrato Carla Neri/.test(a.righe[6].problemi.find(p => p.codice === 'email-condivisa').testo), 'email condivisa con l\'account esistente: dice a chi e\' registrata');
+    vero(/In questo evento con questa email c'è già Carla Neri/.test(a.righe[6].problemi.find(p => p.codice === 'email-condivisa').testo), 'email condivisa con l\'account di questo evento: dice chi c\'e\' gia\'');
     vero(a.righe[12].problemi.some(p => p.codice === 'disattivato' && !p.grave), 'gia\' presente ma disattivato: un avviso, non un errore');
     vero(a.righe[13].emailNorm === 'zeno.invisibile@prova.it', 'anteprima: l\'email normalizzata di ogni riga (' + a.righe[13].emailNorm + ')');
     uguale(a.conteggi, { totale: 14, nuovi: 2, giaPresenti: 2, giaIscritti: 1, doppie: 1, esclusi: 1, daCorreggere: 7, daCreare: 4 }, 'anteprima: i conteggi');

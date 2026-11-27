@@ -134,6 +134,25 @@
     function parametro(nome) {
         try { return new URLSearchParams(location.search).get(nome) || ''; } catch (e) { return ''; }
     }
+    /* L'evento nel collegamento (?e=): l'identificativo oppure, per quelli con
+       il nome della piattaforma del video (per esempio prova-youtube), il suo
+       codice "c." + base64url: nel link non si legge da dove arriva il video.
+       La stessa regola del servizio (diretta-comune.js, eventoNelLink). */
+    function eventoDalLink(v) {
+        const s = String(v || '').trim();
+        if (s.indexOf('c.') !== 0) return s;
+        try {
+            let b = s.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+            while (b.length % 4) b += '=';
+            const id = atob(b);
+            return ID_EVENTO_VALIDO.test(id) ? id : '';
+        } catch (e) { return ''; }
+    }
+    function eventoNelLink(id) {
+        const s = String(id || '');
+        if (!/you-?tu|azoto/.test(s)) return s;
+        return 'c.' + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
     /* L'email: UNA regola per pagina, gestione e servizio (email-service,
        indirizzi/{email}): spazi prima e dopo tolti, tutto minuscolo.
        Nient'altro: i punti degli indirizzi Gmail restano come sono. */
@@ -324,6 +343,8 @@
        VISTE
        --------------------------------------------------------------- */
     let vista = 'caricamento';
+    // lo schermo e il gioco dell'attesa (vedi mostraMentreAspetti)
+    const mentreAspetti = { giostra: null, gioco: null };
     function mostraVista(nome, opzioni) {
         const cambiata = vista !== nome;
         vista = nome;
@@ -333,6 +354,7 @@
         posizionaAvvisoConnessione();
         posizionaDomande();
         if (nome !== 'diretta') esciSchermoIntero();
+        if (nome !== 'attesa') fermaMentreAspetti();
         if (cambiata) window.scrollTo(0, 0);
         if (opzioni && opzioni.fuoco) {
             const t = document.querySelector('#vista-' + nome + ' [data-fuoco]');
@@ -617,7 +639,7 @@
            quello che il servizio decide "un solo dispositivo". Senza, con due
            eventi il servizio potrebbe decidere su un evento e la pagina
            mostrare l'altro. */
-        const dalLink = parametro('e');
+        const dalLink = eventoDalLink(parametro('e'));
         const r = await chiamaServizio({
             azione: 'entra', email: email, password: password,
             idEvento: ID_EVENTO_VALIDO.test(dalLink) ? dalLink : undefined
@@ -650,6 +672,14 @@
         if (codice === 'attendi' || r.statoHttp === 429) { accesso.errori++; avviaAttesaAccesso(r.attesaSecondi); return; }
         if (codice === 'disattivato') {
             msg('msg-accesso', 'Il tuo accesso è stato disattivato. Scrivi all\'assistenza.', 'errore');
+            return;
+        }
+        /* password giusta, ma di un account di un ALTRO evento rispetto al link
+           (ogni evento ha i suoi partecipanti: la stessa email puo' avere un
+           account per evento). Il servizio dice di quale evento sono. */
+        if (codice === 'altro-evento') {
+            msg('msg-accesso', r.msg && String(r.msg).length < 400 ? String(r.msg) : MSG_ALTRO_EVENTO, 'errore');
+            $('campo-password').select();
             return;
         }
         // password giusta, ma la persona non e' (piu') iscritta a nessun evento
@@ -710,7 +740,9 @@
         b.disabled = true;
         testo(b.querySelector('.btn-testo'), 'Invio in corso…');
         esitoDimenticata('');
-        const r = await chiamaServizio({ azione: 'password-dimenticata', email: email });
+        // l'evento della pagina: la stessa email puo' avere un account per ogni evento, si reimposta quello di questo
+        const delLink = eventoDalLink(parametro('e'));
+        const r = await chiamaServizio({ azione: 'password-dimenticata', email: email, idEvento: ID_EVENTO_VALIDO.test(delLink) ? delLink : undefined });
         b.disabled = false;
         testo(b.querySelector('.btn-testo'), 'Invia il collegamento');
         if (r.ok) {
@@ -882,6 +914,9 @@
         const eventi = eventiDelProfilo(p);
         // senza eventi: se ha annullato l'iscrizione dal sito, lo si dice cosi'
         if (!eventi.length) { mostraMessaggio(p.annullatoDalSito && Object.keys(p.annullatoDalSito).length ? 'evento-tolto' : 'nessun-evento'); return; }
+        // il link porta a un evento che non e' di questo account: niente altro evento al suo posto
+        const delLink = eventoDalLink(parametro('e'));
+        if (ID_EVENTO_VALIDO.test(delLink) && eventi.indexOf(delLink) < 0) { await esciPerAltroEvento(); return; }
 
         /* T8: il profilo dice che la persona e' iscritta, il suo token no
            (i permessi sono cambiati da poco): si chiede al servizio di
@@ -914,7 +949,7 @@
     function eRelatoreDi(p, id) { return !!p && Array.isArray(p.relatoreDi) && p.relatoreDi.indexOf(id) >= 0; }
     function vaiAllaPaginaDelRelatore(id) {
         mostraVista('caricamento');
-        const q = ID_EVENTO_VALIDO.test(String(id || '')) ? '?e=' + encodeURIComponent(id) : '';
+        const q = ID_EVENTO_VALIDO.test(String(id || '')) ? '?e=' + encodeURIComponent(eventoNelLink(id)) : '';
         location.replace('/diretta/relatore/' + q);
     }
 
@@ -944,7 +979,7 @@
        Il link dell'email (&e=) ha la precedenza se e' uno dei suoi (R4). */
     async function scegliEvento(F, eventi, idPreferito, gen) {
         // prima il link dell'email, poi l'evento su cui il servizio ha deciso all'accesso
-        const preferito = [parametro('e'), stato.eventoAccesso].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.indexOf(x) >= 0)[0];
+        const preferito = [eventoDalLink(parametro('e')), stato.eventoAccesso].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.indexOf(x) >= 0)[0];
         if (preferito) return preferito;
         if (eventi.length <= 1) return eventi[0];
         const candidati = eventi.slice(0, 5);
@@ -1006,6 +1041,24 @@
         // una scheda aperta a mano (non da «Vedi come un partecipante») il
         // browser non la lascia chiudere: si torna alla gestione
         setTimeout(() => { if (!window.closed) location.href = '/diretta/gestione/'; }, 300);
+    }
+
+    /* Il link porta a un evento (&e=) che non e' fra quelli dell'account
+       aperto su questo dispositivo: e' l'account di un altro evento (ogni
+       evento ha i suoi partecipanti, e la stessa email puo' avere un account
+       per evento). Non si apre un altro evento al posto di quello
+       dell'invito: si esce, e la pagina chiede di entrare con le credenziali
+       di questa diretta. */
+    const MSG_ALTRO_EVENTO = 'Su questo dispositivo eri entrato con le credenziali di un altro evento. '
+        + 'Per questa diretta entra con l\'email e la password che hai ricevuto per questo evento.';
+    async function esciPerAltroEvento() {
+        stato.motivoUscita = 'messaggio';
+        fermaTutto();
+        dimenticaSessione();
+        stato.nomePersona = '';
+        mostraAccesso({ messaggio: MSG_ALTRO_EVENTO, tipo: 'info' });
+        try { if (fb.auth && fb.auth.currentUser) await fb.A.signOut(fb.auth); else stato.motivoUscita = null; }
+        catch (e) { stato.motivoUscita = null; }
     }
 
     async function esciConMessaggio(tipo) {
@@ -1172,7 +1225,30 @@
         stato.timerProgramma = null;
         if (vista !== 'attesa') mostraVista('attesa', { fuoco: primaVolta });
         avviaConto();
+        mostraMentreAspetti();
     }
+    /* MENTRE ASPETTI (sigla.js): nella fascia del titolo lo schermo con le
+       immagini Revilaw a rotazione (creaGiostra) e, fra le carte, «Mettiti
+       alla prova» (creaGioco), se l'evento ha le sue domande. Le immagini
+       girano solo con l'attesa aperta: mostraVista le ferma quando si
+       cambia vista. Senza sigla.js l'attesa resta com'era. (Lo stato,
+       mentreAspetti, e' con le viste: mostraVista lo usa da subito.) */
+    function mostraMentreAspetti() {
+        const S = window.NGBSigla;
+        if (!S || typeof S.creaGiostra !== 'function' || typeof S.creaGioco !== 'function') return;
+        const ev = eventoSigla();
+        try {
+            if (!mentreAspetti.giostra) mentreAspetti.giostra = S.creaGiostra($('schermo-attesa'));
+            mentreAspetti.giostra.mostra(ev);
+            $('schermo-attesa').hidden = false;
+            document.querySelector('#vista-attesa .attesa-eroe').classList.add('con-schermo');
+            if (!mentreAspetti.gioco) mentreAspetti.gioco = S.creaGioco($('gioco-domande'), $('gioco-esito'));
+            $('carta-gioco').hidden = !mentreAspetti.gioco.mostra(ev);
+        } catch (e) {
+            console.warn('[diretta] mentre aspetti:', e);
+        }
+    }
+    function fermaMentreAspetti() { if (mentreAspetti.giostra) mentreAspetti.giostra.ferma(); }
     function fermaConto() { clearInterval(stato.timerConto); stato.timerConto = null; }
     function avviaConto() {
         if (!stato.timerConto) stato.timerConto = setInterval(aggiornaConto, 1000);
@@ -1187,14 +1263,15 @@
             testo('attesa-titolo', 'La diretta non è ancora iniziata');
             return;
         }
-        conto.hidden = false;
         const resto = inizio - Date.now();
         if (resto <= 0) {
-            ['conto-giorni', 'conto-ore', 'conto-minuti', 'conto-secondi'].forEach(id => testo(id, '00'));
+            // l'ora d'inizio e' passata e la regia non e' ancora in onda: niente quattro «00», solo il titolo
+            conto.hidden = true;
             conto.classList.add('imminente');
             if ($('attesa-titolo').textContent !== 'La diretta sta per iniziare') testo('attesa-titolo', 'La diretta sta per iniziare');
             return;
         }
+        conto.hidden = false;
         conto.classList.remove('imminente');
         const s = Math.floor(resto / 1000);
         testo('conto-giorni', due(Math.floor(s / 86400)));
@@ -1292,13 +1369,21 @@
         player: null,
         url: '',                  // l'indirizzo in uso (eventi.videoId, in onda)
         titolo: '',
-        errore: ''                // '' | 'link' (indirizzo non di Azoto) | 'player' (player-azoto.js non caricato)
+        errore: '',               // '' | 'link' (indirizzo non di Azoto) | 'player' (player-azoto.js non caricato) | 'video' (YouTube non lo mostra)
+        /* Con il video di YouTube il player e' player-youtube.js: la
+           registrazione che sembra una diretta (vedi LA REGISTRAZIONE CHE
+           SEMBRA UNA DIRETTA, qui sotto). */
+        youtube: false,           // il player in uso e' quello di YouTube
+        semplice: false,          // YouTube non risponde ai messaggi: i comandi sono i suoi (niente nostri)
+        ytStato: '',              // quello che dice player-youtube.js (onStato): 'video' = si vede
+        audio: { muto: true, volume: 100 }
     };
     const TESTO_LENTO = 'La diretta sta arrivando, attendi qualche secondo';
     // la descrizione del riquadro per i lettori di schermo (aria-describedby), secondo la modalita'
     const AIUTO_TASTI = {
         flusso: 'Scorciatoie da tastiera, con il lettore selezionato: Spazio mette in pausa e riprende, F schermo intero, M attiva o disattiva l\'audio, frecce su e giù per il volume.',
-        azoto: 'Scorciatoia da tastiera, con il lettore selezionato: F schermo intero. Play, audio e qualità si regolano con i comandi del player della diretta.'
+        azoto: 'Scorciatoia da tastiera, con il lettore selezionato: F schermo intero. Play, audio e qualità si regolano con i comandi del player della diretta.',
+        youtube: 'Scorciatoie da tastiera, con il lettore selezionato: F schermo intero, M attiva o disattiva l\'audio, frecce su e giù per il volume.'
     };
 
     /* L'indirizzo e' di un player di Azoto? La regola e' una sola, in
@@ -1309,6 +1394,150 @@
         if (typeof url !== 'string' || !url || !V || typeof V.eAzoto !== 'function') return false;
         try { return V.eAzoto(url) === true; } catch (e) { return false; }
     }
+    // l'indirizzo e' il player di YouTube? (la regola e' quella di sorgente-video.js)
+    function eYouTubeUrl(url) {
+        const V = window.NGBSorgenteVideo;
+        if (typeof url !== 'string' || !url || !V || typeof V.eYouTube !== 'function') return false;
+        try { return V.eYouTube(url) === true; } catch (e) { return false; }
+    }
+    // il player di YouTube con i NOSTRI comandi (non quello "semplice")
+    function youtubeAttivo() {
+        return modoVideo === 'azoto' && azoto.youtube && !!azoto.player && !azoto.semplice;
+    }
+
+    /* ---------------------------------------------------------------
+       LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA
+       ---------------------------------------------------------------
+       Con il video di YouTube tutti vedono lo stesso punto, quello in cui
+       "si e'" adesso: lo dice l'evento (onda, scritto dal servizio a ogni
+       «In onda» e «Pausa» della regia, e inizioVideo, da dove parte la
+       registrazione; vedi email-service/lib/diretta-dati.js, ondaDopo):
+           inizioVideo + onda.secondi + (adesso - onda.da)
+       Un evento in onda da prima che esistesse onda conta da
+       statoAggiornato. player-youtube.js lo chiede con posizione() e ci
+       torna da solo se resta indietro; quando cambia (la regia riprende,
+       cambia il punto di partenza) la pagina gli dice sincronizza(). */
+    let ondaEvento = null;        // { secondi, da (ms o null), inizio }
+    function aggiornaOnda(d) {
+        const o = d && d.onda && typeof d.onda === 'object' ? d.onda : null;
+        const da = o ? ms(o.da) : (d && d.stato === 'in_onda' ? ms(d.statoAggiornato) : null);
+        const nuova = {
+            secondi: o ? Math.max(0, Number(o.secondi) || 0) : 0,
+            da: Number.isFinite(da) && da > 0 ? da : null,
+            inizio: Math.max(0, Number(d && d.inizioVideo) || 0)
+        };
+        const cambiata = !ondaEvento || ondaEvento.secondi !== nuova.secondi || ondaEvento.da !== nuova.da || ondaEvento.inizio !== nuova.inizio;
+        ondaEvento = nuova;
+        if (cambiata && youtubeAttivo() && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+        if (cambiata && youtubeAttivo()) avviaSigla();
+    }
+    // i secondi passati in onda (le pause non contano), con l'ora del sito
+    function secondiInOnda() {
+        const o = ondaEvento;
+        if (!o) return null;
+        return o.secondi + (o.da ? Math.max(0, (Date.now() + scartoOrologio - o.da) / 1000) : 0);
+    }
+    /* Il punto della registrazione: dopo la sigla d'apertura (sigla.js), che
+       dura durataSigla() secondi dall'inizio della diretta. */
+    function posizioneRegistrazione() {
+        const o = ondaEvento;
+        if (!o) return null;
+        return o.inizio + Math.max(0, secondiInOnda() - durataSigla());
+    }
+
+    /* ---------------------------------------------------------------
+       LA SIGLA D'APERTURA (sigla.js)
+       ---------------------------------------------------------------
+       Con il video di YouTube, a «Vai in onda» nel riquadro del video
+       partono le immagini Revilaw sul webinar e poi il conto alla rovescia;
+       intanto il video di YouTube si carica sotto, fermo al punto di
+       partenza (inSigla() -> opzione inAttesa del player). Finito il conto
+       il video parte e la sigla resta finche' non si vede (al massimo
+       SIGLA_ATTESA_VIDEO_MS). Chi entra dopo la sigla va diretto al video. */
+    const SIGLA_ATTESA_VIDEO_MS = 8000;
+    const sigla = { vista: null, timer: null, finitaDa: 0 };
+    function eventoSigla() { return Object.assign({ id: stato.idEvento }, stato.evento || {}); }
+    function durataSigla() {
+        const S = window.NGBSigla;
+        const ev = stato.evento;
+        if (!S || typeof S.durata !== 'function' || !ev) return 0;
+        if (!(ev.videoYouTube === true || eYouTubeUrl(String(ev.videoId || '')))) return 0;
+        try { return Math.max(0, Number(S.durata(eventoSigla())) || 0); } catch (e) { return 0; }
+    }
+    function inSigla() {
+        const t = secondiInOnda();
+        return t != null && t < durataSigla();
+    }
+    function siglaVisibile() { return !!(sigla.vista && sigla.vista.visibile()); }
+    function avviaSigla() {
+        if (sigla.timer) return;
+        sigla.timer = setInterval(aggiornaSigla, 250);
+        aggiornaSigla();
+    }
+    function fermaSigla() {
+        clearInterval(sigla.timer);
+        sigla.timer = null;
+        sigla.finitaDa = 0;
+        if (sigla.vista) sigla.vista.nascondi();
+    }
+    function aggiornaSigla() {
+        const S = window.NGBSigla;
+        const durata = durataSigla();
+        const t = secondiInOnda();
+        if (!S || !youtubeAttivo() || vista !== 'diretta' || !durata || t == null) { fermaSigla(); return; }
+        if (t < durata) {
+            if (!sigla.vista) sigla.vista = S.crea($('area-video'));
+            const primaVolta = !siglaVisibile();
+            sigla.finitaDa = 0;
+            sigla.vista.mostra(eventoSigla(), t);
+            if (primaVolta) aggiornaComandi();
+            return;
+        }
+        // la diretta e' oltre la sigla: chi arriva adesso va diretto al video
+        if (!siglaVisibile()) { fermaSigla(); return; }
+        if (!sigla.finitaDa) {
+            sigla.finitaDa = Date.now();
+            sigla.vista.fine();
+            // il video esce dall'attesa e parte dal punto di partenza
+            if (azoto.player && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+        }
+        if (azoto.ytStato === 'video' || azoto.ytStato === 'avvia' || azoto.ytStato === 'bloccato' || azoto.ytStato === 'fine'
+            || Date.now() - sigla.finitaDa > SIGLA_ATTESA_VIDEO_MS) {
+            fermaSigla();
+            aggiornaComandi();
+        }
+    }
+    /* L'ORA DEL SITO. onda.da e' scritto con l'orologio del servizio: un
+       dispositivo con l'ora avanti o indietro di qualche minuto vedrebbe un
+       altro punto della registrazione (e la fine prima, o dopo, degli
+       altri). L'ora giusta la dice l'intestazione Date di una richiesta al
+       sito (stessa origine, senza cache, al secondo; con Age se arriva da
+       una copia): scartoOrologio = ora del sito - ora del dispositivo. Si
+       legge con il video di YouTube, al piu' ogni 10 minuti; sotto i 2
+       secondi di differenza non si tocca niente. Se non si riesce, resta
+       l'ora del dispositivo. */
+    let scartoOrologio = 0;
+    let orologioLetto = 0;
+    // config.js, accanto a questo file (si legge solo l'intestazione)
+    const INDIRIZZO_ORA = new URL('config.js', (document.currentScript && document.currentScript.src) || location.href).pathname;
+    async function leggiOraDelSito() {
+        if (orologioLetto && Date.now() - orologioLetto < 10 * 60 * 1000) return;
+        orologioLetto = Date.now();
+        try {
+            const t0 = Date.now();
+            const r = await fetch(INDIRIZZO_ORA + '?ora=' + t0, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' });
+            const t1 = Date.now();
+            const data = Date.parse(r.headers.get('date') || '');
+            if (!r.ok || !Number.isFinite(data) || t1 - t0 > 5000) return;
+            const eta = Math.max(0, Number(r.headers.get('age')) || 0);
+            const scarto = data + eta * 1000 + 500 - (t0 + t1) / 2;
+            const nuovo = Math.abs(scarto) >= 2000 ? Math.round(scarto) : 0;
+            if (nuovo === scartoOrologio) return;
+            scartoOrologio = nuovo;
+            if (youtubeAttivo() && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+        } catch (e) { /* resta l'ora del dispositivo */ }
+    }
+
     function modoDi(d) {
         const t = d ? d.tipoPlayer : '';
         if (t === 'azoto' || t === 'flusso') return t;
@@ -1318,7 +1547,14 @@
         const h = document.documentElement;
         h.classList.toggle('modo-azoto', m === 'azoto');
         h.classList.toggle('modo-flusso', m !== 'azoto');
-        const aiuto = AIUTO_TASTI[m] || AIUTO_TASTI.flusso;
+        /* il video di YouTube con i nostri comandi (diretta.css: quali comandi e
+           consigli si vedono). Fuori onda il link non c'e': lo dice
+           videoYouTube dell'evento (un si' o un no, mai il link). */
+        const ev = stato.evento || {};
+        const ytEvento = ev.videoYouTube === true || eYouTubeUrl(String(ev.videoId || ''));
+        const yt = m === 'azoto' && !azoto.semplice && (azoto.player ? azoto.youtube : ytEvento);
+        h.classList.toggle('modo-youtube', yt);
+        const aiuto = (yt ? AIUTO_TASTI.youtube : AIUTO_TASTI[m]) || AIUTO_TASTI.flusso;
         if ($('aiuto-scorciatoie').textContent !== aiuto) testo('aiuto-scorciatoie', aiuto);
     }
 
@@ -1330,11 +1566,12 @@
             if (modoVideo === 'azoto') distruggiAzoto();
             else if (modoVideo === 'flusso') distruggiFlusso();
             modoVideo = m;
-            // sul telefono lo schermo intero con Azoto e' del suo player: il nostro si chiude
-            if (TELEFONO && m === 'azoto' && (intero.finto || elementoSchermoIntero())) esciSchermoIntero();
+            // sul telefono lo schermo intero con Azoto e' del suo player: il nostro si chiude (con YouTube resta il nostro)
+            const conYouTube = eYouTubeUrl(String((d && d.videoId) || ''));
+            if (TELEFONO && m === 'azoto' && !conYouTube && (intero.finto || elementoSchermoIntero())) esciSchermoIntero();
             if (cambio) {
-                annuncia(m === 'azoto' ? 'Il video è cambiato: audio e pausa ora si regolano con i comandi del player.'
-                    : 'Il video è cambiato: audio e pausa ora si regolano con i pulsanti sotto il video.');
+                annuncia(m === 'azoto' && !conYouTube ? 'Il video è cambiato: audio e pausa ora si regolano con i comandi del player.'
+                    : 'Il video è cambiato: l\'audio ora si regola con i pulsanti sotto il video.');
             }
         }
         if (m === 'azoto') aggiornaAzoto(d);
@@ -1345,6 +1582,13 @@
     function aggiornaAzoto(d) {
         const url = String(d.videoId || '');
         const titolo = String(d.titolo || 'Diretta').trim();
+        aggiornaOnda(d);
+        // un video di YouTube vuole il suo player (e viceversa): quello dell'altro tipo si toglie
+        const yt = eYouTubeUrl(url);
+        if (azoto.player && url && yt !== azoto.youtube) {
+            try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ }
+            Object.assign(azoto, { player: null, url: '', errore: '', semplice: false, ytStato: '' });
+        }
         if (!url) {
             // in onda, ma la regia non ha ancora messo l'indirizzo: «Il video sta per arrivare», niente iframe
             if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
@@ -1353,7 +1597,8 @@
             aggiornaSchermo();
             return;
         }
-        if (!azoto.player && !creaAzoto()) { aggiornaSchermo(); return; }
+        if (!azoto.player && !creaAzoto(yt)) { aggiornaSchermo(); return; }
+        impostaModoPagina('azoto');
         if (url === azoto.url) {
             // lo stesso indirizzo: niente ricarica (magari e' cambiato solo il titolo)
             if (titolo !== azoto.titolo) {
@@ -1369,13 +1614,43 @@
         azoto.player.carica(url, { titolo: titolo });
         aggiornaSchermo();
     }
-    function creaAzoto() {
-        const P = window.NGBPlayerAzoto;
+    function creaAzoto(conYouTube) {
+        const P = conYouTube ? window.NGBPlayerYouTube : window.NGBPlayerAzoto;
         if (!P || typeof P.crea !== 'function') {
             azoto.errore = 'player';
             return null;
         }
         azoto.errore = '';
+        azoto.youtube = !!conYouTube;
+        azoto.semplice = false;
+        azoto.ytStato = '';
+        azoto.audio = { muto: true, volume: 100 };
+        if (conYouTube) {
+            leggiOraDelSito();
+            azoto.player = P.crea($('video-player'), {
+                posizione: posizioneRegistrazione,
+                // la sigla d'apertura: il video si carica e resta fermo al punto di partenza
+                inAttesa: inSigla,
+                onPronto: () => { mostraLento(false); aggiornaSchermo(); },
+                onStato: st => {
+                    azoto.ytStato = st;
+                    // YouTube non risponde ai messaggi: restano i suoi comandi, come con Azoto
+                    if (st === 'semplice' && !azoto.semplice) { azoto.semplice = true; impostaModoPagina('azoto'); }
+                    if (st === 'video') mostraLento(false);
+                    aggiornaComandi();
+                },
+                onAudio: a => { azoto.audio = { muto: !!a.muto, volume: Number(a.volume) || 0 }; aggiornaComandi(); },
+                onErrore: e => {
+                    const c = String((e && e.codice) || '');
+                    if (c === 'lento') { mostraLento(true); return; }
+                    azoto.errore = c || 'link';
+                    mostraLento(false);
+                    aggiornaSchermo();
+                }
+            });
+            avviaSigla();
+            return azoto.player;
+        }
         azoto.player = P.crea($('video-player'), {
             // la pagina di Azoto e' arrivata: via l'avviso dei 15 secondi
             onPronto: () => {
@@ -1394,8 +1669,13 @@
         return azoto.player;
     }
     function distruggiAzoto() {
+        fermaSigla();
         if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
-        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '' });
+        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '', youtube: false, semplice: false, ytStato: '' });
+        /* senza player la modalita' la dice l'evento (videoYouTube): nell'attesa,
+           nella pausa e alla fine restano i comandi e i consigli di YouTube */
+        if (stato.evento) impostaModoPagina(modoDi(stato.evento));
+        else document.documentElement.classList.remove('modo-youtube');
         mostraLento(false);
     }
     /* «La diretta sta arrivando, attendi qualche secondo», SOTTO il
@@ -1558,6 +1838,11 @@
     const ERRORE_LINK = {
         titolo: 'Video non disponibile',
         testo: 'Il collegamento al video della diretta non è valido. Resta su questa pagina: appena la regia lo corregge, il video compare qui da solo, senza ricaricare.'
+    };
+    // il video di YouTube che YouTube non mostra (privato, tolto, non incorporabile): lo sistema la regia
+    const ERRORE_VIDEO = {
+        titolo: 'Video non disponibile',
+        testo: 'Il video della diretta non si può vedere in questo momento. Resta su questa pagina: appena la regia lo sistema, compare qui da solo, senza ricaricare.'
     };
 
     function creaPlayer() {
@@ -2123,7 +2408,7 @@
         mostra('schermo-pausa', s === 'pausa');
         const sv = $('schermo-video');
         const codiceErrore = modoVideo === 'azoto' ? azoto.errore : String((video.errore && video.errore.codice) || '');
-        const t = s === 'errore' && codiceErrore === 'link' ? ERRORE_LINK : SCHERMATE[s];
+        const t = s === 'errore' && codiceErrore === 'link' ? ERRORE_LINK : (s === 'errore' && codiceErrore === 'video' ? ERRORE_VIDEO : SCHERMATE[s]);
         if (t) {
             if ($('schermo-video-titolo').textContent !== t.titolo) testo('schermo-video-titolo', t.titolo);
             if ($('schermo-video-testo').textContent !== t.testo) testo('schermo-video-testo', t.testo);
@@ -2138,6 +2423,7 @@
     }
 
     function aggiornaComandi() {
+        if (youtubeAttivo()) { aggiornaComandiYouTube(); return; }
         const inRiproduzione = video.stato === 'riproduzione' || video.stato === 'buffering';
         const conVideo = !!(video.player && video.id);
         const play = $('btn-play');
@@ -2161,6 +2447,33 @@
            e sotto il video restano «Schermo intero» e la nota. */
         mostra('btn-attiva-audio', conVideo && video.muto && !video.errore && !ricollega.attivo);
         aggiornaDiretta();
+        aggiornaStriscia();
+    }
+
+    /* Con il video di YouTube (la registrazione che sembra una diretta): i
+       pulsanti dell'audio e il volume parlano con player-youtube.js;
+       «IN DIRETTA» quando il video si vede; niente play, «Torna in
+       diretta», barra per tornare indietro o qualita' (diretta.css,
+       html.modo-youtube). */
+    function aggiornaComandiYouTube() {
+        const a = azoto.audio;
+        // durante la sigla d'apertura la diretta e' gia' cominciata: audio (da attivare prima del video) e «IN DIRETTA»
+        const siVede = azoto.ytStato === 'video' || siglaVisibile();
+        const muto = $('btn-muto');
+        muto.setAttribute('data-muto', a.muto ? '1' : '0');
+        muto.setAttribute('aria-pressed', a.muto ? 'true' : 'false');
+        muto.setAttribute('aria-label', a.muto ? 'Audio disattivato: premi per attivarlo' : 'Audio attivo: premi per disattivarlo');
+        muto.disabled = !siVede;
+        const vol = $('volume');
+        const valore = a.muto ? 0 : a.volume;
+        if (document.activeElement !== vol) vol.value = String(valore);
+        vol.setAttribute('aria-valuetext', a.muto ? 'Audio disattivato' : 'Volume ' + valore + ' per cento');
+        vol.disabled = !siVede;
+        vol.hidden = IOS;
+        mostra('btn-attiva-audio', siVede && a.muto);
+        mostra('indicatore-live', siVede);
+        mostra('btn-live', false);
+        mostra('barra-dvr', false);
         aggiornaStriscia();
     }
 
@@ -2279,6 +2592,8 @@
     /* T3: tutto nello STESSO gestore del clic (i browser concedono l'audio
        solo come risposta diretta a un gesto della persona). */
     function attivaAudio() {
+        // YouTube: unMute e volume nello stesso gestore del clic (player-youtube.js controlla se il browser l'ha concesso)
+        if (youtubeAttivo()) { azoto.player.attivaAudio(); return; }
         const p = video.player;
         if (!p) return;
         video.fermo = false;
@@ -2315,6 +2630,11 @@
     }
     // solo l'audio: un video in pausa resta in pausa (a far partire con l'audio c'e' «Attiva l'audio»)
     function alternaMuto() {
+        if (youtubeAttivo()) {
+            if (azoto.audio.muto) azoto.player.attivaAudio();
+            else azoto.player.muto();
+            return;
+        }
         const p = video.player;
         if (!p) return;
         if (video.muto) {
@@ -2325,6 +2645,15 @@
         }
     }
     function cambiaVolume(delta) {
+        if (youtubeAttivo()) {
+            if (IOS) return;
+            const base = azoto.audio.muto ? 0 : azoto.audio.volume;
+            const n = Math.max(0, Math.min(100, base + delta));
+            if (n === 0) { azoto.player.muto(); return; }
+            if (azoto.audio.muto) azoto.player.attivaAudio();
+            azoto.player.volume(n);
+            return;
+        }
         const p = video.player;
         if (!p || IOS) return;
         const base = video.muto ? 0 : video.volume;
@@ -2423,8 +2752,8 @@
     }
     function alternaSchermoIntero() {
         if (vista !== 'diretta') return;
-        // sul telefono, con Azoto, lo schermo intero e' quello del suo player (vedi TELEFONO)
-        if (TELEFONO && modoVideo === 'azoto' && !intero.finto && !elementoSchermoIntero()) return;
+        // sul telefono, con Azoto, lo schermo intero e' quello del suo player (vedi TELEFONO); con YouTube e' il nostro
+        if (TELEFONO && modoVideo === 'azoto' && !youtubeAttivo() && !intero.finto && !elementoSchermoIntero()) return;
         const r = $('riquadro-video');
         if (intero.finto) { esciFinto(); return; }
         if (elementoSchermoIntero()) { esciSchermoIntero(); return; }
@@ -2471,8 +2800,11 @@
         if (t && t.closest && t.closest(USANO_I_TASTI)) return;
         const k = e.key;
         /* modalita' A: play, audio e volume sono del player di Azoto (dentro
-           il suo iframe, con i suoi tasti): qui resta solo F */
-        if (modoVideo === 'azoto' && k !== 'f' && k !== 'F') return;
+           il suo iframe, con i suoi tasti): qui resta solo F. Con il video
+           di YouTube (i nostri comandi) anche M e le frecce, ma niente pausa:
+           e' una diretta. */
+        if (modoVideo === 'azoto' && !youtubeAttivo() && k !== 'f' && k !== 'F') return;
+        if (youtubeAttivo() && (k === ' ' || k === 'Spacebar')) return;
         if (k === ' ' || k === 'Spacebar') {
             e.preventDefault();
             alternaPlay();
@@ -2520,6 +2852,13 @@
             video.player.impostaQualita(e.target.value);
         });
         $('volume').addEventListener('input', e => {
+            if (youtubeAttivo()) {
+                const v = Number(e.target.value) || 0;
+                if (v === 0) { azoto.player.muto(); return; }
+                if (azoto.audio.muto) azoto.player.attivaAudio();
+                azoto.player.volume(v);
+                return;
+            }
             const p = video.player;
             if (!p) return;
             const n = Number(e.target.value) || 0;
@@ -3375,8 +3714,11 @@
         const par = new URLSearchParams(location.search);
         const oob = par.get('oobCode') || '';
         const perGestione = par.get('per') === 'gestione';
-        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/';
-        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1';
+        // l'evento dell'account (il servizio lo mette nel collegamento): dopo la nuova password si entra li'
+        const delCollegamento = perGestione ? '' : eventoDalLink(par.get('e') || '');
+        const ev = ID_EVENTO_VALIDO.test(delCollegamento) ? delCollegamento : '';
+        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/' + (ev ? '?e=' + encodeURIComponent(eventoNelLink(ev)) : '');
+        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1' + (ev ? '&e=' + encodeURIComponent(eventoNelLink(ev)) : '');
 
         function avviso(t, tipo) { msg('msg-reimposta', t, tipo); }
         function mostraScaduto() {
@@ -3388,7 +3730,7 @@
             a.hidden = false;
         }
 
-        $('link-reimposta-accesso').setAttribute('href', perGestione ? '/diretta/gestione/' : '/diretta/');
+        $('link-reimposta-accesso').setAttribute('href', perGestione ? '/diretta/gestione/' : destinazione);
         $('btn-mostra-nuova').addEventListener('click', () => {
             const b = $('btn-mostra-nuova');
             const visibili = b.getAttribute('aria-pressed') !== 'true';
@@ -3479,7 +3821,7 @@
             }
             // R24: si entra da soli, come se la persona avesse scritto email e password
             avviso('Password salvata. Ti stiamo portando nella diretta…', 'ok');
-            const r = await chiamaServizio({ azione: 'entra', email: emailPersona, password: p1 });
+            const r = await chiamaServizio({ azione: 'entra', email: emailPersona, password: p1, idEvento: ev || undefined });
             if (r.ok && r.token) {
                 try {
                     ricordaSessione(r.sessione);
@@ -3487,7 +3829,7 @@
                     await fb.A.signInWithCustomToken(fb.auth, r.token);
                     // l'evento su cui il servizio ha deciso all'accesso: la diretta apre quello
                     const e = String(r.idEvento || '');
-                    location.replace('/diretta/' + (ID_EVENTO_VALIDO.test(e) ? '?e=' + encodeURIComponent(e) : ''));
+                    location.replace('/diretta/' + (ID_EVENTO_VALIDO.test(e) ? '?e=' + encodeURIComponent(eventoNelLink(e)) : ''));
                     return;
                 } catch (e) { /* sotto: si entra a mano */ }
             }

@@ -35,16 +35,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20261125b">
+    <link rel="stylesheet" href="diretta.css?v=20261127b">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
     <script src="config.js?v=20260926b" defer></script>
-    <script src="sorgente-video.js?v=20261121a" defer></script>
+    <script src="sorgente-video.js?v=20261126a" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
+    <!-- il video di YouTube: la registrazione che sembra una diretta, con i nostri comandi -->
+    <script src="player-youtube.js?v=20261127a" defer></script>
+    <!-- la sigla d'apertura del video di YouTube: le immagini Revilaw sul webinar e il conto alla rovescia -->
+    <script src="sigla.js?v=20261127b" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20261125b" defer></script>
+    <script src="diretta.js?v=20261127b" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -187,19 +191,24 @@
         <section id="vista-attesa" class="vista" data-vista-di="attesa" hidden>
             <div class="fascia-scura">
                 <div class="attesa-eroe">
-                    <span class="etichetta-chiara"><span class="punto-attesa" aria-hidden="true"></span>Diretta in programma</span>
-                    <h2 id="attesa-titolo" tabindex="-1" data-fuoco>La diretta inizia tra</h2>
-                    <div id="conto-alla-rovescia" class="conto" role="timer" aria-label="Tempo che manca all'inizio della diretta">
-                        <div class="conto-voce"><span id="conto-giorni" class="conto-numero">00</span><span class="conto-etichetta">Giorni</span></div>
-                        <div class="conto-voce"><span id="conto-ore" class="conto-numero">00</span><span class="conto-etichetta">Ore</span></div>
-                        <div class="conto-voce"><span id="conto-minuti" class="conto-numero">00</span><span class="conto-etichetta">Minuti</span></div>
-                        <div class="conto-voce"><span id="conto-secondi" class="conto-numero">00</span><span class="conto-etichetta">Secondi</span></div>
+                    <div class="attesa-testi">
+                        <span class="etichetta-chiara"><span class="punto-attesa" aria-hidden="true"></span>Diretta in programma</span>
+                        <h2 id="attesa-titolo" tabindex="-1" data-fuoco>La diretta inizia tra</h2>
+                        <div id="conto-alla-rovescia" class="conto" role="timer" aria-label="Tempo che manca all'inizio della diretta">
+                            <div class="conto-voce"><span id="conto-giorni" class="conto-numero">00</span><span class="conto-etichetta">Giorni</span></div>
+                            <div class="conto-voce"><span id="conto-ore" class="conto-numero">00</span><span class="conto-etichetta">Ore</span></div>
+                            <div class="conto-voce"><span id="conto-minuti" class="conto-numero">00</span><span class="conto-etichetta">Minuti</span></div>
+                            <div class="conto-voce"><span id="conto-secondi" class="conto-numero">00</span><span class="conto-etichetta">Secondi</span></div>
+                        </div>
+                        <ul class="dettagli-evento">
+                            <li id="attesa-quando-riga"><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span id="attesa-quando"></span></li>
+                            <li id="attesa-luogo-riga" hidden><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span id="attesa-luogo"></span></li>
+                        </ul>
+                        <p class="nota-chiara">Non serve ricaricare la pagina: quando la diretta comincia, il video compare qui da solo.</p>
                     </div>
-                    <ul class="dettagli-evento">
-                        <li id="attesa-quando-riga"><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span id="attesa-quando"></span></li>
-                        <li id="attesa-luogo-riga" hidden><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span id="attesa-luogo"></span></li>
-                    </ul>
-                    <p class="nota-chiara">Non serve ricaricare la pagina: quando la diretta comincia, il video compare qui da solo.</p>
+                    <!-- «Mentre aspetti»: le immagini Revilaw sull'evento, a rotazione (sigla.js, creaGiostra; diretta.js, mostraMentreAspetti).
+                         Sui computer accanto ai testi, sul telefono sotto -->
+                    <div id="schermo-attesa" class="schermo-attesa" hidden></div>
                 </div>
             </div>
             <div class="griglia-carte">
@@ -215,10 +224,18 @@
                     <ul class="consigli">
                         <li data-solo="flusso">Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
                         <li data-solo="azoto">Quando il video compare, se non parte da solo premi il tasto <strong>play</strong> nel player; l'audio si regola con il <strong>pulsante del volume</strong> del player.</li>
+                        <li data-solo="youtube">Il video parte <strong>senza audio</strong>: quando compare, premi il pulsante <strong>«Attiva l'audio»</strong>.</li>
                         <li>Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
                         <li>Se chiudi la pagina, al ritorno non serve rifare l'accesso su questo dispositivo.</li>
                     </ul>
                     <p class="aiuto" data-aiuto></p>
+                </div>
+                <!-- «Mettiti alla prova»: domande sui temi della diretta, se ci sono (sigla.js, gioco e creaGioco; diretta.js, mostraMentreAspetti) -->
+                <div class="carta carta-gioco" id="carta-gioco" hidden>
+                    <h3>Mettiti alla prova</h3>
+                    <p class="gioco-intro">Qualche domanda sui temi della diretta, mentre aspetti: la risposta compare subito.</p>
+                    <ol id="gioco-domande" class="gioco-domande"></ol>
+                    <p id="gioco-esito" class="gioco-esito" role="status" aria-live="polite"></p>
                 </div>
             </div>
             <!-- qui diretta.js mette il riquadro delle domande (#carta-domande), se la regia le ha accese -->
@@ -352,6 +369,9 @@
                         <li data-solo="flusso">Sei rimasto indietro? Premi <strong>«Torna in diretta»</strong>.</li>
                         <li data-solo="flusso">Scorciatoie da tastiera (con un clic sul video, o raggiungendolo con <kbd>Tab</kbd>): <kbd>Spazio</kbd> pausa, <kbd>F</kbd> schermo intero, <kbd>M</kbd> audio, frecce per il volume.</li>
                         <li data-solo="azoto">Il video non parte? Premi il tasto <strong>play</strong> al centro del player.</li>
+                        <li data-solo="youtube">Non senti niente? Premi <strong>«Attiva l'audio»</strong> e controlla il volume del dispositivo.</li>
+                        <li data-solo="youtube">Il video si blocca? <strong>Ricarica la pagina</strong>: non serve rifare l'accesso.</li>
+                        <li data-solo="youtube">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>
                         <li data-solo="azoto">Non senti niente? Premi il <strong>pulsante del volume</strong> nel player e controlla il volume del dispositivo.</li>
                         <li data-solo="azoto">Il video si blocca? <strong>Ricarica la pagina</strong>: non serve rifare l'accesso.</li>
                         <li data-solo="azoto-computer">Per vederlo più grande usa <strong>«Schermo intero»</strong>, sotto il video.</li>

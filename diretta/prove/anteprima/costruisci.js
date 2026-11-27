@@ -16,13 +16,16 @@
    - il servizio VERO (email-service/api/diretta-*.js e lib/), impacchettato
      con esbuild in anteprima/motore.js insieme a un Firebase finto in
      memoria (motore/) e alla posta di prova;
-   - i due player della diretta sostituiti da quelli di prova, con la
+   - i player della diretta sostituiti da quelli di prova, con la
      stessa interfaccia: al posto del player di Azoto in iframe
      (modalita' A, player-azoto.js) un riquadro «Player Azoto
-     (anteprima)» (player-azoto-anteprima.js); al posto del flusso
-     diretto (modalita' B, player-webtv.js) un video di prova disegnato
-     nel browser (player-anteprima.js, anche con la finestra per tornare
-     indietro e le qualita', finte);
+     (anteprima)» (player-azoto-anteprima.js); al posto del video di
+     YouTube (modalita' A con un link di YouTube, player-youtube.js) un
+     riquadro «Registrazione YouTube (anteprima)» con il punto della
+     registrazione, uguale per tutti (player-youtube-anteprima.js); al
+     posto del flusso diretto (modalita' B, player-webtv.js) un video di
+     prova disegnato nel browser (player-anteprima.js, anche con la
+     finestra per tornare indietro e le qualita', finte);
    - il guscio (guscio.html -> index.html): le schede Guida, Partecipante,
      Gestione, Relatore e Posta di prova.
    Ogni ritocco controlla di trovare il testo da cambiare: se diretta.js
@@ -42,6 +45,7 @@ const REPO = path.resolve(QUI, '../../..');
    vere, in locale. Non e' la versione da pubblicare: li' i video e le
    pagine di altri siti non si caricano. */
 const PLAYER_VERO = process.argv.indexOf('--player-vero') >= 0;
+const PLAYER_VERI = ['webtv', 'azoto', 'youtube'];
 const OUT = path.resolve(QUI, PLAYER_VERO ? '../risultati/anteprima-vera' : '../risultati/anteprima');
 const MOTORE = path.join(QUI, 'motore');
 
@@ -170,11 +174,16 @@ function pagina(rel, cartella, conPlayer, azotoObbligato) {
         if (azotoObbligato || html.indexOf('"diretta/player-azoto.js"') >= 0) {
             html = ritocca(html, rel, '"diretta/player-azoto.js"', '"anteprima/player-azoto-anteprima.js"');
         }
+        // il video di YouTube (la registrazione che sembra una diretta): la pagina della diretta DEVE caricarlo
+        if (azotoObbligato || html.indexOf('"diretta/player-youtube.js"') >= 0) {
+            html = ritocca(html, rel, '"diretta/player-youtube.js"', '"anteprima/player-youtube-anteprima.js"');
+        }
     }
     // nessun altro player: se una pagina ne carica ancora uno, la costruzione si ferma
-    const altri = html.match(/<script src="diretta\/player-(?!webtv\.js"|azoto\.js")[^"]*"/g);
-    if (altri) throw new Error('script di un player sconosciuto in ' + rel + ': ' + altri.join(', '));
-    if (!PLAYER_VERO && /<script src="[^"]*player-(webtv|azoto)\.js"/.test(html)) throw new Error('player vero ancora presente in ' + rel);
+    const altri = (html.match(/<script src="diretta\/player-[^"]*"/g) || [])
+        .filter(t => PLAYER_VERI.indexOf(t.replace(/^.*player-|\.js"$/g, '')) < 0);
+    if (altri.length) throw new Error('script di un player sconosciuto in ' + rel + ': ' + altri.join(', '));
+    if (!PLAYER_VERO && /<script src="[^"]*player-(webtv|azoto|youtube)\.js"/.test(html)) throw new Error('player vero ancora presente in ' + rel);
     return html;
 }
 
@@ -198,11 +207,14 @@ async function costruisci() {
 
     ['diretta/diretta.css', 'diretta/gestione/gestione.css', 'diretta/relatore/relatore.css'].forEach(f => copia(f));
     scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
-    if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
+    // la sigla d'apertura del video di YouTube (pagina della diretta e Regia)
+    scrivi('diretta/sigla.js', leggi('diretta/sigla.js'));
+    if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/player-youtube.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
     copia('diretta/prove/anteprima/pagina.js', 'anteprima/pagina.js');
     copia('diretta/prove/anteprima/player-anteprima.js', 'anteprima/player-anteprima.js');
     copia('diretta/prove/anteprima/player-azoto-anteprima.js', 'anteprima/player-azoto-anteprima.js');
+    copia('diretta/prove/anteprima/player-youtube-anteprima.js', 'anteprima/player-youtube-anteprima.js');
     fs.readdirSync(path.join(QUI, 'sdk')).forEach(f => copia('diretta/prove/anteprima/sdk/' + f, 'anteprima/sdk/' + f));
 
     const pagine = {
@@ -218,6 +230,10 @@ async function costruisci() {
     const immagini = new Set(['assets/newsletter/fascia-filigrana.png', 'assets/logo-revilaw-bianco.png', 'assets/favicon.png']);
     Object.values(pagine).join('\n').replace(/"(assets\/[^"]+\.(?:png|jpg|jpeg|svg|webp|ico))"/g, (t, f) => { immagini.add(f); return t; });
     immagini.forEach(f => copia(f));
+    // i fogli di stile e gli script comuni del sito citati dalle pagine (il testo giustificato, la stampa): come sul sito
+    const comuni = new Set();
+    Object.values(pagine).join('\n').replace(/"(assets\/[^"]+\.(?:css|js))"/g, (t, f) => { comuni.add(f); return t; });
+    comuni.forEach(f => copia(f));
 
     copia('diretta/prove/anteprima/guscio.html', 'index.html');
     copia('diretta/prove/anteprima/guscio.js', 'anteprima/guscio.js');

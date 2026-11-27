@@ -56,7 +56,34 @@ class Ts {
     toMillis() { return this._ms; }
 }
 const INC = n => ({ __inc: n });
+const CANCELLA = { __cancella: true };
+// il percorso di un campo, come new FieldPath('invii', idEvento, 'stato') di Firestore
+class FP { constructor(...segmenti) { this.segmenti = segmenti.map(String); } }
 function valoreDi(v) { return v && typeof v.toMillis === 'function' ? v.toMillis() : v; }
+/* update(dati) oppure update(campo, valore, campo, valore...): i campi
+   (stringhe con i punti, o FP) arrivano dentro gli oggetti annidati */
+function aggiornaCampi(vecchio, args) {
+    if (args.length === 1 && !(args[0] instanceof FP)) {
+        const d = args[0] || {};
+        const out = Object.assign({}, vecchio);
+        Object.keys(d).forEach(k => metti(out, k.split('.'), d[k]));
+        return out;
+    }
+    const out = JSON.parse(JSON.stringify(vecchio || {}, (k, v) => (v instanceof Ts ? { __ts: v._ms } : v)), (k, v) => (v && typeof v === 'object' && typeof v.__ts === 'number' ? new Ts(v.__ts) : v));
+    for (let i = 0; i + 1 < args.length; i += 2) metti(out, args[i] instanceof FP ? args[i].segmenti : String(args[i]).split('.'), args[i + 1]);
+    return out;
+}
+function metti(ogg, segmenti, valore) {
+    let o = ogg;
+    for (let i = 0; i < segmenti.length - 1; i++) {
+        if (!o[segmenti[i]] || typeof o[segmenti[i]] !== 'object') o[segmenti[i]] = {};
+        o = o[segmenti[i]];
+    }
+    const ultimo = segmenti[segmenti.length - 1];
+    if (valore === CANCELLA) delete o[ultimo];
+    else if (valore && typeof valore === 'object' && typeof valore.__inc === 'number') o[ultimo] = (Number(o[ultimo]) || 0) + valore.__inc;
+    else o[ultimo] = valore;
+}
 function fondi(vecchio, nuovo) {
     const out = Object.assign({}, vecchio || {});
     Object.keys(nuovo || {}).forEach(k => {
@@ -82,7 +109,8 @@ function creaDb() {
         const c = docs.get(percorso);
         if (tipo === 'create' && c) { const e = new Error('esiste gia\''); e.code = 6; throw e; }
         if (tipo === 'update' && !c) { const e = new Error('non esiste: ' + percorso); e.code = 5; throw e; }
-        const nuovo = tipo === 'update' || (opz && opz.merge) ? fondi(c, dati) : fondi({}, dati);
+        const nuovo = tipo === 'update' ? aggiornaCampi(c, Array.isArray(dati) ? dati : [dati])
+            : ((opz && opz.merge) ? fondi(c, dati) : fondi({}, dati));
         docs.set(percorso, nuovo);
         scritture.push(percorso);
     }
@@ -91,7 +119,7 @@ function creaDb() {
             id: percorso.split('/').pop(), path: percorso,
             get: async () => foto(percorso),
             set: async (d, o) => scrivi('set', percorso, d, o),
-            update: async d => scrivi('update', percorso, d),
+            update: async (...args) => scrivi('update', percorso, args),
             create: async d => scrivi('create', percorso, d),
             delete: async () => { docs.delete(percorso); },
             collection: nome => collezione(percorso + '/' + nome)
@@ -133,7 +161,7 @@ function creaDb() {
                 get: async x => (x.path ? foto(x.path) : x.get()),
                 getAll: async (...r) => r.map(x => foto(x.path)),
                 set: (x, d, o) => { coda.push(['set', x.path, d, o]); },
-                update: (x, d) => { coda.push(['update', x.path, d]); },
+                update: (x, ...args) => { coda.push(['update', x.path, args]); },
                 create: (x, d) => { coda.push(['create', x.path, d]); }
             };
             const esito = await fn(tx);
@@ -168,6 +196,11 @@ function creaAuth() {
             utenti.set(uid, u);
             return Object.assign({}, u);
         },
+        getUser: async uid => {
+            const u = utenti.get(uid);
+            if (!u) { const e = new Error('nessuno'); e.code = 'auth/user-not-found'; throw e; }
+            return Object.assign({}, u);
+        },
         updateUser: async (uid, o) => { Object.assign(utenti.get(uid), o); return Object.assign({}, utenti.get(uid)); },
         setCustomUserClaims: async (uid, c) => { utenti.get(uid).customClaims = c; },
         revokeRefreshTokens: async uid => { revocati.add(uid); },
@@ -196,7 +229,8 @@ function nuovoMondo() {
     ctx = {
         db: f.db, auth: a.auth, adesso: () => m.ora,
         Timestamp: { fromMillis: ms => new Ts(ms) },
-        FieldValue: { increment: INC },
+        FieldValue: { increment: INC, delete: () => CANCELLA },
+        FieldPath: FP,
         emulatore: false
     };
     return m;
@@ -455,23 +489,31 @@ const gestione = (corpo) => chiama(GESTIONE, corpo, 'tok-regia');
         vero(g.stato === 200 && g.corpo.relatori.length === 10 && g.corpo.relatori.indexOf('q10') >= 0 && g.corpo.relatori.indexOf('q0') < 0, 'tolto uno, se ne segna un altro');
     }
 
-    /* ======================== L'EMAIL GIA' DI UN ALTRO ACCOUNT (aggiunta a mano) ======================== */
+    /* ======================== OGNI EVENTO, I SUOI PARTECIPANTI (aggiunta a mano) ======================== */
     {
         const m = nuovoMondo();
         evento(m, WEB, 'programmato');
         evento(m, ALTRO, 'programmato');
         m.auth.token.set('tok-regia', { uid: 'g1', email: 'regia@revilaw.it', email_verified: true, gestore: true, firebase: { sign_in_provider: 'password' } });
-        // una prova fatta con l'email di un altro: l'account c'e', con un altro nome, iscritto a Milano
+        // la stessa email e' gia' di un account di UN ALTRO evento, con un altro nome
         partecipante(m, 'z1', { nome: 'Anna', cognome: 'Prova', email: 'mia.email@esempio.it', emailNorm: 'mia.email@esempio.it', eventi: [ALTRO] });
         m.docs.set('indirizzi/mia.email@esempio.it', { uid: 'z1' });
+        const z1Prima = JSON.stringify(m.docs.get('partecipanti/z1'));
         const g = await gestione({ azione: 'partecipante-aggiungi', idEvento: WEB, nome: 'Andrea', cognome: 'Vero', email: 'mia.email@esempio.it' });
-        vero(g.stato === 409 && g.corpo.codice === 'email-condivisa'
-            && /^Con questa email è già registrato Anna Prova: se è la stessa persona, scrivi il nome come è registrato/.test(g.corpo.msg)
-            && /Quell'account è iscritto a: «Webinar 10 dicembre»\./.test(g.corpo.msg) && /«Correggi» sulla sua riga/.test(g.corpo.msg),
-            'email già di un altro account: il messaggio dice a quale evento è iscritto e come dargli il nome giusto', g.corpo.msg);
-        m.docs.get('partecipanti/z1').eventi = [];
-        const g2 = await gestione({ azione: 'partecipante-aggiungi', idEvento: WEB, nome: 'Andrea', cognome: 'Vero', email: 'mia.email@esempio.it' });
-        vero(g2.stato === 409 && /Quell'account non è iscritto a nessun evento\./.test(g2.corpo.msg), '…anche quando non è iscritto a nessun evento', g2.corpo.msg);
+        const nuovo = g.corpo.partecipante || {};
+        const ind = m.docs.get('indirizzi/mia.email@esempio.it') || {};
+        vero(g.stato === 200 && g.corpo.esito === 'creato' && nuovo.uid && nuovo.uid !== 'z1' && nuovo.nome === 'Andrea' && (nuovo.eventi || []).join() === WEB,
+            'email di un account di un altro evento (con un altro nome): nessun problema, per questo evento nasce un account suo', JSON.stringify(g.corpo).slice(0, 300));
+        vero(ind.uid === 'z1' && ind.perEvento && ind.perEvento[WEB] === nuovo.uid && JSON.stringify(m.docs.get('partecipanti/z1')) === z1Prima,
+            '...indirizzi/{email}: perEvento.' + WEB + ' -> il nuovo account; l\'account dell\'altro evento resta com\'era', JSON.stringify(ind));
+        const g2 = await gestione({ azione: 'partecipante-aggiungi', idEvento: WEB, nome: 'Luca', cognome: 'Altro', email: 'mia.email@esempio.it' });
+        vero(g2.stato === 409 && g2.corpo.codice === 'email-condivisa'
+            && /^In questo evento con questa email c'è già Andrea Vero\. Se è la stessa persona è già iscritta: per cambiarle il nome usa «Correggi» sulla sua riga\./.test(g2.corpo.msg),
+            'nello STESSO evento la stessa email di un\'altra persona: 409, con chi c\'è già e che cosa fare', g2.corpo.msg);
+        const g3 = await gestione({ azione: 'partecipante-aggiungi', idEvento: WEB, nome: 'Andrea', cognome: 'Vero', email: 'MIA.Email@esempio.it ' });
+        vero(g3.stato === 200 && g3.corpo.esito === 'gia-iscritto' && (g3.corpo.partecipante || {}).uid === nuovo.uid, 'la stessa persona di nuovo: già in questo evento, lo stesso account', JSON.stringify([g3.stato, g3.corpo]).slice(0, 300));
+        const g4 = await gestione({ azione: 'partecipante-aggiungi', idEvento: ALTRO, nome: 'Anna', cognome: 'Prova', email: 'mia.email@esempio.it' });
+        vero(g4.stato === 200 && g4.corpo.esito === 'gia-iscritto' && (g4.corpo.partecipante || {}).uid === 'z1', 'e nell\'altro evento resta l\'account di prima (z1)');
     }
 
     /* ======================== LA PORTA ======================== */

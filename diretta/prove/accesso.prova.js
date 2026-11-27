@@ -852,8 +852,8 @@ async function provaVideoWebTv(tokG, P, segrete) {
             vero(aMario.length === 1 && aLuigi.length === 1 && nuove.length === 2, 'due email, agli indirizzi VERI di Mario e di Luigi, e a nessun altro (' + nuove.length + ')');
             vero(!nuove.some(m => /nessuno@esempio\.it/i.test(String(m.a))), 'a chi non e\' iscritto non parte niente');
             const corpo = m => String(m.testo || '') + String(m.html || '');
-            vero(aMario.length === 1 && /\/diretta\/reimposta\.html\?oobCode=[A-Za-z0-9_-]+"/.test(aMario[0].html) && !/reimposta\.html\?[^"\s]*(u=|@)/.test(corpo(aMario[0])),
-                'l\'email contiene il collegamento /diretta/reimposta.html?oobCode=... (senza l\'email nel collegamento)');
+            vero(aMario.length === 1 && new RegExp('/diretta/reimposta\\.html\\?oobCode=[A-Za-z0-9_-]+&amp;e=' + EVENTO + '"').test(aMario[0].html) && !/reimposta\.html\?[^"\s]*(u=|@)/.test(corpo(aMario[0])),
+                'l\'email contiene il collegamento /diretta/reimposta.html?oobCode=...&e=' + EVENTO + ' (l\'evento dell\'account, senza l\'email nel collegamento)');
             vero(aMario.length === 1 && /La tua email: mario\.rossi@esempio\.it/.test(aMario[0].testo) && !/nome utente/i.test(corpo(aMario[0])), 'e ricorda l\'email con cui si entra (nessun nome utente)');
             vero(nuove.every(m => !/@utenti\.diretta\./.test(String(m.a))), 'nessuna email verso gli indirizzi tecnici');
             const pwNuova = password(); segrete.push(pwNuova);
@@ -901,7 +901,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const incorporato = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>' }, tokG);
         vero(incorporato.stato === 400 && /non è il link di un flusso diretto/.test(incorporato.dati.msg || ''), 'la pagina da incorporare di un\'altra web TV nel campo del flusso: 400 («' + incorporato.dati.msg + '»)');
         const azotoNelFlusso = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: CODICE_AZOTO }, tokG);
-        vero(azotoNelFlusso.stato === 400 && azotoNelFlusso.dati.codice === 'video' && /va nel campo «Player Azoto»/.test(azotoNelFlusso.dati.msg || ''),
+        vero(azotoNelFlusso.stato === 400 && azotoNelFlusso.dati.codice === 'video' && /va nel campo «Player YouTube o Azoto»/.test(azotoNelFlusso.dati.msg || ''),
             'il codice di Azoto nel campo del flusso: 400 («' + azotoNelFlusso.dati.msg + '»)');
         const flussoInAzoto = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, azotoUrl: LINK_WEBTV } }, tokG);
         vero(flussoInAzoto.stato === 400 && flussoInAzoto.dati.codice === 'azoto' && /va nel campo «Flusso diretto \(\.m3u8\)»/.test(flussoInAzoto.dati.msg || ''),
@@ -1051,6 +1051,48 @@ async function provaVideoWebTv(tokG, P, segrete) {
         vero(finito.videoId === '' && finito.videoRiserva === '' && finito.videoFirmato === false, 'terminato: il video (principale, riserva, videoFirmato) sparisce dal documento dell\'evento');
         const linkFinito = await chiama('diretta-accesso', { azione: 'link-video', idEvento: EVENTO, sorgente: 'principale' }, { token: await tokenDi(P.elenagialli.uid) });
         vero(linkFinito.stato === 409 && linkFinito.dati.codice === 'non-in-onda' && !linkFinito.dati.url, 'link-video con l\'evento non in onda: 409 non-in-onda');
+
+        console.log('\nOgni evento i suoi partecipanti: la stessa email in due eventi');
+        const SECONDO = 'secondo-2026';
+        const ev2 = await gestione({ azione: 'evento-salva', evento: { nuovo: true, id: SECONDO, titolo: 'Secondo evento di prova', data: '2031-03-10', oraInizio: '10:00', oraFine: '12:00' } }, tokG);
+        vero(ev2.stato === 200, 'un secondo evento', ev2.testo.slice(0, 160));
+        // con l'email di Mario Rossi (Napoli), ma un altro nome: per il secondo evento e' una persona nuova
+        const agg2 = await gestione({ azione: 'partecipante-aggiungi', idEvento: SECONDO, nome: 'Maria', cognome: 'Rossetti', email: 'Mario.Rossi@esempio.it' }, tokG);
+        const uid2 = ((agg2.dati || {}).partecipante || {}).uid;
+        vero(agg2.stato === 200 && agg2.dati.esito === 'creato' && uid2 && uid2 !== P.mariorossi.uid,
+            'la stessa email di un partecipante di Napoli, con un altro nome: nel secondo evento un account suo (nessun «email-condivisa»)', agg2.testo.slice(0, 200));
+        const pw2 = password(); segrete.push(pw2);
+        await auth.updateUser(uid2, { password: pw2 });
+        const pwMario = (await (async () => { const x = password(); segrete.push(x); await auth.updateUser(P.mariorossi.uid, { password: x }); return x; })());
+        const conPw2 = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: pw2, idEvento: SECONDO }, { ip: '10.0.9.1' });
+        vero(conPw2.stato === 200 && conPw2.dati.idEvento === SECONDO && contenuto(conPw2.dati.token).uid === uid2 && conPw2.dati.nome === 'Maria',
+            'email + password del secondo evento (link del secondo evento): entra l\'account del secondo evento', conPw2.testo.slice(0, 200));
+        const senzaLink = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: pw2 }, { ip: '10.0.9.2' });
+        vero(senzaLink.stato === 200 && senzaLink.dati.idEvento === SECONDO && contenuto(senzaLink.dati.token).uid === uid2, '...anche senza il link: entra l\'account di cui e\' la password');
+        const conPwMario = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: pwMario, idEvento: EVENTO }, { ip: '10.0.9.3' });
+        vero(conPwMario.stato === 200 && conPwMario.dati.idEvento === EVENTO && contenuto(conPwMario.dati.token).uid === P.mariorossi.uid,
+            'con la password di Napoli (link di Napoli): entra l\'account di Napoli, anche se l\'email ha due account (prima prova quello del link)');
+        const sbagliato = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: pwMario, idEvento: SECONDO }, { ip: '10.0.9.4' });
+        vero(sbagliato.stato === 403 && sbagliato.dati.codice === 'altro-evento' && !sbagliato.dati.token
+            && /^Queste credenziali sono per «Next Generation Business 2026 · Napoli», non per questa diretta\./.test(sbagliato.dati.msg || ''),
+            'la password di Napoli sul link del secondo evento: 403 altro-evento, nessun accesso, e il messaggio dice di quale evento sono', sbagliato.testo.slice(0, 260));
+        const nessuna = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: 'Sbagliata123', idEvento: SECONDO }, { ip: '10.0.9.5' });
+        vero(nessuna.stato === 401 && nessuna.dati.codice === 'credenziali', 'una password di nessuno dei due: 401 come sempre');
+        if (invioPresente) {
+            const postaR = leggiPosta().length;
+            await chiama('diretta-accesso', { azione: 'password-dimenticata', email: 'mario.rossi@esempio.it', idEvento: SECONDO }, { ip: '10.0.9.6' });
+            await pausa(300);
+            const resetSecondo = leggiPosta().slice(postaR);
+            vero(resetSecondo.length === 1 && resetSecondo[0].a === 'mario.rossi@esempio.it' && /Secondo evento di prova/.test(resetSecondo[0].oggetto)
+                && new RegExp('reimposta\\.html\\?oobCode=[A-Za-z0-9_-]+&amp;e=' + SECONDO + '"').test(resetSecondo[0].html),
+                '«Password dimenticata?» dalla pagina del secondo evento: un\'email sola, per l\'account di quell\'evento (oggetto con il suo titolo, collegamento con &e=)', JSON.stringify(resetSecondo.map(m => m.oggetto)));
+            const pwReset = password(); segrete.push(pwReset);
+            const rr = resetSecondo.length ? await rest('resetPassword', { oobCode: oobDa(resetSecondo[0]), newPassword: pwReset }) : { stato: 0 };
+            const dopoReset = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: pwReset, idEvento: SECONDO }, { ip: '10.0.9.7' });
+            const napoliAncora = await chiama('diretta-accesso', { azione: 'entra', email: 'mario.rossi@esempio.it', password: pwMario, idEvento: EVENTO }, { ip: '10.0.9.8' });
+            vero(rr.stato === 200 && dopoReset.stato === 200 && contenuto(dopoReset.dati.token).uid === uid2 && napoliAncora.stato === 200 && contenuto(napoliAncora.dati.token).uid === P.mariorossi.uid,
+                'la nuova password vale per il secondo evento, e quella di Napoli resta com\'era (account distinti)');
+        }
 
         console.log('\nLog del servizio');
         await pausa(200);
