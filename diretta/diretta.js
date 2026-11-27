@@ -1241,19 +1241,28 @@
             if (!mentreAspetti.vetrina) {
                 const p = (CFG && CFG.prove) || null;
                 mentreAspetti.vetrina = V.crea($('schermo-attesa'), {
-                    inizio: () => (stato.evento ? ms(stato.evento.inizio) : null),
-                    secondiScena: p && p.vetrinaSecondi > 0 ? p.vetrinaSecondi : 0
+                    secondiVoce: p && p.vetrinaSecondi > 0 ? p.vetrinaSecondi : 0
                 });
             }
             mentreAspetti.vetrina.mostra(eventoSigla());
             $('schermo-attesa').hidden = false;
-            document.querySelector('#vista-attesa .attesa-eroe').classList.add('con-schermo');
+            // la fascia del titolo con il quadrante: i testi a sinistra (sul telefono sopra), il quadrante dal bordo
+            document.querySelector('#vista-attesa .fascia-scura').classList.add('con-quadrante');
         } catch (e) {
             console.warn('[diretta] mentre aspetti:', e);
         }
     }
     function fermaMentreAspetti() { if (mentreAspetti.vetrina) mentreAspetti.vetrina.ferma(); }
     function fermaConto() { clearInterval(stato.timerConto); stato.timerConto = null; }
+    // una cifra del conto alla rovescia: se cambia, il numero nuovo scende al suo posto (diretta.css, .scatta)
+    function cifra(id, v) {
+        const el = $(id);
+        if (!el || el.textContent === v) return;
+        el.textContent = v;
+        el.classList.remove('scatta');
+        void el.offsetWidth;
+        el.classList.add('scatta');
+    }
     function avviaConto() {
         if (!stato.timerConto) stato.timerConto = setInterval(aggiornaConto, 1000);
         aggiornaConto();
@@ -1278,10 +1287,10 @@
         conto.hidden = false;
         conto.classList.remove('imminente');
         const s = Math.floor(resto / 1000);
-        testo('conto-giorni', due(Math.floor(s / 86400)));
-        testo('conto-ore', due(Math.floor((s % 86400) / 3600)));
-        testo('conto-minuti', due(Math.floor((s % 3600) / 60)));
-        testo('conto-secondi', due(s % 60));
+        cifra('conto-giorni', due(Math.floor(s / 86400)));
+        cifra('conto-ore', due(Math.floor((s % 86400) / 3600)));
+        cifra('conto-minuti', due(Math.floor((s % 3600) / 60)));
+        cifra('conto-secondi', due(s % 60));
         if ($('attesa-titolo').textContent !== 'La diretta inizia tra') testo('attesa-titolo', 'La diretta inizia tra');
     }
 
