@@ -451,6 +451,19 @@ function webtv(opz) {
                 vero(r.esito === 'ok' && /flusso HLS di Castr/.test(riga) && /«Flusso diretto \(\.m3u8\)»/.test(riga),
                     'un link .m3u8 nella pagina del player Castr: si propone di provarlo come flusso diretto («' + riga + '»)');
             }
+            {
+                const pag = {};
+                pag[VALORE] = 'rifiuta';
+                const { r } = await prova(CASTR, pag);
+                vero(/^Player Castr: non risponde/.test(r.titolo) && !/Azoto/.test(r.titolo + ' ' + r.problemi.map(x => x.messaggio).join(' ')),
+                    'Castr che non risponde: titolo e messaggi dicono Castr, non Azoto — «' + r.titolo + '»', JSON.stringify(r.problemi));
+            }
+            {
+                const pag = {};
+                pag[VALORE] = { stato: 404, corpo: 'no', h: { 'content-type': 'text/html' } };
+                const { r } = await prova(CASTR, pag);
+                vero(/^Player Castr: pagina non trovata/.test(r.titolo), 'Castr 404: «' + r.titolo + '»');
+            }
             for (const link of ['https://castr.com/app/live/123', 'https://player.castr.com/', 'https://dashboard.castr.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9']) {
                 const { r, w } = await prova(link, {});
                 const p = problema(r, 'castr');

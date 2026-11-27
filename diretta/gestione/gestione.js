@@ -249,6 +249,19 @@
         const nome = !url ? NOMI_PLAYER.azoto.toLowerCase() : (yt ? 'video YouTube' : castr ? 'player Castr' : 'player Azoto');
         return maiuscola ? nome.charAt(0).toUpperCase() + nome.slice(1) : nome;
     }
+    /* La piattaforma del player incorporato, per le frasi: 'YouTube',
+       'Castr' o 'Azoto' (dal link; senza link, o con un link di Azoto:
+       'Azoto'). Con YouTube e Castr le frasi non devono dire «Azoto». */
+    function piattaforma(url) {
+        if (url && SV && typeof SV.eYouTube === 'function' && SV.eYouTube(url)) return 'YouTube';
+        if (url && SV && typeof SV.eCastr === 'function' && SV.eCastr(url)) return 'Castr';
+        return 'Azoto';
+    }
+    // «riprova quando ... li ha risolti»: Azoto li risolve lui; YouTube e Castr li sistema chi organizza
+    function quandoRisolti(url) {
+        const p = piattaforma(url);
+        return p === 'Azoto' ? 'riprova quando Azoto li ha risolti.' : 'riprova quando li hai sistemati ' + (p === 'YouTube' ? 'su YouTube.' : 'in Castr.');
+    }
     // i campi del player Azoto; gli altri (ev-video, ev-riserva, regia-video, regia-riserva) sono il flusso diretto
     const CAMPI_AZOTO = { 'ev-azoto': true, 'regia-azoto': true };
 
@@ -1639,7 +1652,7 @@
                chiede conferma. */
             const avvisi = [];
             const daProvare = [];
-            if (azotoCambiato && evento.azotoUrl) daProvare.push({ id: 'ev-azoto', etichetta: 'Player Azoto' });
+            if (azotoCambiato && evento.azotoUrl) daProvare.push({ id: 'ev-azoto', etichetta: nomeIncorporato(evento.azotoUrl, true) });
             if (videoCambiato && evento.videoUrl) daProvare.push({ id: 'ev-video', etichetta: 'Link del flusso' });
             if (riservaCambiata && evento.riservaUrl) daProvare.push({ id: 'ev-riserva', etichetta: 'Link di riserva' });
             for (const x of daProvare) {
@@ -1728,12 +1741,12 @@
                         ? (tipo === 'flusso' ? 'I partecipanti collegati passano al flusso diretto.' : 'I partecipanti collegati tornano al player Azoto.')
                         : 'Tipo di player: ' + (tipo === 'flusso' ? 'flusso diretto (.m3u8).' : 'player Azoto.'));
                 } else if (fraseOnda) {
-                    detto.push(suAzoto ? (azotoTolto ? 'Player Azoto tolto.' : 'I partecipanti collegati passano al nuovo player Azoto.') : 'I partecipanti collegati ricevono i link nuovi.');
+                    detto.push(suAzoto ? (azotoTolto ? 'Player Azoto tolto.' : 'I partecipanti collegati passano al nuovo ' + nomeIncorporato(evento.azotoUrl) + '.') : 'I partecipanti collegati ricevono i link nuovi.');
                 }
                 if (salto) detto.push(inOnda ? 'I partecipanti collegati saltano al nuovo punto della registrazione.' : 'Alla ripresa la registrazione riparte dal nuovo punto.');
-                if (azotoCambiato && evento.azotoUrl && letto.azotoDaCodice) detto.push('Dal codice di Azoto ho salvato solo l\'indirizzo del player.');
+                if (azotoCambiato && evento.azotoUrl && letto.azotoDaCodice) detto.push('Dal codice di ' + piattaforma(evento.azotoUrl) + ' ho salvato solo l\'indirizzo del player.');
                 if (evento.firma && evento.firma.segreto) detto.push('La chiave segreta è salvata sul servizio.');
-                if (avvisi.length) detto.push('Ricorda i problemi segnalati dalla prova: riprova quando Azoto li ha risolti.');
+                if (avvisi.length) detto.push('Ricorda i problemi segnalati dalla prova: ' + quandoRisolti(azotoCambiato && evento.azotoUrl ? evento.azotoUrl : ''));
                 mostraMsg('#msg-evento', detto.join(' '), 'ok');
                 // orari e caselle dei promemoria cambiano chi li riceve e quando
                 if (!eraNuovo) aggiornaStatoEmail().catch(() => { /* lo si rivede aprendo la scheda Email */ });
@@ -2376,7 +2389,7 @@
             mostraTipo(id, [
                 el('strong', { testo: salvato ? 'Player salvato:' : 'Indirizzo del player:' }), ' ',
                 el('span', { classe: 'testo-fisso', testo: l.valore }),
-                l.daCodice ? ' Preso dal codice di Azoto: si salva solo questo indirizzo, il resto del codice si scarta.' : '',
+                l.daCodice ? ' Preso dal codice di ' + piattaforma(l.valore) + ': si salva solo questo indirizzo, il resto del codice si scarta.' : '',
                 salvato ? '' : ' Premi «Prova il player» per controllarlo.'
             ], 'ok');
             return;
@@ -2495,7 +2508,7 @@
         };
 
         // (b) la prova del servizio: del player Azoto si manda solo l'indirizzo, mai il codice incollato
-        mostraTipo(id, azoto ? 'Prova in corso: il servizio controlla il player Azoto…' : 'Prova in corso: il servizio controlla il server della web TV…', 'info');
+        mostraTipo(id, azoto ? 'Prova in corso: il servizio controlla il player ' + piattaforma(l.valore) + '…' : 'Prova in corso: il servizio controlla il server della web TV…', 'info');
         const link = azoto ? l.valore : testo;
         try {
             const s = await chiama('prova-link', idEvento ? { link: link, idEvento: idEvento } : { link: link });
@@ -2690,7 +2703,8 @@
         svuota(box);
         box.dataset.esito = r.esito;
         const e = ESITI_PROVA[r.esito] || ESITI_PROVA.avviso;
-        const d = descrizioneTipo(r.tipo);
+        const d = r.tipo === 'incorporato' && piattaforma(r.valore) !== 'Azoto' && SV && typeof SV.messaggio === 'function'
+            ? SV.messaggio(SV.leggi(r.valore)) : descrizioneTipo(r.tipo);
         const titolo = r.titolo || d || 'Prova del link';
         box.appendChild(el('p', { classe: 'esito-testa' }, [
             el('span', { classe: 'esito-bollo', testo: e.parola }),
@@ -2885,7 +2899,7 @@
             stato.annullaProvaVideo = annulla;
             // se il player non dice niente (non dovrebbe succedere: a 15 s dice 'lento') non si blocca il gestore
             const limite = setTimeout(() => fine({
-                ok: true, avviso: 'Il player Azoto non ha risposto: controlla con «Vedi come un partecipante».'
+                ok: true, avviso: 'Il ' + nomeIncorporato(url) + ' non ha risposto: controlla con «Vedi come un partecipante».'
             }), ATTESA_AZOTO_MS);
             try {
                 stato.anteprimaVideo = PA.crea(posto, {
@@ -2895,7 +2909,9 @@
                             fine({ ok: false, codice: 'link', motivo: 'il player accetta solo un indirizzo https di cdn.azotosolutions.com.' });
                             return;
                         }
-                        fine({ ok: true, avviso: 'Il player Azoto non si è caricato entro 15 secondi: se Azoto non ha ancora acceso il canale è normale, altrimenti controlla con «Vedi come un partecipante».' });
+                        fine({ ok: true, avviso: piattaforma(url) === 'Castr'
+                            ? 'Il player Castr non si è caricato entro 15 secondi: se la diretta su Castr non è ancora partita è normale, altrimenti controlla con «Vedi come un partecipante».'
+                            : 'Il player Azoto non si è caricato entro 15 secondi: se Azoto non ha ancora acceso il canale è normale, altrimenti controlla con «Vedi come un partecipante».' });
                     }
                 });
                 stato.anteprimaVideo.carica(url, { titolo: titolo });
@@ -3020,9 +3036,9 @@
         if (ev && tipo === 'azoto') {
             const inOndaAzoto = ev.azotoInOnda != null ? ev.azotoInOnda : (ev.videoInOnda || '');
             if (ev.azotoUrl) {
-                if (s === 'in_onda' && inOndaAzoto === ev.azotoUrl) pubblico = 'I partecipanti collegati stanno guardando il player Azoto.';
+                if (s === 'in_onda' && inOndaAzoto === ev.azotoUrl) pubblico = 'I partecipanti collegati stanno guardando il ' + nomeIncorporato(ev.azotoUrl) + '.';
                 else if (s === 'in_onda') pubblico = 'I partecipanti stanno ancora ricevendo il player precedente: aggiorna la pagina tra qualche secondo.';
-                else pubblico = 'L\'indirizzo del player Azoto arriva ai partecipanti solo mentre la diretta è in onda, e solo dopo l\'accesso: prima e dopo resta riservato.';
+                else pubblico = 'L\'indirizzo del ' + nomeIncorporato(ev.azotoUrl) + ' arriva ai partecipanti solo mentre la diretta è in onda, e solo dopo l\'accesso: prima e dopo resta riservato.';
             } else if (s === 'in_onda') pubblico = 'Nessun player Azoto impostato: i partecipanti vedono «Il video sta per arrivare». Inserisci l\'indirizzo qui sotto.';
             else pubblico = 'Manca l\'indirizzo del player Azoto: inseriscilo qui sotto, o nella scheda Evento, prima di andare in onda.';
         } else if (ev && ev.videoId) {
@@ -3153,11 +3169,11 @@
             return;
         }
         await conAttesa($('#btn-cambia-azoto'), async () => {
-            mostraMsg('#msg-azoto', 'Prova in corso: player Azoto…', 'info');
+            mostraMsg('#msg-azoto', 'Prova in corso: ' + nomeIncorporato(l.valore) + '…', 'info');
             const p = await provaPerSalvare('regia-azoto');
             // nel frattempo si e' passati a un altro evento: non si cambia niente
             if (stato.idEvento !== ev.id) { nascondiMsg('#msg-azoto'); return; }
-            const v = verdettoProva(p, 'Player Azoto');
+            const v = verdettoProva(p, nomeIncorporato(l.valore, true));
             if (v.fermo) {
                 if (v.messaggio) mostraMsg('#msg-azoto', v.messaggio + '. Non ho cambiato niente.', v.tono);
                 else nascondiMsg('#msg-azoto');
@@ -3167,11 +3183,12 @@
             nascondiMsg('#msg-azoto');
             const inOnda = ev.stato === 'in_onda';
             const conAzoto = tipoPlayerDi(ev) === 'azoto';
+            const nomeNuovo = nomeIncorporato(l.valore);
             const frase = !inOnda
-                ? 'La diretta non è in onda: il nuovo indirizzo vale da quando ci andrà' + (conAzoto ? '.' : ' e si userà il player Azoto.')
+                ? 'La diretta non è in onda: il nuovo indirizzo vale da quando ci andrà' + (conAzoto ? '.' : ' e si userà il ' + nomeNuovo + '.')
                 : (conAzoto
-                    ? 'La diretta è in onda con il player Azoto: chi è collegato passa al nuovo indirizzo da solo, in pochi secondi, senza ricaricare la pagina.'
-                    : 'La diretta è in onda con il flusso diretto: chi guarda adesso non vede cambiare niente; il nuovo indirizzo vale quando tornerai al player Azoto.');
+                    ? 'La diretta è in onda con il ' + nomeIncorporato(ev.azotoUrl) + ': chi è collegato passa al nuovo indirizzo da solo, in pochi secondi, senza ricaricare la pagina.'
+                    : 'La diretta è in onda con il flusso diretto: chi guarda adesso non vede cambiare niente; il nuovo indirizzo vale quando tornerai al ' + nomeNuovo + '.');
             const ok = await conferma({
                 titolo: 'Cambiare il player per tutti?',
                 testo: (v.avvisi.length ? 'La prova ha trovato dei problemi: finché non sono risolti, i partecipanti potrebbero non vedere il video.\n' : '') + frase,
@@ -3184,9 +3201,10 @@
                 aggiornaEvento(r.evento);
                 // nel campo, al posto del codice incollato, l'indirizzo appena salvato (la prova fatta si chiude)
                 riempiCampoLink('regia-azoto', r.evento.azotoUrl);
-                mostraMsg('#msg-azoto', 'Player Azoto cambiato' + (inOnda && conAzoto ? ': i partecipanti collegati passano al nuovo indirizzo.' : '.')
-                    + (l.daCodice ? ' Dal codice di Azoto ho salvato solo l\'indirizzo del player.' : '')
-                    + (v.avvisi.length ? ' Ricorda i problemi segnalati dalla prova: riprova quando Azoto li ha risolti.' : ''), 'ok');
+                mostraMsg('#msg-azoto', (piattaforma(l.valore) === 'Azoto' ? 'Player Azoto cambiato' : 'Player cambiato, ora è il ' + nomeNuovo)
+                    + (inOnda && conAzoto ? ': i partecipanti collegati passano al nuovo indirizzo.' : '.')
+                    + (l.daCodice ? ' Dal codice di ' + piattaforma(l.valore) + ' ho salvato solo l\'indirizzo del player.' : '')
+                    + (v.avvisi.length ? ' Ricorda i problemi segnalati dalla prova: ' + quandoRisolti(l.valore) : ''), 'ok');
             } catch (err) { erroreGenerico(err, '#msg-azoto'); }
         });
     });
