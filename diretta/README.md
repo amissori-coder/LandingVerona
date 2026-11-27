@@ -2037,9 +2037,39 @@ YouTube il player è `diretta/player-youtube.js` (al posto di
   limite: per mostrare il video il browser deve sapere quale video è, quindi
   chi sa usare gli strumenti per sviluppatori del browser lo può ancora trovare
   (nell'iframe, mentre si è in onda).
+- **La sigla d'apertura** (`diretta/sigla.js`). A «Vai in onda» il video
+  non parte subito: nel riquadro del video ci sono prima le immagini Revilaw
+  sul webinar (8 secondi l'una: «Revilaw presenta – Next Generation
+  Business», il titolo, «Un dialogo in tre domande», il percorso Verona → Roma
+  → Napoli → Webinar → Milano) e poi il conto alla rovescia «La diretta
+  inizia tra 10… 1». Per il webinar del 10 dicembre i testi sono in
+  `sigla.js` (dalla sua pagina, `/webinar_dicembre_2026/`); per gli altri
+  eventi con YouTube le immagini si fanno dal titolo, dalla data, dal luogo e
+  dal programma dell'evento. Intanto il video di YouTube si carica sotto,
+  fermo al punto di partenza: alla fine del conto parte subito. La sigla fa
+  parte del tempo della diretta: tutti vedono la stessa immagine nello stesso
+  momento, chi entra durante la sigla la vede dal punto giusto e chi entra
+  dopo va diretto al video; il punto della registrazione conta dalla fine
+  della sigla (anche in Regia, che durante la sigla dice «Sigla d'apertura in
+  corso: il video parte tra … s»). «Attiva l'audio» si può già premere
+  durante la sigla: il video parte con l'audio.
 - **L'audio.** I browser fanno partire un video da solo solo senza audio:
-  «Attiva l'audio» lo accende. Se il browser non lo concede (succede su
-  iPhone) compare «Tocca il video»: il tocco arriva a YouTube e l'audio parte.
+  «Attiva l'audio» lo accende. Se il browser non lo concede mentre il video
+  va (succede su iPhone) compare «Tocca il video»: il tocco arriva a YouTube e
+  l'audio parte.
+- **Mai le schermate di YouTube.** Il nostro sipario copre YouTube finché il
+  video non va. Se non parte da solo resta il nostro «Guarda la diretta»; se
+  nemmeno così, e YouTube conosce il video (la sua durata), il sipario lascia
+  libero solo un foro al centro, sul pulsante di YouTube, per il tocco (fuori
+  dal foro i tocchi non arrivano a YouTube). Se invece YouTube non ha caricato
+  il video, per esempio per il suo controllo «Accedi per confermare di non
+  essere un bot» (compare con certe VPN, reti aziendali, browser che bloccano
+  i cookie), il sipario resta e dice «Il video non riesce a partire», con
+  «Riprova» e il consiglio di provare un'altra connessione: la pagina di
+  YouTube non si vede mai. Quel controllo però lo decide YouTube: chi lo
+  riceve non vede il video. L'unico modo per toglierlo del tutto è non usare
+  YouTube: la registrazione su un nostro spazio (o sulla web TV di Azoto, come
+  diretta «simulata») e il nostro player, quello del flusso diretto.
 - **Se YouTube non risponde** ai messaggi dell'iframe (entro 12 secondi) la
   pagina mostra il player di YouTube con i suoi comandi: meglio il logo di
   YouTube che uno schermo nero.

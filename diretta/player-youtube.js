@@ -50,10 +50,21 @@
    la riserva per un cambio del modo in cui YouTube parla con le pagine.
    L'AUDIO. Il video parte senza audio (i browser lo permettono solo
    cosi'); «Attiva l'audio» manda unMute e setVolume. Se il browser non
-   lo concede (succede su iPhone: il gesto della persona e' nella nostra
-   pagina, non in quella di YouTube) lo scudo si toglie per un attimo e
-   il sipario chiede di toccare il video: il tocco arriva a YouTube, che
-   riparte con l'audio, e lo scudo torna.
+   lo concede mentre il video va (succede su iPhone: il gesto della
+   persona e' nella nostra pagina, non in quella di YouTube) lo scudo si
+   toglie per un attimo e il sipario chiede di toccare il video: il tocco
+   arriva a YouTube, che riparte con l'audio, e lo scudo torna.
+   MAI LE SCHERMATE DI YOUTUBE. Il sipario si toglie solo con il video che
+   va. Se il video non parte (il browser non lo fa partire da solo) e
+   YouTube ne conosce la durata, il sipario lascia libero solo un foro al
+   centro, sul pulsante di YouTube, per il tocco; se invece YouTube non ha
+   caricato il video (per esempio il suo controllo «non sono un bot», con
+   una VPN o certe reti aziendali) il sipario resta e dice che il video non
+   riesce a partire, con «Riprova»: la pagina di YouTube non si vede mai.
+   LA SIGLA. Con opzioni.inAttesa() vera (la sigla d'apertura di
+   diretta.js, sigla.js) il video si carica, parte senza audio e si ferma
+   al punto di partenza, sotto il sipario; quando l'attesa finisce parte
+   subito, gia' pronto.
 
    window.NGBPlayerYouTube = { nome: 'youtube', crea(contenitore, opzioni) }
 
@@ -63,12 +74,14 @@
                              dove parte il video)
      onPronto()           il video si vede (il sipario si e' tolto)
      onStato(s)           'caricamento' | 'video' | 'avvia' | 'tocca' |
-                          'fine' | 'semplice'
+                          'bloccato' | 'fine' | 'semplice'
      onAudio({ muto, volume })   quando cambia l'audio del player
      onErrore({ codice, messaggio })   'link' (non e' un video di
                           YouTube), 'video' (YouTube non lo mostra:
                           privato, tolto, non incorporabile), 'lento' (in
                           ATTESA_PRONTO_MS non e' partito)
+     inAttesa()           true finche' il video deve restare fermo al
+                          punto di partenza (la sigla d'apertura)
      tempi                SOLO per le prove: { attesaApi, dopoCarico,
                           attesaApiMax, attesaPronto, attesaAvvio, rivela,
                           controllo, pausaSalti, verificaAudio } in
@@ -91,6 +104,7 @@
     var ATTESA_PRONTO_MS = 20000;     // 'lento': il video non e' partito
     var ATTESA_AVVIO_MS = 5000;       // partito niente da solo: serve un tocco
     var RIVELA_MS = 2500;             // il sipario si toglie dopo questi secondi di riproduzione
+    var RIVELA_DOPO_ATTESA_MS = 400;  // ...che bastano brevi se il video e' gia' partito una volta (la sigla)
     var CONTROLLO_MS = 2000;          // ogni quanto si guarda se si e' al punto giusto
     var SOGLIA_SCARTO = 8;            // secondi di differenza oltre i quali si salta al punto giusto
     var PAUSA_SALTI_MS = 10000;       // fra un salto e l'altro, il tempo di ripartire
@@ -100,6 +114,8 @@
         caricamento: { titolo: 'La diretta sta arrivando…', testo: '' },
         avvia: { titolo: 'La diretta è pronta', testo: 'Premi il pulsante per guardarla.' },
         tocca: { titolo: 'Tocca il video', testo: 'Il browser vuole un tocco sul video per l\'audio (se serve, toccalo due volte).' },
+        foro: { titolo: 'Tocca il pulsante al centro', testo: 'Il browser vuole un tocco per far partire il video.' },
+        bloccato: { titolo: 'Il video non riesce a partire', testo: 'Prova a ricaricare. Se usi una VPN o la rete dell\'ufficio, prova da un\'altra connessione (per esempio dal telefono, senza Wi-Fi).' },
         fine: { titolo: 'La diretta si è conclusa', testo: 'Grazie per averla seguita.' }
     };
 
@@ -140,6 +156,7 @@
         var ultimoSalto = 0;
         var audioChiesto = false;      // la persona ha chiesto l'audio: va tenuto anche dopo un salto
         var scenaSipario = '';
+        var eraInAttesa = false;       // la sigla d'apertura: il video fermo al punto di partenza
 
         function avvisa(nome, dati) {
             var f = opzioni[nome];
@@ -154,6 +171,12 @@
             if (statoCorrente === s) return;
             statoCorrente = s;
             avvisa('onStato', s);
+        }
+        // la sigla d'apertura (opzioni.inAttesa): il video fermo al punto di partenza
+        function inAttesa() {
+            var f = opzioni.inAttesa;
+            if (typeof f !== 'function') return false;
+            try { return !!f(); } catch (e) { return false; }
         }
 
         /* Il punto atteso, dentro la registrazione: mai prima dell'inizio. */
@@ -215,7 +238,7 @@
             if (prima.muto !== yt.muto || prima.volume !== yt.volume) avvisa('onAudio', { muto: yt.muto, volume: yt.volume });
             valuta();
             // il tocco sul video l'ha fermato o fatto partire: adesso YouTube ha il gesto della persona, si riprova subito
-            if (scenaSipario === 'tocca' && prima.stato !== yt.stato) riprovaTocco();
+            if ((scenaSipario === 'tocca' || scenaSipario === 'foro') && prima.stato !== yt.stato) riprovaTocco();
         }
 
         function pronto() {
@@ -223,16 +246,31 @@
             yt.pronto = true;
             // al punto giusto (lo start dell'indirizzo vale solo a secondi interi) e via
             vaiAlPunto(true);
-            comando('playVideo');
+            eraInAttesa = inAttesa();
+            // durante la sigla parte da solo (autoplay) e lo si ferma appena va (valuta): cosi' e' gia' pronto
+            if (!eraInAttesa) comando('playVideo');
             if (audioChiesto) { comando('unMute'); comando('setVolume', [100]); }
             clearInterval(timer.controllo);
             timer.controllo = setInterval(controlla, CONTROLLO);
+            if (!eraInAttesa) armaAvvio();
+        }
+        // partito niente da solo, dopo ATTESA_AVVIO: «Guarda la diretta»
+        function armaAvvio() {
             clearTimeout(timer.avvio);
             timer.avvio = setTimeout(function () {
-                if (!yt || yt.errore || yt.stato === 1 || yt.stato === 3 || scenaSipario === 'fine') return;
+                if (!yt || yt.errore || inAttesa() || yt.stato === 1 || yt.stato === 3 || scenaSipario === 'fine') return;
                 mostraSipario('avvia');
                 cambiaStato('avvia');
             }, ATTESA_AVVIO);
+        }
+        // finita la sigla: dal punto di partenza, subito
+        function parti() {
+            eraInAttesa = false;
+            if (!yt || yt.errore || semplice) return;
+            vaiAlPunto(true);
+            comando('playVideo');
+            if (audioChiesto) { comando('unMute'); comando('setVolume', [100]); }
+            armaAvvio();
         }
 
         function vaiAlPunto(sempre) {
@@ -251,8 +289,21 @@
         // ogni CONTROLLO_MS: si e' al punto giusto? il browser ha fermato il video?
         function controlla() {
             if (distrutto || !yt || !yt.pronto || yt.errore || semplice || scenaSipario === 'fine') return;
+            if (inAttesa()) {
+                // la sigla: fermo al punto di partenza (se YouTube lo fa partire, lo si ferma)
+                eraInAttesa = true;
+                if (yt.stato === 1) comando('pauseVideo');
+                var pa = atteso();
+                if (pa != null && yt.stato !== 3 && Math.abs(tempoAdesso() - pa) > 1.5 && Date.now() - ultimoSalto > 1500) {
+                    ultimoSalto = Date.now();
+                    comando('seekTo', [pa, true]);
+                    yt.tempo = pa; yt.quando = Date.now();
+                }
+                return;
+            }
+            if (eraInAttesa) { parti(); return; }
             // con la scena 'tocca' si aspetta il tocco della persona sul video: intanto si riprova, senza salti
-            if (scenaSipario === 'tocca') { riprovaTocco(); return; }
+            if (scenaSipario === 'tocca' || scenaSipario === 'foro') { riprovaTocco(); return; }
             var p = atteso();
             if (!yt.live && p != null && yt.durata && p >= yt.durata - 1) { finita(); return; }
             if (yt.stato === 2) {
@@ -266,10 +317,16 @@
 
         function valuta() {
             if (!yt || yt.errore || semplice) return;
+            if (inAttesa()) {
+                // la sigla: gia' caricato e partito una volta, si ferma al punto di partenza
+                if (yt.stato === 1) { yt.caldo = true; comando('pauseVideo'); }
+                clearTimeout(timer.pronto); timer.pronto = null;
+                return;
+            }
             if (yt.stato === 0) { finita(); return; }
             // finita la registrazione non riparte (la fa ripartire solo sincronizza, se il punto atteso torna indietro)
             if (scenaSipario === 'fine') { if (yt.stato === 1) comando('pauseVideo'); return; }
-            if (scenaSipario === 'tocca') {
+            if (scenaSipario === 'tocca' || scenaSipario === 'foro') {
                 // risolto quando il video va, e con l'audio se la persona l'ha chiesto
                 if (yt.stato === 1 && (!audioChiesto || !yt.muto)) rivela();
                 return;
@@ -277,13 +334,15 @@
             if (yt.stato === 1) {
                 clearTimeout(timer.pronto); timer.pronto = null;
                 clearTimeout(timer.avvio); timer.avvio = null;
+                if (scenaSipario === 'bloccato') { mostraSipario('caricamento'); cambiaStato('caricamento'); }
                 // il sipario si toglie dopo RIVELA_MS di riproduzione: YouTube ha finito di mostrare le sue cose
+                // (dopo la sigla basta un attimo: il video era gia' partito e fermo)
                 if (scenaSipario && !timer.rivela) {
                     timer.rivela = setTimeout(function () {
                         timer.rivela = null;
-                        if (!yt || yt.stato !== 1 || scenaSipario === 'fine' || scenaSipario === 'tocca') return;
+                        if (!yt || yt.stato !== 1 || scenaSipario === 'fine' || scenaSipario === 'tocca' || scenaSipario === 'foro') return;
                         rivela();
-                    }, RIVELA);
+                    }, yt.caldo ? RIVELA_DOPO_ATTESA_MS : RIVELA);
                 }
             } else if (timer.rivela && yt.stato !== 3) {
                 clearTimeout(timer.rivela); timer.rivela = null;
@@ -335,8 +394,9 @@
             sipario.querySelector('.yt-sipario-titolo').textContent = t.titolo;
             sipario.querySelector('.yt-sipario-testo').textContent = t.testo;
             sipario.querySelector('.yt-avvia').hidden = scena !== 'avvia';
+            sipario.querySelector('.yt-riprova').hidden = scena !== 'bloccato';
             sipario.hidden = false;
-            if (scena === 'tocca') togliScudo(); else rimettiScudo();
+            if (scena === 'tocca' || scena === 'foro') togliScudo(scena); else rimettiScudo();
         }
         function nascondiSipario() {
             if (!sipario) return;
@@ -347,17 +407,21 @@
         /* Lo scudo si toglie solo per il tocco che il browser vuole sul video
            (scena 'tocca'): il sipario allora non copre il video, che si vede
            sotto, e il tocco arriva a YouTube. */
-        function togliScudo() {
+        function togliScudo(scena) {
             if (!scudo || !iframe) return;
             scudo.hidden = true;
             iframe.style.pointerEvents = 'auto';
-            sipario.classList.add('yt-sipario-trasparente');
+            /* 'tocca': il video va (senza audio), si vede tutto; 'foro': il video
+               non e' partito, il sipario copre YouTube e lascia libero solo il
+               centro, sul suo pulsante (diretta.css, .yt-sipario-foro) */
+            sipario.classList.toggle('yt-sipario-trasparente', scena !== 'foro');
+            sipario.classList.toggle('yt-sipario-foro', scena === 'foro');
         }
         function rimettiScudo() {
             if (!scudo || !iframe || semplice) return;
             scudo.hidden = false;
             iframe.style.pointerEvents = 'none';
-            if (sipario) sipario.classList.remove('yt-sipario-trasparente');
+            if (sipario) { sipario.classList.remove('yt-sipario-trasparente'); sipario.classList.remove('yt-sipario-foro'); }
         }
 
         /* ---------- l'iframe ---------- */
@@ -412,8 +476,10 @@
                 sipario = el('div', 'yt-sipario');
                 sipario.innerHTML = '<span class="yt-rotella" aria-hidden="true"></span>'
                     + '<p class="yt-sipario-titolo"></p><p class="yt-sipario-testo"></p>'
-                    + '<button type="button" class="yt-avvia btn btn-chiaro" hidden><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>Guarda la diretta</span></button>';
+                    + '<button type="button" class="yt-avvia btn btn-chiaro" hidden><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>Guarda la diretta</span></button>'
+                    + '<button type="button" class="yt-riprova btn btn-chiaro" hidden><svg class="icona" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg><span>Riprova</span></button>';
                 sipario.querySelector('.yt-avvia').addEventListener('click', avvia);
+                sipario.querySelector('.yt-riprova').addEventListener('click', function () { ricarica(); });
                 sipario.addEventListener('contextmenu', function (e) { e.preventDefault(); });
                 palco.appendChild(sipario);
                 mostraSipario('caricamento');
@@ -499,12 +565,15 @@
             audioChiesto = true;
             comando('unMute');
             comando('setVolume', [100]);
+            // durante la sigla il video resta fermo: partira' con l'audio
+            if (inAttesa()) return;
             comando('playVideo');
             clearTimeout(timer.audio);
             timer.audio = setTimeout(function () {
                 timer.audio = null;
-                if (!yt || yt.errore || semplice || scenaSipario === 'fine') return;
-                if (yt.muto || (yt.stato !== 1 && yt.stato !== 3)) {
+                if (!yt || yt.errore || semplice || scenaSipario === 'fine' || inAttesa()) return;
+                // solo con il video che va (si vede il video, mai una schermata di YouTube)
+                if (yt.stato === 1 && yt.muto) {
                     mostraSipario('tocca');
                     cambiaStato('tocca');
                 }
@@ -540,12 +609,18 @@
             clearTimeout(timer.avvio);
             timer.avvio = setTimeout(function () {
                 if (!yt || yt.errore || yt.stato === 1 || yt.stato === 3) return;
-                mostraSipario('tocca');
-                cambiaStato('tocca');
+                /* YouTube conosce il video (la durata): aspetta solo un tocco sul suo
+                   pulsante, e si lascia libero il centro. Non lo conosce: non l'ha
+                   caricato (il suo controllo «non sono un bot», un blocco della rete),
+                   e la sua pagina non si mostra mai: «Il video non riesce a partire». */
+                if (yt.durata > 0 || yt.live) { mostraSipario('foro'); cambiaStato('tocca'); }
+                else { mostraSipario('bloccato'); cambiaStato('bloccato'); }
             }, ATTESA_AVVIO);
         }
         function sincronizza() {
             if (!yt || !yt.pronto || yt.errore || semplice) return;
+            if (inAttesa()) { controlla(); return; }
+            if (eraInAttesa) { parti(); return; }
             ultimoSalto = 0;
             if (scenaSipario === 'fine') {
                 var p = atteso();

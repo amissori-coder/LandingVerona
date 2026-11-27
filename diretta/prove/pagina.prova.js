@@ -167,6 +167,8 @@ const RISPOSTA_DIMENTICATA = 'Se l\'indirizzo è iscritto alla diretta, tra poco
    «Password dimenticata?»: le prove della frase andrebbero riadattate, e lo
    dicono da sole (controllano che il valore sia ancora vuoto). */
 const FRASE_ISCRIZIONE = 'Non sei ancora iscritto? Iscriviti qui.';
+// la sigla d'apertura (diretta/sigla.js, uno script del browser): la sua durata, come la calcola la pagina
+const NGBSigla = (() => { const c = { window: {}, document: {} }; require('vm').runInNewContext(fs.readFileSync(path.resolve(__dirname, '../sigla.js'), 'utf8'), c); return c.window.NGBSigla; })();
 const MODULO_ISCRIZIONE = (/\n\s*iscrizione: '([^']*)'/.exec(fs.readFileSync(path.resolve(__dirname, '../config.js'), 'utf8')) || [])[1];
 
 const pausa = ms => new Promise(r => setTimeout(r, ms));
@@ -1744,9 +1746,12 @@ function eventoIniziale(T) {
         console.log('\nIl video di YouTube: la registrazione che sembra una diretta');
         const evYt = db.doc('eventi/ev-youtube');
         // il punto atteso adesso: inizioVideo + onda.secondi + (adesso - onda.da)
+        // il punto atteso adesso: inizioVideo + (tempo in onda - la sigla d'apertura)
+        const secondiYt = d => d.onda.secondi + (d.onda.da ? (Date.now() - d.onda.da.toMillis()) / 1000 : 0);
+        const durataSiglaYt = d => NGBSigla.durata(Object.assign({ id: 'ev-youtube' }, d));
         const puntoAtteso = async () => {
             const d = (await evYt.get()).data();
-            return (d.inizioVideo || 0) + d.onda.secondi + (d.onda.da ? (Date.now() - d.onda.da.toMillis()) / 1000 : 0);
+            return (d.inizioVideo || 0) + Math.max(0, secondiYt(d) - durataSiglaYt(d));
         };
         const frameYt = pg => pg.frames().find(f => /^https:\/\/www\.youtube-nocookie\.com\/embed\//.test(f.url()));
         const comandiYt = async pg => { const f = frameYt(pg); if (!f) return []; try { return await f.evaluate(() => window.__comandi.slice()); } catch (e) { return []; } };
@@ -1779,7 +1784,7 @@ function eventoIniziale(T) {
             await aspetta(async () => (await ultimoSalto(py)) !== undefined, 10000, 'il salto al punto giusto');
             const salto = await ultimoSalto(py);
             const atteso2 = await puntoAtteso();
-            vero(Math.abs(salto - atteso2) < 4, 'seekTo ' + salto.toFixed(1) + ' (atteso ' + atteso2.toFixed(1) + ': 0:30 + 10 minuti + 1 minuto, piu\' il tempo della prova)');
+            vero(Math.abs(salto - atteso2) < 4, 'seekTo ' + salto.toFixed(1) + ' (atteso ' + atteso2.toFixed(1) + ': 0:30 + 10 minuti + 1 minuto - la sigla d\'apertura, piu\' il tempo della prova)');
             await aspetta(async () => !(await statoYt(py)).sipario, 10000, 'il sipario che si toglie');
             const s2 = await statoYt(py);
             vero(s2.audio && s2.muto && s2.live && s2.intero && !s2.nota && !s2.play, 'i nostri comandi: «Attiva l\'audio», audio, «In diretta», «Schermo intero»; niente pausa e niente nota di Azoto ' + JSON.stringify(s2));
@@ -1803,7 +1808,7 @@ function eventoIniziale(T) {
             await vistaE(py, 'diretta', 10000);
             await aspetta(async () => (await ultimoSalto(py)) !== undefined, 15000, 'il salto dopo la ripresa');
             const salto = await ultimoSalto(py);
-            const atteso = 30 + fermo;
+            const atteso = 30 + fermo - durataSiglaYt(d);
             vero(salto >= atteso - 0.5 && salto < atteso + 4, 'dopo 4 secondi di pausa riparte da ' + salto.toFixed(1) + ' (fermo a ' + atteso.toFixed(1) + '): i secondi di pausa non contano');
         });
 
@@ -1841,6 +1846,30 @@ function eventoIniziale(T) {
             // di nuovo in onda per le prove che seguono
             await evYt.update({ stato: 'in_onda', statoAggiornato: T.now(), videoId: YT_PROVA, onda: { secondi: 600, da: T.fromMillis(Date.now() - 60e3) } });
             await vistaE(py, 'diretta', 10000);
+        });
+
+        await prova('la sigla d\'apertura: a «Vai in onda» le immagini Revilaw e il conto alla rovescia, il video fermo all\'inizio sotto; poi il video dal punto di partenza', async () => {
+            // la diretta appena andata in onda: la prima immagine
+            await evYt.update({ inizioVideo: 30, onda: { secondi: 0, da: T.now() }, statoAggiornato: T.now() });
+            await aspetta(() => py.evaluate(() => { const s = document.querySelector('.sigla'); return !!s && !s.hidden && /Revilaw presenta/i.test(s.innerText); }), 8000, 'la prima immagine della sigla');
+            const durata = durataSiglaYt((await evYt.get()).data());
+            const s1 = await py.evaluate(() => ({ testo: document.querySelector('.sigla').innerText, audio: !!document.getElementById('btn-attiva-audio').offsetWidth, live: !!document.getElementById('indicatore-live').offsetWidth }));
+            vero(/Next Generation Business/.test(s1.testo) && s1.audio && s1.live, 'la sigla nel riquadro del video, con «Attiva l\'audio» e «IN DIRETTA» sotto (durata ' + durata + ' s) ' + JSON.stringify(s1));
+            await aspetta(async () => (await comandiYt(py)).some(c => c[0] === 'pauseVideo'), 10000, 'il video fermo sotto la sigla');
+            const fermo = await frameYt(py).evaluate(() => window.__stato());
+            vero(fermo === 2, 'sotto la sigla il video di YouTube si e\' caricato ed e\' fermo (stato ' + fermo + ')');
+            // il titolo, poi il conto alla rovescia (chi entra durante la sigla la vede dal punto giusto)
+            await evYt.update({ onda: { secondi: durata - 6, da: T.now() } });
+            await aspetta(() => py.evaluate(() => /La diretta inizia tra/.test(document.querySelector('.sigla').innerText)), 5000, 'il conto alla rovescia');
+            const cifra = Number(await py.evaluate(() => document.querySelector('.sigla-conto-numero').textContent));
+            vero(cifra >= 1 && cifra <= 6, 'a 6 secondi dalla fine: «La diretta inizia tra ' + cifra + '»');
+            await foto(py, 'youtube-sigla-conto');
+            const n = (await comandiYt(py)).length;
+            await aspetta(() => py.evaluate(() => document.querySelector('.sigla').hidden), 20000, 'la sigla che finisce');
+            const dopo = (await comandiYt(py)).slice(n);
+            const salto = dopo.filter(c => c[0] === 'seekTo').map(c => c[1]).pop();
+            vero(dopo.some(c => c[0] === 'playVideo') && salto !== undefined && salto >= 29 && salto <= 36 && (await statoYt(py)).src && !(await statoYt(py)).sipario,
+                'finito il conto il video parte dal punto di partenza (0:30, salto a ' + (salto === undefined ? '-' : salto.toFixed(1)) + ') e la sigla sparisce');
         });
 
         await prova('nessuna violazione della CSP e nessun errore con il video di YouTube; solo youtube-nocookie nell\'iframe', async () => {

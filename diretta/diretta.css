@@ -1325,6 +1325,15 @@ html.modo-azoto.telefono:not(.modo-youtube) .riquadro-video > .aiuto-intero-tele
 }
 .yt-sipario:not([data-scena="caricamento"]) .yt-rotella { display: none; }
 .yt-sipario .yt-avvia[hidden] { display: none; }
+/* la scena 'foro': il video non e' partito e il browser vuole un tocco sul pulsante di YouTube.
+   Il sipario resta e copre tutto, tranne un foro al centro (clip-path: fuori dal foro i tocchi
+   restano sul sipario, nel foro arrivano a YouTube); intorno al foro un anello nostro. */
+.yt-sipario.yt-sipario-foro {
+    justify-content: flex-start;
+    clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, calc(50% - 46px) calc(50% - 46px), calc(50% + 46px) calc(50% - 46px), calc(50% + 46px) calc(50% + 46px), calc(50% - 46px) calc(50% + 46px), calc(50% - 46px) calc(50% - 46px));
+}
+.yt-sipario.yt-sipario-foro .yt-rotella { display: none; }
+.yt-sipario .yt-riprova[hidden] { display: none; }
 /* la scena 'tocca': il video si vede e si tocca (lo scudo e' tolto); il messaggio resta in alto */
 .yt-sipario.yt-sipario-trasparente { background: transparent; justify-content: flex-start; pointer-events: none; }
 .yt-sipario.yt-sipario-trasparente .yt-sipario-titolo,
@@ -1345,6 +1354,167 @@ html.modo-youtube .riquadro-video[data-intero="1"] > .avviso-intero { grid-row: 
 }
 /* lo pseudo schermo intero: il margine per la barra di iPhone lo tiene gia' la barra dei comandi */
 html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
+
+/* ====================== LA SIGLA D'APERTURA (sigla.js) ======================
+   Con il video di YouTube, a «Vai in onda»: nel riquadro del video le
+   immagini Revilaw sul webinar e poi il conto alla rovescia, sopra il
+   video di YouTube che intanto si carica. Le misure seguono il riquadro
+   (unita' cqw/cqh, container-type: size), con un minimo per i telefoni. */
+.sigla {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 6;
+    container-type: size;
+    overflow: hidden;
+    color: #fff;
+    font-family: var(--font-testo);
+    background:
+        radial-gradient(ellipse at 16% 18%, rgba(122, 178, 232, .22) 0%, transparent 52%),
+        radial-gradient(ellipse at 88% 92%, rgba(42, 90, 133, .55) 0%, transparent 58%),
+        linear-gradient(135deg, #061526 0%, #0A2844 52%, #164068 100%);
+    transition: opacity .6s ease;
+}
+.sigla[hidden] { display: none; }
+.sigla.sigla-via { opacity: 0; }
+/* una luce che attraversa piano il fondo */
+.sigla::before {
+    content: '';
+    position: absolute;
+    top: -20%; bottom: -20%; left: -40%; right: -40%;
+    background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, .055) 50%, transparent 58%);
+    animation: siglaLuce 9s linear infinite;
+    pointer-events: none;
+}
+@keyframes siglaLuce { from { transform: translateX(-28%); } to { transform: translateX(28%); } }
+/* niente giustificato del sito (assets/testo.css) nella sigla: a sinistra, o al centro dove lo e' il riquadro */
+.sigla :is(p, li, span, div) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
+.sigla p { margin: 0; }
+.sigla-palco, .sigla-conto { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+.sigla-palco[hidden], .sigla-conto[hidden] { display: none; }
+.sigla-immagine {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 6cqh 8cqw 15cqh;
+    text-align: left;
+    animation: siglaEntra .9s ease both;
+}
+@keyframes siglaEntra { from { opacity: 0; transform: translateY(2.5cqh); } to { opacity: 1; transform: none; } }
+.sigla-etichetta {
+    font-weight: 700;
+    font-size: max(10px, 1.55cqw);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #9CC3E8;
+    margin-bottom: 2.6cqh !important;
+}
+.sigla-titolo {
+    font-family: var(--font-titoli);
+    font-weight: 800;
+    font-size: max(17px, 4.9cqw);
+    line-height: 1.12;
+    letter-spacing: -.01em;
+    max-width: 84cqw;
+}
+.sigla-sottotitolo {
+    margin-top: 3cqh !important;
+    font-weight: 500;
+    font-size: max(12px, 2.3cqw);
+    line-height: 1.4;
+    color: rgba(255, 255, 255, .84);
+    max-width: 72cqw;
+}
+/* l'apertura: il marchio al centro */
+.sigla-tipo-apertura { align-items: center; text-align: center; padding-bottom: 6cqh; }
+.sigla-tipo-apertura > .sigla-logo { width: max(110px, 24cqw); height: auto; margin-bottom: 4.5cqh; }
+.sigla-sopra { font-weight: 600; font-size: max(10px, 1.6cqw); letter-spacing: .32em; text-transform: uppercase; color: #9CC3E8; }
+.sigla-titolo-grande {
+    margin-top: 1.6cqh !important;
+    font-family: var(--font-titoli);
+    font-weight: 900;
+    font-size: max(20px, 5.8cqw);
+    line-height: 1.05;
+    letter-spacing: -.01em;
+}
+.sigla-sotto { margin-top: 3.4cqh !important; font-size: max(11px, 2cqw); color: rgba(255, 255, 255, .82); }
+/* il programma: le tre domande */
+.sigla-voci { list-style: none; margin: 3.6cqh 0 0; padding: 0; display: grid; gap: 2.6cqh; max-width: 82cqw; }
+.sigla-voce { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2.2cqw; align-items: start; }
+.sigla-numero {
+    font-family: var(--font-titoli);
+    font-weight: 800;
+    font-size: max(15px, 3.3cqw);
+    line-height: 1;
+    color: #7AB2E8;
+    font-variant-numeric: tabular-nums;
+}
+.sigla-voce-testo { display: grid; gap: .6cqh; }
+.sigla-ora { font-weight: 700; font-size: max(10px, 1.45cqw); letter-spacing: .1em; color: #9CC3E8; }
+.sigla-domanda { font-size: max(12px, 2.15cqw); line-height: 1.3; font-weight: 600; }
+/* il percorso: le tappe di Next Generation Business */
+.sigla-tappe {
+    list-style: none;
+    margin: 6cqh 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: relative;
+    max-width: 84cqw;
+}
+.sigla-tappe::before { content: ''; position: absolute; top: 1.1cqw; left: 1.1cqw; right: 1.1cqw; height: 2px; background: rgba(255, 255, 255, .25); }
+.sigla-tappa { position: relative; display: grid; gap: 1cqh; justify-items: start; padding-right: 1cqw; }
+.sigla-tappa-punto { width: max(10px, 2.2cqw); height: max(10px, 2.2cqw); border-radius: 50%; background: #0A2844; border: 2px solid rgba(255, 255, 255, .55); margin-bottom: 1.4cqh; }
+.sigla-tappa-nome { font-family: var(--font-titoli); font-weight: 800; font-size: max(11px, 2cqw); }
+.sigla-tappa-data { font-size: max(9px, 1.4cqw); color: rgba(255, 255, 255, .74); }
+.sigla-tappa-oggi .sigla-tappa-punto { background: #7DD3A0; border-color: #7DD3A0; box-shadow: 0 0 0 .7cqw rgba(125, 211, 160, .25); }
+.sigla-tappa-oggi .sigla-tappa-nome { color: #7DD3A0; }
+/* la firma in basso, su ogni immagine */
+.sigla-firma {
+    position: absolute;
+    left: 8cqw; right: 8cqw; bottom: 6cqh;
+    display: flex;
+    align-items: center;
+    gap: 1.6cqw;
+    padding-top: 2.4cqh;
+    border-top: 1px solid rgba(255, 255, 255, .18);
+}
+.sigla-firma > .sigla-logo { width: max(60px, 10cqw); height: auto; }
+.sigla-firma-testo { font-size: max(9px, 1.3cqw); font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+/* il conto alla rovescia */
+.sigla-conto { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4cqh; text-align: center; }
+.sigla-conto-titolo { font-family: var(--font-titoli); font-weight: 800; font-size: max(15px, 3cqw); letter-spacing: -.005em; }
+.sigla-conto-cerchio { position: relative; width: 38cqh; height: 38cqh; min-width: 96px; min-height: 96px; }
+.sigla-anello { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.sigla-anello-fondo { fill: none; stroke: rgba(255, 255, 255, .14); stroke-width: 6; }
+.sigla-anello-arco { fill: none; stroke: #7DD3A0; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
+.sigla-conto-numero {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-titoli);
+    font-weight: 900;
+    font-size: max(40px, 17cqh);
+    font-variant-numeric: tabular-nums;
+}
+.sigla-conto > .sigla-logo { width: max(70px, 12cqw); height: auto; opacity: .9; }
+.sigla-conto-finito .sigla-anello-arco { stroke: #fff; }
+/* il riquadro piccolo (il telefono in verticale): niente firma in basso, margini piu' stretti */
+@container (max-height: 320px) {
+    .sigla-firma { display: none; }
+    .sigla-immagine { padding: 5cqh 6cqw 5cqh; }
+    .sigla-etichetta { margin-bottom: 1.6cqh !important; }
+    .sigla-voci { margin-top: 2.4cqh; gap: 1.6cqh; }
+    .sigla-voce-testo { gap: 0; }
+    .sigla-tappe { margin-top: 4cqh; }
+    .sigla-sottotitolo { margin-top: 2cqh !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sigla::before, .sigla-immagine { animation: none; }
+}
 
 /* ====================== STATI: PAUSA, FINE, MESSAGGI ====================== */
 .carta-stato {

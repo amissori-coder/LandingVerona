@@ -207,6 +207,8 @@ async function costruisci() {
 
     ['diretta/diretta.css', 'diretta/gestione/gestione.css', 'diretta/relatore/relatore.css'].forEach(f => copia(f));
     scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
+    // la sigla d'apertura del video di YouTube (pagina della diretta e Regia)
+    scrivi('diretta/sigla.js', leggi('diretta/sigla.js'));
     if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/player-youtube.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
     copia('diretta/prove/anteprima/pagina.js', 'anteprima/pagina.js');

@@ -426,8 +426,8 @@ async function sheetJSNode() {
         const VECCHIE = new RegExp(['vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
         vero(!VECCHIE.test(codiceGestione + htmlGestione + cssGestione),
             'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva da YouTube o dalla web TV Azoto');
-        vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="\.\.\/player-azoto\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
-            'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio), player-webtv.js e player-azoto.js (i player dei partecipanti, per l\'anteprima)');
+        vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*(<!--[^>]*-->\s*)?<script src="\.\.\/sigla\.js[^"]*"><\/script>\s*(<!--[\s\S]*?-->\s*)?<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="\.\.\/player-azoto\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
+            'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio), sigla.js (la durata della sigla d\'apertura, per il punto della registrazione in Regia), player-webtv.js e player-azoto.js (i player dei partecipanti, per l\'anteprima)');
         const cspGestione = (/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(htmlGestione) || [])[1] || '';
         const direttiva = nome => ((new RegExp('(?:^|;)\\s*' + nome + ' ([^;]*)').exec(cspGestione) || [])[1] || '').trim();
         vero(direttiva('frame-src') === 'https://www.youtube-nocookie.com https://cdn.azotosolutions.com' && !/azotosolutions|youtube/.test(direttiva('script-src')),

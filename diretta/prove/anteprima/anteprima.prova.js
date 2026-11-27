@@ -115,6 +115,15 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
            prova, che mostra il punto della registrazione), con i NOSTRI comandi: audio, volume, «In diretta»,
            «Schermo intero»; niente pausa e niente nota di Azoto */
         await P.locator('.player-youtube-anteprima').waitFor({ timeout: 10000 });
+        // a «Vai in onda» la sigla d'apertura: le immagini Revilaw e il conto alla rovescia, poi il video
+        await P.locator('.sigla:not([hidden])').waitFor({ timeout: 10000 });
+        vero(/Revilaw presenta/i.test(await P.locator('.sigla').innerText()) && /Next Generation Business/.test(await P.locator('.sigla').innerText()),
+            'a «Vai in onda» parte la sigla d\'apertura nel riquadro del video');
+        await page.screenshot({ path: path.join(FOTO, '04a-sigla.png') });
+        await P.locator('.sigla-conto:not([hidden])').waitFor({ timeout: 45000 });
+        vero(/La diretta inizia tra/.test(await P.locator('.sigla').innerText()), 'poi il conto alla rovescia');
+        await P.locator('.sigla').waitFor({ state: 'hidden', timeout: 25000 });
+        vero(true, 'finito il conto, il video');
         await page.waitForTimeout(1000);
         const modoA = await P.locator('html').evaluate(h => {
             const vede = id => { const e = document.getElementById(id); return !!e && !!(e.offsetWidth || e.offsetHeight); };
