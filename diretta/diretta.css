@@ -326,9 +326,7 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .nota-programma,
 .carta-domande p,
 .carta-domande li,
-.carta-gioco p,
-.carta-gioco li,
-.giostra-barra p {
+.vetrina-barra p {
     text-align: left !important;
     text-align-last: auto;
     -webkit-hyphens: manual !important;
@@ -635,14 +633,14 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
 }
 .carta-consigli .aiuto { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--bordo); }
 
-/* ====================== MENTRE ASPETTI (sigla.js) ======================
+/* ====================== MENTRE ASPETTI: LA VETRINA DEL SITO (vetrina.js) ======================
    Nella fascia del titolo, dove comparira' il video: lo schermo con le
-   immagini Revilaw a rotazione (creaGiostra; le immagini sono quelle della
-   sigla, stesse classi .sigla-*) e sotto la barra con «Mentre aspetti», i
-   puntini e «Ferma». Sui computer (da 1100 px) lo schermo sta accanto ai
-   testi della fascia (.con-schermo, la mette diretta.js): tutto si vede
-   senza scorrere; piu' stretto, sotto. 16:9; sul telefono quadrato, perche'
-   il testo resti leggibile (le misure minime delle immagini). */
+   cose del sito che girano (il video della home, i temi in orbita, gli
+   approfondimenti, Milano, le interviste, le sedi), il conto alla rovescia
+   in alto a destra e sotto la barra con i puntini e «Ferma». Sui computer
+   (da 1100 px) lo schermo sta accanto ai testi della fascia (.con-schermo,
+   la mette diretta.js): tutto si vede senza scorrere; piu' stretto, sotto.
+   16:9; sul telefono quadrato. Le misure seguono lo schermo (cqw/cqh). */
 .schermo-attesa { max-width: 680px; margin: 26px auto 0; }
 .schermo-attesa[hidden] { display: none; }
 @media (min-width: 1100px) {
@@ -661,161 +659,368 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
     .attesa-eroe.con-schermo p.nota-chiara { margin: 0; max-width: 30em; }
     .attesa-eroe.con-schermo .schermo-attesa { max-width: none; margin: 0; }
 }
-.giostra-schermo {
+.vetrina { text-align: left; }
+.vetrina-schermo {
+    --banda: 0px;
     position: relative;
     aspect-ratio: 16 / 9;
     border-radius: 14px;
     overflow: hidden;
-    background: #061526;
+    container-type: size;
+    color: #fff;
+    font-family: var(--font-testo);
+    background:
+        radial-gradient(ellipse at 14% 16%, rgba(122, 178, 232, .2) 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 95%, rgba(42, 90, 133, .55) 0%, transparent 58%),
+        linear-gradient(135deg, #061526 0%, #0A2844 55%, #164068 100%);
     border: 1px solid rgba(255, 255, 255, .16);
     box-shadow: 0 26px 60px -26px rgba(0, 0, 0, .65);
 }
-.giostra-barra {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px 14px;
-    margin-top: 10px;
+/* con il conto alla rovescia: la sua fascia in cima, le scene sotto */
+.vetrina-schermo.vetrina-con-conto { --banda: max(30px, 11cqh); }
+/* niente giustificato del sito (assets/testo.css) nella vetrina */
+.vetrina :is(p, li, span, div, a, b, small) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
+.vetrina .vetrina-orbita-centro { text-align: center !important; }
+.vetrina p { margin: 0; }
+.vetrina-solo-lettori { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* le scene: una alla volta, in dissolvenza; i pezzi entrano con un piccolo salto.
+   Ogni scena e' un contenitore: le sue misure (cqw/cqh) seguono lo spazio sotto la fascia. */
+.vetrina-scena {
+    position: absolute;
+    top: var(--banda); right: 0; bottom: 0; left: 0;
+    container-type: size;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .8s ease, visibility 0s linear .8s;
 }
-.giostra-etichetta {
-    margin: 0;
-    font-size: 12px;
+.vetrina-scena-ora { opacity: 1; visibility: visible; transition: opacity .8s ease; }
+.vetrina-scena-ora .vetrina-entra { animation: vetrinaEntra .9s ease both; }
+.vetrina-scena-ora .vetrina-piede.vetrina-entra { animation-delay: .35s; }
+@keyframes vetrinaEntra { from { opacity: 0; transform: translateY(3cqh); } to { opacity: 1; transform: none; } }
+/* ferma (o fuori dall'attesa): tutto fermo; le scene nascoste non si muovono */
+.vetrina-ferma .vetrina-schermo *, .vetrina-ferma .vetrina-schermo *::before, .vetrina-ferma .vetrina-schermo *::after,
+.vetrina-scena:not(.vetrina-scena-ora) *, .vetrina-scena:not(.vetrina-scena-ora) *::before, .vetrina-scena:not(.vetrina-scena-ora) *::after { animation-play-state: paused !important; }
+
+/* i testi comuni */
+.vetrina-testa { position: absolute; left: 6cqw; top: 7cqh; right: 30cqw; }
+.vetrina-sopra { font-weight: 700; font-size: max(10px, 1.45cqw); letter-spacing: .16em; text-transform: uppercase; color: #9CC3E8; }
+.vetrina-titolo { margin-top: 1.4cqh !important; font-family: var(--font-titoli); font-weight: 800; font-size: max(15px, 3.2cqw); line-height: 1.15; letter-spacing: -.01em; }
+.vetrina-sotto { margin-top: 1.4cqh !important; font-size: max(11px, 1.7cqw); color: rgba(255, 255, 255, .8); }
+.vetrina-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: .35em .8em;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    border: 1px solid rgba(255, 255, 255, .2);
+    font-size: max(9px, 1.15cqw);
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #DCE9F6;
+    white-space: nowrap;
+}
+.vetrina-chip-scura { background: #7DD3A0; border-color: #7DD3A0; color: #0A2844; }
+.vetrina-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .5em;
+    margin-top: 2.6cqh;
+    padding: .7em 1.2em;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--scuro);
+    font-weight: 800;
+    font-size: max(11px, 1.35cqw);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-decoration: none;
+}
+.vetrina-link::after { content: '→'; }
+.vetrina-link:hover { background: #DCE9F6; color: var(--scuro); }
+.vetrina-link:focus-visible, .vetrina-scheda:focus-visible { outline: 3px solid #7DD3A0; outline-offset: 3px; }
+
+/* 1. il video della home */
+.vetrina-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; background: #0B1F36; }
+.vetrina-didascalia {
+    position: absolute;
+    left: 4cqw; bottom: 5cqh;
+    display: flex; align-items: center; gap: .7em;
+    font-weight: 700; font-size: max(10px, 1.3cqw);
+    color: rgba(255, 255, 255, .9);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, .5);
+}
+
+/* 2. i temi in orbita attorno alla revisione legale (come nella home): sotto il titolo un
+   anello visto di sbieco (un'ellisse larga) che gira piano; i temi dietro (in alto) piu'
+   piccoli e tenui. La posizione: cos/sin dell'angolo del tema (--a) piu' il giro
+   (--vetrina-giro); senza cos()/sin() i temi stanno fermi. Le misure: per tutto il giro
+   nessun tema ne tocca un altro, il centro o il titolo (provato da 550 a 680 px). */
+@property --vetrina-giro { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+.vetrina-orbita {
+    --rx: 36cqw;
+    --ry: 28cqh;
+    position: absolute;
+    left: 50cqw; top: 63cqh;
+    width: 0; height: 0;
+    animation: vetrinaGiro 80s linear infinite;
+}
+.vetrina-orbita::before {
+    content: '';
+    position: absolute;
+    left: calc(-1 * var(--rx)); top: calc(-1 * var(--ry));
+    width: calc(2 * var(--rx)); height: calc(2 * var(--ry));
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .2);
+}
+.vetrina-tema { position: absolute; left: 0; top: 0; transform: translate(calc(var(--cx) * var(--rx)), calc(var(--cy) * var(--ry))); }
+@supports (transform: translateX(calc(cos(0deg) * 1px))) {
+    .vetrina-tema {
+        transform: translate(calc(cos(var(--vetrina-giro) + var(--a)) * var(--rx)), calc(sin(var(--vetrina-giro) + var(--a)) * var(--ry)))
+            scale(calc(.92 + .08 * sin(var(--vetrina-giro) + var(--a))));
+        opacity: calc(.82 + .18 * sin(var(--vetrina-giro) + var(--a)));
+    }
+}
+.vetrina-tema-etichetta {
+    position: absolute;
+    left: 0; top: 0;
+    transform: translate(-50%, -50%);
+    padding: .5em .85em;
+    border-radius: 999px;
+    background: rgba(6, 21, 38, .86);
+    border: 1px solid rgba(122, 178, 232, .42);
+    font-weight: 700;
+    font-size: clamp(9px, 1.65cqw, 13px);
+    white-space: nowrap;
+}
+.vetrina-orbita-centro {
+    position: absolute;
+    left: 0; top: 0;
+    width: 40cqh; height: 40cqh;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #fff;
+    color: var(--scuro);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35em;
+    padding: 0 3cqh;
+    box-shadow: 0 0 0 1.6cqh rgba(255, 255, 255, .08), 0 18px 40px -16px rgba(0, 0, 0, .6);
+}
+.vetrina-orbita-centro b { font-family: var(--font-titoli); font-weight: 800; font-size: clamp(10px, 1.7cqw, 14px); line-height: 1.1; }
+.vetrina-orbita-centro small { font-size: clamp(8px, 1.15cqw, 10px); line-height: 1.25; color: var(--tenue); }
+@keyframes vetrinaGiro { to { --vetrina-giro: 360deg; } }
+@keyframes vetrinaAccendi { 0%, 12% { background: #7DD3A0; border-color: #7DD3A0; color: #0A2844; } 16%, 100% { background: rgba(6, 21, 38, .86); border-color: rgba(122, 178, 232, .42); color: #fff; } }
+
+/* 3. gli ultimi approfondimenti, che scorrono */
+.vetrina-scena-approfondimenti .vetrina-testa { right: 6cqw; }
+.vetrina-schede {
+    position: absolute;
+    left: 6cqw; right: 6cqw; top: 29cqh; bottom: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 86%, transparent 100%);
+}
+.vetrina-schede-dentro { list-style: none; margin: 0; padding: 2cqh 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2cqh 2cqw; animation: vetrinaSale 44s linear infinite; }
+.vetrina-scheda {
+    display: flex; flex-direction: column; gap: 1.2cqh;
+    height: 100%;
+    padding: 2.4cqh 2cqw;
+    border-radius: 12px;
+    background: #fff;
+    color: var(--scuro);
+    text-decoration: none;
+    box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .55);
+}
+.vetrina-scheda:hover { background: #EEF4FA; }
+.vetrina-scheda .vetrina-chip { background: #E8F1FA; border-color: #E8F1FA; color: var(--blu); }
+.vetrina-scheda .vetrina-chip-scura { background: var(--blu); border-color: var(--blu); color: #fff; }
+.vetrina-scheda-riga { display: flex; flex-wrap: wrap; gap: .5em; }
+.vetrina-scheda-titolo { font-family: var(--font-titoli); font-weight: 800; font-size: max(11px, 1.6cqw); line-height: 1.25; }
+@keyframes vetrinaSale { to { transform: translateY(-50%); } }
+/* con il mouse o il fuoco sulle schede, lo scorrimento si ferma (si legge e si preme) */
+.vetrina-schede:hover .vetrina-schede-dentro, .vetrina-schede:focus-within .vetrina-schede-dentro { animation-play-state: paused; }
+
+/* 4. il prossimo appuntamento: Milano */
+.vetrina-volantino {
+    position: absolute;
+    left: 7cqw; top: 50%;
+    height: 80cqh; width: auto;
+    border-radius: 6px;
+    transform: translateY(-50%) rotate(-4deg);
+    box-shadow: 0 22px 50px -18px rgba(0, 0, 0, .75);
+    animation: vetrinaVolantino 7s ease-in-out infinite alternate;
+}
+@keyframes vetrinaVolantino { from { transform: translateY(-50%) rotate(-4deg); } to { transform: translateY(-52%) rotate(-2deg); } }
+.vetrina-milano-testo { position: absolute; left: 44cqw; right: 5cqw; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+.vetrina-pillola {
+    display: inline-block;
+    padding: .55em 1.1em;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .35);
+    font-size: max(9px, 1.15cqw);
     font-weight: 700;
     letter-spacing: .14em;
     text-transform: uppercase;
     color: #DCE9F6;
 }
-.giostra-punti { display: flex; flex-wrap: wrap; justify-content: center; }
-.giostra-punti[hidden], .giostra-pausa[hidden] { display: none; }
-.giostra-punto {
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 0;
-    border-radius: 14px;
+.vetrina-data { display: flex; align-items: center; gap: 1.4cqw; margin-top: 3cqh !important; }
+.vetrina-data b { font-family: var(--font-titoli); font-weight: 900; font-size: max(34px, 9cqw); line-height: .9; }
+.vetrina-data span { display: flex; flex-direction: column; font-weight: 800; font-size: max(13px, 2.2cqw); }
+.vetrina-data small { font-weight: 700; font-size: max(10px, 1.5cqw); color: #7AB2E8; }
+.vetrina-citta { margin-top: 1.4cqh !important; font-family: var(--font-titoli); font-weight: 900; font-size: max(18px, 4cqw); letter-spacing: .04em; text-transform: uppercase; }
+.vetrina-milano-titolo { margin-top: 1.4cqh !important; font-weight: 700; font-size: max(11px, 1.7cqw); line-height: 1.35; color: rgba(255, 255, 255, .88); }
+.vetrina-voci { list-style: none; margin: 2cqh 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .6em; }
+.vetrina-voci li { padding: .4em .9em; border-radius: 999px; background: rgba(255, 255, 255, .12); font-size: max(9px, 1.15cqw); font-weight: 600; }
+
+/* 5. le interviste di Verona e 6. le sedi: un numero che sale, un nastro che scorre */
+.vetrina-numero { margin-top: 3cqh !important; display: flex; align-items: baseline; gap: .4em; font-weight: 700; font-size: max(12px, 2cqw); color: #DCE9F6; }
+.vetrina-numero b { font-family: var(--font-titoli); font-weight: 900; font-size: max(36px, 10cqw); line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+.vetrina-nastro { position: absolute; left: 0; right: 0; bottom: 24cqh; overflow: hidden; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); }
+.vetrina-nastro-dentro { display: flex; width: max-content; gap: 1.2cqw; animation: vetrinaScorre 36s linear infinite; }
+.vetrina-nastro-voce { padding: .6em 1.1em; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); font-weight: 600; font-size: max(10px, 1.35cqw); white-space: nowrap; }
+@keyframes vetrinaScorre { to { transform: translateX(-50%); } }
+.vetrina-piede { position: absolute; left: 6cqw; bottom: 6cqh; }
+.vetrina-play {
+    position: absolute;
+    right: 11cqw; top: 36cqh;
+    width: 30cqh; height: 30cqh;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .3);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+}
+.vetrina-play::before, .vetrina-play::after {
+    content: '';
+    position: absolute;
+    top: -1px; right: -1px; bottom: -1px; left: -1px;
+    border-radius: 50%;
+    border: 1px solid rgba(125, 211, 160, .6);
+    animation: vetrinaOnda 3s ease-out infinite;
+}
+.vetrina-play::after { animation-delay: 1.5s; }
+.vetrina-play-icona { width: 42%; height: 42%; margin-left: 6%; }
+@keyframes vetrinaOnda { from { transform: scale(1); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
+.vetrina-scena-sedi .vetrina-mappa { position: absolute; right: 4cqw; top: 4cqh; height: 92cqh; width: auto; opacity: .95; }
+.vetrina-sedi-testo { position: absolute; left: 6cqw; top: 14cqh; right: 50cqw; }
+.vetrina-numero-grande b { font-size: max(44px, 13cqw); }
+.vetrina-nastro-citta { bottom: 7cqh; right: 46cqw; }
+.vetrina-nastro-citta .vetrina-nastro-dentro { animation-duration: 120s; }
+.vetrina-nastro-citta .vetrina-nastro-voce { background: none; border: 0; padding: .3em .2em; color: #9CC3E8; }
+.vetrina-nastro-citta .vetrina-nastro-voce::after { content: '·'; margin-left: 1.2cqw; color: rgba(255, 255, 255, .35); }
+
+/* il conto alla rovescia: la fascia in cima allo schermo, sopra le scene */
+.vetrina-conto {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: var(--banda);
+    z-index: 3;
+    display: flex; align-items: center; gap: .8em;
+    padding: 0 3.2cqw;
+    background: linear-gradient(90deg, rgba(4, 14, 26, .88), rgba(4, 14, 26, .6));
+    border-bottom: 1px solid rgba(255, 255, 255, .12);
+    font-size: max(9.5px, 1.25cqw);
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #9CC3E8;
+    white-space: nowrap;
+}
+.vetrina-conto[hidden] { display: none; }
+.vetrina-conto-punto { flex: none; width: .7em; height: .7em; border-radius: 50%; background: #7DD3A0; animation: pulsaLive 2s ease-in-out infinite; }
+.vetrina-conto-ora .vetrina-conto-punto { animation-duration: 1s; }
+.vetrina-conto-tempo { margin-left: auto; font-family: var(--font-titoli); font-weight: 800; font-size: 1.55em; letter-spacing: .03em; text-transform: none; color: #fff; font-variant-numeric: tabular-nums; }
+.vetrina-conto-tempo[hidden] { display: none; }
+
+/* la barra sotto lo schermo: «Mentre aspetti · dal sito», i puntini, «Ferma» */
+.vetrina-barra { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; margin-top: 10px; }
+.vetrina-etichetta { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #DCE9F6; }
+.vetrina-punti { display: flex; flex-wrap: wrap; justify-content: center; }
+.vetrina-punto {
+    width: 28px; height: 28px;
+    padding: 0; border: 0; border-radius: 14px;
     background: transparent;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-flex; align-items: center; justify-content: center;
 }
-.giostra-punto::before {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .38);
-    transition: width .3s ease, background-color .3s ease;
-}
-.giostra-punto:hover::before { background: rgba(255, 255, 255, .75); }
-.giostra-punto-ora::before,
-.giostra-punto-ora:hover::before { width: 20px; background: #7DD3A0; }
-.giostra-pausa {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.vetrina-punto::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .38); transition: width .3s ease, background-color .3s ease; }
+.vetrina-punto:hover::before { background: rgba(255, 255, 255, .75); }
+.vetrina-punto-ora::before, .vetrina-punto-ora:hover::before { width: 20px; background: #7DD3A0; }
+.vetrina-pausa {
+    display: inline-flex; align-items: center; gap: 6px;
     min-height: 32px;
     padding: 4px 13px 4px 10px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .28);
     background: rgba(255, 255, 255, .08);
     color: #fff;
-    font-family: var(--font-testo);
-    font-size: 13px;
-    font-weight: 600;
+    font-family: var(--font-testo); font-size: 13px; font-weight: 600;
     cursor: pointer;
 }
-.giostra-pausa:hover { background: rgba(255, 255, 255, .16); }
-.giostra-icona { width: 14px; height: 14px; }
-.giostra-punto:focus-visible, .giostra-pausa:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) {
-    .giostra-punto::before { transition: none; }
-}
+.vetrina-pausa:hover { background: rgba(255, 255, 255, .16); }
+.vetrina-icona { width: 14px; height: 14px; }
+.vetrina-punto:focus-visible, .vetrina-pausa:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
-/* ====================== METTITI ALLA PROVA (sigla.js, creaGioco) ====================== */
-.carta-gioco { border-top: 4px solid var(--accento); }
-.carta-gioco h3 { margin-bottom: 4px; }
-.gioco-intro { margin: 0 0 18px; font-size: 15px; color: var(--tenue); }
-.gioco-domande { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: gioco; }
-.gioco-domanda {
-    counter-increment: gioco;
-    padding: 16px 18px 18px;
-    border-radius: 12px;
-    background: var(--chiaro);
-    border: 1px solid var(--bordo);
+/* le scene basse (il telefono piccolo): Milano senza le tre voci */
+@container (max-height: 280px) {
+    .vetrina-scena-milano .vetrina-voci { display: none; }
 }
-.gioco-testo { margin: 0 0 12px; font-weight: 700; line-height: 1.45; color: var(--scuro); }
-.gioco-testo::before {
-    content: counter(gioco) '.';
-    margin-right: 8px;
-    font-family: var(--font-titoli);
-    font-weight: 800;
-    color: var(--accento);
+/* la fascia stretta (il telefono piccolo): «Inizia tra» invece di «La diretta inizia tra» */
+@container (max-width: 359px) {
+    .vetrina-conto { letter-spacing: .08em; }
+    .vetrina-conto-lungo { display: none; }
 }
-.gioco-scelte { display: flex; flex-wrap: wrap; gap: 8px; }
-.gioco-scelte-colonna { flex-direction: column; align-items: stretch; }
-.gioco-scelta {
-    min-height: 44px;
-    min-width: 92px;
-    padding: 10px 16px 10px 14px;
-    border-radius: 10px;
-    border: 1.5px solid #C5D6E6;
-    background: #fff;
-    color: var(--scuro);
-    font-family: var(--font-testo);
-    font-size: 15.5px;
-    font-weight: 600;
-    line-height: 1.35;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color .2s ease, background-color .2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
+/* le scene piccole o quasi quadrate (il telefono): i pezzi uno sotto l'altro, piu' semplici;
+   i temi in fila, accesi uno alla volta, invece dell'orbita */
+@container (max-aspect-ratio: 13 / 10) {
+    .vetrina-testa { right: 6cqw; top: 7cqh; }
+    .vetrina-titolo { font-size: max(15px, 5.2cqw); }
+    .vetrina-scena-temi .vetrina-testa { top: 7cqh; bottom: auto; right: 6cqw; width: auto; display: block; }
+    .vetrina-scena-temi .vetrina-titolo { font-size: max(14px, 4.8cqw); }
+    .vetrina-orbita {
+        left: 6cqw; right: 6cqw; top: 34cqh; bottom: 4cqh;
+        width: auto; height: auto;
+        display: flex; flex-wrap: wrap; align-content: center; gap: 2.2cqw;
+        animation: none;
+    }
+    .vetrina-orbita::before { display: none; }
+    .vetrina-tema { position: static; transform: none; opacity: 1; }
+    .vetrina-tema-etichetta { position: static; display: inline-block; transform: none; font-size: max(10px, 3.2cqw); animation: vetrinaAccendi 14s ease-in-out infinite; animation-delay: calc(var(--i) * 2s); }
+    .vetrina-orbita-centro {
+        order: -1;
+        position: static;
+        width: auto; height: auto;
+        transform: none;
+        flex-direction: row; align-items: baseline; gap: .6em;
+        padding: .55em 1em;
+        border-radius: 999px;
+        box-shadow: none;
+    }
+    .vetrina-orbita-centro b { font-size: max(11px, 3.4cqw); }
+    .vetrina-orbita-centro small { font-size: max(9px, 2.8cqw); }
+    .vetrina-schede { top: 31cqh; }
+    .vetrina-schede-dentro { grid-template-columns: minmax(0, 1fr); }
+    .vetrina-scheda-titolo { font-size: max(12px, 3.6cqw); }
+    .vetrina-volantino { display: none; }
+    .vetrina-milano-testo { left: 7cqw; right: 7cqw; }
+    .vetrina-data b { font-size: max(40px, 16cqw); }
+    .vetrina-citta { font-size: max(22px, 8cqw); }
+    .vetrina-milano-titolo { font-size: max(12px, 3.6cqw); }
+    .vetrina-play { display: none; }
+    .vetrina-nastro { bottom: 26cqh; }
+    .vetrina-scena-sedi .vetrina-mappa { right: 3cqw; top: auto; bottom: 16cqh; height: 56cqh; }
+    .vetrina-sedi-testo { right: 6cqw; top: 8cqh; }
+    .vetrina-sedi-testo .vetrina-sotto { max-width: 52cqw; }
+    .vetrina-nastro-citta { right: 0; }
+    .vetrina-video { object-fit: contain; }
 }
-.gioco-scelta:hover:not([aria-disabled="true"]) { border-color: var(--accento); background: #F0F6FC; }
-.gioco-scelta:focus-visible { outline: 3px solid var(--chiaro-blu); outline-offset: 2px; }
-.gioco-scelta[aria-disabled="true"] { cursor: default; }
-.gioco-scelta[aria-disabled="true"]:not(.gioco-scelta-giusta):not(.gioco-scelta-sbagliata) { opacity: .62; }
-.gioco-scelta-giusta { border-color: var(--verde); background: #E7F4EC; color: #14532D; }
-.gioco-scelta-sbagliata { border-color: var(--rosso); background: var(--rosso-chiaro); color: #7F1D1D; }
-.gioco-scelta-giusta::before,
-.gioco-scelta-sbagliata::before {
-    content: '';
-    flex: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--verde) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center / 12px no-repeat;
+@media (prefers-reduced-motion: reduce) {
+    .vetrina-scena, .vetrina-scena-ora { transition: none; }
+    .vetrina-orbita, .vetrina-schede-dentro, .vetrina-nastro-dentro, .vetrina-volantino, .vetrina-scena-ora .vetrina-entra,
+    .vetrina-conto-punto, .vetrina-play::before, .vetrina-play::after, .vetrina-tema-etichetta { animation: none !important; }
+    .vetrina-punto::before { transition: none; }
 }
-.gioco-scelta-sbagliata::before {
-    background: var(--rosso) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E") center / 11px no-repeat;
-}
-.gioco-spiegazione { margin: 12px 0 0; font-size: 15px; line-height: 1.55; color: var(--testo); }
-.gioco-spiegazione[hidden] { display: none; }
-.gioco-verdetto { color: var(--verde); }
-.gioco-risposta-sbagliata .gioco-verdetto { color: var(--rosso); }
-.gioco-esito { margin: 16px 0 0; font-weight: 600; color: var(--scuro); }
-.gioco-esito:empty { display: none; }
-.gioco-ricomincia {
-    margin-top: 12px;
-    min-height: 44px;
-    padding: 8px 18px;
-    border-radius: 10px;
-    border: 1.5px solid var(--su-scuro);
-    background: #fff;
-    color: var(--blu);
-    font-family: var(--font-testo);
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-}
-.gioco-ricomincia:hover { border-color: var(--blu); color: var(--scuro); }
-.gioco-ricomincia:focus-visible { outline: 3px solid var(--chiaro-blu); outline-offset: 2px; }
-.gioco-ricomincia[hidden] { display: none; }
-.aiuto { font-size: 15px; color: var(--tenue); }
-.aiuto:empty { display: none; }
-.aiuto a { font-weight: 600; }
 
 /* ====================== DOMANDE AL RELATORE ======================
    Un riquadro solo, che diretta.js sposta nel posto della vista aperta:
@@ -1542,11 +1747,8 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
    Con il video di YouTube, a «Vai in onda»: nel riquadro del video le
    immagini Revilaw sul webinar e poi il conto alla rovescia, sopra il
    video di YouTube che intanto si carica. Le misure seguono il riquadro
-   (unita' cqw/cqh, container-type: size), con un minimo per i telefoni.
-   Le stesse immagini, con lo stesso fondo (.giostra-fondo), girano nello
-   schermo «Mentre aspetti» dell'attesa (vedi MENTRE ASPETTI). */
-.sigla,
-.giostra-fondo {
+   (unita' cqw/cqh, container-type: size), con un minimo per i telefoni. */
+.sigla {
     position: absolute;
     top: 0; right: 0; bottom: 0; left: 0;
     container-type: size;
@@ -1563,8 +1765,7 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
 .sigla[hidden] { display: none; }
 .sigla.sigla-via { opacity: 0; }
 /* una luce che attraversa piano il fondo */
-.sigla::before,
-.giostra-fondo::before {
+.sigla::before {
     content: '';
     position: absolute;
     top: -20%; bottom: -20%; left: -40%; right: -40%;
@@ -1575,9 +1776,9 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
 @keyframes siglaLuce { from { transform: translateX(-28%); } to { transform: translateX(28%); } }
 /* niente giustificato del sito (assets/testo.css) nella sigla: a sinistra (dal fondo),
    al centro l'apertura e il conto alla rovescia (anche dentro una pagina centrata) */
-:is(.sigla, .giostra-fondo) :is(p, li, span, div) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
-:is(.sigla, .giostra-fondo) :is(.sigla-tipo-apertura, .sigla-conto) { text-align: center !important; }
-:is(.sigla, .giostra-fondo) p { margin: 0; }
+.sigla :is(p, li, span, div) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
+.sigla :is(.sigla-tipo-apertura, .sigla-conto) { text-align: center !important; }
+.sigla p { margin: 0; }
 .sigla-palco, .sigla-conto { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
 .sigla-palco[hidden], .sigla-conto[hidden] { display: none; }
 .sigla-immagine {
@@ -1702,7 +1903,7 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
     .sigla-sottotitolo { margin-top: 2cqh !important; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .sigla::before, .giostra-fondo::before, .sigla-immagine { animation: none; }
+    .sigla::before, .sigla-immagine { animation: none; }
 }
 
 /* ====================== STATI: PAUSA, FINE, MESSAGGI ====================== */
@@ -1825,13 +2026,11 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
 
     .griglia-carte { padding: 18px 12px 30px; gap: 16px; }
     #vista-attesa .griglia-carte { padding-top: 24px; }
-    .giostra-schermo { aspect-ratio: 1 / 1; border-radius: 12px; }
-    .giostra-barra { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "etichetta pausa" "punti punti"; gap: 6px 10px; }
-    .giostra-etichetta { grid-area: etichetta; }
-    .giostra-pausa { grid-area: pausa; }
-    .giostra-punti { grid-area: punti; }
-    .gioco-domanda { padding: 14px 14px 16px; }
-    .gioco-scelta { font-size: 16.5px; }
+    .vetrina-schermo { aspect-ratio: 1 / 1; border-radius: 12px; }
+    .vetrina-barra { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "etichetta pausa" "punti punti"; gap: 6px 10px; }
+    .vetrina-etichetta { grid-area: etichetta; }
+    .vetrina-pausa { grid-area: pausa; }
+    .vetrina-punti { grid-area: punti; }
     .posto-domande { padding: 0 12px 30px; }
     #vista-attesa .posto-domande { margin-top: -14px; }
     #vista-diretta .posto-domande { padding: 16px 12px 0; }

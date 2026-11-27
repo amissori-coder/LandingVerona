@@ -209,6 +209,14 @@ async function costruisci() {
     scrivi('diretta/sorgente-video.js', leggi('diretta/sorgente-video.js'));
     // la sigla d'apertura del video di YouTube (pagina della diretta e Regia)
     scrivi('diretta/sigla.js', leggi('diretta/sigla.js'));
+    // la vetrina dell'attesa: lo script, la mappa delle sedi e le immagini e il video del sito che cita
+    const vetrina = leggi('diretta/vetrina.js');
+    scrivi('diretta/vetrina.js', vetrina);
+    copia('diretta/vetrina-sedi.svg');
+    const fileVetrina = new Set();
+    vetrina.replace(/'([\w.-]+(?:\/[\w.-]+)+\.(?:mp4|jpg|jpeg|png|webp))'/g, (t, f) => { fileVetrina.add(f); return t; });
+    if (fileVetrina.size < 3) throw new Error('vetrina.js: non trovo il video e le immagini del sito (' + [...fileVetrina].join(', ') + ')');
+    fileVetrina.forEach(f => copia(f));
     if (PLAYER_VERO) ['diretta/player-webtv.js', 'diretta/player-azoto.js', 'diretta/player-youtube.js', 'diretta/hls.min.js', 'diretta/dash.all.min.js'].forEach(f => copia(f));
     copia('diretta/prove/anteprima/config.js', 'diretta/config.js');
     copia('diretta/prove/anteprima/pagina.js', 'anteprima/pagina.js');

@@ -74,6 +74,8 @@
     c.servizio = p.api || 'http://127.0.0.1:3100/api';
     c.prove = {
         ritardoPresenzaMs: p.ritardoPresenzaMs != null ? Number(p.ritardoPresenzaMs) : null,
-        intervalloPresenzaMs: p.intervalloPresenzaMs != null ? Number(p.intervalloPresenzaMs) : null
+        intervalloPresenzaMs: p.intervalloPresenzaMs != null ? Number(p.intervalloPresenzaMs) : null,
+        // la durata delle scene della vetrina dell'attesa (vetrina.js)
+        vetrinaSecondi: p.vetrinaSecondi != null ? Number(p.vetrinaSecondi) : null
     };
 })();
