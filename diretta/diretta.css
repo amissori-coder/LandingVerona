@@ -325,8 +325,7 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .carta-consigli p.aiuto,
 .nota-programma,
 .carta-domande p,
-.carta-domande li,
-.vetrina-barra p {
+.carta-domande li {
     text-align: left !important;
     text-align-last: auto;
     -webkit-hyphens: manual !important;
@@ -633,393 +632,215 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
 }
 .carta-consigli .aiuto { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--bordo); }
 
-/* ====================== MENTRE ASPETTI: LA VETRINA DEL SITO (vetrina.js) ======================
-   Nella fascia del titolo, dove comparira' il video: lo schermo con le
-   cose del sito che girano (il video della home, i temi in orbita, gli
-   approfondimenti, Milano, le interviste, le sedi), il conto alla rovescia
-   in alto a destra e sotto la barra con i puntini e «Ferma». Sui computer
-   (da 1100 px) lo schermo sta accanto ai testi della fascia (.con-schermo,
-   la mette diretta.js): tutto si vede senza scorrere; piu' stretto, sotto.
-   16:9; sul telefono quadrato. Le misure seguono lo schermo (cqw/cqh). */
-.schermo-attesa { max-width: 680px; margin: 26px auto 0; }
+/* ====================== MENTRE ASPETTI: IL QUADRANTE DEL SITO (vetrina.js) ======================
+   Niente riquadro: e' la fascia del titolo che si anima, con il disegno
+   dell'orbita della home. Sui computer (da 1200 px) un mezzo disco chiaro
+   sorge dal bordo destro della fascia, con due anelli; sull'anello girano
+   le voci del sito, quella in primo piano a sinistra del disco, con il suo
+   titolo accanto e il suo segno grande nel disco. I testi (titolo, conto
+   alla rovescia, data) stanno nello spazio a sinistra. Sul tablet e sul
+   telefono il disco sorge dal bordo in basso, sotto i testi, e il titolo
+   della voce sta sopra il disco. Le misure seguono l'altezza della fascia
+   (--q-alto): il raggio del disco (--rd) e dell'anello delle voci (--R).
+   Con il video della home, il video sfocato e velato dietro tutta la fascia. */
 .schermo-attesa[hidden] { display: none; }
-@media (min-width: 1100px) {
-    .attesa-eroe.con-schermo {
-        max-width: 1180px;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-        gap: 56px;
-        align-items: center;
-        text-align: left;
-    }
-    .attesa-eroe.con-schermo .conto { justify-content: flex-start; }
-    .attesa-eroe.con-schermo .dettagli-evento { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
-    .attesa-eroe.con-schermo .dettagli-evento li,
-    .attesa-eroe.con-schermo p.nota-chiara { text-align: left !important; text-align-last: auto; }
-    .attesa-eroe.con-schermo p.nota-chiara { margin: 0; max-width: 30em; }
-    .attesa-eroe.con-schermo .schermo-attesa { max-width: none; margin: 0; }
-}
-.vetrina { text-align: left; }
-.vetrina-schermo {
-    --banda: 0px;
-    position: relative;
-    aspect-ratio: 16 / 9;
-    border-radius: 14px;
-    overflow: hidden;
-    container-type: size;
-    color: #fff;
-    font-family: var(--font-testo);
-    background:
-        radial-gradient(ellipse at 14% 16%, rgba(122, 178, 232, .2) 0%, transparent 50%),
-        radial-gradient(ellipse at 90% 95%, rgba(42, 90, 133, .55) 0%, transparent 58%),
-        linear-gradient(135deg, #061526 0%, #0A2844 55%, #164068 100%);
-    border: 1px solid rgba(255, 255, 255, .16);
-    box-shadow: 0 26px 60px -26px rgba(0, 0, 0, .65);
-}
-/* con il conto alla rovescia: la sua fascia in cima, le scene sotto */
-.vetrina-schermo.vetrina-con-conto { --banda: max(30px, 11cqh); }
-/* niente giustificato del sito (assets/testo.css) nella vetrina */
+.fascia-scura.con-quadrante { isolation: isolate; }
+.fascia-scura.con-quadrante .attesa-eroe { z-index: 1; }
+/* niente giustificato del sito (assets/testo.css) nel quadrante */
 .vetrina :is(p, li, span, div, a, b, small) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
-.vetrina .vetrina-orbita-centro { text-align: center !important; }
 .vetrina p { margin: 0; }
-.vetrina-solo-lettori { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* le scene: una alla volta, in dissolvenza; i pezzi entrano con un piccolo salto.
-   Ogni scena e' un contenitore: le sue misure (cqw/cqh) seguono lo spazio sotto la fascia. */
-.vetrina-scena {
+/* lo sfondo vivo: il video della home, velato, dietro tutta la fascia */
+.vetrina-sfondo { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 1.2s ease; }
+.vetrina-con-video .vetrina-sfondo { opacity: 1; }
+.vetrina-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: .46; mix-blend-mode: screen; filter: blur(16px) saturate(1.3); transform: scale(1.12); }
+.vetrina-sfondo::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(10, 40, 68, .82) 0%, rgba(10, 40, 68, .3) 58%, rgba(10, 40, 68, .55) 100%); }
+
+/* il quadrante: un punto (il centro del disco) da cui si dispone tutto */
+.vetrina-palco { z-index: 1; pointer-events: none; }
+.vetrina-quadrante { position: absolute; width: 0; height: 0; --orienta: 0deg; }
+.vetrina-anello { position: absolute; left: calc(-1 * var(--d)); top: calc(-1 * var(--d)); width: calc(2 * var(--d)); height: calc(2 * var(--d)); border-radius: 50%; border: 1px solid rgba(255, 255, 255, .28); pointer-events: none; }
+.vetrina-anello-voci { --d: var(--R); }
+.vetrina-anello-disco { --d: calc(var(--rd) + 16px); border-color: rgba(127, 186, 255, .42); }
+.vetrina-anello-fuori { --d: calc(var(--R) + var(--rd) * .42); border: 1px dashed rgba(255, 255, 255, .12); animation: vetrinaGira 160s linear infinite; }
+@keyframes vetrinaGira { to { transform: rotate(360deg); } }
+
+/* il disco: il segno grande della voce in primo piano */
+.vetrina-disco {
     position: absolute;
-    top: var(--banda); right: 0; bottom: 0; left: 0;
-    container-type: size;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity .8s ease, visibility 0s linear .8s;
-}
-.vetrina-scena-ora { opacity: 1; visibility: visible; transition: opacity .8s ease; }
-.vetrina-scena-ora .vetrina-entra { animation: vetrinaEntra .9s ease both; }
-.vetrina-scena-ora .vetrina-piede.vetrina-entra { animation-delay: .35s; }
-@keyframes vetrinaEntra { from { opacity: 0; transform: translateY(3cqh); } to { opacity: 1; transform: none; } }
-/* ferma (o fuori dall'attesa): tutto fermo; le scene nascoste non si muovono */
-.vetrina-ferma .vetrina-schermo *, .vetrina-ferma .vetrina-schermo *::before, .vetrina-ferma .vetrina-schermo *::after,
-.vetrina-scena:not(.vetrina-scena-ora) *, .vetrina-scena:not(.vetrina-scena-ora) *::before, .vetrina-scena:not(.vetrina-scena-ora) *::after { animation-play-state: paused !important; }
-
-/* i testi comuni */
-.vetrina-testa { position: absolute; left: 6cqw; top: 7cqh; right: 30cqw; }
-.vetrina-sopra { font-weight: 700; font-size: max(10px, 1.45cqw); letter-spacing: .16em; text-transform: uppercase; color: #9CC3E8; }
-.vetrina-titolo { margin-top: 1.4cqh !important; font-family: var(--font-titoli); font-weight: 800; font-size: max(15px, 3.2cqw); line-height: 1.15; letter-spacing: -.01em; }
-.vetrina-sotto { margin-top: 1.4cqh !important; font-size: max(11px, 1.7cqw); color: rgba(255, 255, 255, .8); }
-.vetrina-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: .35em .8em;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .12);
-    border: 1px solid rgba(255, 255, 255, .2);
-    font-size: max(9px, 1.15cqw);
-    font-weight: 700;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: #DCE9F6;
-    white-space: nowrap;
-}
-.vetrina-chip-scura { background: #7DD3A0; border-color: #7DD3A0; color: #0A2844; }
-.vetrina-link {
-    display: inline-flex;
-    align-items: center;
-    gap: .5em;
-    margin-top: 2.6cqh;
-    padding: .7em 1.2em;
-    border-radius: 999px;
-    background: #fff;
+    z-index: 1;
+    left: calc(-1 * var(--rd)); top: calc(-1 * var(--rd));
+    width: var(--rd); height: calc(2 * var(--rd));
+    border-radius: var(--rd) 0 0 var(--rd);
+    background: #F1F5F9;
     color: var(--scuro);
-    font-weight: 800;
-    font-size: max(11px, 1.35cqw);
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    text-decoration: none;
-}
-.vetrina-link::after { content: '→'; }
-.vetrina-link:hover { background: #DCE9F6; color: var(--scuro); }
-.vetrina-link:focus-visible, .vetrina-scheda:focus-visible { outline: 3px solid #7DD3A0; outline-offset: 3px; }
-
-/* 1. il video della home */
-.vetrina-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; background: #0B1F36; }
-.vetrina-didascalia {
-    position: absolute;
-    left: 4cqw; bottom: 5cqh;
-    display: flex; align-items: center; gap: .7em;
-    font-weight: 700; font-size: max(10px, 1.3cqw);
-    color: rgba(255, 255, 255, .9);
-    text-shadow: 0 1px 8px rgba(0, 0, 0, .5);
-}
-
-/* 2. i temi in orbita attorno alla revisione legale (come nella home): sotto il titolo un
-   anello visto di sbieco (un'ellisse larga) che gira piano; i temi dietro (in alto) piu'
-   piccoli e tenui. La posizione: cos/sin dell'angolo del tema (--a) piu' il giro
-   (--vetrina-giro); senza cos()/sin() i temi stanno fermi. Le misure: per tutto il giro
-   nessun tema ne tocca un altro, il centro o il titolo (provato da 550 a 680 px). */
-@property --vetrina-giro { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
-.vetrina-orbita {
-    --rx: 36cqw;
-    --ry: 28cqh;
-    position: absolute;
-    left: 50cqw; top: 63cqh;
-    width: 0; height: 0;
-    animation: vetrinaGiro 80s linear infinite;
-}
-.vetrina-orbita::before {
-    content: '';
-    position: absolute;
-    left: calc(-1 * var(--rx)); top: calc(-1 * var(--ry));
-    width: calc(2 * var(--rx)); height: calc(2 * var(--ry));
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, .2);
-}
-.vetrina-tema { position: absolute; left: 0; top: 0; transform: translate(calc(var(--cx) * var(--rx)), calc(var(--cy) * var(--ry))); }
-@supports (transform: translateX(calc(cos(0deg) * 1px))) {
-    .vetrina-tema {
-        transform: translate(calc(cos(var(--vetrina-giro) + var(--a)) * var(--rx)), calc(sin(var(--vetrina-giro) + var(--a)) * var(--ry)))
-            scale(calc(.92 + .08 * sin(var(--vetrina-giro) + var(--a))));
-        opacity: calc(.82 + .18 * sin(var(--vetrina-giro) + var(--a)));
-    }
-}
-.vetrina-tema-etichetta {
-    position: absolute;
-    left: 0; top: 0;
-    transform: translate(-50%, -50%);
-    padding: .5em .85em;
-    border-radius: 999px;
-    background: rgba(6, 21, 38, .86);
-    border: 1px solid rgba(122, 178, 232, .42);
-    font-weight: 700;
-    font-size: clamp(9px, 1.65cqw, 13px);
-    white-space: nowrap;
-}
-.vetrina-orbita-centro {
-    position: absolute;
-    left: 0; top: 0;
-    width: 40cqh; height: 40cqh;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: #fff;
-    color: var(--scuro);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35em;
-    padding: 0 3cqh;
-    box-shadow: 0 0 0 1.6cqh rgba(255, 255, 255, .08), 0 18px 40px -16px rgba(0, 0, 0, .6);
-}
-.vetrina-orbita-centro b { font-family: var(--font-titoli); font-weight: 800; font-size: clamp(10px, 1.7cqw, 14px); line-height: 1.1; }
-.vetrina-orbita-centro small { font-size: clamp(8px, 1.15cqw, 10px); line-height: 1.25; color: var(--tenue); }
-@keyframes vetrinaGiro { to { --vetrina-giro: 360deg; } }
-@keyframes vetrinaAccendi { 0%, 12% { background: #7DD3A0; border-color: #7DD3A0; color: #0A2844; } 16%, 100% { background: rgba(6, 21, 38, .86); border-color: rgba(122, 178, 232, .42); color: #fff; } }
-
-/* 3. gli ultimi approfondimenti, che scorrono */
-.vetrina-scena-approfondimenti .vetrina-testa { right: 6cqw; }
-.vetrina-schede {
-    position: absolute;
-    left: 6cqw; right: 6cqw; top: 29cqh; bottom: 0;
+    display: grid;
+    align-items: center;
+    justify-items: start;
+    padding: 0 20px 0 calc(var(--rd) * .2);
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 86%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 86%, transparent 100%);
+    pointer-events: auto;
 }
-.vetrina-schede-dentro { list-style: none; margin: 0; padding: 2cqh 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2cqh 2cqw; animation: vetrinaSale 44s linear infinite; }
-.vetrina-scheda {
-    display: flex; flex-direction: column; gap: 1.2cqh;
-    height: 100%;
-    padding: 2.4cqh 2cqw;
-    border-radius: 12px;
-    background: #fff;
-    color: var(--scuro);
-    text-decoration: none;
-    box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .55);
-}
-.vetrina-scheda:hover { background: #EEF4FA; }
-.vetrina-scheda .vetrina-chip { background: #E8F1FA; border-color: #E8F1FA; color: var(--blu); }
-.vetrina-scheda .vetrina-chip-scura { background: var(--blu); border-color: var(--blu); color: #fff; }
-.vetrina-scheda-riga { display: flex; flex-wrap: wrap; gap: .5em; }
-.vetrina-scheda-titolo { font-family: var(--font-titoli); font-weight: 800; font-size: max(11px, 1.6cqw); line-height: 1.25; }
-@keyframes vetrinaSale { to { transform: translateY(-50%); } }
-/* con il mouse o il fuoco sulle schede, lo scorrimento si ferma (si legge e si preme) */
-.vetrina-schede:hover .vetrina-schede-dentro, .vetrina-schede:focus-within .vetrina-schede-dentro { animation-play-state: paused; }
+.vetrina-disco > * { grid-area: 1 / 1; }
+.vetrina-disco-dentro { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.vetrina-disco-grande { font-family: var(--font-titoli); font-weight: 900; font-size: calc(var(--rd) * .44); line-height: .92; letter-spacing: -.03em; }
+.vetrina-disco-riga { font-family: var(--font-titoli); font-weight: 800; font-size: calc(var(--rd) * .14); line-height: 1.05; letter-spacing: -.01em; }
+.vetrina-disco-piccolo { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #2A5A85; line-height: 1.3; }
+.vetrina-disco-piccolo:first-child { margin-bottom: 4px; }
+.vetrina-disco-mappa { display: block; height: calc(var(--rd) * .78); width: auto; margin-bottom: 4px; }
+.vetrina-disco-sedi .vetrina-disco-grande { font-size: calc(var(--rd) * .3); }
+.vetrina-disco-play { display: flex; align-items: center; justify-content: center; width: calc(var(--rd) * .34); height: calc(var(--rd) * .34); border-radius: 50%; background: var(--scuro); color: #fff; margin-bottom: 8px; box-shadow: 0 0 0 8px rgba(22, 64, 104, .12); }
+.vetrina-disco-play .vetrina-icona { width: 46%; height: 46%; margin-left: 8%; }
 
-/* 4. il prossimo appuntamento: Milano */
-.vetrina-volantino {
+/* le voci sull'anello: un punto e il nome; quella in primo piano (data-vicino=0) ha il punto verde e il titolo accanto.
+   La posizione: ruotare di --ang (i passi dalla voce in primo piano), spostarsi di --R, ruotare indietro (il nome resta dritto);
+   cambiando --ang il passaggio segue l'arco. */
+.vetrina-voci { position: absolute; left: 0; top: 0; }
+.vetrina-voce {
     position: absolute;
-    left: 7cqw; top: 50%;
-    height: 80cqh; width: auto;
-    border-radius: 6px;
-    transform: translateY(-50%) rotate(-4deg);
-    box-shadow: 0 22px 50px -18px rgba(0, 0, 0, .75);
-    animation: vetrinaVolantino 7s ease-in-out infinite alternate;
-}
-@keyframes vetrinaVolantino { from { transform: translateY(-50%) rotate(-4deg); } to { transform: translateY(-52%) rotate(-2deg); } }
-.vetrina-milano-testo { position: absolute; left: 44cqw; right: 5cqw; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
-.vetrina-pillola {
-    display: inline-block;
-    padding: .55em 1.1em;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, .35);
-    font-size: max(9px, 1.15cqw);
-    font-weight: 700;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: #DCE9F6;
-}
-.vetrina-data { display: flex; align-items: center; gap: 1.4cqw; margin-top: 3cqh !important; }
-.vetrina-data b { font-family: var(--font-titoli); font-weight: 900; font-size: max(34px, 9cqw); line-height: .9; }
-.vetrina-data span { display: flex; flex-direction: column; font-weight: 800; font-size: max(13px, 2.2cqw); }
-.vetrina-data small { font-weight: 700; font-size: max(10px, 1.5cqw); color: #7AB2E8; }
-.vetrina-citta { margin-top: 1.4cqh !important; font-family: var(--font-titoli); font-weight: 900; font-size: max(18px, 4cqw); letter-spacing: .04em; text-transform: uppercase; }
-.vetrina-milano-titolo { margin-top: 1.4cqh !important; font-weight: 700; font-size: max(11px, 1.7cqw); line-height: 1.35; color: rgba(255, 255, 255, .88); }
-.vetrina-voci { list-style: none; margin: 2cqh 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .6em; }
-.vetrina-voci li { padding: .4em .9em; border-radius: 999px; background: rgba(255, 255, 255, .12); font-size: max(9px, 1.15cqw); font-weight: 600; }
-
-/* 5. le interviste di Verona e 6. le sedi: un numero che sale, un nastro che scorre */
-.vetrina-numero { margin-top: 3cqh !important; display: flex; align-items: baseline; gap: .4em; font-weight: 700; font-size: max(12px, 2cqw); color: #DCE9F6; }
-.vetrina-numero b { font-family: var(--font-titoli); font-weight: 900; font-size: max(36px, 10cqw); line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
-.vetrina-nastro { position: absolute; left: 0; right: 0; bottom: 24cqh; overflow: hidden; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); }
-.vetrina-nastro-dentro { display: flex; width: max-content; gap: 1.2cqw; animation: vetrinaScorre 36s linear infinite; }
-.vetrina-nastro-voce { padding: .6em 1.1em; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); font-weight: 600; font-size: max(10px, 1.35cqw); white-space: nowrap; }
-@keyframes vetrinaScorre { to { transform: translateX(-50%); } }
-.vetrina-piede { position: absolute; left: 6cqw; bottom: 6cqh; }
-.vetrina-play {
-    position: absolute;
-    right: 11cqw; top: 36cqh;
-    width: 30cqh; height: 30cqh;
-    transform: translateY(-50%);
-    border-radius: 50%;
-    background: rgba(255, 255, 255, .1);
-    border: 1px solid rgba(255, 255, 255, .3);
-    display: flex; align-items: center; justify-content: center;
+    left: 0; top: 0;
+    width: 0; height: 0;
+    padding: 0; margin: 0;
+    border: 0;
+    background: none;
     color: #fff;
-}
-.vetrina-play::before, .vetrina-play::after {
-    content: '';
-    position: absolute;
-    top: -1px; right: -1px; bottom: -1px; left: -1px;
-    border-radius: 50%;
-    border: 1px solid rgba(125, 211, 160, .6);
-    animation: vetrinaOnda 3s ease-out infinite;
-}
-.vetrina-play::after { animation-delay: 1.5s; }
-.vetrina-play-icona { width: 42%; height: 42%; margin-left: 6%; }
-@keyframes vetrinaOnda { from { transform: scale(1); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
-.vetrina-scena-sedi .vetrina-mappa { position: absolute; right: 4cqw; top: 4cqh; height: 92cqh; width: auto; opacity: .95; }
-.vetrina-sedi-testo { position: absolute; left: 6cqw; top: 14cqh; right: 50cqw; }
-.vetrina-numero-grande b { font-size: max(44px, 13cqw); }
-.vetrina-nastro-citta { bottom: 7cqh; right: 46cqw; }
-.vetrina-nastro-citta .vetrina-nastro-dentro { animation-duration: 120s; }
-.vetrina-nastro-citta .vetrina-nastro-voce { background: none; border: 0; padding: .3em .2em; color: #9CC3E8; }
-.vetrina-nastro-citta .vetrina-nastro-voce::after { content: '·'; margin-left: 1.2cqw; color: rgba(255, 255, 255, .35); }
-
-/* il conto alla rovescia: la fascia in cima allo schermo, sopra le scene */
-.vetrina-conto {
-    position: absolute;
-    left: 0; right: 0; top: 0;
-    height: var(--banda);
-    z-index: 3;
-    display: flex; align-items: center; gap: .8em;
-    padding: 0 3.2cqw;
-    background: linear-gradient(90deg, rgba(4, 14, 26, .88), rgba(4, 14, 26, .6));
-    border-bottom: 1px solid rgba(255, 255, 255, .12);
-    font-size: max(9.5px, 1.25cqw);
-    font-weight: 700;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: #9CC3E8;
-    white-space: nowrap;
-}
-.vetrina-conto[hidden] { display: none; }
-.vetrina-conto-punto { flex: none; width: .7em; height: .7em; border-radius: 50%; background: #7DD3A0; animation: pulsaLive 2s ease-in-out infinite; }
-.vetrina-conto-ora .vetrina-conto-punto { animation-duration: 1s; }
-.vetrina-conto-tempo { margin-left: auto; font-family: var(--font-titoli); font-weight: 800; font-size: 1.55em; letter-spacing: .03em; text-transform: none; color: #fff; font-variant-numeric: tabular-nums; }
-.vetrina-conto-tempo[hidden] { display: none; }
-
-/* la barra sotto lo schermo: «Mentre aspetti · dal sito», i puntini, «Ferma» */
-.vetrina-barra { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; margin-top: 10px; }
-.vetrina-etichetta { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #DCE9F6; }
-.vetrina-punti { display: flex; flex-wrap: wrap; justify-content: center; }
-.vetrina-punto {
-    width: 28px; height: 28px;
-    padding: 0; border: 0; border-radius: 14px;
-    background: transparent;
     cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center;
+    pointer-events: auto;
+    z-index: 2;
+    transform: rotate(calc(var(--orienta) + var(--ang, 0deg))) translateX(calc(-1 * var(--R))) rotate(calc(-1 * (var(--orienta) + var(--ang, 0deg))));
+    transition: transform 1.1s cubic-bezier(.65, 0, .35, 1), opacity .9s ease;
 }
-.vetrina-punto::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .38); transition: width .3s ease, background-color .3s ease; }
-.vetrina-punto:hover::before { background: rgba(255, 255, 255, .75); }
-.vetrina-punto-ora::before, .vetrina-punto-ora:hover::before { width: 20px; background: #7DD3A0; }
+.vetrina-voce-salta { transition: none !important; }
+.vetrina-voce-punto { position: absolute; left: -8px; top: -8px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 4px solid #0f2d4a; background: #7fbaff; transition: transform .6s ease, background-color .6s ease; }
+.vetrina-voce-punto::before { content: ''; position: absolute; top: -12px; right: -12px; bottom: -12px; left: -12px; border-radius: 50%; }
+/* i nomi compaiono a giro finito (non passano sopra il titolo) e spariscono subito */
+.vetrina-voce-nome { position: absolute; left: 18px; top: 0; transform: translateY(-50%); white-space: nowrap; font-family: var(--font-titoli); font-size: 14px; font-weight: 600; line-height: 1.25; color: rgba(255, 255, 255, .8); transition: opacity .45s ease 1s; }
+.vetrina-voce:hover .vetrina-voce-nome { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.vetrina-voce:hover .vetrina-voce-punto { background: #fff; }
+.vetrina-voce:focus { outline: none; }
+.vetrina-voce:focus-visible .vetrina-voce-punto { outline: 3px solid #fff; outline-offset: 3px; }
+.vetrina-voce[data-vicino="0"] { cursor: default; }
+.vetrina-voce[data-vicino="0"] .vetrina-voce-punto { transform: scale(1.3); background: #7DD3A0; }
+.vetrina-voce[data-vicino="0"] .vetrina-voce-nome,
+.vetrina-voce[data-vicino="2"] .vetrina-voce-nome,
+.vetrina-voce[data-vicino="3"] .vetrina-voce-nome { opacity: 0; transition: opacity .15s ease; }
+.vetrina-voce[data-vicino="2"] { opacity: .55; }
+.vetrina-voce[data-vicino="3"] { opacity: 0; pointer-events: none; }
+
+/* l'anello attorno al punto in primo piano: si riempie fino al passo dopo */
+.vetrina-progresso { position: absolute; z-index: 2; left: calc(-1 * var(--R) - 20px); top: -20px; width: 40px; height: 40px; transform: rotate(-90deg); pointer-events: none; overflow: visible; }
+.vetrina-progresso circle { fill: none; stroke: #7DD3A0; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
+.vetrina-progresso-va { animation: vetrinaProgresso 8s linear forwards; }
+@keyframes vetrinaProgresso { to { stroke-dashoffset: 0; } }
+/* fermo («Ferma», il mouse sul titolo o sul disco, il fuoco da tastiera, fuori dall'attesa): l'anello aspetta */
+.vetrina-ferma .vetrina-progresso circle, .vetrina-ferma .vetrina-anello-fuori { animation-play-state: paused; }
+
+/* il titolo della voce in primo piano */
+.vetrina-titolo { display: grid; z-index: 2; pointer-events: auto; outline: none; }
+.vetrina-titolo > * { grid-area: 1 / 1; }
+.vetrina-titolo:focus-visible { outline: 2px solid #7fbaff; outline-offset: 8px; border-radius: 4px; }
+.vetrina-titolo-dentro { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.vetrina-sopra { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #9CC3E8; line-height: 1.35; }
+.vetrina-titolo-testo { font-family: var(--font-titoli); font-weight: 800; font-size: clamp(18px, calc(var(--q-alto, 600px) * .033), 23px); line-height: 1.22; color: #fff; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.vetrina-link { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; color: #fff; font-size: 14px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.vetrina-link::after { content: '→'; text-decoration: none; }
+.vetrina-link:hover { color: #fff; text-decoration-thickness: 2px; }
+.vetrina-link:focus-visible { outline: 2px solid #7fbaff; outline-offset: 3px; border-radius: 3px; }
+
+/* il cambio di voce: prima il vecchio esce in alto, poi il nuovo entra dal basso (come il giro dell'anello) */
+.vetrina-entra { animation: vetrinaEntra .75s cubic-bezier(.2, .7, .2, 1) .42s both; }
+.vetrina-esce { animation: vetrinaEsce .35s ease-in both; pointer-events: none; }
+@keyframes vetrinaEntra { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes vetrinaEsce { to { opacity: 0; transform: translateY(-24px); } }
+
+/* «Ferma»/«Riprendi» */
 .vetrina-pausa {
     display: inline-flex; align-items: center; gap: 6px;
-    min-height: 32px;
-    padding: 4px 13px 4px 10px;
+    min-height: 34px;
+    padding: 4px 14px 4px 11px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, .28);
-    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .3);
+    background: rgba(10, 40, 68, .55);
     color: #fff;
     font-family: var(--font-testo); font-size: 13px; font-weight: 600;
     cursor: pointer;
+    pointer-events: auto;
+    z-index: 2;
 }
-.vetrina-pausa:hover { background: rgba(255, 255, 255, .16); }
+.vetrina-pausa:hover { background: rgba(255, 255, 255, .14); }
+.vetrina-pausa:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .vetrina-icona { width: 14px; height: 14px; }
-.vetrina-punto:focus-visible, .vetrina-pausa:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
-/* le scene basse (il telefono piccolo): Milano senza le tre voci */
-@container (max-height: 280px) {
-    .vetrina-scena-milano .vetrina-voci { display: none; }
-}
-/* la fascia stretta (il telefono piccolo): «Inizia tra» invece di «La diretta inizia tra» */
-@container (max-width: 359px) {
-    .vetrina-conto { letter-spacing: .08em; }
-    .vetrina-conto-lungo { display: none; }
-}
-/* le scene piccole o quasi quadrate (il telefono): i pezzi uno sotto l'altro, piu' semplici;
-   i temi in fila, accesi uno alla volta, invece dell'orbita */
-@container (max-aspect-ratio: 13 / 10) {
-    .vetrina-testa { right: 6cqw; top: 7cqh; }
-    .vetrina-titolo { font-size: max(15px, 5.2cqw); }
-    .vetrina-scena-temi .vetrina-testa { top: 7cqh; bottom: auto; right: 6cqw; width: auto; display: block; }
-    .vetrina-scena-temi .vetrina-titolo { font-size: max(14px, 4.8cqw); }
-    .vetrina-orbita {
-        left: 6cqw; right: 6cqw; top: 34cqh; bottom: 4cqh;
-        width: auto; height: auto;
-        display: flex; flex-wrap: wrap; align-content: center; gap: 2.2cqw;
-        animation: none;
+/* SUI COMPUTER (da 1200 px): il disco dal bordo destro, i testi nello spazio a sinistra */
+@media (min-width: 1200px) {
+    .fascia-scura.con-quadrante {
+        --q-alto: clamp(540px, 70vh, 680px);
+        --rd: calc(var(--q-alto) * .36);
+        /* sugli schermi larghi l'anello si allarga (fino a 1,15 volte l'altezza): il titolo ha piu' spazio, i testi restano vicini */
+        --R: min(max(calc(var(--q-alto) * .95), 40vw), calc(var(--q-alto) * 1.15));
+        min-height: var(--q-alto);
+        display: flex;
+        align-items: center;
     }
-    .vetrina-orbita::before { display: none; }
-    .vetrina-tema { position: static; transform: none; opacity: 1; }
-    .vetrina-tema-etichetta { position: static; display: inline-block; transform: none; font-size: max(10px, 3.2cqw); animation: vetrinaAccendi 14s ease-in-out infinite; animation-delay: calc(var(--i) * 2s); }
-    .vetrina-orbita-centro {
-        order: -1;
-        position: static;
-        width: auto; height: auto;
-        transform: none;
-        flex-direction: row; align-items: baseline; gap: .6em;
-        padding: .55em 1em;
-        border-radius: 999px;
-        box-shadow: none;
+    .fascia-scura.con-quadrante .attesa-eroe { width: calc(100% - var(--R) - 24px); max-width: none; margin: 0; display: flex; justify-content: center; text-align: left; }
+    .fascia-scura.con-quadrante .attesa-testi { width: 100%; max-width: 540px; }
+    .fascia-scura.con-quadrante .conto { justify-content: flex-start; }
+    .fascia-scura.con-quadrante .dettagli-evento { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+    .fascia-scura.con-quadrante .dettagli-evento li,
+    .fascia-scura.con-quadrante p.nota-chiara { text-align: left !important; text-align-last: auto; }
+    .fascia-scura.con-quadrante p.nota-chiara { margin: 0; max-width: 30em; }
+    .fascia-scura.con-quadrante .schermo-attesa { position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: 0; pointer-events: none; }
+    .vetrina { position: absolute; top: 0; right: 0; bottom: 0; left: 0; text-align: left; }
+    .vetrina-palco { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+    .vetrina-quadrante { right: 0; top: 50%; }
+    .vetrina-titolo { position: absolute; right: calc(var(--rd) + 34px); width: min(calc(var(--R) - var(--rd) - 66px), 460px); top: 50%; transform: translateY(-50%); }
+    .vetrina-pausa { position: absolute; right: 22px; bottom: 18px; }
+}
+/* SUL TABLET E SUL TELEFONO: i testi, il titolo della voce e sotto il quadrante, con il disco dal bordo in basso */
+@media (max-width: 1199px) {
+    .fascia-scura.con-quadrante {
+        --rd: clamp(124px, 33vw, 200px);
+        --R: calc(var(--rd) + clamp(100px, 23vw, 150px));
+        padding-bottom: 0;
     }
-    .vetrina-orbita-centro b { font-size: max(11px, 3.4cqw); }
-    .vetrina-orbita-centro small { font-size: max(9px, 2.8cqw); }
-    .vetrina-schede { top: 31cqh; }
-    .vetrina-schede-dentro { grid-template-columns: minmax(0, 1fr); }
-    .vetrina-scheda-titolo { font-size: max(12px, 3.6cqw); }
-    .vetrina-volantino { display: none; }
-    .vetrina-milano-testo { left: 7cqw; right: 7cqw; }
-    .vetrina-data b { font-size: max(40px, 16cqw); }
-    .vetrina-citta { font-size: max(22px, 8cqw); }
-    .vetrina-milano-titolo { font-size: max(12px, 3.6cqw); }
-    .vetrina-play { display: none; }
-    .vetrina-nastro { bottom: 26cqh; }
-    .vetrina-scena-sedi .vetrina-mappa { right: 3cqw; top: auto; bottom: 16cqh; height: 56cqh; }
-    .vetrina-sedi-testo { right: 6cqw; top: 8cqh; }
-    .vetrina-sedi-testo .vetrina-sotto { max-width: 52cqw; }
-    .vetrina-nastro-citta { right: 0; }
-    .vetrina-video { object-fit: contain; }
+    .fascia-scura.con-quadrante .schermo-attesa { position: static; max-width: none; margin: 30px 0 0; }
+    .vetrina { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    /* l'altezza del titolo non cambia da una voce all'altra: la pagina sotto non salta */
+    .vetrina-titolo { order: 1; position: relative; width: 100%; max-width: 560px; min-height: 142px; justify-items: center; align-items: center; }
+    .vetrina-titolo-dentro { align-items: center; gap: 8px; }
+    .vetrina-titolo-testo { font-size: 19px; -webkit-line-clamp: 3; }
+    .vetrina-pausa { order: 2; position: relative; margin-top: 12px; }
+    .vetrina-palco { order: 3; position: relative; width: 100%; height: calc(var(--R) + 30px); margin-top: 6px; }
+    .vetrina-quadrante { --orienta: 90deg; left: 50%; top: 100%; }
+    .vetrina-disco {
+        left: calc(-1 * var(--rd)); top: calc(-1 * var(--rd));
+        width: calc(2 * var(--rd)); height: var(--rd);
+        border-radius: var(--rd) var(--rd) 0 0;
+        align-items: end;
+        justify-items: center;
+        padding: 0 18px calc(var(--rd) * .13);
+    }
+    .vetrina-disco-dentro { align-items: center; }
+    .vetrina-disco-grande { font-size: calc(var(--rd) * .4); }
+    .vetrina-disco-sedi { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 10px; }
+    .vetrina-disco-sedi .vetrina-disco-mappa { height: calc(var(--rd) * .56); margin: 0; }
+    .vetrina-disco-sedi .vetrina-disco-grande { font-size: calc(var(--rd) * .3); }
+    .vetrina-disco-sedi .vetrina-disco-piccolo { flex-basis: 100%; }
+    .vetrina-progresso { left: -20px; top: calc(-1 * var(--R) - 20px); }
+    .vetrina-voce-nome { display: none; }
+    .vetrina-sfondo::after { background: linear-gradient(180deg, rgba(10, 40, 68, .85) 0%, rgba(10, 40, 68, .45) 60%, rgba(10, 40, 68, .6) 100%); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .vetrina-scena, .vetrina-scena-ora { transition: none; }
-    .vetrina-orbita, .vetrina-schede-dentro, .vetrina-nastro-dentro, .vetrina-volantino, .vetrina-scena-ora .vetrina-entra,
-    .vetrina-conto-punto, .vetrina-play::before, .vetrina-play::after, .vetrina-tema-etichetta { animation: none !important; }
-    .vetrina-punto::before { transition: none; }
+    .vetrina-voce, .vetrina-voce-punto, .vetrina-voce-nome, .vetrina-sfondo { transition: none; }
+    .vetrina-entra, .vetrina-esce, .vetrina-anello-fuori { animation: none; }
+    .vetrina-esce { visibility: hidden; }
+}
+
+/* il conto alla rovescia: la cifra che cambia scende al suo posto */
+.conto-numero.scatta { animation: contoScatta .5s cubic-bezier(.2, .8, .2, 1); }
+@keyframes contoScatta { from { transform: translateY(-.32em); opacity: .15; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+    .conto-numero.scatta { animation: none; }
 }
 
 /* ====================== DOMANDE AL RELATORE ======================
@@ -2026,11 +1847,6 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
 
     .griglia-carte { padding: 18px 12px 30px; gap: 16px; }
     #vista-attesa .griglia-carte { padding-top: 24px; }
-    .vetrina-schermo { aspect-ratio: 1 / 1; border-radius: 12px; }
-    .vetrina-barra { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "etichetta pausa" "punti punti"; gap: 6px 10px; }
-    .vetrina-etichetta { grid-area: etichetta; }
-    .vetrina-pausa { grid-area: pausa; }
-    .vetrina-punti { grid-area: punti; }
     .posto-domande { padding: 0 12px 30px; }
     #vista-attesa .posto-domande { margin-top: -14px; }
     #vista-diretta .posto-domande { padding: 16px 12px 0; }

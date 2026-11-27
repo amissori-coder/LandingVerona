@@ -920,115 +920,112 @@ function eventoIniziale(T) {
             await foto(p, 'attesa-computer', true);
         });
 
-        // la vetrina del sito nell'attesa (vetrina.js): nelle prove 4 secondi a scena (vetrinaSecondi)
+        // il quadrante del sito nell'attesa (vetrina.js): nelle prove 4 secondi a voce (vetrinaSecondi)
         const vetrina = () => p.evaluate(() => {
-            const punti = [...document.querySelectorAll('#schermo-attesa .vetrina-punto')];
-            const ora = document.querySelector('#schermo-attesa .vetrina-scena-ora');
-            const conto = document.querySelector('#schermo-attesa .vetrina-conto');
             const radice = document.querySelector('#schermo-attesa .vetrina');
+            const voci = [...document.querySelectorAll('#schermo-attesa .vetrina-voce')];
+            const attuale = sel => [...document.querySelectorAll(sel)].filter(e => !e.classList.contains('vetrina-esce')).pop();
+            const titolo = attuale('#schermo-attesa .vetrina-titolo-dentro');
+            const disco = attuale('#schermo-attesa .vetrina-disco-dentro');
             const v = document.querySelector('#schermo-attesa .vetrina-video');
             return {
-                punti: punti.length, ora: punti.findIndex(b => b.getAttribute('aria-current') === 'true'),
-                tipo: ora ? ((/vetrina-scena-(video|temi|approfondimenti|milano|interviste|sedi)\b/.exec(ora.className) || [])[1] || '') : '',
-                gruppo: ora ? ora.getAttribute('aria-label') : '', testo: ora ? ora.textContent.replace(/\s+/g, ' ') : '',
-                conto: conto && !conto.hidden ? [...conto.children].filter(e => !e.hidden).map(e => e.textContent).filter(Boolean).join(' ') : '',
+                voci: voci.length, ora: voci.findIndex(b => b.getAttribute('data-vicino') === '0'),
+                tipo: radice ? radice.getAttribute('data-voce') : '',
+                titolo: titolo ? titolo.textContent.replace(/\s+/g, ' ') : '', disco: disco ? disco.textContent.replace(/\s+/g, ' ') : '',
+                link: titolo && titolo.querySelector('a') ? { href: titolo.querySelector('a').getAttribute('href'), target: titolo.querySelector('a').target, rel: titolo.querySelector('a').rel } : null,
+                vicine: voci.filter(b => b.tabIndex === 0 && b.getAttribute('aria-hidden') !== 'true').map(b => b.getAttribute('aria-label')),
                 ferma: radice ? radice.classList.contains('vetrina-ferma') : null,
+                conVideo: radice ? radice.classList.contains('vetrina-con-video') : null,
                 video: v ? { pausa: v.paused, tempo: v.currentTime, muto: v.muted, src: v.getAttribute('src') || '' } : null
             };
         });
-        await prova('attesa: le carte staccate dalla fascia del titolo; accanto ai testi la vetrina del sito, con il conto alla rovescia in cima; niente domande né immagini', async () => {
+        // le voci vicine sull'anello: quella prima (sopra) e quella dopo (sotto); premute (senza muovere il mouse) vanno in primo piano
+        // (un clic come quello del mouse, detail 1: da tastiera, detail 0, il fuoco andrebbe al titolo e il quadrante aspetterebbe)
+        const premiVicina = (pg, lato) => pg.evaluate(l => document.querySelector('#schermo-attesa .vetrina-voce[data-vicino="1"][data-lato="' + l + '"]')
+            .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })), lato);
+        const vaiA = async (pg, tipo) => {
+            for (let k = 0; k < 12; k++) {
+                if (await pg.evaluate(() => document.querySelector('#schermo-attesa .vetrina').getAttribute('data-voce')) === tipo) return true;
+                await premiVicina(pg, 'prima');
+            }
+            return false;
+        };
+        await prova('attesa: nella fascia del titolo il quadrante del sito (niente riquadro): il disco dal bordo, le voci che girano, il titolo e il segno della voce; niente domande né immagini', async () => {
             const a = await p.evaluate(() => {
-                const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
+                const fascia = document.querySelector('#vista-attesa .fascia-scura');
+                const f = fascia.getBoundingClientRect();
                 const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
-                const titolo = document.getElementById('attesa-titolo').getBoundingClientRect();
-                const schermo = document.querySelector('#schermo-attesa .vetrina-schermo').getBoundingClientRect();
+                const testi = document.querySelector('#vista-attesa .attesa-testi').getBoundingClientRect();
+                const disco = document.querySelector('#schermo-attesa .vetrina-disco').getBoundingClientRect();
+                const punto = document.querySelector('#schermo-attesa .vetrina-voce[data-vicino="0"] .vetrina-voce-punto').getBoundingClientRect();
+                const titolo = document.querySelector('#schermo-attesa .vetrina-titolo').getBoundingClientRect();
                 return {
-                    spazio: Math.round(carta.top - fascia.bottom), accanto: schermo.left > titolo.right && schermo.bottom < fascia.bottom,
-                    schermo: [Math.round(schermo.width), Math.round(schermo.height)],
-                    eroe: document.querySelector('#vista-attesa .attesa-eroe').classList.contains('con-schermo'), sigle: document.querySelectorAll('.sigla').length,
-                    vecchi: document.querySelectorAll('#carta-gioco, .gioco-domanda, .giostra, .sigla-immagine').length
+                    spazio: Math.round(carta.top - f.bottom), quadrante: fascia.classList.contains('con-quadrante'),
+                    bordo: Math.round(f.right - disco.right), mezzo: Math.round(disco.height / disco.width * 10) / 10, alto: Math.round(f.height),
+                    testiPrima: testi.right < punto.left, titoloDentro: titolo.left > punto.right && titolo.right < disco.left && titolo.top > f.top && titolo.bottom < f.bottom,
+                    vecchi: document.querySelectorAll('#carta-gioco, .gioco-domanda, .giostra, .sigla-immagine, .vetrina-schermo, .sigla').length
                 };
             });
             vero(a.spazio >= 24, 'la prima carta e\' staccata dalla fascia del titolo (prima vi stava attaccata): ' + a.spazio + ' px');
-            vero(a.eroe && a.accanto && a.schermo[0] >= 480 && Math.abs(a.schermo[0] / a.schermo[1] - 16 / 9) < 0.03, 'sul computer lo schermo e\' accanto ai testi, 16:9: ' + JSON.stringify(a));
-            vero(a.sigle === 0 && a.vecchi === 0, 'nell\'attesa niente sigla, niente domande («Mettiti alla prova») e niente immagini della sigla: ' + JSON.stringify(a));
-            // la vetrina gira gia' dall'inizio dell'attesa: il primo puntino la riporta al video (e il tempo della scena riparte)
-            await p.click('#schermo-attesa .vetrina-punto:nth-child(1)');
+            vero(a.quadrante && a.bordo === 0 && a.mezzo === 2 && a.alto >= 540, 'il mezzo disco sorge dal bordo destro della fascia (alta almeno 540 px): ' + JSON.stringify(a));
+            vero(a.testiPrima && a.titoloDentro, 'i testi a sinistra del quadrante; il titolo della voce fra il suo punto e il disco: ' + JSON.stringify(a));
+            vero(a.vecchi === 0, 'niente riquadro, niente sigla, niente domande («Mettiti alla prova») e niente immagini della sigla: ' + a.vecchi);
+            // il quadrante gira gia' dall'inizio dell'attesa: si torna indietro fino a Milano, la prima voce
+            vero(await vaiA(p, 'milano'), 'tornando indietro sull\'anello si arriva a Milano');
             const v1 = await vetrina();
-            vero(v1.punti === 6 && v1.ora === 0 && v1.tipo === 'video' && v1.gruppo === '1 di 6: Next Generation Business in sei passaggi',
-                'la prima scena e\' il video della home, un puntino per scena (video, temi, approfondimenti, Milano, interviste, sedi): ' + JSON.stringify(v1));
-            vero(v1.video && v1.video.muto && /\/assets\/video-home\.mp4$/.test(v1.video.src), 'il video della home, senza audio: ' + JSON.stringify(v1.video));
+            vero(v1.voci === 11 && v1.tipo === 'milano' && /Milano: merito creditizio, crescita e competitività delle imprese/.test(v1.titolo) && /26\s*Febbraio 2027/.test(v1.disco),
+                'in primo piano il prossimo evento: Milano, 26 febbraio 2027 (11 voci sull\'anello): ' + JSON.stringify(v1).slice(0, 400));
+            vero(v1.link && v1.link.href === '/milano_febbraio_2027/' && v1.link.target === '_blank' && /noopener/.test(v1.link.rel), 'il link alla pagina di Milano, in un\'altra scheda: ' + JSON.stringify(v1.link));
+            vero(v1.vicine.length === 2 && v1.vicine.every(x => /^Mostra: /.test(x)), 'con il tasto Tab si raggiungono le due voci vicine (le altre no): ' + JSON.stringify(v1.vicine));
+            // le pagine del sito delle voci esistono (#video e' la sezione del video nella home)
+            const pagine = await p.evaluate(() => NGBVetrina.voci({ data: '2026-12-10' }).filter(x => x.link).map(x => x.link[1]));
+            const mancanti = pagine.filter(h => !fs.existsSync(path.join(__dirname, '../..', h.replace(/#.*$/, ''), 'index.html')));
+            vero(pagine.length >= 9 && mancanti.length === 0, 'le pagine del sito dei link del quadrante esistono: mancano ' + mancanti.join(', '));
+            // la voce dopo (il video della home), premuta: il video dietro tutta la fascia, senza audio, che scorre
+            await premiVicina(p, 'dopo');
+            // il mouse sul disco: il quadrante aspetta (il video intanto va)
+            await p.hover('#schermo-attesa .vetrina-disco');
+            const v2 = await vetrina();
+            vero(v2.tipo === 'video' && v2.conVideo && v2.video && v2.video.muto && /\/assets\/video-home\.mp4$/.test(v2.video.src) && v2.link && v2.link.href === '/#video',
+                'il video della home dietro la fascia, senza audio, e il link al video nella home: ' + JSON.stringify(v2).slice(0, 400));
             await aspetta(async () => { const v = await vetrina(); return v.video && v.video.tempo > 0.2; }, 8000, 'il video della home che scorre');
-            // il conto alla rovescia: lo stesso del conto grande della pagina
-            const grande = await p.evaluate(() => ['conto-giorni', 'conto-ore', 'conto-minuti', 'conto-secondi'].map(id => document.getElementById(id).textContent));
-            const c = /^La diretta inizia tra (\d+) giorn[oi] (\d{2}):(\d{2}):(\d{2})$/.exec(v1.conto);
-            vero(c && Number(c[1]) === Number(grande[0]) && c[2] === grande[1], 'il conto della vetrina: «' + v1.conto + '» (il conto grande: ' + grande.join(':') + ')');
-            const f = await p.evaluate(() => {
-                const s = document.querySelector('#schermo-attesa .vetrina-schermo');
-                const r = s.getBoundingClientRect();
-                const k = document.querySelector('#schermo-attesa .vetrina-conto').getBoundingClientRect();
-                const sc = document.querySelector('#schermo-attesa .vetrina-scena-ora').getBoundingClientRect();
-                return { cima: Math.round(k.top - r.top - s.clientTop), larga: Math.round(k.width - s.clientWidth), sotto: Math.round(sc.top - k.bottom), alta: Math.round(k.height) };
-            });
-            vero(f.cima === 0 && f.larga === 0 && f.sotto >= -1 && f.alta >= 30, 'il conto e\' una fascia in cima allo schermo, la scena sotto (non si coprono): ' + JSON.stringify(f));
-            await pausa(1200);
-            const c2 = /(\d{2}):(\d{2}):(\d{2})$/.exec((await vetrina()).conto);
-            vero(c2 && c2[0] !== v1.conto.slice(-8), 'il conto della vetrina scorre: ' + (await vetrina()).conto);
-            // il terzo puntino: gli ultimi approfondimenti, con il link alle loro pagine (in un'altra scheda)
-            await p.click('#schermo-attesa .vetrina-punto:nth-child(3)');
+            // l'anello attorno al punto in primo piano: si riempie in 4 secondi (nelle prove)
+            vero(await p.evaluate(() => { const c = document.querySelector('#schermo-attesa .vetrina-progresso circle'); return c.classList.contains('vetrina-progresso-va') && c.style.animationDuration === '4000ms'; }), 'l\'anello che si riempie fino al passo dopo');
+            vero((await vetrina()).ferma === true && (await vetrina()).tipo === 'video', 'con il mouse sul disco il quadrante aspetta');
+            // tolto il mouse, passati i secondi della voce, il quadrante gira da solo: le interviste
+            await p.hover('#vista-attesa .attesa-testi h2');
+            await aspetta(async () => (await vetrina()).tipo === 'interviste', 9000, 'la voce dopo, da sola (le interviste)');
             const v3 = await vetrina();
-            vero(v3.ora === 2 && v3.tipo === 'approfondimenti' && /Gli ultimi approfondimenti/.test(v3.testo), 'il terzo puntino: gli approfondimenti ' + JSON.stringify(v3).slice(0, 300));
-            const schede = await p.evaluate(() => [...document.querySelectorAll('#schermo-attesa .vetrina-scheda')].map(x => ({
-                href: x.getAttribute('href'), target: x.target, rel: x.rel, tab: x.tabIndex, nascosta: x.closest('li').getAttribute('aria-hidden') === 'true'
-            })));
-            const prime = schede.filter(x => !x.nascosta);
-            vero(schede.length === 18 && prime.length === 9 && prime.every(x => /^\/[a-z0-9_]+\/$/.test(x.href) && x.target === '_blank' && /noopener/.test(x.rel) && x.tab === 0)
-                && schede.filter(x => x.nascosta).every(x => x.tab === -1), 'gli approfondimenti: 9 link alle pagine del sito, in un\'altra scheda (il secondo giro, per lo scorrimento, nascosto e fuori dal tasto Tab): ' + JSON.stringify(schede.slice(0, 2)));
-            const mancanti = prime.map(x => x.href).concat(['/milano_febbraio_2027/', '/interviste_verona_2026/']).filter(h => !fs.existsSync(path.join(__dirname, '../..', h, 'index.html')));
-            vero(mancanti.length === 0, 'le pagine del sito dei link della vetrina esistono: mancano ' + mancanti.join(', '));
-            // da sola, dopo i secondi della scena, la scena dopo: Milano
-            await aspetta(async () => (await vetrina()).tipo === 'milano', 9000, 'la scena dopo, da sola (Milano)');
-            const v4 = await vetrina();
-            vero(v4.ora === 3 && /26\s*Febbraio 2027/.test(v4.testo) && /Milano/.test(v4.testo) && /Merito creditizio, crescita e competitività delle imprese/.test(v4.testo),
-                'Milano, 26 febbraio 2027: ' + v4.testo.slice(0, 200));
-            vero(await p.getAttribute('#schermo-attesa .vetrina-scena-milano .vetrina-link', 'href') === '/milano_febbraio_2027/', 'il link alla pagina di Milano');
-            await aspetta(() => p.evaluate(() => { const i = document.querySelector('#schermo-attesa .vetrina-volantino'); return i.complete && i.naturalWidth > 0; }), 5000, 'il save the date di Milano (immagine del sito)');
+            vero(/20\s*interviste/.test(v3.disco) && v3.link && v3.link.href === '/interviste_verona_2026/' && !v3.conVideo, 'le 20 interviste, il link; il video non c\'e\' piu\': ' + JSON.stringify(v3).slice(0, 300));
+            await aspetta(async () => { const v = await vetrina(); return !v.video || v.video.pausa; }, 3000, 'il video in pausa fuori dalla sua voce');
+            // «Ferma»/«Riprendi»
             await p.click('#schermo-attesa .vetrina-pausa');
-            vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .vetrina-pausa', 'aria-label') === 'Riprendi la vetrina' && (await vetrina()).ferma === true,
+            vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .vetrina-pausa', 'aria-label') === 'Riprendi il giro dei contenuti' && (await vetrina()).ferma === true,
                 '«Ferma» diventa «Riprendi»: ' + await p.textContent('#schermo-attesa .vetrina-pausa'));
             await pausa(6000);
-            vero((await vetrina()).tipo === 'milano', 'con «Ferma» la scena resta quella');
+            vero((await vetrina()).tipo === 'interviste', 'con «Ferma» la voce resta quella');
             await p.click('#schermo-attesa .vetrina-pausa');
             vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Ferma' && (await vetrina()).ferma === false, '«Riprendi» torna «Ferma»');
-            // con il mouse sullo schermo la scena resta quella (non sparisce sotto le mani); tolto il mouse, si riparte
-            await p.hover('#schermo-attesa .vetrina-schermo');
+            // con il mouse sul disco la voce resta quella; tolto il mouse, si riparte
+            await p.hover('#schermo-attesa .vetrina-disco');
             await pausa(6000);
-            vero((await vetrina()).tipo === 'milano', 'con il mouse sullo schermo la scena resta quella');
-            await p.hover('#schermo-attesa .vetrina-etichetta');
-            await aspetta(async () => (await vetrina()).tipo === 'interviste', 9000, 'tolto il mouse dallo schermo, la scena dopo');
-            // le interviste e le sedi: i numeri che salgono; la mappa delle sedi
-            await p.click('#schermo-attesa .vetrina-punto:nth-child(5)');
-            await aspetta(async () => (await p.textContent('#schermo-attesa .vetrina-scena-interviste .vetrina-conta')) === '20', 4000, 'le 20 interviste');
-            vero(await p.getAttribute('#schermo-attesa .vetrina-scena-interviste .vetrina-link', 'href') === '/interviste_verona_2026/', 'il link alle interviste');
-            await p.click('#schermo-attesa .vetrina-punto:nth-child(6)');
-            await aspetta(async () => (await p.textContent('#schermo-attesa .vetrina-scena-sedi .vetrina-conta')) === '63', 4000, 'le 63 sedi');
-            await aspetta(() => p.evaluate(() => { const i = document.querySelector('#schermo-attesa .vetrina-mappa'); return i.complete && i.naturalWidth > 0; }), 5000, 'la mappa delle sedi');
-            // i temi in orbita, per i lettori di schermo in un elenco
-            await p.click('#schermo-attesa .vetrina-punto:nth-child(2)');
-            const v2 = await vetrina();
-            vero(v2.tipo === 'temi' && /Adeguati assetti \(Art\. 2086 c\.c\.\)/.test(v2.testo) && (await p.locator('#schermo-attesa .vetrina-tema').count()) === 7, 'i temi: ' + v2.testo.slice(0, 200));
-            // le scene nascoste non si raggiungono con il tasto Tab (inert) e non si leggono
-            const nascoste = await p.evaluate(() => [...document.querySelectorAll('#schermo-attesa .vetrina-scena:not(.vetrina-scena-ora)')].every(s => s.inert && s.getAttribute('aria-hidden') === 'true'));
-            vero(nascoste, 'le scene nascoste sono inert e aria-hidden');
-            // per chi chiede meno movimento niente video che parte da solo
+            vero((await vetrina()).tipo === 'interviste', 'con il mouse sul disco la voce resta quella');
+            await p.hover('#vista-attesa .attesa-testi h2');
+            await aspetta(async () => (await vetrina()).tipo === 'articolo', 9000, 'tolto il mouse, la voce dopo (un approfondimento)');
+            const v4 = await vetrina();
+            vero(/Credito all'impresa già decotta: il finanziamento è nullo/.test(v4.titolo) && v4.link && v4.link.href === '/cassazione_7134_2026/', 'l\'approfondimento, con il link alla sua pagina: ' + v4.titolo);
+            // le voci lontane non si leggono e non si raggiungono con il tasto Tab
+            const lontane = await p.evaluate(() => [...document.querySelectorAll('#schermo-attesa .vetrina-voce')].filter(b => !['1'].includes(b.getAttribute('data-vicino'))).every(b => b.tabIndex === -1 && b.getAttribute('aria-hidden') === 'true'));
+            vero(lontane, 'le voci lontane (e quella in primo piano, che ha il titolo) aria-hidden e fuori dal tasto Tab');
+            // il conto alla rovescia: la cifra che cambia scende al suo posto
+            vero(await p.evaluate(() => document.getElementById('conto-secondi').classList.contains('scatta')), 'le cifre del conto alla rovescia che scendono al loro posto');
+            // per chi chiede meno movimento niente video che parte da solo; Milano solo per gli eventi che vengono prima
             await p.emulateMedia({ reducedMotion: 'reduce' });
-            const senzaVideo = await p.evaluate(() => NGBVetrina.scene({ data: '2026-12-10' }).join());
+            const senzaVideo = await p.evaluate(() => NGBVetrina.voci({ data: '2026-12-10' }).map(x => x.tipo));
             await p.emulateMedia({ reducedMotion: 'no-preference' });
-            vero(senzaVideo === 'temi,approfondimenti,milano,interviste,sedi', 'con «meno movimento» le scene senza il video: ' + senzaVideo);
-            vero((await p.evaluate(() => NGBVetrina.scene({ data: '2027-03-01' }).join())) === 'video,temi,approfondimenti,interviste,sedi', 'Milano solo per gli eventi che vengono prima');
-            await pausa(1000);
-            await foto(p, 'attesa-vetrina');
-            await p.click('#schermo-attesa .vetrina-punto:nth-child(1)');
+            vero(senzaVideo.length === 10 && !senzaVideo.includes('video'), 'con «meno movimento» le voci senza il video: ' + senzaVideo.join());
+            vero(!(await p.evaluate(() => NGBVetrina.voci({ data: '2027-03-01' }).map(x => x.tipo))).includes('milano'), 'Milano solo per gli eventi che vengono prima');
+            await foto(p, 'attesa-quadrante');
         });
 
         let vetrinaInDiretta = null;
@@ -1192,8 +1189,8 @@ function eventoIniziale(T) {
             const resto = vetrinaInDiretta.da + 10000 - Date.now();
             if (resto > 0) await pausa(resto);
             const v = await vetrina();
-            vero(await vistaDi(p) !== 'attesa' && v.tipo === vetrinaInDiretta.tipo && v.ferma === true && (!v.video || v.video.pausa),
-                'dopo 10 secondi fuori dall\'attesa la stessa scena, ferma, e il video in pausa: ' + JSON.stringify(v).slice(0, 300));
+            vero(await vistaDi(p) !== 'attesa' && v.tipo === vetrinaInDiretta.tipo && v.ora === vetrinaInDiretta.ora && v.ferma === true && (!v.video || v.video.pausa),
+                'dopo 10 secondi fuori dall\'attesa la stessa voce, ferma, e il video in pausa: ' + JSON.stringify(v).slice(0, 300));
         });
 
         await prova('la presenza viene scritta dopo il ritardo casuale (regole vere)', async () => {
@@ -1982,7 +1979,8 @@ function eventoIniziale(T) {
                 const vede = e => !!e && !!(e.offsetWidth || e.offsetHeight);
                 const consigli = Array.from(document.querySelectorAll('#vista-attesa .consigli li'));
                 const carta = document.querySelector('#vista-attesa .carta-consigli').getBoundingClientRect();
-                const eroe = document.querySelector('#vista-attesa .attesa-eroe').getBoundingClientRect();
+                // le carte: centrate nella pagina (sotto la fascia, dove ora i testi stanno a sinistra del quadrante)
+                const eroe = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
                 const li = document.querySelector('#vista-attesa .consigli li[data-solo="youtube"]');
                 return {
                     youtube: document.documentElement.classList.contains('modo-youtube'),
@@ -1995,7 +1993,7 @@ function eventoIniziale(T) {
             vero(a.youtube && a.visibili.join() === 'youtube,-,-', 'consigli dell\'attesa: ' + JSON.stringify(a.visibili));
             vero(!a.conto && a.titolo === 'La diretta sta per iniziare', 'ora d\'inizio passata: ' + JSON.stringify({ conto: a.conto, titolo: a.titolo }));
             vero(Math.abs(a.centro) <= 1 && a.larga >= 600 && a.larga <= 900 && a.allineamento === 'left',
-                'la carta dei consigli e\' centrata sotto il titolo, larga come la colonna, testo a sinistra: ' + JSON.stringify(a));
+                'la carta dei consigli e\' centrata nella pagina, larga come la colonna, testo a sinistra: ' + JSON.stringify(a));
             await foto(py, 'youtube-attesa-computer');
             // di nuovo in onda per le prove che seguono
             await evYt.update({ stato: 'in_onda', statoAggiornato: T.now(), videoId: YT_PROVA, onda: { secondi: 600, da: T.fromMillis(Date.now() - 60e3) } });
@@ -2182,20 +2180,32 @@ function eventoIniziale(T) {
                 const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
                 const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
                 const testi = document.querySelector('#vista-attesa .attesa-testi').getBoundingClientRect();
-                const s = document.querySelector('#schermo-attesa .vetrina-schermo').getBoundingClientRect();
+                const f = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
+                const disco = document.querySelector('#schermo-attesa .vetrina-disco').getBoundingClientRect();
+                const palco = document.querySelector('#schermo-attesa .vetrina-palco').getBoundingClientRect();
+                const titolo = document.querySelector('#schermo-attesa .vetrina-titolo').getBoundingClientRect();
                 const pausa = document.querySelector('#schermo-attesa .vetrina-pausa').getBoundingClientRect();
-                const punto = document.querySelector('#schermo-attesa .vetrina-punto').getBoundingClientRect();
-                const conto = document.querySelector('#schermo-attesa .vetrina-conto');
-                // i temi sul telefono: in fila (non l'orbita), dentro lo schermo
-                const temi = [...document.querySelectorAll('#schermo-attesa .vetrina-tema')].map(e => getComputedStyle(e).position);
+                // il punto di una voce vicina: si preme anche intorno (40 px); il quadrante e' sotto, si porta nello schermo
+                document.querySelector('#schermo-attesa .vetrina-palco').scrollIntoView({ block: 'center' });
+                const vicina = document.querySelector('#schermo-attesa .vetrina-voce[data-vicino="1"] .vetrina-voce-punto').getBoundingClientRect();
+                const x = vicina.left + vicina.width / 2 + 14, y = vicina.top + vicina.height / 2;
+                const preso = document.elementFromPoint(x, y);
                 return {
-                    spazio: Math.round(carta.top - fascia.bottom), sotto: s.top >= testi.bottom, quadrato: Math.abs(s.width - s.height) <= 1, largo: Math.round(s.width),
-                    pausa: Math.round(pausa.height), punto: [Math.round(punto.width), Math.round(punto.height)], orizzontale: document.documentElement.scrollWidth,
-                    conto: conto && !conto.hidden ? Math.round(conto.getBoundingClientRect().height) : 0, temiInFila: temi.length === 7 && temi.every(x => x === 'static')
+                    spazio: Math.round(carta.top - fascia.bottom), sotto: titolo.top >= testi.bottom && palco.top >= titolo.bottom, bordo: Math.round(f.bottom - disco.bottom),
+                    mezzo: Math.round(disco.width / disco.height * 10) / 10, pausa: Math.round(pausa.height), toccoVicina: !!(preso && preso.closest('.vetrina-voce')),
+                    orizzontale: document.documentElement.scrollWidth, alta: Math.round(f.height)
                 };
             });
-            vero(m.spazio >= 20 && m.sotto && m.quadrato && m.largo >= 330 && m.pausa >= 32 && m.punto[0] >= 24 && m.punto[1] >= 24 && m.orizzontale <= 390 && m.conto >= 30 && m.temiInFila,
-                'attesa sul telefono: carte staccate, lo schermo sotto i testi (quadrato) con la fascia del conto, pulsanti grandi, i temi in fila, niente scorrimento orizzontale ' + JSON.stringify(m));
+            vero(m.spazio >= 20 && m.sotto && m.bordo === 0 && m.mezzo === 2 && m.pausa >= 32 && m.toccoVicina && m.orizzontale <= 390,
+                'attesa sul telefono: carte staccate; sotto i testi il titolo della voce e il quadrante, con il mezzo disco che sorge dal bordo in basso; pulsanti grandi, niente scorrimento orizzontale ' + JSON.stringify(m));
+            // da una voce all'altra l'altezza della fascia non cambia (la pagina sotto non salta)
+            const altezze = [m.alta];
+            for (let k = 0; k < 3; k++) {
+                await premiVicina(t, 'dopo');
+                await pausa(1300);
+                altezze.push(await t.evaluate(() => Math.round(document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect().height)));
+            }
+            vero(altezze.every(h => h === altezze[0]), 'l\'altezza della fascia resta la stessa da una voce all\'altra: ' + altezze.join(', '));
             await foto(t, 'attesa-telefono', true);
         });
 

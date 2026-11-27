@@ -93,30 +93,17 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await P.locator('body[data-vista="attesa"]').waitFor({ timeout: 20000 });
         vero(true, 'Mario Rossi entra e vede l\'attesa');
         vero(/Mario Rossi/.test(await P.locator('body').innerText()), 'la pagina saluta Mario Rossi');
-        // nell'attesa la vetrina del sito: il conto alla rovescia nella sua fascia, il video della home e le immagini
-        // del sito, che l'anteprima copia accanto alla cartella diretta/ (vetrina.js li prende da li')
-        await P.locator('#schermo-attesa .vetrina-punto').first().waitFor({ timeout: 10000 });
-        vero(await P.locator('#schermo-attesa .vetrina-punto').count() >= 5, 'nell\'attesa la vetrina del sito, un puntino per scena');
-        vero(/^La diretta (inizia tra|sta per iniziare)/.test(await P.locator('#schermo-attesa .vetrina-conto').textContent()), 'il conto alla rovescia nella vetrina');
-        await P.locator('#schermo-attesa .vetrina-punto:last-child').click();
-        let caricati = null;
-        for (let k = 0; k < 40; k++) {
-            caricati = await P.locator('#schermo-attesa').evaluate(s => {
-                const i = s.querySelector('.vetrina-mappa');
-                return { mappa: i.complete && i.naturalWidth > 0 };
-            });
-            if (caricati.mappa) break;
-            await page.waitForTimeout(250);
-        }
-        vero(caricati.mappa, 'la mappa delle sedi della vetrina si carica: ' + JSON.stringify(caricati));
-        await P.locator('#schermo-attesa .vetrina-punto').first().click();
-        let video = null;
-        for (let k = 0; k < 40; k++) {
-            video = await P.locator('#schermo-attesa .vetrina-video').evaluate(v => ({ pronto: v.readyState, tempo: v.currentTime, muto: v.muted, errore: v.error ? v.error.code : 0 }));
-            if (video.pronto >= 2 || video.tempo > 0) break;
-            await page.waitForTimeout(250);
-        }
-        vero(video.muto && (video.pronto >= 2 || video.tempo > 0) && !video.errore, 'il video della home nella vetrina, senza audio: ' + JSON.stringify(video));
+        // nell'attesa il quadrante del sito nella fascia del titolo: le voci sull'anello, il titolo della voce, il disco;
+        // la mappa delle sedi e il video della home, che l'anteprima copia accanto alla cartella diretta/ (vetrina.js li prende da li')
+        await P.locator('#schermo-attesa .vetrina-voce').first().waitFor({ state: 'attached', timeout: 10000 });
+        vero(await P.locator('#schermo-attesa .vetrina-voce').count() >= 10, 'nell\'attesa il quadrante del sito, con le voci sull\'anello');
+        vero((await P.locator('#vista-attesa .fascia-scura.con-quadrante').count()) === 1 && (await P.locator('#schermo-attesa .vetrina-disco .vetrina-disco-dentro').count()) >= 1
+            && /\S/.test(await P.locator('#schermo-attesa .vetrina-titolo').textContent()), 'il quadrante nella fascia, con il disco e il titolo della voce');
+        const arrivano = await P.locator('#schermo-attesa').evaluate(async () => {
+            const prova = async u => { try { const r = await fetch(new URL(u, document.baseURI).href, { method: 'GET' }); return r.status; } catch (e) { return String(e); } };
+            return { mappa: await prova('diretta/vetrina-sedi-chiara.svg'), video: await prova('assets/video-home.mp4') };
+        });
+        vero(arrivano.mappa === 200 && arrivano.video === 200, 'la mappa delle sedi e il video della home ci sono nell\'anteprima: ' + JSON.stringify(arrivano));
         await page.screenshot({ path: path.join(FOTO, '02-attesa.png') });
 
         // 2. la regia entra e manda in onda
