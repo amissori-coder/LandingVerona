@@ -134,6 +134,25 @@
     function parametro(nome) {
         try { return new URLSearchParams(location.search).get(nome) || ''; } catch (e) { return ''; }
     }
+    /* L'evento nel collegamento (?e=): l'identificativo oppure, per quelli con
+       il nome della piattaforma del video (per esempio prova-youtube), il suo
+       codice "c." + base64url: nel link non si legge da dove arriva il video.
+       La stessa regola del servizio (diretta-comune.js, eventoNelLink). */
+    function eventoDalLink(v) {
+        const s = String(v || '').trim();
+        if (s.indexOf('c.') !== 0) return s;
+        try {
+            let b = s.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+            while (b.length % 4) b += '=';
+            const id = atob(b);
+            return ID_EVENTO_VALIDO.test(id) ? id : '';
+        } catch (e) { return ''; }
+    }
+    function eventoNelLink(id) {
+        const s = String(id || '');
+        if (!/you-?tu|azoto/.test(s)) return s;
+        return 'c.' + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
     /* L'email: UNA regola per pagina, gestione e servizio (email-service,
        indirizzi/{email}): spazi prima e dopo tolti, tutto minuscolo.
        Nient'altro: i punti degli indirizzi Gmail restano come sono. */
@@ -324,6 +343,8 @@
        VISTE
        --------------------------------------------------------------- */
     let vista = 'caricamento';
+    // lo schermo e il gioco dell'attesa (vedi mostraMentreAspetti)
+    const mentreAspetti = { giostra: null, gioco: null };
     function mostraVista(nome, opzioni) {
         const cambiata = vista !== nome;
         vista = nome;
@@ -333,6 +354,7 @@
         posizionaAvvisoConnessione();
         posizionaDomande();
         if (nome !== 'diretta') esciSchermoIntero();
+        if (nome !== 'attesa') fermaMentreAspetti();
         if (cambiata) window.scrollTo(0, 0);
         if (opzioni && opzioni.fuoco) {
             const t = document.querySelector('#vista-' + nome + ' [data-fuoco]');
@@ -617,7 +639,7 @@
            quello che il servizio decide "un solo dispositivo". Senza, con due
            eventi il servizio potrebbe decidere su un evento e la pagina
            mostrare l'altro. */
-        const dalLink = parametro('e');
+        const dalLink = eventoDalLink(parametro('e'));
         const r = await chiamaServizio({
             azione: 'entra', email: email, password: password,
             idEvento: ID_EVENTO_VALIDO.test(dalLink) ? dalLink : undefined
@@ -719,7 +741,7 @@
         testo(b.querySelector('.btn-testo'), 'Invio in corso…');
         esitoDimenticata('');
         // l'evento della pagina: la stessa email puo' avere un account per ogni evento, si reimposta quello di questo
-        const delLink = parametro('e');
+        const delLink = eventoDalLink(parametro('e'));
         const r = await chiamaServizio({ azione: 'password-dimenticata', email: email, idEvento: ID_EVENTO_VALIDO.test(delLink) ? delLink : undefined });
         b.disabled = false;
         testo(b.querySelector('.btn-testo'), 'Invia il collegamento');
@@ -893,7 +915,7 @@
         // senza eventi: se ha annullato l'iscrizione dal sito, lo si dice cosi'
         if (!eventi.length) { mostraMessaggio(p.annullatoDalSito && Object.keys(p.annullatoDalSito).length ? 'evento-tolto' : 'nessun-evento'); return; }
         // il link porta a un evento che non e' di questo account: niente altro evento al suo posto
-        const delLink = parametro('e');
+        const delLink = eventoDalLink(parametro('e'));
         if (ID_EVENTO_VALIDO.test(delLink) && eventi.indexOf(delLink) < 0) { await esciPerAltroEvento(); return; }
 
         /* T8: il profilo dice che la persona e' iscritta, il suo token no
@@ -927,7 +949,7 @@
     function eRelatoreDi(p, id) { return !!p && Array.isArray(p.relatoreDi) && p.relatoreDi.indexOf(id) >= 0; }
     function vaiAllaPaginaDelRelatore(id) {
         mostraVista('caricamento');
-        const q = ID_EVENTO_VALIDO.test(String(id || '')) ? '?e=' + encodeURIComponent(id) : '';
+        const q = ID_EVENTO_VALIDO.test(String(id || '')) ? '?e=' + encodeURIComponent(eventoNelLink(id)) : '';
         location.replace('/diretta/relatore/' + q);
     }
 
@@ -957,7 +979,7 @@
        Il link dell'email (&e=) ha la precedenza se e' uno dei suoi (R4). */
     async function scegliEvento(F, eventi, idPreferito, gen) {
         // prima il link dell'email, poi l'evento su cui il servizio ha deciso all'accesso
-        const preferito = [parametro('e'), stato.eventoAccesso].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.indexOf(x) >= 0)[0];
+        const preferito = [eventoDalLink(parametro('e')), stato.eventoAccesso].filter(x => ID_EVENTO_VALIDO.test(x) && eventi.indexOf(x) >= 0)[0];
         if (preferito) return preferito;
         if (eventi.length <= 1) return eventi[0];
         const candidati = eventi.slice(0, 5);
@@ -1203,7 +1225,30 @@
         stato.timerProgramma = null;
         if (vista !== 'attesa') mostraVista('attesa', { fuoco: primaVolta });
         avviaConto();
+        mostraMentreAspetti();
     }
+    /* MENTRE ASPETTI (sigla.js): nella fascia del titolo lo schermo con le
+       immagini Revilaw a rotazione (creaGiostra) e, fra le carte, «Mettiti
+       alla prova» (creaGioco), se l'evento ha le sue domande. Le immagini
+       girano solo con l'attesa aperta: mostraVista le ferma quando si
+       cambia vista. Senza sigla.js l'attesa resta com'era. (Lo stato,
+       mentreAspetti, e' con le viste: mostraVista lo usa da subito.) */
+    function mostraMentreAspetti() {
+        const S = window.NGBSigla;
+        if (!S || typeof S.creaGiostra !== 'function' || typeof S.creaGioco !== 'function') return;
+        const ev = eventoSigla();
+        try {
+            if (!mentreAspetti.giostra) mentreAspetti.giostra = S.creaGiostra($('schermo-attesa'));
+            mentreAspetti.giostra.mostra(ev);
+            $('schermo-attesa').hidden = false;
+            document.querySelector('#vista-attesa .attesa-eroe').classList.add('con-schermo');
+            if (!mentreAspetti.gioco) mentreAspetti.gioco = S.creaGioco($('gioco-domande'), $('gioco-esito'));
+            $('carta-gioco').hidden = !mentreAspetti.gioco.mostra(ev);
+        } catch (e) {
+            console.warn('[diretta] mentre aspetti:', e);
+        }
+    }
+    function fermaMentreAspetti() { if (mentreAspetti.giostra) mentreAspetti.giostra.ferma(); }
     function fermaConto() { clearInterval(stato.timerConto); stato.timerConto = null; }
     function avviaConto() {
         if (!stato.timerConto) stato.timerConto = setInterval(aggiornaConto, 1000);
@@ -3670,10 +3715,10 @@
         const oob = par.get('oobCode') || '';
         const perGestione = par.get('per') === 'gestione';
         // l'evento dell'account (il servizio lo mette nel collegamento): dopo la nuova password si entra li'
-        const delCollegamento = perGestione ? '' : (par.get('e') || '');
+        const delCollegamento = perGestione ? '' : eventoDalLink(par.get('e') || '');
         const ev = ID_EVENTO_VALIDO.test(delCollegamento) ? delCollegamento : '';
-        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/' + (ev ? '?e=' + encodeURIComponent(ev) : '');
-        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1' + (ev ? '&e=' + encodeURIComponent(ev) : '');
+        const destinazione = perGestione ? '/diretta/gestione/' : '/diretta/' + (ev ? '?e=' + encodeURIComponent(eventoNelLink(ev)) : '');
+        const nuovoCollegamento = perGestione ? '/diretta/gestione/' : '/diretta/?dimenticata=1' + (ev ? '&e=' + encodeURIComponent(eventoNelLink(ev)) : '');
 
         function avviso(t, tipo) { msg('msg-reimposta', t, tipo); }
         function mostraScaduto() {
@@ -3784,7 +3829,7 @@
                     await fb.A.signInWithCustomToken(fb.auth, r.token);
                     // l'evento su cui il servizio ha deciso all'accesso: la diretta apre quello
                     const e = String(r.idEvento || '');
-                    location.replace('/diretta/' + (ID_EVENTO_VALIDO.test(e) ? '?e=' + encodeURIComponent(e) : ''));
+                    location.replace('/diretta/' + (ID_EVENTO_VALIDO.test(e) ? '?e=' + encodeURIComponent(eventoNelLink(e)) : ''));
                     return;
                 } catch (e) { /* sotto: si entra a mano */ }
             }

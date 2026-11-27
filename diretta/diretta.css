@@ -325,7 +325,10 @@ body[data-vista="caricamento"] .testata { box-shadow: none; }
 .carta-consigli p.aiuto,
 .nota-programma,
 .carta-domande p,
-.carta-domande li {
+.carta-domande li,
+.carta-gioco p,
+.carta-gioco li,
+.giostra-barra p {
     text-align: left !important;
     text-align-last: auto;
     -webkit-hyphens: manual !important;
@@ -577,7 +580,8 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
     gap: 20px;
     align-items: stretch;
 }
-#vista-attesa .griglia-carte { margin-top: -28px; position: relative; }
+/* nell'attesa le carte stanno sotto la fascia del titolo, staccate (prima la prima carta vi stava attaccata) */
+#vista-attesa .griglia-carte { padding-top: 34px; }
 #vista-diretta .griglia-carte {
     max-width: calc(var(--colonna-video) + 32px + var(--sicuro-destra) + var(--sicuro-sinistra));
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -630,6 +634,185 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
     background: #E8F1FA url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23164068' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center / 12px no-repeat;
 }
 .carta-consigli .aiuto { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--bordo); }
+
+/* ====================== MENTRE ASPETTI (sigla.js) ======================
+   Nella fascia del titolo, dove comparira' il video: lo schermo con le
+   immagini Revilaw a rotazione (creaGiostra; le immagini sono quelle della
+   sigla, stesse classi .sigla-*) e sotto la barra con «Mentre aspetti», i
+   puntini e «Ferma». Sui computer (da 1100 px) lo schermo sta accanto ai
+   testi della fascia (.con-schermo, la mette diretta.js): tutto si vede
+   senza scorrere; piu' stretto, sotto. 16:9; sul telefono quadrato, perche'
+   il testo resti leggibile (le misure minime delle immagini). */
+.schermo-attesa { max-width: 680px; margin: 26px auto 0; }
+.schermo-attesa[hidden] { display: none; }
+@media (min-width: 1100px) {
+    .attesa-eroe.con-schermo {
+        max-width: 1180px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+        gap: 56px;
+        align-items: center;
+        text-align: left;
+    }
+    .attesa-eroe.con-schermo .conto { justify-content: flex-start; }
+    .attesa-eroe.con-schermo .dettagli-evento { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+    .attesa-eroe.con-schermo .dettagli-evento li,
+    .attesa-eroe.con-schermo p.nota-chiara { text-align: left !important; text-align-last: auto; }
+    .attesa-eroe.con-schermo p.nota-chiara { margin: 0; max-width: 30em; }
+    .attesa-eroe.con-schermo .schermo-attesa { max-width: none; margin: 0; }
+}
+.giostra-schermo {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #061526;
+    border: 1px solid rgba(255, 255, 255, .16);
+    box-shadow: 0 26px 60px -26px rgba(0, 0, 0, .65);
+}
+.giostra-barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 14px;
+    margin-top: 10px;
+}
+.giostra-etichetta {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #DCE9F6;
+}
+.giostra-punti { display: flex; flex-wrap: wrap; justify-content: center; }
+.giostra-punti[hidden], .giostra-pausa[hidden] { display: none; }
+.giostra-punto {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.giostra-punto::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .38);
+    transition: width .3s ease, background-color .3s ease;
+}
+.giostra-punto:hover::before { background: rgba(255, 255, 255, .75); }
+.giostra-punto-ora::before,
+.giostra-punto-ora:hover::before { width: 20px; background: #7DD3A0; }
+.giostra-pausa {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 13px 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .28);
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    font-family: var(--font-testo);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.giostra-pausa:hover { background: rgba(255, 255, 255, .16); }
+.giostra-icona { width: 14px; height: 14px; }
+.giostra-punto:focus-visible, .giostra-pausa:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+    .giostra-punto::before { transition: none; }
+}
+
+/* ====================== METTITI ALLA PROVA (sigla.js, creaGioco) ====================== */
+.carta-gioco { border-top: 4px solid var(--accento); }
+.carta-gioco h3 { margin-bottom: 4px; }
+.gioco-intro { margin: 0 0 18px; font-size: 15px; color: var(--tenue); }
+.gioco-domande { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: gioco; }
+.gioco-domanda {
+    counter-increment: gioco;
+    padding: 16px 18px 18px;
+    border-radius: 12px;
+    background: var(--chiaro);
+    border: 1px solid var(--bordo);
+}
+.gioco-testo { margin: 0 0 12px; font-weight: 700; line-height: 1.45; color: var(--scuro); }
+.gioco-testo::before {
+    content: counter(gioco) '.';
+    margin-right: 8px;
+    font-family: var(--font-titoli);
+    font-weight: 800;
+    color: var(--accento);
+}
+.gioco-scelte { display: flex; flex-wrap: wrap; gap: 8px; }
+.gioco-scelte-colonna { flex-direction: column; align-items: stretch; }
+.gioco-scelta {
+    min-height: 44px;
+    min-width: 92px;
+    padding: 10px 16px 10px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #C5D6E6;
+    background: #fff;
+    color: var(--scuro);
+    font-family: var(--font-testo);
+    font-size: 15.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .2s ease, background-color .2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.gioco-scelta:hover:not([aria-disabled="true"]) { border-color: var(--accento); background: #F0F6FC; }
+.gioco-scelta:focus-visible { outline: 3px solid var(--chiaro-blu); outline-offset: 2px; }
+.gioco-scelta[aria-disabled="true"] { cursor: default; }
+.gioco-scelta[aria-disabled="true"]:not(.gioco-scelta-giusta):not(.gioco-scelta-sbagliata) { opacity: .62; }
+.gioco-scelta-giusta { border-color: var(--verde); background: #E7F4EC; color: #14532D; }
+.gioco-scelta-sbagliata { border-color: var(--rosso); background: var(--rosso-chiaro); color: #7F1D1D; }
+.gioco-scelta-giusta::before,
+.gioco-scelta-sbagliata::before {
+    content: '';
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--verde) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+.gioco-scelta-sbagliata::before {
+    background: var(--rosso) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E") center / 11px no-repeat;
+}
+.gioco-spiegazione { margin: 12px 0 0; font-size: 15px; line-height: 1.55; color: var(--testo); }
+.gioco-spiegazione[hidden] { display: none; }
+.gioco-verdetto { color: var(--verde); }
+.gioco-risposta-sbagliata .gioco-verdetto { color: var(--rosso); }
+.gioco-esito { margin: 16px 0 0; font-weight: 600; color: var(--scuro); }
+.gioco-esito:empty { display: none; }
+.gioco-ricomincia {
+    margin-top: 12px;
+    min-height: 44px;
+    padding: 8px 18px;
+    border-radius: 10px;
+    border: 1.5px solid var(--su-scuro);
+    background: #fff;
+    color: var(--blu);
+    font-family: var(--font-testo);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.gioco-ricomincia:hover { border-color: var(--blu); color: var(--scuro); }
+.gioco-ricomincia:focus-visible { outline: 3px solid var(--chiaro-blu); outline-offset: 2px; }
+.gioco-ricomincia[hidden] { display: none; }
 .aiuto { font-size: 15px; color: var(--tenue); }
 .aiuto:empty { display: none; }
 .aiuto a { font-weight: 600; }
@@ -1359,25 +1542,29 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
    Con il video di YouTube, a «Vai in onda»: nel riquadro del video le
    immagini Revilaw sul webinar e poi il conto alla rovescia, sopra il
    video di YouTube che intanto si carica. Le misure seguono il riquadro
-   (unita' cqw/cqh, container-type: size), con un minimo per i telefoni. */
-.sigla {
+   (unita' cqw/cqh, container-type: size), con un minimo per i telefoni.
+   Le stesse immagini, con lo stesso fondo (.giostra-fondo), girano nello
+   schermo «Mentre aspetti» dell'attesa (vedi MENTRE ASPETTI). */
+.sigla,
+.giostra-fondo {
     position: absolute;
     top: 0; right: 0; bottom: 0; left: 0;
-    z-index: 6;
     container-type: size;
     overflow: hidden;
     color: #fff;
     font-family: var(--font-testo);
+    text-align: left;
     background:
         radial-gradient(ellipse at 16% 18%, rgba(122, 178, 232, .22) 0%, transparent 52%),
         radial-gradient(ellipse at 88% 92%, rgba(42, 90, 133, .55) 0%, transparent 58%),
         linear-gradient(135deg, #061526 0%, #0A2844 52%, #164068 100%);
-    transition: opacity .6s ease;
 }
+.sigla { z-index: 6; transition: opacity .6s ease; }
 .sigla[hidden] { display: none; }
 .sigla.sigla-via { opacity: 0; }
 /* una luce che attraversa piano il fondo */
-.sigla::before {
+.sigla::before,
+.giostra-fondo::before {
     content: '';
     position: absolute;
     top: -20%; bottom: -20%; left: -40%; right: -40%;
@@ -1386,9 +1573,11 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
     pointer-events: none;
 }
 @keyframes siglaLuce { from { transform: translateX(-28%); } to { transform: translateX(28%); } }
-/* niente giustificato del sito (assets/testo.css) nella sigla: a sinistra, o al centro dove lo e' il riquadro */
-.sigla :is(p, li, span, div) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
-.sigla p { margin: 0; }
+/* niente giustificato del sito (assets/testo.css) nella sigla: a sinistra (dal fondo),
+   al centro l'apertura e il conto alla rovescia (anche dentro una pagina centrata) */
+:is(.sigla, .giostra-fondo) :is(p, li, span, div) { text-align: inherit !important; text-align-last: auto; -webkit-hyphens: manual !important; hyphens: manual !important; }
+:is(.sigla, .giostra-fondo) :is(.sigla-tipo-apertura, .sigla-conto) { text-align: center !important; }
+:is(.sigla, .giostra-fondo) p { margin: 0; }
 .sigla-palco, .sigla-conto { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
 .sigla-palco[hidden], .sigla-conto[hidden] { display: none; }
 .sigla-immagine {
@@ -1513,7 +1702,7 @@ html.modo-youtube .riquadro-video.schermo-intero-finto { padding-bottom: 0; }
     .sigla-sottotitolo { margin-top: 2cqh !important; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .sigla::before, .sigla-immagine { animation: none; }
+    .sigla::before, .giostra-fondo::before, .sigla-immagine { animation: none; }
 }
 
 /* ====================== STATI: PAUSA, FINE, MESSAGGI ====================== */
@@ -1635,6 +1824,14 @@ body[data-vista="caricamento"] .piede a { color: #fff; }
     .dettagli-evento li { flex-direction: column; gap: 4px; text-align: center; }
 
     .griglia-carte { padding: 18px 12px 30px; gap: 16px; }
+    #vista-attesa .griglia-carte { padding-top: 24px; }
+    .giostra-schermo { aspect-ratio: 1 / 1; border-radius: 12px; }
+    .giostra-barra { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "etichetta pausa" "punti punti"; gap: 6px 10px; }
+    .giostra-etichetta { grid-area: etichetta; }
+    .giostra-pausa { grid-area: pausa; }
+    .giostra-punti { grid-area: punti; }
+    .gioco-domanda { padding: 14px 14px 16px; }
+    .gioco-scelta { font-size: 16.5px; }
     .posto-domande { padding: 0 12px 30px; }
     #vista-attesa .posto-domande { margin-top: -14px; }
     #vista-diretta .posto-domande { padding: 16px 12px 0; }

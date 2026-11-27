@@ -161,6 +161,26 @@ function baseSito() {
 function linkDiretta() {
     return baseSito() + '/diretta/';
 }
+/* L'EVENTO NEL COLLEGAMENTO (?e= / &e=). Di solito l'identificativo, che si
+   legge. Gli identificativi di prima con il nome della piattaforma del video
+   (per esempio prova-youtube: dal 26 novembre 2026 non se ne creano piu',
+   vedi diretta-dati.js RE_ID_PIATTAFORMA) vanno in codice, "c." + base64url,
+   cosi' nel link non si legge da dove arriva il video. Non e' un segreto,
+   solo un nome neutro: le pagine (diretta.js, relatore.js) e questo servizio
+   leggono tutte e due le forme. */
+const RE_ID_PIATTAFORMA_LINK = /you-?tu|azoto/;
+const RE_ID_LINK = /^[a-z0-9-]{3,41}$/;
+function eventoNelLink(id) {
+    const s = String(id || '');
+    return RE_ID_PIATTAFORMA_LINK.test(s) ? 'c.' + Buffer.from(s, 'utf8').toString('base64url') : s;
+}
+function eventoDalLink(v) {
+    const s = String(v == null ? '' : v).trim();
+    if (s.indexOf('c.') !== 0) return s;
+    let id = '';
+    try { id = Buffer.from(s.slice(2), 'base64url').toString('utf8'); } catch (e) { id = ''; }
+    return RE_ID_LINK.test(id) ? id : '';
+}
 function assistenza() {
     return {
         email: String(process.env.DIRETTA_ASSISTENZA_EMAIL || 'info@nextgenerationbusiness.it').trim(),
@@ -257,6 +277,6 @@ const pausa = ms => new Promise(r => setTimeout(r, ms));
 module.exports = {
     errore, cors, corpo, rispondiErrore, testo, ipDi, impronta, improntaIp, intero,
     istanteRoma, dataRoma, oraRoma, dataEstesa, oraLeggibile, scartoRoma,
-    dominioTecnico, emailTecnica, eEmailTecnica, baseSito, linkDiretta, assistenza,
+    dominioTecnico, emailTecnica, eEmailTecnica, baseSito, linkDiretta, eventoNelLink, eventoDalLink, assistenza,
     gestori, eGestore, tokenNonValido, verificaGestore, consumaGettone, aGruppi, pausa
 };

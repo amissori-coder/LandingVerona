@@ -386,6 +386,25 @@ vero(M.linkPaginaEvento('https://evil.example/') === '' && M.linkPaginaEvento('/
 const assistenzaCattiva = M.credenziali({ evento: EVENTO, email: EMAIL, password: 'y', assistenza: { email: '"><script>@x.it', telefono: '<b>123</b>' } });
 vero(!/<script|<b>123/.test(assistenzaCattiva.html) && assistenzaCattiva.html.indexOf('info@nextgenerationbusiness.it') >= 0, 'un contatto di assistenza non valido torna quello predefinito');
 
+/* ---------- l'evento con il nome della piattaforma nell'identificativo: nel link un codice neutro ---------- */
+{
+    const evYt = Object.assign({}, EVENTO, { id: 'prova-youtube' });
+    const credYt = M.credenziali({ evento: evYt, nome: 'Mario', cognome: 'Rossi', email: EMAIL, password: 'Esempio7Kq', paginaEvento: '/napoli_ottobre_2026/', assistenza: ASSISTENZA });
+    const codice = C.eventoNelLink('prova-youtube');
+    vero(/^c\.[A-Za-z0-9_-]+$/.test(codice) && !/you|tube/i.test(codice) && C.eventoDalLink(codice) === 'prova-youtube',
+        'un identificativo con il nome della piattaforma (prova-youtube) nel link diventa un codice neutro (' + codice + '), e il servizio lo rilegge');
+    vero(credYt.html.indexOf(SITO + '/diretta/?e=' + codice) >= 0 && credYt.testo.indexOf('vai su ' + SITO + '/diretta/?e=' + codice + ',') >= 0
+        && !/youtube/i.test(credYt.html + credYt.testo),
+        'nelle credenziali di quell\'evento: il pulsante e la frase «vai su…» con il codice; «youtube» non compare da nessuna parte');
+    const promYt = M.promemoria({ evento: evYt, nome: 'Mario', cognome: 'Rossi', email: EMAIL, paginaEvento: '/napoli_ottobre_2026/', assistenza: ASSISTENZA, quando: 'oraPrima', adesso: Date.parse('2026-10-02T06:30:00Z') });
+    vero(M.linkDimenticata('prova-youtube') === SITO + '/diretta/?dimenticata=1&e=' + codice && !/youtube/i.test(promYt.html + promYt.testo) && (promYt.html + promYt.testo).indexOf('e=' + codice) >= 0,
+        'anche nel promemoria e in «Password dimenticata?» (&e=' + codice + '): niente «youtube»');
+    vero(C.eventoNelLink('napoli-2026') === 'napoli-2026' && C.eventoDalLink('napoli-2026') === 'napoli-2026' && C.eventoNelLink('webinar-2026-12-10') === 'webinar-2026-12-10',
+        'gli identificativi neutri restano come sono (napoli-2026, webinar-2026-12-10)');
+    vero(C.eventoDalLink('c.!!') === '' && C.eventoDalLink('c.' + Buffer.from('<script>').toString('base64url')) === '' && C.eventoDalLink('') === '' && C.eventoDalLink(null) === '',
+        'un codice che non e\' un identificativo valido non vale niente');
+}
+
 /* ---------- l'indirizzo del sito da APP_BASE_URL (le prove locali) ---------- */
 process.env.APP_BASE_URL = 'http://127.0.0.1:8090/';
 const locale = M.credenziali({ evento: EVENTO, email: EMAIL, password: 'Esempio7Kq', paginaEvento: '/napoli_ottobre_2026/', assistenza: ASSISTENZA });
