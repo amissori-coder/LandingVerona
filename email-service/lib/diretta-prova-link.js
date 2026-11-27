@@ -16,6 +16,13 @@
      delle Representation, il CORS sul manifest.
    - YouTube (il player ricostruito da sorgente-video.js): oEmbed dice se
      il video c'e' e si puo' incorporare, vedi provaYouTube.
+   - Il player di Castr (player.castr.com, ricostruito da sorgente-video.js):
+     come quello di Azoto, qui sotto (provaAzoto, con il nome Castr): la
+     pagina deve rispondere, essere HTML, lasciarsi incorporare dal nostro
+     sito e non rimandare a un altro sito. Niente lettera da girare: Castr
+     lo gestisce chi organizza (i messaggi dicono dove guardare in Castr);
+     un link .m3u8 trovato nella pagina si segnala come il possibile
+     flusso HLS di Castr, da provare nel campo «Flusso diretto (.m3u8)».
    - Il player di Azoto (la pagina da incorporare, l'unica ammessa: un
      indirizzo https di cdn.azotosolutions.com, vedi HOST_AZOTO in
      diretta-sorgente-video.js): risposta 200, text/html, X-Frame-Options
@@ -74,7 +81,7 @@ const PREDEFINITE = {
 const UA = 'NGB-ProvaLink/1.0 (+' + ORIGINE_SITO + ')';
 
 // i problemi che impediscono di salvare il link
-const GRAVI = new Set(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-azoto', 'youtube', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash']);
+const GRAVI = new Set(['https', 'formato', 'file', 'rtmp', 'credenziali', 'non-pubblico', 'non-azoto', 'youtube', 'castr', 'non-incorporabile', 'non-html', 'non-e-hls', 'non-e-dash']);
 
 /* ============================================================
    GLI INDIRIZZI PUBBLICI
@@ -779,30 +786,33 @@ function xfoConsente(intestazioni) {
     return { ok: true, motivo: '' };
 }
 
-/* Il player di Azoto: la pagina si scarica come la scaricherebbe
-   l'iframe (i reindirizzamenti si seguono), e si guarda se il browser la
-   mostrerebbe dentro la nostra pagina. */
+/* Il player di Azoto (o di Castr): la pagina si scarica come la
+   scaricherebbe l'iframe (i reindirizzamenti si seguono), e si guarda se
+   il browser la mostrerebbe dentro la nostra pagina. */
 async function provaAzoto(ctx, r, url, link) {
+    const castr = V.eCastr(url);
+    const nome = castr ? 'Castr' : 'Azoto';
     let risp;
     try { risp = await richiesta(ctx, url, { intestazioni: { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' } }); } catch (e) {
-        problemaDa(ctx, r, e, link, 'Il server del player Azoto');
+        problemaDa(ctx, r, e, link, 'Il server del player ' + nome);
         r.titolo = titoloIntoppo(r, true);
         return;
     }
     r.info.raggiungibile = true;
     if (risp.redirect.length) r.righe.push('Il link rimanda a ' + risp.url.slice(0, 200) + '.');
-    // la nostra pagina ammette negli iframe solo il player di Azoto: un salto verso un altro sito il browser lo blocca
+    // la nostra pagina ammette negli iframe solo i player di YouTube, Castr e Azoto: un salto verso un altro sito il browser lo blocca
     if (!V.eAzoto(risp.url)) {
         let verso = risp.url;
         try { verso = new URL(risp.url).host; } catch (_) { /* resta l'indirizzo */ }
         verso = String(verso).slice(0, 200);
-        aggiungi(r, 'non-azoto', 'Il player Azoto rimanda a un altro sito (' + verso + '): nella nostra pagina il browser lo bloccherebbe (si incorpora solo ' + V.HOST_AZOTO.join(', ') + ').', TESTI['altro-sito'](ctx, link, verso));
+        aggiungi(r, 'non-azoto', 'Il player ' + nome + ' rimanda a un altro sito (' + verso + '): nella nostra pagina il browser lo bloccherebbe (si incorpora solo '
+            + (castr ? V.CASTR_PLAYER : V.HOST_AZOTO.join(', ')) + ').', castr ? '' : TESTI['altro-sito'](ctx, link, verso));
         r.info.incorporabile = false;
-        r.titolo = 'Il player Azoto rimanda a un altro sito';
+        r.titolo = 'Il player ' + nome + ' rimanda a un altro sito';
         return;
     }
     if (risp.stato < 200 || risp.stato >= 300) {
-        problemaStato(ctx, r, risp.stato, link, 'Il server del player Azoto', true);
+        problemaStato(ctx, r, risp.stato, link, 'Il server del player ' + nome, true);
         r.titolo = titoloIntoppo(r, true) + ' (errore ' + risp.stato + ')';
         return;
     }
@@ -810,13 +820,13 @@ async function provaAzoto(ctx, r, url, link) {
     const inizio = risp.testo.replace(/^﻿/, '').trimStart().slice(0, 200);
     const html = /text\/html|application\/xhtml\+xml/.test(tipo) || (!tipo && /^(<!doctype html|<html)/i.test(inizio));
     if (!html) {
-        let motivo = 'L\'indirizzo non apre la pagina del player Azoto' + (tipo ? ' (tipo: ' + tipo.split(';')[0].slice(0, 60) + ')' : '') + '.';
+        let motivo = 'L\'indirizzo non apre la pagina del player ' + nome + (tipo ? ' (tipo: ' + tipo.split(';')[0].slice(0, 60) + ')' : '') + '.';
         if (/^#EXTM3U/.test(inizio)) motivo = 'La risposta è un flusso HLS, ma il link non finisce con .m3u8: il player non lo riconoscerebbe. Per il flusso diretto serve il link che finisce con .m3u8 (nel campo «Flusso diretto (.m3u8)»).';
         else if (/<(?:[A-Za-z0-9_]+:)?MPD\b/.test(inizio) || /dash\+xml/.test(tipo)) motivo = 'La risposta è un flusso DASH, ma il link non finisce con .mpd: il player non lo riconoscerebbe. Per il flusso diretto serve il link che finisce con .mpd (o meglio il link .m3u8).';
-        else if (/^video\/|mpegurl|mp2t/.test(tipo)) motivo = 'L\'indirizzo è un file video o un flusso, non la pagina del player Azoto.';
-        aggiungi(r, 'non-html', motivo, TESTI['non-html'](ctx, link));
+        else if (/^video\/|mpegurl|mp2t/.test(tipo)) motivo = 'L\'indirizzo è un file video o un flusso, non la pagina del player ' + nome + '.';
+        aggiungi(r, 'non-html', motivo, castr ? '' : TESTI['non-html'](ctx, link));
         r.info.incorporabile = false;
-        r.titolo = 'Non è la pagina del player Azoto';
+        r.titolo = 'Non è la pagina del player ' + nome;
         return;
     }
     let originePagina = '';
@@ -835,10 +845,14 @@ async function provaAzoto(ctx, r, url, link) {
     }
     r.info.incorporabile = ok;
     if (!ok) {
-        aggiungi(r, 'non-incorporabile', 'Il player Azoto non si può incorporare nel nostro sito: il loro server lo vieta (' + motivo + ').', TESTI['non-incorporabile'](ctx, link, motivo));
-        r.titolo = 'Il player Azoto non si può incorporare';
+        if (castr) {
+            aggiungi(r, 'non-incorporabile', 'Il player Castr non si può incorporare nel nostro sito: Castr lo vieta (' + motivo + '). In Castr, nelle impostazioni del player (incorporamento e domini consentiti), aggiungi ' + ctx.origine.replace(/^https:\/\//, '') + '.', '');
+        } else {
+            aggiungi(r, 'non-incorporabile', 'Il player Azoto non si può incorporare nel nostro sito: il loro server lo vieta (' + motivo + ').', TESTI['non-incorporabile'](ctx, link, motivo));
+        }
+        r.titolo = 'Il player ' + nome + ' non si può incorporare';
     } else {
-        r.titolo = 'Player Azoto: si può incorporare nella nostra pagina';
+        r.titolo = 'Player ' + nome + ': si può incorporare nella nostra pagina';
         r.righe.push(V.AVVISO_INCORPORATO);
     }
     /* Un link .m3u8 dentro la pagina: forse e' il flusso diretto. Si dice
@@ -850,7 +864,9 @@ async function provaAzoto(ctx, r, url, link) {
     const sorgente = risp.testo.replace(/\\\//g, '/');
     let m;
     while ((m = reM3u8.exec(sorgente)) && trovati.length < 2) { if (trovati.indexOf(m[0]) < 0) trovati.push(m[0].slice(0, 300)); }
-    trovati.forEach(t => r.righe.push('Nella pagina del player c\'è un link .m3u8: ' + t + '. Potrebbe essere il flusso diretto, ma prima di usarlo fatevelo confermare da Azoto.'));
+    trovati.forEach(t => r.righe.push(castr
+        ? 'Nella pagina del player c\'è un link .m3u8: ' + t + '. Potrebbe essere il flusso HLS di Castr: provalo nel campo «Flusso diretto (.m3u8)» (si vedrebbe con il nostro player e i nostri comandi); se la prova va bene, si può usare.'
+        : 'Nella pagina del player c\'è un link .m3u8: ' + t + '. Potrebbe essere il flusso diretto, ma prima di usarlo fatevelo confermare da Azoto.'));
 }
 
 /* YOUTUBE. La pagina del player di YouTube si lascia sempre incorporare,
@@ -918,8 +934,8 @@ async function provaLink(link, opzioni) {
         aggiungi(r, codice, V.messaggio(s), testi[codice] || '');
         r.titolo = {
             https: 'Link in http: serve https', rtmp: 'Link per trasmettere, non per guardare', credenziali: 'Link con nome utente e password',
-            file: 'È un file video, non una diretta', 'non-azoto': 'Non è YouTube né il player Azoto: indirizzo non consentito',
-            youtube: 'Link di YouTube senza un video'
+            file: 'È un file video, non una diretta', 'non-azoto': 'Non è YouTube né il player di Castr o di Azoto: indirizzo non consentito',
+            youtube: 'Link di YouTube senza un video', castr: 'Link di Castr che non è il player'
         }[codice] || (s ? 'Link non valido' : 'Nessun link');
         return chiudi(r);
     }

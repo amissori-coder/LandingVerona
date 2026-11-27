@@ -81,7 +81,9 @@
    non disponibile», niente iframe e nessuna richiesta a quel sito; il
    player che non risponde mai (/cloudtv/lento/): a 15 s l'avviso sotto
    il riquadro, «Ricarica il video» ricrea solo l'iframe; la CSP blocca
-   un iframe di qualunque altro sito (frame-src solo YouTube e Azoto).
+   un iframe di qualunque altro sito (frame-src solo YouTube, Castr e
+   Azoto); il player di Castr: a «Vai in onda» la sigla, sotto nessun
+   iframe, poi il player (finto: Playwright risponde al posto di Castr).
 
    E I CASI DELLA REVISIONE (ognuno falliva prima delle correzioni):
    - un solo dispositivo, DUE contesti veri: A entra e segnala, B entra
@@ -441,6 +443,11 @@ function eventoIniziale(T) {
             tipoPlayer: 'azoto', videoId: YT_PROVA, videoYouTube: true, inizioVideo: 30, onda: { secondi: 600, da: T.fromMillis(ORA - 60e3) }
         });
 
+        /* il player di Castr: una diretta vera con i suoi comandi; un identificativo finto
+           (quello vero non va mai nel codice). In onda: la prova fa ripartire onda */
+        const CASTR_PROVA = 'https://player.castr.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9?autoplay=on';
+        await eventoProva('ev-castr', 'Prova: il player di Castr', { tipoPlayer: 'azoto', videoId: CASTR_PROVA, videoYouTube: false, onda: { secondi: 0, da: T.fromMillis(ORA) } });
+
         // una password sola per queste persone (mai stampata)
         const PASSWORD_PROVA = 'Prova' + crypto.randomBytes(5).toString('hex') + '7';
         const utentiProva = {};
@@ -464,6 +471,7 @@ function eventoIniziale(T) {
         await nuovoPartecipante('annaazoto', 'Anna', 'Azoto', ['ev-azoto']);
         await nuovoPartecipante('martaritiro', 'Marta', 'Ritiro', ['ev-ritiro']);
         await nuovoPartecipante('yuritube', 'Yuri', 'Tube', ['ev-youtube']);
+        await nuovoPartecipante('carlacastr', 'Carla', 'Castr', ['ev-castr']);
         // il servizio vero trova l'account dall'email (indirizzi/{email}), come per chi si iscrive dal modulo
         await db.doc('indirizzi/martaritiro@esempio.it').set({ uid: utentiProva.martaritiro.uid, creato: T.now() });
         const personaProva = email => Object.values(utentiProva).find(u => u.email === email) || null;
@@ -815,7 +823,7 @@ function eventoIniziale(T) {
             const csp = await p.getAttribute('meta[http-equiv="Content-Security-Policy"]', 'content');
             vero(/script-src 'self' https:\/\/www\.gstatic\.com;/.test(csp) && /object-src 'none'/.test(csp), 'CSP mancante o diversa');
             // negli iframe SOLO i player da incorporare (YouTube, dal webinar del 10 dicembre, e Azoto); e nessuno script loro
-            vero(/(^|;)\s*frame-src https:\/\/www\.youtube-nocookie\.com https:\/\/cdn\.azotosolutions\.com;/.test(csp) && !/script-src[^;]*(youtube|azoto)/.test(csp),
+            vero(/(^|;)\s*frame-src https:\/\/www\.youtube-nocookie\.com https:\/\/player\.castr\.com https:\/\/cdn\.azotosolutions\.com;/.test(csp) && !/script-src[^;]*(youtube|azoto|castr)/.test(csp),
                 'frame-src: ' + (/frame-src[^;]*/.exec(csp) || [''])[0]);
             const vp = await p.getAttribute('meta[name="viewport"]', 'content');
             vero(/viewport-fit=cover/.test(vp), 'viewport senza viewport-fit=cover');
@@ -1838,7 +1846,7 @@ function eventoIniziale(T) {
             vero(!(await visibile(pa, '#avviso-lento')), 'l\'avviso resta con il player buono');
         });
 
-        await prova('modalità A: nessuna violazione della CSP e nessun errore; e la CSP blocca un iframe di un altro sito (frame-src solo YouTube e Azoto)', async () => {
+        await prova('modalità A: nessuna violazione della CSP e nessun errore; e la CSP blocca un iframe di un altro sito (frame-src solo YouTube, Castr e Azoto)', async () => {
             vero((await pa.evaluate(() => window.__violazioniCsp)).length === 0, 'violazioni: ' + (await pa.evaluate(() => window.__violazioniCsp)).join(' | '));
             vero(pa.__erroriPagina.length === 0, 'errori: ' + pa.__erroriPagina.join(' | '));
             // un iframe verso un'altra pagina, messo qui dalla prova: il browser lo rifiuta senza nemmeno chiederla
@@ -2007,6 +2015,53 @@ function eventoIniziale(T) {
                 vero(pz.__erroriPagina.length === 0, 'errori: ' + pz.__erroriPagina.join(' | '));
             } finally { await Z.context.close(); }
         });
+
+        /* =================== IL PLAYER DI CASTR ===================
+           Una diretta vera, con i comandi di Castr: a «Vai in onda» la sigla e
+           sotto NESSUN iframe (la diretta di Castr va avanti e si sentirebbe);
+           finita la sigla l'iframe di player.castr.com, che qui e' finto
+           (Playwright risponde al posto di Castr). */
+        console.log('\nIl player di Castr');
+        const evCastr = db.doc('eventi/ev-castr');
+        const K = await nuovoContesto({ viewport: { width: 1366, height: 900 } }, false, { prove: { ritardoPresenzaMs: 999999 } });
+        const richiesteCastr = [];
+        await K.context.route(/^https:\/\/player\.castr\.com\//, route => {
+            richiesteCastr.push(route.request().url());
+            return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><html><body style="margin:0;background:#123;color:#fff;font:20px sans-serif">Castr finto</body></html>' });
+        });
+        const pk = K.page;
+        try {
+            await prova('Castr: a «Vai in onda» la sigla, e sotto nessun iframe (la diretta di Castr si sentirebbe); finita la sigla il player di Castr, con autoplay', async () => {
+                await evCastr.update({ onda: { secondi: 0, da: T.now() }, statoAggiornato: T.now() });
+                await accedi(pk, 'carlacastr@esempio.it', PASSWORD_PROVA);
+                await vistaE(pk, 'diretta', 30000);
+                await aspetta(() => pk.evaluate(() => { const x = document.querySelector('.sigla'); return !!x && !x.hidden && /Revilaw presenta/i.test(x.innerText); }), 8000, 'la sigla con Castr');
+                const sotto = await pk.evaluate(() => ({
+                    iframe: document.querySelectorAll('#video-player iframe').length,
+                    azoto: document.documentElement.classList.contains('modo-azoto'), yt: document.documentElement.classList.contains('modo-youtube')
+                }));
+                vero(sotto.iframe === 0 && richiesteCastr.length === 0 && sotto.azoto && !sotto.yt, 'sotto la sigla nessun iframe e nessuna richiesta a Castr: ' + JSON.stringify(sotto));
+                await foto(pk, 'castr-sigla');
+                // verso la fine della sigla
+                const durata = NGBSigla.durata(Object.assign({ id: 'ev-castr' }, (await evCastr.get()).data()));
+                await evCastr.update({ onda: { secondi: durata - 3, da: T.now() } });
+                await aspetta(() => pk.evaluate(() => document.querySelectorAll('#video-player iframe').length === 1), 10000, 'l\'iframe di Castr alla fine della sigla');
+                await aspetta(() => pk.evaluate(() => { const x = document.querySelector('.sigla'); return !x || x.hidden; }), 10000, 'la sigla che se ne va');
+                const f = await pk.evaluate(() => { const i = document.querySelector('#video-player iframe'); return { src: i.getAttribute('src'), allow: i.getAttribute('allow'), titolo: i.getAttribute('title') }; });
+                vero(f.src === CASTR_PROVA && /autoplay/.test(f.allow) && /^Diretta: /.test(f.titolo) && richiesteCastr.length === 1 && richiesteCastr[0] === CASTR_PROVA,
+                    'finita la sigla l\'iframe del player di Castr, con autoplay (durata ' + durata + ' s) ' + JSON.stringify(f) + ' ' + richiesteCastr.join(', '));
+                await foto(pk, 'castr-dopo-la-sigla');
+            });
+            await prova('Castr: chi entra a sigla finita vede subito il player; nessuna violazione della CSP, nessun errore', async () => {
+                await pk.reload();
+                await vistaE(pk, 'diretta', 30000);
+                await aspetta(() => pk.evaluate(() => document.querySelectorAll('#video-player iframe').length === 1), 10000, 'l\'iframe di Castr subito');
+                vero(await pk.evaluate(() => { const x = document.querySelector('.sigla'); return !x || x.hidden; }), 'nessuna sigla per chi entra dopo');
+                const v = await pk.evaluate(() => window.__violazioniCsp || []);
+                vero(v.length === 0, 'violazioni CSP: ' + v.join(' | '));
+                vero(pk.__erroriPagina.length === 0, 'errori: ' + pk.__erroriPagina.join(' | '));
+            });
+        } finally { await K.context.close(); }
 
         /* =================== CARICAMENTO DELL'SDK =================== */
         console.log('\nSDK di Firebase non scaricato');

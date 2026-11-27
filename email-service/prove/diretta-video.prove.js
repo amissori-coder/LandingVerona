@@ -204,7 +204,7 @@ host.forEach(([testo, errore]) => {
     const r = V.leggi(testo);
     vero(r && r.errore === errore, 'host non consentito (' + errore + '): ' + testo.slice(0, 80) + ' -> ' + JSON.stringify(r));
 });
-vero(/un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/.test(V.messaggio({ errore: 'non-azoto' })), 'messaggio non-azoto: «' + V.messaggio({ errore: 'non-azoto' }) + '»');
+vero(/un video YouTube, l'indirizzo del player Castr \(https:\/\/player\.castr\.com\/…\) oppure un indirizzo https di cdn\.azotosolutions\.com/.test(V.messaggio({ errore: 'non-azoto' })), 'messaggio non-azoto: «' + V.messaggio({ errore: 'non-azoto' }) + '»');
 
 /* ---------- YouTube: solo un video, e solo dal player ricostruito ---------- */
 [
@@ -292,7 +292,7 @@ vero(V.tipoDi('') === '' && V.tipoDi('abcdefghijk') === '' && V.tipoDi('http://x
     vero(h && h.tipo === 'hls' && h.valore === HLS && V.perFlusso('https://dash.webtv.it/live/manifest.mpd').tipo === 'dash', 'perFlusso: HLS e DASH');
     vero(V.perFlusso('') === null, 'perFlusso: vuoto -> null');
     const z = V.perFlusso(AZOTO);
-    vero(z && z.errore === 'e-azoto' && V.messaggio(z) === 'Questo è il link di un player da incorporare (YouTube o Azoto): va nel campo «Player YouTube o Azoto».', 'perFlusso: l\'indirizzo di Azoto -> e-azoto «' + V.messaggio(z) + '»');
+    vero(z && z.errore === 'e-azoto' && V.messaggio(z) === 'Questo è il link di un player da incorporare (YouTube, Castr o Azoto): va nel campo «Player YouTube, Castr o Azoto».', 'perFlusso: l\'indirizzo di Azoto -> e-azoto «' + V.messaggio(z) + '»');
     vero(V.perFlusso(CODICE_AZOTO).errore === 'e-azoto', 'perFlusso: il codice di Azoto -> e-azoto');
     const p = V.perFlusso('https://player.webtv.it/embed/1');
     vero(p && p.errore === 'non-flusso' && /\.m3u8/.test(V.messaggio(p)), 'perFlusso: la pagina di un altro sito -> non-flusso «' + V.messaggio(p) + '»');
@@ -307,8 +307,30 @@ vero(V.tipoDi('') === '' && V.tipoDi('abcdefghijk') === '' && V.tipoDi('http://x
 vero(/nostro player/.test(V.descrizione('hls')) && /senza loghi/.test(V.descrizione('hls')), 'descrizione HLS: «' + V.descrizione('hls') + '»');
 vero(/DASH/.test(V.descrizione('dash')) && V.descrizione('incorporato') === 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.' && V.descrizione('altro') === '',
     'descrizioni DASH e del player Azoto, niente per un tipo sconosciuto');
-vero(V.AVVISO_INCORPORATO === 'Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Azoto restano invece i suoi comandi e il suo logo.',
+vero(V.AVVISO_INCORPORATO === 'Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Castr o di Azoto restano invece i loro comandi (e l\'eventuale logo); con Castr, a «Vai in onda», prima del video c\'è la sigla Revilaw.',
     'AVVISO_INCORPORATO informativo, come da contratto');
+
+/* ---------- Castr: il player, ricostruito (un identificativo finto: quello vero non va mai nel codice) ---------- */
+const ID_CASTR = 'live_0a1b2c3d4e5f60718293a4b5c6d7e8f9';
+const PLAYER_CASTR = 'https://player.castr.com/' + ID_CASTR;
+const VALORE_CASTR = PLAYER_CASTR + '?autoplay=on';
+const CODICE_CASTR = '<iframe src="' + PLAYER_CASTR + '" width="100%" style="aspect-ratio: 16/9; min-height: 340px;" frameborder="0" scrolling="no" allow="autoplay" allowfullscreen webkitallowfullscreen mozallowfullscreen oallowfullscreen msallowfullscreen></iframe>';
+for (const l of [PLAYER_CASTR, CODICE_CASTR, PLAYER_CASTR + '/', PLAYER_CASTR + '?autoplay=off&title=x', '  ' + PLAYER_CASTR + '  ']) {
+    const r = V.leggi(l);
+    vero(r && r.tipo === 'incorporato' && r.castr === true && r.valore === VALORE_CASTR && !r.youtube, 'Castr: ' + JSON.stringify(l).slice(0, 60) + ' -> il player ricostruito, con autoplay=on ' + JSON.stringify(r));
+}
+vero(V.leggi(PLAYER_CASTR + '?muted=on').valore === VALORE_CASTR + '&muted=on', 'Castr: muted=on incollato resta (il video parte senza audio)');
+vero(V.eCastr(VALORE_CASTR) && V.eAzoto(VALORE_CASTR) && !V.eYouTube(VALORE_CASTR) && !V.eCastr(AZOTO) && !V.eCastr(CODICE_CASTR),
+    'eCastr: solo il valore salvato del player di Castr (eAzoto lo accetta come player da incorporare)');
+vero(V.leggi(VALORE_CASTR).valore === VALORE_CASTR && V.perAzoto(CODICE_CASTR).valore === VALORE_CASTR && V.perFlusso(PLAYER_CASTR).errore === 'e-azoto',
+    'Castr: il valore salvato si rilegge uguale; campo del player si\', campo del flusso no');
+for (const l of ['https://castr.com/', 'https://castr.com/app/live/1', 'https://player.castr.com/', 'https://player.castr.com/a/b/c', 'https://player.castr.com:8443/' + ID_CASTR, 'https://player.castr.com/' + ID_CASTR.replace('_', '%20')]) {
+    vero(V.leggi(l).errore === 'castr', 'Castr ma non il player: errore «castr»: ' + l);
+}
+vero(V.leggi('https://player.castr.com.ladro.it/' + ID_CASTR).errore === 'non-azoto' && V.leggi('https://ladrocastr.com/' + ID_CASTR).errore === 'non-azoto',
+    'un nome che contiene castr.com non e\' Castr');
+vero(V.leggi('https://stream.castr.com/5f0e1d2c/' + ID_CASTR + '/index.fmp4.m3u8').tipo === 'hls', 'il link HLS di Castr e\' un flusso diretto');
+vero(/^Player Castr: /.test(V.messaggio(V.leggi(PLAYER_CASTR))) && /^Questo link di Castr non è il player/.test(V.messaggio({ errore: 'castr' })), 'i messaggi di Castr');
 vero(!/ripiego/i.test(sito.replace(/\/\*[\s\S]*?\*\//g, '')), 'il player di Azoto non e\' piu\' un "ripiego" (e\' la modalita\' predefinita)');
 vero(V.messaggio(V.leggi(HLS)) === V.descrizione('hls') && V.messaggio(V.leggi(AZOTO)) === V.descrizione('incorporato'), 'messaggio di un link valido: la sua descrizione');
 vero(JSON.stringify(V.TIPI) === '["hls","dash","incorporato"]', 'i tipi: hls, dash, incorporato');
@@ -383,8 +405,8 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
             ['https://utente:pw@webtv.it/a.m3u8', /password/], ['https://127.0.0.1/live.m3u8', /interno o privato/],
             ['https://10.1.2.3/live.m3u8', /interno o privato/], ['https://169.254.169.254/latest/meta-data', /non è il link di un flusso diretto/],
             ['https://[::1]/live.m3u8', /interno o privato/],
-            [AZOTO, /^Questo è il link di un player da incorporare \(YouTube o Azoto\): va nel campo «Player YouTube o Azoto»\.$/],
-            [CODICE_AZOTO, /va nel campo «Player YouTube o Azoto»/],
+            [AZOTO, /^Questo è il link di un player da incorporare \(YouTube, Castr o Azoto\): va nel campo «Player YouTube, Castr o Azoto»\.$/],
+            [CODICE_AZOTO, /va nel campo «Player YouTube, Castr o Azoto»/],
             ['https://player.webtv.it/embed/1', /non è il link di un flusso diretto/]
         ].forEach(([l, m]) => {
             const x = (() => { try { D.leggiVideo(l, ''); return null; } catch (y) { return y; } })();
@@ -394,14 +416,15 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
         vero(vecchioId && /Non riconosco/.test(vecchioId.message), 'servizio: un identificativo che non e\' un link della web TV non si salva piu\'');
 
         vero(D.leggiAzoto(CODICE_AZOTO) === AZOTO, 'servizio: del codice di Azoto si salva SOLO l\'indirizzo del player');
+        vero(D.leggiAzoto(CODICE_CASTR) === VALORE_CASTR && D.leggiAzoto(PLAYER_CASTR) === VALORE_CASTR, 'servizio: del codice «Embed» di Castr (o del suo indirizzo) si salva SOLO il player ricostruito');
         vero(D.leggiAzoto('  ' + AZOTO + '  ') === AZOTO && D.leggiAzoto('') === '' && D.leggiAzoto(undefined) === '' && D.leggiAzoto(null) === '', 'servizio: l\'indirizzo (pulito), oppure niente');
         vero(D.leggiAzoto('<script>alert(1)</script>' + CODICE_AZOTO) === AZOTO, 'servizio: uno script prima del codice si ignora, resta l\'indirizzo');
         vero(D.leggiAzoto(' '.repeat(3000) + CODICE_AZOTO) === AZOTO, 'servizio: il codice si legge anche se lungo');
         [
-            ["<iframe src='https://ladro.example.com/player'></iframe>", /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
-            ["<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO, /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
-            ['https://azotosolutions.com/cloudtv/livetv91/player', /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
-            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', /un video YouTube oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ["<iframe src='https://ladro.example.com/player'></iframe>", /un video YouTube, l'indirizzo del player Castr \(https:\/\/player\.castr\.com\/…\) oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ["<iframe src='https://ladro.example.com/x'></iframe>" + CODICE_AZOTO, /un video YouTube, l'indirizzo del player Castr \(https:\/\/player\.castr\.com\/…\) oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ['https://azotosolutions.com/cloudtv/livetv91/player', /un video YouTube, l'indirizzo del player Castr \(https:\/\/player\.castr\.com\/…\) oppure un indirizzo https di cdn\.azotosolutions\.com/],
+            ['https://cdn.azotosolutions.com:8443/cloudtv/livetv91/player', /un video YouTube, l'indirizzo del player Castr \(https:\/\/player\.castr\.com\/…\) oppure un indirizzo https di cdn\.azotosolutions\.com/],
             ['http://cdn.azotosolutions.com/cloudtv/livetv91/player', /https:\/\//],
             ["<iframe src='javascript:alert(1)'></iframe>", /Non riconosco/],
             ['<img src=x onerror=alert(1)>', /non trovo l'indirizzo del player/],
@@ -498,9 +521,9 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
             ['azotoUrl', "<script>alert(1)</script><iframe src='javascript:alert(1)'></iframe>", /Non riconosco/],
             ['azotoUrl', '<img src=x onerror=alert(1)>', /non trovo l'indirizzo del player/],
             ['azotoUrl', HLS, /va nel campo «Flusso diretto \(\.m3u8\)»/],
-            ['videoUrl', AZOTO, /va nel campo «Player YouTube o Azoto»/],
-            ['videoUrl', CODICE_AZOTO, /va nel campo «Player YouTube o Azoto»/],
-            ['riservaUrl', AZOTO, /va nel campo «Player YouTube o Azoto»/]
+            ['videoUrl', AZOTO, /va nel campo «Player YouTube, Castr o Azoto»/],
+            ['videoUrl', CODICE_AZOTO, /va nel campo «Player YouTube, Castr o Azoto»/],
+            ['riservaUrl', AZOTO, /va nel campo «Player YouTube, Castr o Azoto»/]
         ]) {
             const x = await errore(() => D.salvaEvento(mem.ctx, Object.assign({}, EVENTO, { [campo]: valore })));
             const atteso = campo === 'azotoUrl' ? 'azoto' : 'video';
@@ -693,12 +716,14 @@ const EVENTO = { id: 'roma-2026', titolo: 'Evento di Roma', luogo: 'Roma', data:
 
         /* ---------- l'identificativo si vede nel link dei partecipanti: niente nome della piattaforma ---------- */
         const idNo = [];
-        for (const id of ['prova-youtube', 'webinar-you-tube-2026', 'youtu-2026', 'azoto-dicembre']) {
+        for (const id of ['prova-youtube', 'webinar-you-tube-2026', 'youtu-2026', 'azoto-dicembre', 'prova-castr', 'castr-2026']) {
             const x = await errore(() => D.salvaEvento(memYt.ctx, Object.assign({ nuovo: true }, EVENTO, { id: id })));
             if (!(x && x.stato === 400 && x.codice === 'evento' && x.message === D.MSG_ID_PIATTAFORMA) || memYt.dati['eventi/' + id]) idNo.push(id);
         }
         vero(idNo.length === 0 && /si vede nel link che ricevono i partecipanti/.test(D.MSG_ID_PIATTAFORMA),
-            'evento nuovo con il nome della piattaforma nell\'identificativo (prova-youtube, you-tube, youtu, azoto): 400, niente creato', idNo.join(' '));
+            'evento nuovo con il nome della piattaforma nell\'identificativo (prova-youtube, you-tube, youtu, azoto, castr): 400, niente creato', idNo.join(' '));
+        const castrocaro = await errore(() => D.salvaEvento(memYt.ctx, Object.assign({ nuovo: true }, EVENTO, { id: 'castrocaro-2027' })));
+        vero(!castrocaro && !!memYt.dati['eventi/castrocaro-2027'], 'un luogo che comincia con «castr» (castrocaro-2027) si crea: si ferma solo la parola castr fra trattini', castrocaro && castrocaro.message);
         await D.salvaEvento(memYt.ctx, Object.assign({ nuovo: true }, EVENTO, { id: 'webinar-10-dicembre-2026' }));
         memYt.dati['eventi/prova-youtube'] = Object.assign({}, memYt.dati['eventi/webinar-10-dicembre-2026']);
         memYt.dati['eventiRiservati/prova-youtube'] = Object.assign({}, memYt.dati['eventiRiservati/webinar-10-dicembre-2026']);

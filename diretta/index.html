@@ -10,15 +10,16 @@
          file .js qui accanto (DECISIONI D3); SheetJS (l'Excel) serve solo alla
          gestione, non qui.
          frame-src: SOLO i player da incorporare (modalita' A): quello di YouTube
-         (www.youtube-nocookie.com, dal webinar del 10 dicembre 2026) e quello di
-         Azoto; nessun'altra pagina puo' entrare in un iframe di questa pagina,
+         (www.youtube-nocookie.com, dal webinar del 10 dicembre 2026), quello di
+         Castr (player.castr.com, dal 27 novembre 2026) e quello di Azoto;
+         nessun'altra pagina puo' entrare in un iframe di questa pagina,
          qualunque cosa arrivi dai dati.
          Il flusso diretto (modalita' B, HLS o DASH) puo' arrivare da qualunque
          indirizzo https: media-src e connect-src lo permettono, perche' il dominio
          del flusso di Azoto ancora non si conosce (README: come restringerli
          quando lo si sa); blob: serve al video di hls.js e dash.js (media-src) e
          al lavoro in secondo piano di hls.js (worker-src). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube-nocookie.com https://player.castr.com https://cdn.azotosolutions.com; media-src 'self' https: blob:; worker-src 'self' blob:; connect-src 'self' https: wss://firestore.googleapis.com http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'">
     <!-- viewport-fit=cover: su iPhone la pagina usa anche le zone attorno alla tacca
          (le distanze giuste le mette il CSS con env(safe-area-inset-*)) -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -40,7 +41,7 @@
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
     <script src="config.js?v=20260926b" defer></script>
-    <script src="sorgente-video.js?v=20261126a" defer></script>
+    <script src="sorgente-video.js?v=20261127c" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
     <!-- il video di YouTube: la registrazione che sembra una diretta, con i nostri comandi -->
@@ -48,7 +49,7 @@
     <!-- la sigla d'apertura del video di YouTube: le immagini Revilaw sul webinar e il conto alla rovescia -->
     <script src="sigla.js?v=20261127b" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20261127b" defer></script>
+    <script src="diretta.js?v=20261127c" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 

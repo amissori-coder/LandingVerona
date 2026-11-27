@@ -238,13 +238,15 @@
     const NOTA_AZOTO = (SV && SV.AVVISO_INCORPORATO) || '';
     if (NOTA_AZOTO) document.querySelectorAll('.nota-azoto').forEach(n => { n.textContent = NOTA_AZOTO; });
     // i nomi brevi, per le frasi della regia
-    const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'player YouTube o Azoto' };
-    const NOMI_PLAYER = { azoto: 'Player YouTube o Azoto', flusso: 'Flusso diretto' };
-    /* Il nome del player incorporato salvato: YouTube o Azoto, lo dice il
-       link (sorgente-video.js, eYouTube). Senza link resta quello generico. */
+    const NOMI_TIPO = { hls: 'flusso HLS', dash: 'flusso DASH', incorporato: 'player YouTube, Castr o Azoto' };
+    const NOMI_PLAYER = { azoto: 'Player YouTube, Castr o Azoto', flusso: 'Flusso diretto' };
+    /* Il nome del player incorporato salvato: YouTube, Castr o Azoto, lo
+       dice il link (sorgente-video.js, eYouTube ed eCastr). Senza link resta
+       quello generico. */
     function nomeIncorporato(url, maiuscola) {
         const yt = !!(url && SV && typeof SV.eYouTube === 'function' && SV.eYouTube(url));
-        const nome = !url ? NOMI_PLAYER.azoto.toLowerCase() : (yt ? 'video YouTube' : 'player Azoto');
+        const castr = !!(url && !yt && SV && typeof SV.eCastr === 'function' && SV.eCastr(url));
+        const nome = !url ? NOMI_PLAYER.azoto.toLowerCase() : (yt ? 'video YouTube' : castr ? 'player Castr' : 'player Azoto');
         return maiuscola ? nome.charAt(0).toUpperCase() + nome.slice(1) : nome;
     }
     // i campi del player Azoto; gli altri (ev-video, ev-riserva, regia-video, regia-riserva) sono il flusso diretto
@@ -1133,7 +1135,7 @@
        niente nome della piattaforma del video (lo stesso controllo del
        servizio, diretta-dati.js RE_ID_PIATTAFORMA). Nella proposta fatta dal
        titolo quelle parole si tolgono da sole. */
-    const RE_ID_PIATTAFORMA = /you-?tu|azoto/;
+    const RE_ID_PIATTAFORMA = /you-?tu|azoto|(?:^|-)castr(?:-|$)/;
     function suggerisciId() {
         if (!stato.nuovo || stato.idModificatoAMano) return;
         const luogo = $('#ev-luogo').value.split(/[·,|]/)[0].trim();
@@ -1521,7 +1523,7 @@
         const programma = leggiProgramma($('#ev-programma').value);
 
         if (stato.nuovo && !/^[a-z0-9][a-z0-9-]{2,40}$/.test(id)) segna('#ev-id', 'Identificativo: da 3 a 41 caratteri, solo lettere minuscole, numeri e trattini (es. napoli-2026).');
-        else if (stato.nuovo && RE_ID_PIATTAFORMA.test(id)) segna('#ev-id', 'Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video (YouTube, Azoto). Per esempio: webinar-10-dicembre-2026.');
+        else if (stato.nuovo && RE_ID_PIATTAFORMA.test(id)) segna('#ev-id', 'Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video (YouTube, Castr, Azoto). Per esempio: webinar-10-dicembre-2026.');
         if (titolo.length < 3 || titolo.length > 140) segna('#ev-titolo', 'Titolo: da 3 a 140 caratteri.');
         if (luogo.length > 140) segna('#ev-luogo', 'Luogo: al massimo 140 caratteri.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || isNaN(Date.parse(data + 'T12:00:00Z'))) segna('#ev-data', 'Data: scegli il giorno dell\'evento.');
@@ -1821,12 +1823,29 @@
         stato.timerPuntoRegia = null;
         const ev = stato.evento;
         const riga = $('#regia-registrazione');
-        const yt = !!ev && !stato.nuovo && tipoPlayerDi(ev) === 'azoto' && !!ev.azotoUrl && !!SV && typeof SV.eYouTube === 'function' && SV.eYouTube(ev.azotoUrl);
-        riga.hidden = !yt;
-        if (!yt) { svuota(riga); return; }
-        const s = ev.stato || 'programmato';
+        const suPlayer = !!ev && !stato.nuovo && tipoPlayerDi(ev) === 'azoto' && !!ev.azotoUrl && !!SV;
+        const yt = suPlayer && typeof SV.eYouTube === 'function' && SV.eYouTube(ev.azotoUrl);
+        // il player di Castr (una diretta vera): niente punto della registrazione, solo la sigla prima del player
+        const castr = suPlayer && !yt && typeof SV.eCastr === 'function' && SV.eCastr(ev.azotoUrl);
+        const s = ev ? ev.stato || 'programmato' : '';
+        const mancaSigla = ev ? Math.ceil(durataSigla(ev) - secondiInOnda(ev)) : 0;
+        const partiCastr = !castr ? null
+            : s === 'in_onda' && mancaSigla > 0 ? ['Sigla d\'apertura in corso: il player di Castr compare tra ', el('strong', { testo: mancaSigla + ' s' }), '.']
+                : s === 'in_onda' ? ['In onda con il player di Castr: i partecipanti vedono la diretta di Castr, con i suoi comandi.']
+                    : s === 'programmato' ? ['Con «Vai in onda» parte la sigla d\'apertura (' + Math.round(durataSigla(ev)) + ' secondi: le immagini del webinar e il conto alla rovescia), poi il player di Castr. ',
+                        el('strong', { testo: 'Premi «Vai in onda» ' + Math.round(durataSigla(ev)) + ' secondi prima che parta la diretta su Castr' }), ': così nessuno ne perde l\'inizio.']
+                        : null;
+        riga.hidden = !yt && !partiCastr;
+        if (!yt && !partiCastr) { svuota(riga); return; }
+        if (partiCastr) {
+            svuota(riga);
+            partiCastr.forEach(x => riga.append(x));
+            if (s === 'in_onda' && !$('#scheda-regia').hidden && document.visibilityState === 'visible') {
+                stato.timerPuntoRegia = setTimeout(aggiornaPuntoRegia, 1000 - (Date.now() % 1000) + 20);
+            }
+            return;
+        }
         const punto = scriviPuntoVideo(puntoRegistrazione(ev)) || '0:00';
-        const mancaSigla = Math.ceil(durataSigla(ev) - secondiInOnda(ev));
         const parti = s === 'in_onda' && mancaSigla > 0
             ? ['Sigla d\'apertura in corso: il video parte tra ', el('strong', { testo: mancaSigla + ' s' }), ', dal punto ', el('strong', { testo: punto }), '.']
             : s === 'in_onda' ? ['Registrazione YouTube al punto ', el('strong', { testo: punto }), ', lo stesso per tutti i partecipanti.']

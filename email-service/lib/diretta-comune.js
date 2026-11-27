@@ -168,7 +168,7 @@ function linkDiretta() {
    cosi' nel link non si legge da dove arriva il video. Non e' un segreto,
    solo un nome neutro: le pagine (diretta.js, relatore.js) e questo servizio
    leggono tutte e due le forme. */
-const RE_ID_PIATTAFORMA_LINK = /you-?tu|azoto/;
+const RE_ID_PIATTAFORMA_LINK = /you-?tu|azoto|(?:^|-)castr(?:-|$)/;
 const RE_ID_LINK = /^[a-z0-9-]{3,41}$/;
 function eventoNelLink(id) {
     const s = String(id || '');

@@ -78,9 +78,10 @@
             togli();
             var gen = generazione;
             var u = new URL(url);
-            // il player di YouTube (dal webinar del 10 dicembre) o quello di Azoto: cambia solo il nome a video
+            // il player di YouTube (dal webinar del 10 dicembre), di Castr o di Azoto: cambia solo il nome a video
             var V = window.NGBSorgenteVideo;
-            var nomePlayer = V && typeof V.eYouTube === 'function' && V.eYouTube(url) ? 'YouTube' : 'Azoto';
+            var nomePlayer = V && typeof V.eYouTube === 'function' && V.eYouTube(url) ? 'YouTube'
+                : V && typeof V.eCastr === 'function' && V.eCastr(url) ? 'Castr' : 'Azoto';
             var r = pezzo('div', 'position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;'
                 + 'background:radial-gradient(ellipse at 50% 35%,#1f4d7a 0%,#0b2440 55%,#061526 100%);color:#fff;'
                 + 'font-family:Inter,system-ui,sans-serif;overflow:hidden;');
@@ -144,7 +145,8 @@
         function aggiornaTitolo(t) {
             titolo = String(t == null ? '' : t).trim().slice(0, 200);
             if (el) {
-                el.setAttribute('aria-label', etichetta() + ' (player ' + (window.NGBSorgenteVideo && window.NGBSorgenteVideo.eYouTube && window.NGBSorgenteVideo.eYouTube(url) ? 'YouTube' : 'Azoto') + ' di prova)');
+                var SV = window.NGBSorgenteVideo;
+                el.setAttribute('aria-label', etichetta() + ' (player ' + (SV && SV.eYouTube && SV.eYouTube(url) ? 'YouTube' : SV && SV.eCastr && SV.eCastr(url) ? 'Castr' : 'Azoto') + ' di prova)');
                 el.setAttribute('title', etichetta());
             }
         }

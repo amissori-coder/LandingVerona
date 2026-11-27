@@ -425,16 +425,16 @@ async function sheetJSNode() {
            YouTube non e' piu' fra queste: dal webinar del 10 dicembre 2026 il suo player si incorpora come quello di Azoto (§13 del README) */
         const VECCHIE = new RegExp(['vim' + 'eo', 'NGBPlayer\\.nome', '\\bidDa\\b'].join('|'), 'i');
         vero(!VECCHIE.test(codiceGestione + htmlGestione + cssGestione),
-            'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva da YouTube o dalla web TV Azoto');
+            'la gestione (js, html, css) non nomina altre piattaforme video né il vecchio player (NGBPlayer.nome/idDa): il video arriva da YouTube, da Castr o dalla web TV Azoto');
         vero(/<script src="\.\.\/sorgente-video\.js[^"]*"><\/script>\s*(<!--[^>]*-->\s*)?<script src="\.\.\/sigla\.js[^"]*"><\/script>\s*(<!--[\s\S]*?-->\s*)?<script src="\.\.\/player-webtv\.js[^"]*"><\/script>\s*<script src="\.\.\/player-azoto\.js[^"]*"><\/script>\s*<script src="gestione\.js/.test(htmlGestione),
             'la gestione carica sorgente-video.js (le regole dei link, le stesse del servizio), sigla.js (la durata della sigla d\'apertura, per il punto della registrazione in Regia), player-webtv.js e player-azoto.js (i player dei partecipanti, per l\'anteprima)');
         const cspGestione = (/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(htmlGestione) || [])[1] || '';
         const direttiva = nome => ((new RegExp('(?:^|;)\\s*' + nome + ' ([^;]*)').exec(cspGestione) || [])[1] || '').trim();
-        vero(direttiva('frame-src') === 'https://www.youtube-nocookie.com https://cdn.azotosolutions.com' && !/azotosolutions|youtube/.test(direttiva('script-src')),
-            'CSP della gestione: negli iframe solo i player da incorporare, YouTube (youtube-nocookie) e Azoto; nessuno script loro (azoto-player.js non si carica)', cspGestione);
+        vero(direttiva('frame-src') === 'https://www.youtube-nocookie.com https://player.castr.com https://cdn.azotosolutions.com' && !/azotosolutions|youtube|castr/.test(direttiva('script-src')),
+            'CSP della gestione: negli iframe solo i player da incorporare, YouTube (youtube-nocookie), Castr (player.castr.com) e Azoto; nessuno script loro (azoto-player.js non si carica)', cspGestione);
         const notaHtml = ((/<p class="aiuto nota-azoto">([^<]*)<\/p>/.exec(htmlGestione) || [])[1] || '').replace(/&#39;/g, '\'');
         vero(notaHtml === V.AVVISO_INCORPORATO && /SV\.AVVISO_INCORPORATO/.test(codiceGestione),
-            'la nota sotto il campo del player YouTube o Azoto è quella di sorgente-video.js (AVVISO_INCORPORATO), e gestione.js la prende da lì: «' + V.AVVISO_INCORPORATO + '»', notaHtml);
+            'la nota sotto il campo del player YouTube, Castr o Azoto è quella di sorgente-video.js (AVVISO_INCORPORATO), e gestione.js la prende da lì: «' + V.AVVISO_INCORPORATO + '»', notaHtml);
         const codicePlayerAzoto = fs.readFileSync(path.join(RADICE, 'diretta/player-azoto.js'), 'utf8');
         vero(!/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML|document\.write|srcdoc/.test(codicePlayerAzoto) && /document\.createElement\('iframe'\)/.test(codicePlayerAzoto),
             'player-azoto.js costruisce l\'iframe con document.createElement: niente innerHTML, document.write o srcdoc (l\'HTML incollato non entra mai nella pagina)');
@@ -877,7 +877,7 @@ async function sheetJSNode() {
             'dal titolo «Prova YouTube» l\'identificativo proposto è «prova-2026», e sotto il campo il link che ricevono i partecipanti', await testo('#ev-id-link'));
         await $('#ev-id').fill('prova-youtube');
         await $('#btn-salva-evento').click();
-        vero(/Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video \(YouTube, Azoto\)/.test(await testo('#msg-evento'))
+        vero(/Identificativo: si vede nel link che ricevono i partecipanti, non usare il nome della piattaforma del video \(YouTube, Castr, Azoto\)/.test(await testo('#msg-evento'))
             && await $('#ev-id').getAttribute('aria-invalid') === 'true' && chiamate('evento-salva').length === 0
             && /Questo link contiene il nome della piattaforma del video/.test(await testo('#ev-id-link')),
             '«prova-youtube» scritto a mano: non si salva, con il motivo — «' + await testo('#msg-evento') + '»');
@@ -896,8 +896,8 @@ async function sheetJSNode() {
         const flussoSpento = async () => await radioFlusso.isDisabled()
             && /\bspenta\b/.test(await $('#ev-tipo-player .opzione:has(input[value="flusso"])').getAttribute('class') || '');
         const testoTipoPlayer = (await testo('#ev-tipo-player')).replace(/\s+/g, ' ');
-        vero(await testo('#ev-tipo-player legend') === 'Tipo di player' && /Player YouTube o Azoto \(iframe\) predefinito/.test(testoTipoPlayer) && /Flusso diretto \(\.m3u8\)/.test(testoTipoPlayer),
-            'la scheda Evento ha il campo «Tipo di player»: «Player YouTube o Azoto (iframe)» (predefinito) e «Flusso diretto (.m3u8)»', testoTipoPlayer);
+        vero(await testo('#ev-tipo-player legend') === 'Tipo di player' && /Player YouTube, Castr o Azoto \(iframe\) predefinito/.test(testoTipoPlayer) && /Flusso diretto \(\.m3u8\)/.test(testoTipoPlayer),
+            'la scheda Evento ha il campo «Tipo di player»: «Player YouTube, Castr o Azoto (iframe)» (predefinito) e «Flusso diretto (.m3u8)»', testoTipoPlayer);
         vero(await radioAzoto.isChecked() && !(await radioFlusso.isChecked()), 'per un evento nuovo è scelto «Player Azoto (iframe)»');
         vero(await flussoSpento() && /^Si può scegliere quando c'è il link \.m3u8 del flusso/.test(await testo('#ev-tipo-flusso-nota')),
             '«Flusso diretto (.m3u8)» non si può scegliere senza il link del flusso, e lo dice: «' + await testo('#ev-tipo-flusso-nota') + '»');
@@ -2026,6 +2026,25 @@ async function sheetJSNode() {
         await page.click('[data-scheda="regia"]');
         await aspetta(async () => secondiDi(await testo('#regia-registrazione')) >= 3750, 5000, 'nuovo punto in regia');
         vero(true, 'in Regia il punto riparte da 1:02:30 più il tempo in onda: «' + await testo('#regia-registrazione') + '»');
+        /* Il player di Castr (un identificativo finto: quello vero non va mai nel
+           codice): del codice «Embed» si salva il player ricostruito, niente
+           videoYouTube; in Regia il bollino «Player Castr» e la riga della
+           sigla (gia' finita: «In onda con il player di Castr»). */
+        const CASTR_CODICE = '<iframe src="https://player.castr.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9" width="100%" style="aspect-ratio: 16/9; min-height: 340px;" frameborder="0" scrolling="no" allow="autoplay" allowfullscreen></iframe>';
+        const castrVideo = await api('diretta-gestione', { azione: 'evento-video', idEvento: ID, azotoUrl: CASTR_CODICE }, tokGestore);
+        const pubCastr = await docPubblico();
+        vero(castrVideo.stato === 200 && pubCastr.videoId === 'https://player.castr.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9?autoplay=on' && pubCastr.videoYouTube === false && pubCastr.tipoPlayer === 'azoto',
+            'il codice «Embed» di Castr: in onda il player ricostruito (autoplay=on), videoYouTube no', JSON.stringify({ s: castrVideo.stato, v: pubCastr.videoId, yt: pubCastr.videoYouTube }));
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await $('#sel-evento').inputValue() === ID, 10000, 'evento dopo la ricarica (Castr)');
+        await page.click('[data-scheda="regia"]');
+        await aspetta(async () => /player di Castr/.test(await testo('#regia-registrazione')), 5000, 'la riga di Castr in regia');
+        const rigaCastr = await testo('#regia-registrazione');
+        vero(/^(In onda con il player di Castr: i partecipanti vedono la diretta di Castr, con i suoi comandi\.|Sigla d'apertura in corso: il player di Castr compare tra \d+ s\.)$/.test(rigaCastr)
+            && await testo('#regia-tipo-player') === 'Player Castr',
+            'Regia con Castr: il bollino «Player Castr» e la riga della sigla — «' + rigaCastr + '», «' + await testo('#regia-tipo-player') + '»');
+
         // si torna com'era: player Azoto salvato, flusso diretto in uso, nessun punto di partenza
         const ritorno = [
             await api('diretta-gestione', { azione: 'evento-salva', evento: { id: ID, inizioVideo: 0 } }, tokGestore),

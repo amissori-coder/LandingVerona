@@ -591,8 +591,8 @@ function uguali(a, b) {
    partecipanti (/diretta/?e=<id>): niente nome della piattaforma del video
    (per esempio prova-youtube), che dice da dove arriva il video. Vale per
    gli eventi nuovi: quelli che ci sono gia' non si rinominano. */
-const RE_ID_PIATTAFORMA = /you-?tu|azoto/;
-const MSG_ID_PIATTAFORMA = 'L\'identificativo si vede nel link che ricevono i partecipanti: non usare il nome della piattaforma del video (YouTube, Azoto). Per esempio: webinar-10-dicembre-2026.';
+const RE_ID_PIATTAFORMA = /you-?tu|azoto|(?:^|-)castr(?:-|$)/;
+const MSG_ID_PIATTAFORMA = 'L\'identificativo si vede nel link che ricevono i partecipanti: non usare il nome della piattaforma del video (YouTube, Castr, Azoto). Per esempio: webinar-10-dicembre-2026.';
 
 async function salvaEvento(ctx, ingresso) {
     const e = ingresso || {};

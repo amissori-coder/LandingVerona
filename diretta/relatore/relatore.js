@@ -486,7 +486,7 @@
     }
     function eventoNelLink(id) {
         const s = String(id || '');
-        if (!/you-?tu|azoto/.test(s)) return s;
+        if (!/you-?tu|azoto|(?:^|-)castr(?:-|$)/.test(s)) return s;
         return 'c.' + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
     // il preferito: quello del collegamento (?e=), poi l'ultimo scelto, poi in onda > il prossimo > il piu' recente

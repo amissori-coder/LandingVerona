@@ -401,6 +401,9 @@ vero(!/<script|<b>123/.test(assistenzaCattiva.html) && assistenzaCattiva.html.in
         'anche nel promemoria e in «Password dimenticata?» (&e=' + codice + '): niente «youtube»');
     vero(C.eventoNelLink('napoli-2026') === 'napoli-2026' && C.eventoDalLink('napoli-2026') === 'napoli-2026' && C.eventoNelLink('webinar-2026-12-10') === 'webinar-2026-12-10',
         'gli identificativi neutri restano come sono (napoli-2026, webinar-2026-12-10)');
+    const codiceCastr = C.eventoNelLink('prova-castr');
+    vero(/^c\./.test(codiceCastr) && !/castr/i.test(codiceCastr) && C.eventoDalLink(codiceCastr) === 'prova-castr' && C.eventoNelLink('castrocaro-2027') === 'castrocaro-2027',
+        'anche «castr» nell\'identificativo diventa un codice neutro (' + codiceCastr + '); castrocaro-2027 resta com\'e\'');
     vero(C.eventoDalLink('c.!!') === '' && C.eventoDalLink('c.' + Buffer.from('<script>').toString('base64url')) === '' && C.eventoDalLink('') === '' && C.eventoDalLink(null) === '',
         'un codice che non e\' un identificativo valido non vale niente');
 }
