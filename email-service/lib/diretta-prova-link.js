@@ -628,18 +628,20 @@ function titoloFlusso(nome, r, nVarianti, media) {
     const indietro = dvr >= 60 ? 'si può tornare indietro di ' + minuti(dvr) : 'non si può tornare indietro';
     return 'Flusso ' + nome + ' in diretta, ' + qualita + ', ' + indietro;
 }
-function titoloIntoppo(r, pagina) {
+function titoloIntoppo(r, pagina, nome) {
     const p = r.problemi[0];
     if (!p) return '';
     if (pagina) {
+        // il player da incorporare: Azoto, o Castr (nome)
+        const n = nome || 'Azoto';
         return {
             'non-pubblico': 'Indirizzo non pubblico: non si può usare',
-            'https': 'Il player Azoto rimanda a un indirizzo http',
-            'credenziali': 'Il player Azoto rimanda a un indirizzo con credenziali',
-            'non-trovato': 'Player Azoto: pagina non trovata',
-            'rifiutato': 'Player Azoto: accesso negato',
-            'non-risponde': 'Player Azoto: non risponde'
-        }[p.codice] || 'Il player Azoto non si può provare';
+            'https': 'Il player ' + n + ' rimanda a un indirizzo http',
+            'credenziali': 'Il player ' + n + ' rimanda a un indirizzo con credenziali',
+            'non-trovato': 'Player ' + n + ': pagina non trovata',
+            'rifiutato': 'Player ' + n + ': accesso negato',
+            'non-risponde': 'Player ' + n + ': non risponde'
+        }[p.codice] || 'Il player ' + n + ' non si può provare';
     }
     return {
         'non-pubblico': 'Indirizzo non pubblico: non si può usare',
@@ -795,7 +797,7 @@ async function provaAzoto(ctx, r, url, link) {
     let risp;
     try { risp = await richiesta(ctx, url, { intestazioni: { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' } }); } catch (e) {
         problemaDa(ctx, r, e, link, 'Il server del player ' + nome);
-        r.titolo = titoloIntoppo(r, true);
+        r.titolo = titoloIntoppo(r, true, nome);
         return;
     }
     r.info.raggiungibile = true;
@@ -813,7 +815,7 @@ async function provaAzoto(ctx, r, url, link) {
     }
     if (risp.stato < 200 || risp.stato >= 300) {
         problemaStato(ctx, r, risp.stato, link, 'Il server del player ' + nome, true);
-        r.titolo = titoloIntoppo(r, true) + ' (errore ' + risp.stato + ')';
+        r.titolo = titoloIntoppo(r, true, nome) + ' (errore ' + risp.stato + ')';
         return;
     }
     const tipo = String(risp.intestazioni.get('content-type') || '').toLowerCase();

@@ -2044,6 +2044,39 @@ async function sheetJSNode() {
         vero(/^(In onda con il player di Castr: i partecipanti vedono la diretta di Castr, con i suoi comandi\.|Sigla d'apertura in corso: il player di Castr compare tra \d+ s\.)$/.test(rigaCastr)
             && await testo('#regia-tipo-player') === 'Player Castr',
             'Regia con Castr: il bollino «Player Castr» e la riga della sigla — «' + rigaCastr + '», «' + await testo('#regia-tipo-player') + '»');
+        /* Come lo fa la regia: nella Regia il codice «Embed» di un altro player
+           di Castr (finto), «Cambia il player». La prova del link non arriva a
+           Castr (qui la rete non c'e': un avviso, si chiede conferma); i
+           messaggi dicono Castr, mai Azoto. */
+        // la gestione ha finito di caricare l'evento (altrimenti riempirebbe il campo con il player salvato, dopo)
+        await aspetta(async () => /player\.castr\.com\/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9/.test(await testo('#regia-azoto-attuale'))
+            && /player\.castr\.com\/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9/.test(await $('#regia-azoto').inputValue()), 15000, 'il player di Castr salvato, in Regia');
+        await pausa(1500);
+        await $('#regia-blocco-azoto').evaluate(d => { d.open = true; });
+        // dopo la ricarica la gestione puo' riscrivere il campo con il player salvato: si riscrive finche' resta
+        const CODICE_CASTR_2 = '<iframe src="https://player.castr.com/live_ffeeddccbbaa99887766554433221100" width="100%" style="aspect-ratio: 16/9;" frameborder="0" scrolling="no" allow="autoplay" allowfullscreen></iframe>';
+        for (let i = 0; i < 4; i++) {
+            await $('#regia-azoto').fill(CODICE_CASTR_2);
+            const visto = await aspetta(async () => /Preso dal codice di Castr/.test(await testo('#regia-azoto-indirizzo')), 3000, 'l\'indirizzo del player di Castr sotto il campo').then(() => true, () => false);
+            if (visto && await $('#regia-azoto').inputValue() === CODICE_CASTR_2) break;
+            await pausa(2000);
+        }
+        vero(/Preso dal codice di Castr: si salva solo questo indirizzo/.test(await testo('#regia-azoto-indirizzo')),
+            'sotto il campo della Regia: l\'indirizzo del player di Castr, «Preso dal codice di Castr» (non di Azoto)', await testo('#regia-azoto-indirizzo') + ' | campo: ' + (await $('#regia-azoto').inputValue()).slice(0, 80) + ' | visibile: ' + await $('#regia-azoto').isVisible());
+        await $('#btn-cambia-azoto').click();
+        await $('#dialogo-conferma').waitFor({ state: 'visible', timeout: 60000 });
+        const testoConferma = await testo('#conferma-titolo') + ' ' + await testo('#conferma-testo') + ' ' + await testo('#conferma-dettagli');
+        vero(/^Cambiare il player per tutti\?/.test(testoConferma) && /Nuovo player: https:\/\/player\.castr\.com\/live_ffeeddccbbaa99887766554433221100\?autoplay=on/.test(testoConferma)
+            && /La diretta è in onda con il player Castr: chi è collegato passa al nuovo indirizzo/.test(testoConferma) && !/Azoto/.test(testoConferma),
+            'Regia, «Cambia il player» con Castr: la conferma parla del player Castr, mai di Azoto — «' + testoConferma.slice(0, 400) + '»');
+        await $('#conferma-ok').click();
+        await $('#dialogo-conferma').waitFor({ state: 'hidden', timeout: 5000 });
+        await aspetta(async () => /Player cambiato, ora è il player Castr/.test(await testo('#msg-azoto')), 15000, 'il messaggio del cambio');
+        const msgCastr = await testo('#msg-azoto');
+        await aspetta(async () => /stanno guardando il player Castr/.test(await testo('#regia-video-pubblico')), 10000, 'chi guarda: il player Castr');
+        vero(/^Player cambiato, ora è il player Castr: i partecipanti collegati passano al nuovo indirizzo\. Dal codice di Castr ho salvato solo l'indirizzo del player\./.test(msgCastr) && !/Azoto/.test(msgCastr)
+            && (await docPubblico()).videoId === 'https://player.castr.com/live_ffeeddccbbaa99887766554433221100?autoplay=on',
+            'cambiato: il messaggio dice Castr (mai Azoto), chi è collegato riceve il nuovo player — «' + msgCastr + '», «' + await testo('#regia-video-pubblico') + '»');
 
         // si torna com'era: player Azoto salvato, flusso diretto in uso, nessun punto di partenza
         const ritorno = [
