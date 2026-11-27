@@ -179,11 +179,11 @@ function idEventoDi(o) {
     const id = String((o && o.idEvento) || (o && o.evento && o.evento.id) || '');
     return RE_ID_EVENTO.test(id) ? id : '';
 }
-// /diretta/?e=napoli-2026 (senza un evento valido: /diretta/)
+// /diretta/?e=napoli-2026 (senza un evento valido: /diretta/; con il nome della piattaforma: in codice, C.eventoNelLink)
 function linkAccesso(idEvento) {
     const url = C.linkDiretta();
     if (!RE_ID_EVENTO.test(String(idEvento || ''))) return url;
-    return url + '?e=' + encodeURIComponent(idEvento);
+    return url + '?e=' + encodeURIComponent(C.eventoNelLink(idEvento));
 }
 /* /diretta/?dimenticata=1: la pagina si apre direttamente su
    "Password dimenticata?" (l'email la scrive la persona). Con l'evento
@@ -191,7 +191,7 @@ function linkAccesso(idEvento) {
    reimposta quello di questo evento. */
 function linkDimenticata(idEvento) {
     const base = C.baseSito() + '/diretta/?dimenticata=1';
-    return RE_ID_EVENTO.test(String(idEvento || '')) ? base + '&e=' + encodeURIComponent(idEvento) : base;
+    return RE_ID_EVENTO.test(String(idEvento || '')) ? base + '&e=' + encodeURIComponent(C.eventoNelLink(idEvento)) : base;
 }
 function linkPaginaEvento(pagina) {
     const p = String(pagina || '').trim();

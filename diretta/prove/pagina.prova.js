@@ -912,9 +912,87 @@ function eventoIniziale(T) {
             await foto(p, 'attesa-computer', true);
         });
 
+        const giostra = () => p.evaluate(() => {
+            const punti = [...document.querySelectorAll('#schermo-attesa .giostra-punto')];
+            const imm = document.querySelector('#schermo-attesa .sigla-immagine');
+            return { punti: punti.length, ora: punti.findIndex(b => b.getAttribute('aria-current') === 'true'), testo: document.querySelector('#schermo-attesa .sigla-palco').innerText, gruppo: imm ? imm.getAttribute('aria-label') : '' };
+        });
+        await prova('attesa: le carte staccate dalla fascia del titolo; accanto ai testi «Mentre aspetti», le immagini Revilaw che girano da sole (puntini, «Ferma»/«Riprendi»)', async () => {
+            const a = await p.evaluate(() => {
+                const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
+                const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
+                const titolo = document.getElementById('attesa-titolo').getBoundingClientRect();
+                const schermo = document.querySelector('#schermo-attesa .giostra-schermo').getBoundingClientRect();
+                return {
+                    spazio: Math.round(carta.top - fascia.bottom), accanto: schermo.left > titolo.right && schermo.bottom < fascia.bottom,
+                    schermo: [Math.round(schermo.width), Math.round(schermo.height)],
+                    eroe: document.querySelector('#vista-attesa .attesa-eroe').classList.contains('con-schermo'), sigle: document.querySelectorAll('.sigla').length
+                };
+            });
+            vero(a.spazio >= 24, 'la prima carta e\' staccata dalla fascia del titolo (prima vi stava attaccata): ' + a.spazio + ' px');
+            vero(a.eroe && a.accanto && a.schermo[0] >= 480 && Math.abs(a.schermo[0] / a.schermo[1] - 16 / 9) < 0.03, 'sul computer lo schermo e\' accanto ai testi, 16:9: ' + JSON.stringify(a));
+            vero(a.sigle === 0, 'lo schermo dell\'attesa non e\' «la sigla» del video (.sigla): ' + a.sigle);
+            const g1 = await giostra();
+            vero(g1.punti === 5 && g1.ora === 0 && g1.gruppo === 'Immagine 1 di 5' && /Revilaw presenta/i.test(g1.testo) && /Next Generation Business/.test(g1.testo),
+                'la prima immagine, un puntino per immagine (apertura, titolo, programma, percorso, Milano): ' + JSON.stringify(g1));
+            await p.click('#schermo-attesa .giostra-punto:nth-child(3)');
+            const g3 = await giostra();
+            vero(g3.ora === 2 && g3.gruppo === 'Immagine 3 di 5' && /Il programma/.test(g3.testo) && g3.testo.includes(PROGRAMMA[0].titolo), 'il terzo puntino: il programma ' + JSON.stringify(g3));
+            // da sola, dopo SECONDI_GIOSTRA, la successiva: il percorso di Next Generation Business
+            await aspetta(async () => /Per gli imprenditori\. Dagli imprenditori\./.test((await giostra()).testo), 12000, 'l\'immagine successiva, da sola');
+            await p.click('#schermo-attesa .giostra-pausa');
+            vero(await p.textContent('#schermo-attesa .giostra-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .giostra-pausa', 'aria-label') === 'Riprendi le immagini',
+                '«Ferma» diventa «Riprendi»: ' + await p.textContent('#schermo-attesa .giostra-pausa'));
+            await pausa(10000);
+            vero((await giostra()).ora === 3, 'con «Ferma» l\'immagine resta quella');
+            await p.click('#schermo-attesa .giostra-pausa');
+            vero(await p.textContent('#schermo-attesa .giostra-pausa') === 'Ferma', '«Riprendi» torna «Ferma»');
+            await p.click('#schermo-attesa .giostra-punto:nth-child(5)');
+            const g5 = await giostra();
+            vero(/Il prossimo appuntamento · Milano, venerdì 26 febbraio 2027/i.test(g5.testo) && /Merito creditizio, crescita e competitività delle imprese\./.test(g5.testo), 'l\'ultima immagine: il prossimo appuntamento, Milano ' + JSON.stringify(g5));
+            await p.click('#schermo-attesa .giostra-punto:nth-child(1)');
+            await foto(p, 'attesa-mentre-aspetti');
+        });
+
+        await prova('attesa: «Mettiti alla prova», la risposta subito (giusta o no, con la spiegazione), il punteggio annunciato e «Ricomincia»', async () => {
+            vero(await visibile(p, '#carta-gioco'), 'manca «Mettiti alla prova»');
+            const domande = p.locator('#gioco-domande .gioco-domanda');
+            vero(await domande.count() === 3, 'domande: ' + await domande.count());
+            vero(await p.getAttribute('#gioco-esito', 'role') === 'status', 'il punteggio si annuncia (role=status)');
+            // 1: giusta
+            await domande.nth(0).locator('.gioco-scelta', { hasText: 'Sì' }).click();
+            const sp1 = await domande.nth(0).locator('.gioco-spiegazione').innerText();
+            vero(/^Giusto\. Sì: oltre al bilancio la banca guarda la Centrale dei rischi/.test(sp1), 'spiegazione della prima: ' + sp1);
+            vero(await p.textContent('#gioco-esito') === 'Giusto. Risposte giuste: 1 su 1.', 'esito: ' + await p.textContent('#gioco-esito'));
+            // 2: sbagliata: la giusta in verde, la tua in rosso; un altro clic non cambia niente
+            const scelte2 = domande.nth(1).locator('.gioco-scelta');
+            await scelte2.nth(0).click();
+            // il pulsante e' aria-disabled (Playwright non lo premerebbe): il clic forzato non deve cambiare niente
+            await scelte2.nth(1).click({ force: true });
+            const c2 = await domande.nth(1).evaluate(li => [...li.querySelectorAll('.gioco-scelta')].map(b => b.className + '|' + b.getAttribute('aria-disabled')));
+            vero(/gioco-scelta-sbagliata/.test(c2[0]) && /gioco-scelta-giusta/.test(c2[1]) && c2.every(x => /\|true$/.test(x)), 'le risposte della seconda: ' + JSON.stringify(c2));
+            vero(await p.textContent('#gioco-esito') === 'Non proprio: la risposta è «No». Risposte giuste: 1 su 2.', 'esito: ' + await p.textContent('#gioco-esito'));
+            // 3: giusta, finito
+            await domande.nth(2).locator('.gioco-scelta', { hasText: 'adeguati assetti' }).click();
+            vero(/Hai finito: 2 risposte giuste su 3\. Se ne parla nella diretta\.$/.test(await p.textContent('#gioco-esito')), 'esito finale: ' + await p.textContent('#gioco-esito'));
+            vero(!/Se ne parla alle/.test(await p.innerText('#carta-gioco')), 'gli orari del programma del webinar solo nel webinar');
+            await p.locator('#carta-gioco').scrollIntoViewIfNeeded();
+            await foto(p, 'attesa-gioco');
+            // «Ricomincia»: da capo, il fuoco sulla prima risposta
+            await p.click('.gioco-ricomincia');
+            const r = await p.evaluate(() => ({
+                esito: document.getElementById('gioco-esito').textContent, spiegazioni: [...document.querySelectorAll('.gioco-spiegazione')].filter(e => !e.hidden).length,
+                fuoco: document.activeElement ? document.activeElement.textContent : '', ricomincia: !document.querySelector('.gioco-ricomincia').hidden
+            }));
+            vero(r.esito === '' && r.spiegazioni === 0 && r.fuoco === 'Sì' && !r.ricomincia, '«Ricomincia»: ' + JSON.stringify(r));
+            await p.evaluate(() => window.scrollTo(0, 0));
+        });
+
+        let giostraInDiretta = null;
         await prova('la regia manda in onda: la pagina passa da sola alla diretta e il video della web TV scorre', async () => {
             await evento.update({ stato: 'in_onda', videoId: LINK, statoAggiornato: T.now() });
             await vistaE(p, 'diretta', 15000);
+            giostraInDiretta = { da: Date.now(), gruppo: (await giostra()).gruppo };
             await videoVa(p, 30000, 'la diretta della web TV');
             vero((await p.textContent('#stato-evento')).trim() === 'IN DIRETTA', 'bollino: ' + await p.textContent('#stato-evento'));
             vero(await p.getAttribute('#stato-evento', 'data-stato') === 'in_onda', 'bollino non rosso');
@@ -1064,6 +1142,13 @@ function eventoIniziale(T) {
             await aspetta(() => visibile(p, '#indicatore-live'), 10000, '«IN DIRETTA» di nuovo');
             vero(!(await visibile(p, '#btn-live')), '«Torna in diretta» resta al punto live');
             await p.waitForFunction(() => /Di nuovo in diretta/.test(document.getElementById('annuncio').textContent), null, { timeout: 3000 });
+        });
+
+        await prova('fuori dall\'attesa le immagini di «Mentre aspetti» non girano', async () => {
+            vero(giostraInDiretta && giostraInDiretta.gruppo, 'l\'immagine all\'inizio della diretta: ' + JSON.stringify(giostraInDiretta));
+            const resto = giostraInDiretta.da + 10000 - Date.now();
+            if (resto > 0) await pausa(resto);
+            vero(await vistaDi(p) !== 'attesa' && (await giostra()).gruppo === giostraInDiretta.gruppo, 'dopo 10 secondi fuori dall\'attesa la stessa immagine: ' + (await giostra()).gruppo);
         });
 
         await prova('la presenza viene scritta dopo il ritardo casuale (regole vere)', async () => {
@@ -1387,6 +1472,30 @@ function eventoIniziale(T) {
             await vistaE(q, 'accesso', 20000);
             vero(await vistaDi(q) === 'accesso', 'ricaricando resta l\'accesso: la sessione dell\'altro evento e\' chiusa');
             vero(q.__erroriPagina.length === 0, 'errori: ' + q.__erroriPagina.join(' | '));
+        });
+
+        await prova('il link di un evento con il nome della piattaforma nell\'identificativo (ev-youtube) ha un codice neutro (?e=c.…): l\'evento giusto, e nell\'indirizzo mai «youtube»', async () => {
+            const codice = 'c.' + Buffer.from('ev-youtube').toString('base64url');
+            vero(!/you-?tu/i.test(codice), 'il codice: ' + codice);
+            await q.goto(SITO + '/diretta/?e=' + codice);
+            await entraCome('yuritube@esempio.it', PASSWORD_PROVA);
+            const dentro = 'body[data-vista="diretta"], body[data-vista="attesa"], body[data-vista="pausa"], body[data-vista="fine"]';
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            const c = chiamate.filter(x => x.azione === 'entra' && x.email === 'yuritube@esempio.it').pop();
+            vero(c && c.idEvento === 'ev-youtube', 'al servizio l\'evento giusto: ' + (c && c.idEvento));
+            vero(!/you-?tu/i.test(q.url()) && new URL(q.url()).searchParams.get('e') === codice, 'l\'indirizzo resta con il codice: ' + q.url());
+            // ricaricando, gia' dentro: il codice vale per l'evento dell'account (nessun «altro evento»)
+            await q.reload();
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            vero(!/altro evento/.test(await q.textContent('#msg-accesso')), 'ricaricando resta nella diretta: ' + await q.textContent('#msg-accesso'));
+            await esciDa(q);
+            // un codice rovinato non vale niente: nessun evento al servizio
+            await q.goto(SITO + '/diretta/?e=c.%21%21');
+            await entraCome('mario.rossi@esempio.it', passwordIniziale);
+            await q.waitForSelector(dentro, { timeout: 20000 });
+            const c2 = chiamate.filter(x => x.azione === 'entra' && x.email === 'mario.rossi@esempio.it').pop();
+            vero(!c2.conIdEvento, 'un codice rovinato manda un idEvento: ' + c2.idEvento);
+            await esciDa(q);
         });
 
         await prova('un vecchio collegamento con ?u=<nome utente>, da collegati: nessuna domanda, il parametro si toglie dall\'indirizzo', async () => {
@@ -1976,6 +2085,21 @@ function eventoIniziale(T) {
             await t.fill('#campo-password', passwordIniziale);
             await t.tap('#btn-entra');
             await vistaE(t, 'attesa', 20000);
+            await pausa(500);
+            const m = await t.evaluate(() => {
+                const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
+                const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
+                const testi = document.querySelector('#vista-attesa .attesa-testi').getBoundingClientRect();
+                const s = document.querySelector('#schermo-attesa .giostra-schermo').getBoundingClientRect();
+                const scelta = document.querySelector('#gioco-domande .gioco-scelta').getBoundingClientRect();
+                const punto = document.querySelector('#schermo-attesa .giostra-punto').getBoundingClientRect();
+                return {
+                    spazio: Math.round(carta.top - fascia.bottom), sotto: s.top >= testi.bottom, quadrato: Math.abs(s.width - s.height) <= 1, largo: Math.round(s.width),
+                    scelta: Math.round(scelta.height), punto: [Math.round(punto.width), Math.round(punto.height)], orizzontale: document.documentElement.scrollWidth
+                };
+            });
+            vero(m.spazio >= 20 && m.sotto && m.quadrato && m.largo >= 330 && m.scelta >= 44 && m.punto[0] >= 24 && m.punto[1] >= 24 && m.orizzontale <= 390,
+                'attesa sul telefono: carte staccate, lo schermo sotto i testi (quadrato), pulsanti grandi, niente scorrimento orizzontale ' + JSON.stringify(m));
             await foto(t, 'attesa-telefono', true);
         });
 

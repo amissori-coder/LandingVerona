@@ -735,7 +735,7 @@ async function reimpostaAccount(ctx, uid, ev) {
         try { const e = await db.collection('eventi').doc(suo).get(); titoloEvento = e.exists ? String(e.data().titolo || '') : ''; } catch (_) { titoloEvento = ''; }
     }
     // il collegamento non porta l'email: un indirizzo in un URL finisce nei registri
-    const link = await linkReimpostazione(ctx, C.emailTecnica(uid), suo ? '&e=' + encodeURIComponent(suo) : '');
+    const link = await linkReimpostazione(ctx, C.emailTecnica(uid), suo ? '&e=' + encodeURIComponent(C.eventoNelLink(suo)) : '');
     await spedisciReimpostazione(ctx, { a: indirizzo, nome: p.nome || '', cognome: p.cognome || '', email: indirizzo, link: link, perGestore: false, titoloEvento: titoloEvento }, async () => {
         try {
             await db.collection('partecipanti').doc(uid).update({ resetInviato: ctx.Timestamp.fromMillis(ctx.adesso()) });

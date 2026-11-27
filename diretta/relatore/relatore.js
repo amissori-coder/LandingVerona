@@ -472,7 +472,23 @@
        GLI EVENTI
        --------------------------------------------------------------- */
     // l'evento del collegamento (?e=), cosi' com'e' scritto ('' se non c'e')
-    function eventoDelLink() { return new URLSearchParams(location.search).get('e') || ''; }
+    /* l'evento del collegamento (?e=): l'identificativo oppure il suo codice "c." + base64url
+       (gli identificativi con il nome della piattaforma del video: vedi diretta.js, eventoDalLink) */
+    function eventoDelLink() {
+        const s = new URLSearchParams(location.search).get('e') || '';
+        if (s.indexOf('c.') !== 0) return s;
+        try {
+            let b = s.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+            while (b.length % 4) b += '=';
+            const id = atob(b);
+            return ID_EVENTO_VALIDO.test(id) ? id : '';
+        } catch (e) { return ''; }
+    }
+    function eventoNelLink(id) {
+        const s = String(id || '');
+        if (!/you-?tu|azoto/.test(s)) return s;
+        return 'c.' + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
     // il preferito: quello del collegamento (?e=), poi l'ultimo scelto, poi in onda > il prossimo > il piu' recente
     function eventoPreferito(eventi) {
         const par = eventoDelLink();
@@ -520,7 +536,7 @@
         stato.evento = stato.eventi.find(e => e.id === id) || null;
         $('sel-evento').value = id;
         // «Guarda la diretta»: lo stesso evento, e la diretta non rimanda qui (?vista=diretta)
-        $('link-guarda-diretta').setAttribute('href', '/diretta/?vista=diretta' + (ID_EVENTO_VALIDO.test(String(id || '')) ? '&e=' + encodeURIComponent(id) : ''));
+        $('link-guarda-diretta').setAttribute('href', '/diretta/?vista=diretta' + (ID_EVENTO_VALIDO.test(String(id || '')) ? '&e=' + encodeURIComponent(eventoNelLink(id)) : ''));
         archivio.scrivi(CHIAVE_EVENTO, id);
         aggiornaTestata();
         if (!stesso) { leggiDomande(); leggiPartecipanti(); }

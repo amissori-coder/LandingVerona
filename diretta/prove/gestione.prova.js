@@ -2548,6 +2548,29 @@ async function sheetJSNode() {
         await page.setViewportSize({ width: 1440, height: 900 });
         await pausa(200);
 
+        /* ---------- 9b-ter. un evento di prima con il nome della piattaforma nell'identificativo ----------
+           (per esempio prova-youtube, creato prima della regola: il servizio oggi non lo crea piu').
+           Sotto il campo, il link che ricevono i partecipanti ha al posto dell'identificativo il
+           codice neutro (c. + base64url, lo stesso del servizio), e lo si dice. */
+        console.log('\n-- un evento di prima con il nome della piattaforma nell\'identificativo');
+        const sNeutro = await api('diretta-gestione', { azione: 'evento-salva', evento: { id: 'prova-neutra', nuovo: true, titolo: 'Prova di prima', luogo: 'Online', data: '2026-11-25', oraInizio: '15:00', oraFine: '16:00', videoUrl: '', programma: [], paginaEvento: '' } }, tokGestore);
+        vero(sNeutro.stato === 200, 'un evento preparato con il servizio', JSON.stringify(sNeutro.dati).slice(0, 300));
+        const [pubNeutro, risNeutro] = await Promise.all([db.doc('eventi/prova-neutra').get(), db.doc('eventiRiservati/prova-neutra').get()]);
+        await Promise.all([db.doc('eventi/prova-youtube').set(pubNeutro.data()), db.doc('eventiRiservati/prova-youtube').set(risNeutro.data())]);
+        await Promise.all([db.doc('eventi/prova-neutra').delete(), db.doc('eventiRiservati/prova-neutra').delete()]);
+        await page.reload();
+        await $('#vista-app').waitFor({ state: 'visible', timeout: 20000 });
+        await aspetta(async () => await page.locator('#sel-evento option[value="prova-youtube"]').count() === 1, 10000, 'l\'evento di prima nell\'elenco');
+        await $('#sel-evento').selectOption('prova-youtube');
+        await aspetta(async () => await $('#ev-id').inputValue() === 'prova-youtube', 10000, 'l\'evento di prima scelto');
+        const linkDiPrima = await testo('#ev-id-link');
+        vero(linkDiPrima.startsWith('Link per i partecipanti: nextgenerationbusiness.it/diretta/?e=c.cHJvdmEteW91dHViZQ ')
+            && /nel link \(e nelle email\) c'è al suo posto un codice neutro/.test(linkDiPrima) && !/youtube/i.test(linkDiPrima.split(' ')[4] || 'youtube'),
+            'un evento di prima con «youtube» nell\'identificativo: nel link il codice neutro, e lo si dice — «' + linkDiPrima + '»');
+        await $('#sel-evento').selectOption(ID);
+        await aspetta(async () => await $('#ev-id').inputValue() === ID, 10000, 'di nuovo l\'evento di Napoli');
+        await Promise.all([db.doc('eventi/prova-youtube').delete(), db.doc('eventiRiservati/prova-youtube').delete()]);
+
         /* ---------- 9c. le email programmate ----------
            La sezione «Email programmate» della scheda Email, con il servizio
            vero: l'elenco di tutto quello che partira' da solo, e un promemoria

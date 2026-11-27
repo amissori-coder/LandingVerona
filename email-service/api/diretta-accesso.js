@@ -72,12 +72,12 @@ module.exports = async (req, res) => {
         let risposta;
         if (azione === 'entra') {
             risposta = await A.entra(ctx, {
-                email: b.email, password: b.password, idEvento: b.idEvento,
+                email: b.email, password: b.password, idEvento: C.eventoDalLink(b.idEvento),
                 ip: ip, userAgent: (req.headers || {})['user-agent']
             });
         } else if (azione === 'password-dimenticata') {
             const email = b.email != null && b.email !== '' ? b.email : b.identificativo;
-            risposta = await A.passwordDimenticata(ctx, { email: email, ip: ip, idEvento: b.idEvento });
+            risposta = await A.passwordDimenticata(ctx, { email: email, ip: ip, idEvento: C.eventoDalLink(b.idEvento) });
         } else if (azione === 'gestore-accesso') {
             risposta = await A.gestoreAccesso(ctx, { email: b.email, ip: ip });
         } else if (azione === 'aggiorna-permessi') {

@@ -1153,13 +1153,20 @@
         riga.hidden = !valido;
         svuota(riga);
         if (!valido) return;
+        const piattaforma = RE_ID_PIATTAFORMA.test(id);
+        /* un evento nuovo con il nome della piattaforma non si salva: lo si dice gia' qui.
+           Un evento creato prima della regola (per esempio prova-youtube): nel link, al posto
+           dell'identificativo, il suo codice neutro (lo stesso del servizio, diretta-comune.js
+           eventoNelLink: "c." + base64url), e lo si dice */
+        const nelLink = piattaforma && !stato.nuovo ? 'c.' + btoa(id).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : id;
         // si va a capo dopo /diretta/, non a meta' del nome del sito
         const link = el('span', { classe: 'testo-fisso' });
-        link.append(SITO.replace(/^https:\/\//, '') + '/diretta/', document.createElement('wbr'), '?e=' + id);
+        link.append(SITO.replace(/^https:\/\//, '') + '/diretta/', document.createElement('wbr'), '?e=' + nelLink);
         riga.append('Link per i partecipanti: ', link);
-        // un evento creato prima della regola (per esempio prova-youtube): si dice, l'identificativo non si cambia
-        if (RE_ID_PIATTAFORMA.test(id)) {
-            riga.append(el('strong', { classe: 'avviso-link', testo: ' Questo link contiene il nome della piattaforma del video: per gli inviti usa un evento con un identificativo neutro.' }));
+        if (piattaforma && stato.nuovo) {
+            riga.append(el('strong', { classe: 'avviso-link', testo: ' Questo link contiene il nome della piattaforma del video: scegli un identificativo senza (l\'evento non si salva così).' }));
+        } else if (nelLink !== id) {
+            riga.append(el('span', { classe: 'avviso-link', testo: ' L\'identificativo contiene il nome della piattaforma del video: nel link (e nelle email) c\'è al suo posto un codice neutro.' }));
         }
     }
     ['#ev-luogo', '#ev-titolo', '#ev-data'].forEach(s => $(s).addEventListener('input', suggerisciId));
