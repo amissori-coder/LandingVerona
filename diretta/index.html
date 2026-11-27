@@ -36,20 +36,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
     <!-- ?v= : GitHub Pages tiene i file in cache 10 minuti; cambiando il numero
          a ogni modifica, il browser scarica subito la versione nuova -->
-    <link rel="stylesheet" href="diretta.css?v=20261127b">
+    <link rel="stylesheet" href="diretta.css?v=20261127d">
     <link rel="stylesheet" href="/assets/testo.css?v=1">
     <link rel="stylesheet" href="/assets/stampa.css?v=1" media="print">
     <script src="/assets/stampa.js?v=3" defer></script>
-    <script src="config.js?v=20260926b" defer></script>
+    <script src="config.js?v=20261127d" defer></script>
     <script src="sorgente-video.js?v=20261127c" defer></script>
     <!-- i due player: la modalita' A (il player di Azoto in un iframe) e la B (il flusso diretto) -->
     <script src="player-azoto.js?v=20260925a" defer></script>
     <!-- il video di YouTube: la registrazione che sembra una diretta, con i nostri comandi -->
     <script src="player-youtube.js?v=20261127a" defer></script>
     <!-- la sigla d'apertura del video di YouTube: le immagini Revilaw sul webinar e il conto alla rovescia -->
-    <script src="sigla.js?v=20261127b" defer></script>
+    <script src="sigla.js?v=20261127d" defer></script>
+    <script src="vetrina.js?v=20261127d" defer></script>
     <script src="player-webtv.js?v=20260925a" defer></script>
-    <script src="diretta.js?v=20261127c" defer></script>
+    <script src="diretta.js?v=20261127d" defer></script>
 </head>
 <body data-pagina="diretta" data-vista="caricamento">
 
@@ -207,7 +208,7 @@
                         </ul>
                         <p class="nota-chiara">Non serve ricaricare la pagina: quando la diretta comincia, il video compare qui da solo.</p>
                     </div>
-                    <!-- «Mentre aspetti»: le immagini Revilaw sull'evento, a rotazione (sigla.js, creaGiostra; diretta.js, mostraMentreAspetti).
+                    <!-- «Mentre aspetti»: la vetrina del sito, con il conto alla rovescia (vetrina.js; diretta.js, mostraMentreAspetti).
                          Sui computer accanto ai testi, sul telefono sotto -->
                     <div id="schermo-attesa" class="schermo-attesa" hidden></div>
                 </div>
@@ -230,13 +231,6 @@
                         <li>Se chiudi la pagina, al ritorno non serve rifare l'accesso su questo dispositivo.</li>
                     </ul>
                     <p class="aiuto" data-aiuto></p>
-                </div>
-                <!-- «Mettiti alla prova»: domande sui temi della diretta, se ci sono (sigla.js, gioco e creaGioco; diretta.js, mostraMentreAspetti) -->
-                <div class="carta carta-gioco" id="carta-gioco" hidden>
-                    <h3>Mettiti alla prova</h3>
-                    <p class="gioco-intro">Qualche domanda sui temi della diretta, mentre aspetti: la risposta compare subito.</p>
-                    <ol id="gioco-domande" class="gioco-domande"></ol>
-                    <p id="gioco-esito" class="gioco-esito" role="status" aria-live="polite"></p>
                 </div>
             </div>
             <!-- qui diretta.js mette il riquadro delle domande (#carta-domande), se la regia le ha accese -->

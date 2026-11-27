@@ -93,6 +93,30 @@ function vero(c, d) { if (c) verdi++; else { rossi++; console.log('ROSSO  ' + d)
         await P.locator('body[data-vista="attesa"]').waitFor({ timeout: 20000 });
         vero(true, 'Mario Rossi entra e vede l\'attesa');
         vero(/Mario Rossi/.test(await P.locator('body').innerText()), 'la pagina saluta Mario Rossi');
+        // nell'attesa la vetrina del sito: il conto alla rovescia nella sua fascia, il video della home e le immagini
+        // del sito, che l'anteprima copia accanto alla cartella diretta/ (vetrina.js li prende da li')
+        await P.locator('#schermo-attesa .vetrina-punto').first().waitFor({ timeout: 10000 });
+        vero(await P.locator('#schermo-attesa .vetrina-punto').count() >= 5, 'nell\'attesa la vetrina del sito, un puntino per scena');
+        vero(/^La diretta (inizia tra|sta per iniziare)/.test(await P.locator('#schermo-attesa .vetrina-conto').textContent()), 'il conto alla rovescia nella vetrina');
+        await P.locator('#schermo-attesa .vetrina-punto:last-child').click();
+        let caricati = null;
+        for (let k = 0; k < 40; k++) {
+            caricati = await P.locator('#schermo-attesa').evaluate(s => {
+                const i = s.querySelector('.vetrina-mappa');
+                return { mappa: i.complete && i.naturalWidth > 0 };
+            });
+            if (caricati.mappa) break;
+            await page.waitForTimeout(250);
+        }
+        vero(caricati.mappa, 'la mappa delle sedi della vetrina si carica: ' + JSON.stringify(caricati));
+        await P.locator('#schermo-attesa .vetrina-punto').first().click();
+        let video = null;
+        for (let k = 0; k < 40; k++) {
+            video = await P.locator('#schermo-attesa .vetrina-video').evaluate(v => ({ pronto: v.readyState, tempo: v.currentTime, muto: v.muted, errore: v.error ? v.error.code : 0 }));
+            if (video.pronto >= 2 || video.tempo > 0) break;
+            await page.waitForTimeout(250);
+        }
+        vero(video.muto && (video.pronto >= 2 || video.tempo > 0) && !video.errore, 'il video della home nella vetrina, senza audio: ' + JSON.stringify(video));
         await page.screenshot({ path: path.join(FOTO, '02-attesa.png') });
 
         // 2. la regia entra e manda in onda

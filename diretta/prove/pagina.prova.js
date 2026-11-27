@@ -571,7 +571,7 @@ function eventoIniziale(T) {
                         window.__violazioniCsp.push(e.violatedDirective + ' ' + e.blockedURI + ' ' + (e.sourceFile || ''));
                     });
                 }
-            }, Object.assign({ firestore: PORTE.firestore, auth: PORTE.auth, api: API, ritardoPresenzaMs: 400, intervalloPresenzaMs: 1500 }, extra.prove || {}));
+            }, Object.assign({ firestore: PORTE.firestore, auth: PORTE.auth, api: API, ritardoPresenzaMs: 400, intervalloPresenzaMs: 1500, vetrinaSecondi: 4 }, extra.prove || {}));
             if (extra.initScript) await context.addInitScript(extra.initScript);
             if (senzaSchermoIntero) {
                 // come su iPhone: Safari non manda a schermo intero un riquadro qualsiasi
@@ -920,87 +920,122 @@ function eventoIniziale(T) {
             await foto(p, 'attesa-computer', true);
         });
 
-        const giostra = () => p.evaluate(() => {
-            const punti = [...document.querySelectorAll('#schermo-attesa .giostra-punto')];
-            const imm = document.querySelector('#schermo-attesa .sigla-immagine');
-            return { punti: punti.length, ora: punti.findIndex(b => b.getAttribute('aria-current') === 'true'), testo: document.querySelector('#schermo-attesa .sigla-palco').innerText, gruppo: imm ? imm.getAttribute('aria-label') : '' };
+        // la vetrina del sito nell'attesa (vetrina.js): nelle prove 4 secondi a scena (vetrinaSecondi)
+        const vetrina = () => p.evaluate(() => {
+            const punti = [...document.querySelectorAll('#schermo-attesa .vetrina-punto')];
+            const ora = document.querySelector('#schermo-attesa .vetrina-scena-ora');
+            const conto = document.querySelector('#schermo-attesa .vetrina-conto');
+            const radice = document.querySelector('#schermo-attesa .vetrina');
+            const v = document.querySelector('#schermo-attesa .vetrina-video');
+            return {
+                punti: punti.length, ora: punti.findIndex(b => b.getAttribute('aria-current') === 'true'),
+                tipo: ora ? ((/vetrina-scena-(video|temi|approfondimenti|milano|interviste|sedi)\b/.exec(ora.className) || [])[1] || '') : '',
+                gruppo: ora ? ora.getAttribute('aria-label') : '', testo: ora ? ora.textContent.replace(/\s+/g, ' ') : '',
+                conto: conto && !conto.hidden ? [...conto.children].filter(e => !e.hidden).map(e => e.textContent).filter(Boolean).join(' ') : '',
+                ferma: radice ? radice.classList.contains('vetrina-ferma') : null,
+                video: v ? { pausa: v.paused, tempo: v.currentTime, muto: v.muted, src: v.getAttribute('src') || '' } : null
+            };
         });
-        await prova('attesa: le carte staccate dalla fascia del titolo; accanto ai testi «Mentre aspetti», le immagini Revilaw che girano da sole (puntini, «Ferma»/«Riprendi»)', async () => {
+        await prova('attesa: le carte staccate dalla fascia del titolo; accanto ai testi la vetrina del sito, con il conto alla rovescia in cima; niente domande né immagini', async () => {
             const a = await p.evaluate(() => {
                 const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
                 const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
                 const titolo = document.getElementById('attesa-titolo').getBoundingClientRect();
-                const schermo = document.querySelector('#schermo-attesa .giostra-schermo').getBoundingClientRect();
+                const schermo = document.querySelector('#schermo-attesa .vetrina-schermo').getBoundingClientRect();
                 return {
                     spazio: Math.round(carta.top - fascia.bottom), accanto: schermo.left > titolo.right && schermo.bottom < fascia.bottom,
                     schermo: [Math.round(schermo.width), Math.round(schermo.height)],
-                    eroe: document.querySelector('#vista-attesa .attesa-eroe').classList.contains('con-schermo'), sigle: document.querySelectorAll('.sigla').length
+                    eroe: document.querySelector('#vista-attesa .attesa-eroe').classList.contains('con-schermo'), sigle: document.querySelectorAll('.sigla').length,
+                    vecchi: document.querySelectorAll('#carta-gioco, .gioco-domanda, .giostra, .sigla-immagine').length
                 };
             });
             vero(a.spazio >= 24, 'la prima carta e\' staccata dalla fascia del titolo (prima vi stava attaccata): ' + a.spazio + ' px');
             vero(a.eroe && a.accanto && a.schermo[0] >= 480 && Math.abs(a.schermo[0] / a.schermo[1] - 16 / 9) < 0.03, 'sul computer lo schermo e\' accanto ai testi, 16:9: ' + JSON.stringify(a));
-            vero(a.sigle === 0, 'lo schermo dell\'attesa non e\' «la sigla» del video (.sigla): ' + a.sigle);
-            const g1 = await giostra();
-            vero(g1.punti === 5 && g1.ora === 0 && g1.gruppo === 'Immagine 1 di 5' && /Revilaw presenta/i.test(g1.testo) && /Next Generation Business/.test(g1.testo),
-                'la prima immagine, un puntino per immagine (apertura, titolo, programma, percorso, Milano): ' + JSON.stringify(g1));
-            await p.click('#schermo-attesa .giostra-punto:nth-child(3)');
-            const g3 = await giostra();
-            vero(g3.ora === 2 && g3.gruppo === 'Immagine 3 di 5' && /Il programma/.test(g3.testo) && g3.testo.includes(PROGRAMMA[0].titolo), 'il terzo puntino: il programma ' + JSON.stringify(g3));
-            // da sola, dopo SECONDI_GIOSTRA, la successiva: il percorso di Next Generation Business
-            await aspetta(async () => /Per gli imprenditori\. Dagli imprenditori\./.test((await giostra()).testo), 12000, 'l\'immagine successiva, da sola');
-            await p.click('#schermo-attesa .giostra-pausa');
-            vero(await p.textContent('#schermo-attesa .giostra-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .giostra-pausa', 'aria-label') === 'Riprendi le immagini',
-                '«Ferma» diventa «Riprendi»: ' + await p.textContent('#schermo-attesa .giostra-pausa'));
-            await pausa(10000);
-            vero((await giostra()).ora === 3, 'con «Ferma» l\'immagine resta quella');
-            await p.click('#schermo-attesa .giostra-pausa');
-            vero(await p.textContent('#schermo-attesa .giostra-pausa') === 'Ferma', '«Riprendi» torna «Ferma»');
-            await p.click('#schermo-attesa .giostra-punto:nth-child(5)');
-            const g5 = await giostra();
-            vero(/Il prossimo appuntamento · Milano, venerdì 26 febbraio 2027/i.test(g5.testo) && /Merito creditizio, crescita e competitività delle imprese\./.test(g5.testo), 'l\'ultima immagine: il prossimo appuntamento, Milano ' + JSON.stringify(g5));
-            await p.click('#schermo-attesa .giostra-punto:nth-child(1)');
-            await foto(p, 'attesa-mentre-aspetti');
+            vero(a.sigle === 0 && a.vecchi === 0, 'nell\'attesa niente sigla, niente domande («Mettiti alla prova») e niente immagini della sigla: ' + JSON.stringify(a));
+            // la vetrina gira gia' dall'inizio dell'attesa: il primo puntino la riporta al video (e il tempo della scena riparte)
+            await p.click('#schermo-attesa .vetrina-punto:nth-child(1)');
+            const v1 = await vetrina();
+            vero(v1.punti === 6 && v1.ora === 0 && v1.tipo === 'video' && v1.gruppo === '1 di 6: Next Generation Business in sei passaggi',
+                'la prima scena e\' il video della home, un puntino per scena (video, temi, approfondimenti, Milano, interviste, sedi): ' + JSON.stringify(v1));
+            vero(v1.video && v1.video.muto && /\/assets\/video-home\.mp4$/.test(v1.video.src), 'il video della home, senza audio: ' + JSON.stringify(v1.video));
+            await aspetta(async () => { const v = await vetrina(); return v.video && v.video.tempo > 0.2; }, 8000, 'il video della home che scorre');
+            // il conto alla rovescia: lo stesso del conto grande della pagina
+            const grande = await p.evaluate(() => ['conto-giorni', 'conto-ore', 'conto-minuti', 'conto-secondi'].map(id => document.getElementById(id).textContent));
+            const c = /^La diretta inizia tra (\d+) giorn[oi] (\d{2}):(\d{2}):(\d{2})$/.exec(v1.conto);
+            vero(c && Number(c[1]) === Number(grande[0]) && c[2] === grande[1], 'il conto della vetrina: «' + v1.conto + '» (il conto grande: ' + grande.join(':') + ')');
+            const f = await p.evaluate(() => {
+                const s = document.querySelector('#schermo-attesa .vetrina-schermo');
+                const r = s.getBoundingClientRect();
+                const k = document.querySelector('#schermo-attesa .vetrina-conto').getBoundingClientRect();
+                const sc = document.querySelector('#schermo-attesa .vetrina-scena-ora').getBoundingClientRect();
+                return { cima: Math.round(k.top - r.top - s.clientTop), larga: Math.round(k.width - s.clientWidth), sotto: Math.round(sc.top - k.bottom), alta: Math.round(k.height) };
+            });
+            vero(f.cima === 0 && f.larga === 0 && f.sotto >= -1 && f.alta >= 30, 'il conto e\' una fascia in cima allo schermo, la scena sotto (non si coprono): ' + JSON.stringify(f));
+            await pausa(1200);
+            const c2 = /(\d{2}):(\d{2}):(\d{2})$/.exec((await vetrina()).conto);
+            vero(c2 && c2[0] !== v1.conto.slice(-8), 'il conto della vetrina scorre: ' + (await vetrina()).conto);
+            // il terzo puntino: gli ultimi approfondimenti, con il link alle loro pagine (in un'altra scheda)
+            await p.click('#schermo-attesa .vetrina-punto:nth-child(3)');
+            const v3 = await vetrina();
+            vero(v3.ora === 2 && v3.tipo === 'approfondimenti' && /Gli ultimi approfondimenti/.test(v3.testo), 'il terzo puntino: gli approfondimenti ' + JSON.stringify(v3).slice(0, 300));
+            const schede = await p.evaluate(() => [...document.querySelectorAll('#schermo-attesa .vetrina-scheda')].map(x => ({
+                href: x.getAttribute('href'), target: x.target, rel: x.rel, tab: x.tabIndex, nascosta: x.closest('li').getAttribute('aria-hidden') === 'true'
+            })));
+            const prime = schede.filter(x => !x.nascosta);
+            vero(schede.length === 18 && prime.length === 9 && prime.every(x => /^\/[a-z0-9_]+\/$/.test(x.href) && x.target === '_blank' && /noopener/.test(x.rel) && x.tab === 0)
+                && schede.filter(x => x.nascosta).every(x => x.tab === -1), 'gli approfondimenti: 9 link alle pagine del sito, in un\'altra scheda (il secondo giro, per lo scorrimento, nascosto e fuori dal tasto Tab): ' + JSON.stringify(schede.slice(0, 2)));
+            const mancanti = prime.map(x => x.href).concat(['/milano_febbraio_2027/', '/interviste_verona_2026/']).filter(h => !fs.existsSync(path.join(__dirname, '../..', h, 'index.html')));
+            vero(mancanti.length === 0, 'le pagine del sito dei link della vetrina esistono: mancano ' + mancanti.join(', '));
+            // da sola, dopo i secondi della scena, la scena dopo: Milano
+            await aspetta(async () => (await vetrina()).tipo === 'milano', 9000, 'la scena dopo, da sola (Milano)');
+            const v4 = await vetrina();
+            vero(v4.ora === 3 && /26\s*Febbraio 2027/.test(v4.testo) && /Milano/.test(v4.testo) && /Merito creditizio, crescita e competitività delle imprese/.test(v4.testo),
+                'Milano, 26 febbraio 2027: ' + v4.testo.slice(0, 200));
+            vero(await p.getAttribute('#schermo-attesa .vetrina-scena-milano .vetrina-link', 'href') === '/milano_febbraio_2027/', 'il link alla pagina di Milano');
+            await aspetta(() => p.evaluate(() => { const i = document.querySelector('#schermo-attesa .vetrina-volantino'); return i.complete && i.naturalWidth > 0; }), 5000, 'il save the date di Milano (immagine del sito)');
+            await p.click('#schermo-attesa .vetrina-pausa');
+            vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .vetrina-pausa', 'aria-label') === 'Riprendi la vetrina' && (await vetrina()).ferma === true,
+                '«Ferma» diventa «Riprendi»: ' + await p.textContent('#schermo-attesa .vetrina-pausa'));
+            await pausa(6000);
+            vero((await vetrina()).tipo === 'milano', 'con «Ferma» la scena resta quella');
+            await p.click('#schermo-attesa .vetrina-pausa');
+            vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Ferma' && (await vetrina()).ferma === false, '«Riprendi» torna «Ferma»');
+            // con il mouse sullo schermo la scena resta quella (non sparisce sotto le mani); tolto il mouse, si riparte
+            await p.hover('#schermo-attesa .vetrina-schermo');
+            await pausa(6000);
+            vero((await vetrina()).tipo === 'milano', 'con il mouse sullo schermo la scena resta quella');
+            await p.hover('#schermo-attesa .vetrina-etichetta');
+            await aspetta(async () => (await vetrina()).tipo === 'interviste', 9000, 'tolto il mouse dallo schermo, la scena dopo');
+            // le interviste e le sedi: i numeri che salgono; la mappa delle sedi
+            await p.click('#schermo-attesa .vetrina-punto:nth-child(5)');
+            await aspetta(async () => (await p.textContent('#schermo-attesa .vetrina-scena-interviste .vetrina-conta')) === '20', 4000, 'le 20 interviste');
+            vero(await p.getAttribute('#schermo-attesa .vetrina-scena-interviste .vetrina-link', 'href') === '/interviste_verona_2026/', 'il link alle interviste');
+            await p.click('#schermo-attesa .vetrina-punto:nth-child(6)');
+            await aspetta(async () => (await p.textContent('#schermo-attesa .vetrina-scena-sedi .vetrina-conta')) === '63', 4000, 'le 63 sedi');
+            await aspetta(() => p.evaluate(() => { const i = document.querySelector('#schermo-attesa .vetrina-mappa'); return i.complete && i.naturalWidth > 0; }), 5000, 'la mappa delle sedi');
+            // i temi in orbita, per i lettori di schermo in un elenco
+            await p.click('#schermo-attesa .vetrina-punto:nth-child(2)');
+            const v2 = await vetrina();
+            vero(v2.tipo === 'temi' && /Adeguati assetti \(Art\. 2086 c\.c\.\)/.test(v2.testo) && (await p.locator('#schermo-attesa .vetrina-tema').count()) === 7, 'i temi: ' + v2.testo.slice(0, 200));
+            // le scene nascoste non si raggiungono con il tasto Tab (inert) e non si leggono
+            const nascoste = await p.evaluate(() => [...document.querySelectorAll('#schermo-attesa .vetrina-scena:not(.vetrina-scena-ora)')].every(s => s.inert && s.getAttribute('aria-hidden') === 'true'));
+            vero(nascoste, 'le scene nascoste sono inert e aria-hidden');
+            // per chi chiede meno movimento niente video che parte da solo
+            await p.emulateMedia({ reducedMotion: 'reduce' });
+            const senzaVideo = await p.evaluate(() => NGBVetrina.scene({ data: '2026-12-10' }).join());
+            await p.emulateMedia({ reducedMotion: 'no-preference' });
+            vero(senzaVideo === 'temi,approfondimenti,milano,interviste,sedi', 'con «meno movimento» le scene senza il video: ' + senzaVideo);
+            vero((await p.evaluate(() => NGBVetrina.scene({ data: '2027-03-01' }).join())) === 'video,temi,approfondimenti,interviste,sedi', 'Milano solo per gli eventi che vengono prima');
+            await pausa(1000);
+            await foto(p, 'attesa-vetrina');
+            await p.click('#schermo-attesa .vetrina-punto:nth-child(1)');
         });
 
-        await prova('attesa: «Mettiti alla prova», la risposta subito (giusta o no, con la spiegazione), il punteggio annunciato e «Ricomincia»', async () => {
-            vero(await visibile(p, '#carta-gioco'), 'manca «Mettiti alla prova»');
-            const domande = p.locator('#gioco-domande .gioco-domanda');
-            vero(await domande.count() === 3, 'domande: ' + await domande.count());
-            vero(await p.getAttribute('#gioco-esito', 'role') === 'status', 'il punteggio si annuncia (role=status)');
-            // 1: giusta
-            await domande.nth(0).locator('.gioco-scelta', { hasText: 'Sì' }).click();
-            const sp1 = await domande.nth(0).locator('.gioco-spiegazione').innerText();
-            vero(/^Giusto\. Sì: oltre al bilancio la banca guarda la Centrale dei rischi/.test(sp1), 'spiegazione della prima: ' + sp1);
-            vero(await p.textContent('#gioco-esito') === 'Giusto. Risposte giuste: 1 su 1.', 'esito: ' + await p.textContent('#gioco-esito'));
-            // 2: sbagliata: la giusta in verde, la tua in rosso; un altro clic non cambia niente
-            const scelte2 = domande.nth(1).locator('.gioco-scelta');
-            await scelte2.nth(0).click();
-            // il pulsante e' aria-disabled (Playwright non lo premerebbe): il clic forzato non deve cambiare niente
-            await scelte2.nth(1).click({ force: true });
-            const c2 = await domande.nth(1).evaluate(li => [...li.querySelectorAll('.gioco-scelta')].map(b => b.className + '|' + b.getAttribute('aria-disabled')));
-            vero(/gioco-scelta-sbagliata/.test(c2[0]) && /gioco-scelta-giusta/.test(c2[1]) && c2.every(x => /\|true$/.test(x)), 'le risposte della seconda: ' + JSON.stringify(c2));
-            vero(await p.textContent('#gioco-esito') === 'Non proprio: la risposta è «No». Risposte giuste: 1 su 2.', 'esito: ' + await p.textContent('#gioco-esito'));
-            // 3: giusta, finito
-            await domande.nth(2).locator('.gioco-scelta', { hasText: 'adeguati assetti' }).click();
-            vero(/Hai finito: 2 risposte giuste su 3\. Se ne parla nella diretta\.$/.test(await p.textContent('#gioco-esito')), 'esito finale: ' + await p.textContent('#gioco-esito'));
-            vero(!/Se ne parla alle/.test(await p.innerText('#carta-gioco')), 'gli orari del programma del webinar solo nel webinar');
-            await p.locator('#carta-gioco').scrollIntoViewIfNeeded();
-            await foto(p, 'attesa-gioco');
-            // «Ricomincia»: da capo, il fuoco sulla prima risposta
-            await p.click('.gioco-ricomincia');
-            const r = await p.evaluate(() => ({
-                esito: document.getElementById('gioco-esito').textContent, spiegazioni: [...document.querySelectorAll('.gioco-spiegazione')].filter(e => !e.hidden).length,
-                fuoco: document.activeElement ? document.activeElement.textContent : '', ricomincia: !document.querySelector('.gioco-ricomincia').hidden
-            }));
-            vero(r.esito === '' && r.spiegazioni === 0 && r.fuoco === 'Sì' && !r.ricomincia, '«Ricomincia»: ' + JSON.stringify(r));
-            await p.evaluate(() => window.scrollTo(0, 0));
-        });
-
-        let giostraInDiretta = null;
+        let vetrinaInDiretta = null;
         await prova('la regia manda in onda: la pagina passa da sola alla diretta e il video della web TV scorre', async () => {
             await evento.update({ stato: 'in_onda', videoId: LINK, statoAggiornato: T.now() });
             await vistaE(p, 'diretta', 15000);
-            giostraInDiretta = { da: Date.now(), gruppo: (await giostra()).gruppo };
+            vetrinaInDiretta = Object.assign({ da: Date.now() }, await vetrina());
             await videoVa(p, 30000, 'la diretta della web TV');
             vero((await p.textContent('#stato-evento')).trim() === 'IN DIRETTA', 'bollino: ' + await p.textContent('#stato-evento'));
             vero(await p.getAttribute('#stato-evento', 'data-stato') === 'in_onda', 'bollino non rosso');
@@ -1152,11 +1187,13 @@ function eventoIniziale(T) {
             await p.waitForFunction(() => /Di nuovo in diretta/.test(document.getElementById('annuncio').textContent), null, { timeout: 3000 });
         });
 
-        await prova('fuori dall\'attesa le immagini di «Mentre aspetti» non girano', async () => {
-            vero(giostraInDiretta && giostraInDiretta.gruppo, 'l\'immagine all\'inizio della diretta: ' + JSON.stringify(giostraInDiretta));
-            const resto = giostraInDiretta.da + 10000 - Date.now();
+        await prova('fuori dall\'attesa la vetrina e\' ferma (anche il video della home)', async () => {
+            vero(vetrinaInDiretta && vetrinaInDiretta.tipo, 'la scena all\'inizio della diretta: ' + JSON.stringify(vetrinaInDiretta));
+            const resto = vetrinaInDiretta.da + 10000 - Date.now();
             if (resto > 0) await pausa(resto);
-            vero(await vistaDi(p) !== 'attesa' && (await giostra()).gruppo === giostraInDiretta.gruppo, 'dopo 10 secondi fuori dall\'attesa la stessa immagine: ' + (await giostra()).gruppo);
+            const v = await vetrina();
+            vero(await vistaDi(p) !== 'attesa' && v.tipo === vetrinaInDiretta.tipo && v.ferma === true && (!v.video || v.video.pausa),
+                'dopo 10 secondi fuori dall\'attesa la stessa scena, ferma, e il video in pausa: ' + JSON.stringify(v).slice(0, 300));
         });
 
         await prova('la presenza viene scritta dopo il ritardo casuale (regole vere)', async () => {
@@ -2145,16 +2182,20 @@ function eventoIniziale(T) {
                 const fascia = document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect();
                 const carta = document.querySelector('#vista-attesa .griglia-carte > .carta:not([hidden])').getBoundingClientRect();
                 const testi = document.querySelector('#vista-attesa .attesa-testi').getBoundingClientRect();
-                const s = document.querySelector('#schermo-attesa .giostra-schermo').getBoundingClientRect();
-                const scelta = document.querySelector('#gioco-domande .gioco-scelta').getBoundingClientRect();
-                const punto = document.querySelector('#schermo-attesa .giostra-punto').getBoundingClientRect();
+                const s = document.querySelector('#schermo-attesa .vetrina-schermo').getBoundingClientRect();
+                const pausa = document.querySelector('#schermo-attesa .vetrina-pausa').getBoundingClientRect();
+                const punto = document.querySelector('#schermo-attesa .vetrina-punto').getBoundingClientRect();
+                const conto = document.querySelector('#schermo-attesa .vetrina-conto');
+                // i temi sul telefono: in fila (non l'orbita), dentro lo schermo
+                const temi = [...document.querySelectorAll('#schermo-attesa .vetrina-tema')].map(e => getComputedStyle(e).position);
                 return {
                     spazio: Math.round(carta.top - fascia.bottom), sotto: s.top >= testi.bottom, quadrato: Math.abs(s.width - s.height) <= 1, largo: Math.round(s.width),
-                    scelta: Math.round(scelta.height), punto: [Math.round(punto.width), Math.round(punto.height)], orizzontale: document.documentElement.scrollWidth
+                    pausa: Math.round(pausa.height), punto: [Math.round(punto.width), Math.round(punto.height)], orizzontale: document.documentElement.scrollWidth,
+                    conto: conto && !conto.hidden ? Math.round(conto.getBoundingClientRect().height) : 0, temiInFila: temi.length === 7 && temi.every(x => x === 'static')
                 };
             });
-            vero(m.spazio >= 20 && m.sotto && m.quadrato && m.largo >= 330 && m.scelta >= 44 && m.punto[0] >= 24 && m.punto[1] >= 24 && m.orizzontale <= 390,
-                'attesa sul telefono: carte staccate, lo schermo sotto i testi (quadrato), pulsanti grandi, niente scorrimento orizzontale ' + JSON.stringify(m));
+            vero(m.spazio >= 20 && m.sotto && m.quadrato && m.largo >= 330 && m.pausa >= 32 && m.punto[0] >= 24 && m.punto[1] >= 24 && m.orizzontale <= 390 && m.conto >= 30 && m.temiInFila,
+                'attesa sul telefono: carte staccate, lo schermo sotto i testi (quadrato) con la fascia del conto, pulsanti grandi, i temi in fila, niente scorrimento orizzontale ' + JSON.stringify(m));
             await foto(t, 'attesa-telefono', true);
         });
 

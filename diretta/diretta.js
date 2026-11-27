@@ -344,7 +344,7 @@
        --------------------------------------------------------------- */
     let vista = 'caricamento';
     // lo schermo e il gioco dell'attesa (vedi mostraMentreAspetti)
-    const mentreAspetti = { giostra: null, gioco: null };
+    const mentreAspetti = { vetrina: null };
     function mostraVista(nome, opzioni) {
         const cambiata = vista !== nome;
         vista = nome;
@@ -1227,28 +1227,32 @@
         avviaConto();
         mostraMentreAspetti();
     }
-    /* MENTRE ASPETTI (sigla.js): nella fascia del titolo lo schermo con le
-       immagini Revilaw a rotazione (creaGiostra) e, fra le carte, «Mettiti
-       alla prova» (creaGioco), se l'evento ha le sue domande. Le immagini
-       girano solo con l'attesa aperta: mostraVista le ferma quando si
-       cambia vista. Senza sigla.js l'attesa resta com'era. (Lo stato,
+    /* MENTRE ASPETTI (vetrina.js): nella fascia del titolo lo schermo con
+       la vetrina del sito (il video della home, i temi, gli approfondimenti,
+       Milano, le interviste, le sedi) e sopra il conto alla rovescia
+       all'inizio della diretta, lo stesso del conto grande. Gira solo con
+       l'attesa aperta: mostraVista la ferma quando si cambia vista (anche
+       il video). Senza vetrina.js l'attesa resta com'era. (Lo stato,
        mentreAspetti, e' con le viste: mostraVista lo usa da subito.) */
     function mostraMentreAspetti() {
-        const S = window.NGBSigla;
-        if (!S || typeof S.creaGiostra !== 'function' || typeof S.creaGioco !== 'function') return;
-        const ev = eventoSigla();
+        const V = window.NGBVetrina;
+        if (!V || typeof V.crea !== 'function') return;
         try {
-            if (!mentreAspetti.giostra) mentreAspetti.giostra = S.creaGiostra($('schermo-attesa'));
-            mentreAspetti.giostra.mostra(ev);
+            if (!mentreAspetti.vetrina) {
+                const p = (CFG && CFG.prove) || null;
+                mentreAspetti.vetrina = V.crea($('schermo-attesa'), {
+                    inizio: () => (stato.evento ? ms(stato.evento.inizio) : null),
+                    secondiScena: p && p.vetrinaSecondi > 0 ? p.vetrinaSecondi : 0
+                });
+            }
+            mentreAspetti.vetrina.mostra(eventoSigla());
             $('schermo-attesa').hidden = false;
             document.querySelector('#vista-attesa .attesa-eroe').classList.add('con-schermo');
-            if (!mentreAspetti.gioco) mentreAspetti.gioco = S.creaGioco($('gioco-domande'), $('gioco-esito'));
-            $('carta-gioco').hidden = !mentreAspetti.gioco.mostra(ev);
         } catch (e) {
             console.warn('[diretta] mentre aspetti:', e);
         }
     }
-    function fermaMentreAspetti() { if (mentreAspetti.giostra) mentreAspetti.giostra.ferma(); }
+    function fermaMentreAspetti() { if (mentreAspetti.vetrina) mentreAspetti.vetrina.ferma(); }
     function fermaConto() { clearInterval(stato.timerConto); stato.timerConto = null; }
     function avviaConto() {
         if (!stato.timerConto) stato.timerConto = setInterval(aggiornaConto, 1000);
