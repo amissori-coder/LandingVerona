@@ -263,6 +263,8 @@ async function instradaAzoto(context, opzioni) {
      erroreXXXXX  risponde con l'errore 150 (non incorporabile)
      silenzioXXX  non risponde ai messaggi
      liveXXXXXXX  una diretta vera di YouTube (videoData.isLive)
+     botXXXXXXXX  il controllo «non sono un bot» di YouTube: il video non
+                  si carica (niente durata) e non parte mai
      tutti gli altri: parte da solo, senza audio, e accetta tutto.
    Un tocco sul video (quando lo scudo e' tolto) lo ferma o lo fa partire,
    come YouTube senza comandi. instradaYouTube(context) -> { richieste }
@@ -276,7 +278,7 @@ const PAGINA_YOUTUBE = `<!doctype html><html><head><meta charset="utf-8"></head>
     var id = location.pathname.split('/').pop();
     var tipo = id.replace(/X+$/, '').replace(/0+1$/, '');
     var stato = -1, tempo = Number(q.get('start') || 0), muto = q.get('mute') === '1', volume = 100;
-    var durata = tipo === 'corto' ? 30 : 3600, live = tipo === 'live';
+    var durata = tipo === 'corto' ? 30 : (tipo === 'bot' ? 0 : 3600), live = tipo === 'live';
     var ultimo = Date.now(), genitore = null;
     var origine = q.get('origin') || '*';
     window.__comandi = [];
@@ -297,7 +299,7 @@ const PAGINA_YOUTUBE = `<!doctype html><html><head><meta charset="utf-8"></head>
             manda({ event: 'initialDelivery', info: info() });
             manda({ event: 'onReady' });
             if (tipo === 'errore') { manda({ event: 'onError', info: 150 }); return; }
-            if (tipo !== 'fermo') setTimeout(function () { cambia(3); setTimeout(function () { cambia(1); }, 300); }, 200);
+            if (tipo !== 'fermo' && tipo !== 'bot') setTimeout(function () { cambia(3); setTimeout(function () { cambia(1); }, 300); }, 200);
             setInterval(function () { manda({ event: 'infoDelivery', info: info() }); document.getElementById('t').textContent = Math.floor(tempo); }, 250);
             return;
         }
@@ -306,7 +308,7 @@ const PAGINA_YOUTUBE = `<!doctype html><html><head><meta charset="utf-8"></head>
         if (tipo === 'errore') return;   // il video non c'e': non parte niente
         ora();
         if (d.func === 'seekTo') { tempo = Number(d.args[0]); }
-        else if (d.func === 'playVideo') { if (stato !== 1 && !(tipo === 'fermo' && !window.__toccato)) cambia(1); }
+        else if (d.func === 'playVideo') { if (stato !== 1 && tipo !== 'bot' && !(tipo === 'fermo' && !window.__toccato)) cambia(1); }
         else if (d.func === 'pauseVideo') { cambia(2); }
         else if (d.func === 'mute') { muto = true; }
         else if (d.func === 'unMute') { if (tipo !== 'muto' || window.__toccato) muto = false; }
@@ -316,6 +318,7 @@ const PAGINA_YOUTUBE = `<!doctype html><html><head><meta charset="utf-8"></head>
     // il tocco della persona sul video (quando lo scudo e' tolto): come YouTube senza comandi,
     // mette in pausa o fa partire; da li' il browser concede a YouTube anche l'audio
     document.addEventListener('click', function () {
+        if (tipo === 'bot') return;   // il controllo di YouTube: il video non c'e'
         window.__toccato = true;
         window.__tocchi = (window.__tocchi || 0) + 1;
         ora();

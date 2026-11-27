@@ -1791,12 +1791,23 @@
        allo stesso modo: inizioVideo + onda.secondi + adesso - onda.da; vedi
        diretta.js, LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA). In onda si
        aggiorna ogni secondo, finche' la scheda Regia e' aperta. */
-    function puntoRegistrazione(ev) {
+    // i secondi passati in onda (le pause non contano)
+    function secondiInOnda(ev) {
         const o = ev && ev.onda && typeof ev.onda === 'object' ? ev.onda : {};
         let da = Number(o.da) || 0;
         // un evento in onda da prima che esistesse onda conta da statoAggiornato
         if (!da && !ev.onda && ev.stato === 'in_onda') da = Number(ev.statoAggiornato) || 0;
-        return Math.max(0, Number(ev.inizioVideo) || 0) + Math.max(0, Number(o.secondi) || 0) + (da ? Math.max(0, (Date.now() - da) / 1000) : 0);
+        return Math.max(0, Number(o.secondi) || 0) + (da ? Math.max(0, (Date.now() - da) / 1000) : 0);
+    }
+    // la sigla d'apertura (sigla.js, la stessa della pagina dei partecipanti): i suoi secondi
+    function durataSigla(ev) {
+        const S = window.NGBSigla;
+        if (!S || typeof S.durata !== 'function') return 0;
+        try { return Math.max(0, Number(S.durata(ev)) || 0); } catch (e) { return 0; }
+    }
+    // il punto della registrazione: dopo la sigla, da «Parti dal punto»
+    function puntoRegistrazione(ev) {
+        return Math.max(0, Number(ev.inizioVideo) || 0) + Math.max(0, secondiInOnda(ev) - durataSigla(ev));
     }
     function aggiornaPuntoRegia() {
         clearTimeout(stato.timerPuntoRegia);
@@ -1808,10 +1819,13 @@
         if (!yt) { svuota(riga); return; }
         const s = ev.stato || 'programmato';
         const punto = scriviPuntoVideo(puntoRegistrazione(ev)) || '0:00';
-        const parti = s === 'in_onda' ? ['Registrazione YouTube al punto ', el('strong', { testo: punto }), ', lo stesso per tutti i partecipanti.']
+        const mancaSigla = Math.ceil(durataSigla(ev) - secondiInOnda(ev));
+        const parti = s === 'in_onda' && mancaSigla > 0
+            ? ['Sigla d\'apertura in corso: il video parte tra ', el('strong', { testo: mancaSigla + ' s' }), ', dal punto ', el('strong', { testo: punto }), '.']
+            : s === 'in_onda' ? ['Registrazione YouTube al punto ', el('strong', { testo: punto }), ', lo stesso per tutti i partecipanti.']
             : s === 'pausa' ? ['Registrazione ferma al punto ', el('strong', { testo: punto }), ': con «Riprendi la diretta» riparte da qui.']
                 : s === 'terminato' ? ['Registrazione fermata al punto ', el('strong', { testo: punto }), '.']
-                    : ['Con «Vai in onda» la registrazione parte dal punto ', el('strong', { testo: punto }), (Number(ev.inizioVideo) > 0 ? ' (scelto nella scheda Evento).' : ', l\'inizio.')];
+                    : ['Con «Vai in onda» parte la sigla d\'apertura (' + Math.round(durataSigla(ev)) + ' secondi: le immagini del webinar e il conto alla rovescia), poi la registrazione dal punto ', el('strong', { testo: punto }), (Number(ev.inizioVideo) > 0 ? ' (scelto nella scheda Evento).' : ', l\'inizio.')];
         svuota(riga);
         parti.forEach(x => riga.append(x));
         // in onda si aggiorna ogni secondo, solo con la scheda Regia in vista

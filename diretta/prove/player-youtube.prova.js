@@ -20,6 +20,8 @@
      silenzioXXX  non risponde ai messaggi (il player passa all'iframe semplice)
      lentoXXXXXX  la pagina di YouTube arriva dopo 6,5 secondi (rete lenta)
      liveXXXXXXX  una diretta vera di YouTube (videoData.isLive)
+     botXXXXXXXX  il controllo «non sono un bot» di YouTube: non carica il
+                  video (niente durata) e non parte mai
 
    COSA DIMOSTRA.
    - L'iframe: youtube-nocookie, controls=0, disablekb=1, fs=0, mute=1,
@@ -34,7 +36,12 @@
      se YouTube resta muto, la scena 'tocca' (scudo tolto) e dopo il tocco
      lo scudo torna.
    - Non parte da solo: la scena 'avvia' con «Guarda la diretta»; se nemmeno
-     cosi', 'tocca'.
+     cosi', il foro al centro sul pulsante di YouTube (il resto coperto, e i
+     tocchi fuori dal foro non arrivano a YouTube).
+   - Il controllo «non sono un bot» (YouTube non carica il video): mai la
+     pagina di YouTube, ma «Il video non riesce a partire» con «Riprova».
+   - La sigla (inAttesa): il video parte da solo e si ferma al punto di
+     partenza, sotto il sipario; finita l'attesa parte subito.
    - La fine della registrazione: sipario 'fine' e pauseVideo.
    - L'errore di YouTube: onErrore 'video'. YouTube che non risponde: l'iframe
      semplice (i comandi di YouTube, niente scudo), onStato 'semplice'; ma
@@ -237,7 +244,19 @@ const NGB = v => 'https://www.youtube-nocookie.com/embed/' + v + '?autoplay=1&pl
         vero(/Guarda la diretta/.test(await page.textContent('.yt-sipario')) && await page.isVisible('.yt-avvia'), 'non parte da solo: il sipario con «Guarda la diretta»');
         await page.click('.yt-avvia');
         await aspetta(() => haEvento('stato', 'tocca'), 6000, 'tocca dopo avvia');
-        vero(true, '...il browser non lo fa partire nemmeno cosi\': «Tocca il video»');
+        const foro = await page.evaluate(() => {
+            const sp = document.querySelector('.yt-sipario');
+            const r = sp.getBoundingClientRect();
+            // chi riceve un tocco al centro (il foro) e uno vicino all'angolo (coperto)
+            const centro = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            const angolo = document.elementFromPoint(r.left + 20, r.bottom - 20);
+            return {
+                foro: sp.classList.contains('yt-sipario-foro'), trasparente: sp.classList.contains('yt-sipario-trasparente'), nascosto: sp.hidden,
+                testo: sp.innerText, centro: centro ? centro.tagName : '', angolo: angolo ? angolo.className : ''
+            };
+        });
+        vero(foro.foro && !foro.trasparente && !foro.nascosto && /Tocca il pulsante al centro/.test(foro.testo) && foro.centro === 'IFRAME' && /yt-sipario/.test(foro.angolo),
+            '...il browser non lo fa partire nemmeno cosi\': il sipario resta e lascia libero solo il centro, sul pulsante di YouTube', JSON.stringify(foro));
         const r2 = await page.locator('.yt-palco').boundingBox();
         await page.mouse.click(r2.x + r2.width / 2, r2.y + r2.height / 2);
         await aspetta(() => page.evaluate(() => document.querySelector('.yt-sipario').hidden && !document.querySelector('.yt-scudo').hidden), 4000, 'parte');
@@ -259,6 +278,41 @@ const NGB = v => 'https://www.youtube-nocookie.com/embed/' + v + '?autoplay=1&pl
         vero((await attr('.yt-sipario')).hidden === false, 'YouTube non mostra il video (errore 150): onErrore «video», e il sipario copre il suo messaggio');
         await pausa(3200);
         vero(!(await haEvento('stato', 'avvia')) && !(await page.isVisible('.yt-avvia')), '...e dopo l\'errore nessun «Guarda la diretta» (il video non c\'e\')', JSON.stringify(await eventi()));
+        console.log('\n7b. Il controllo «non sono un bot» di YouTube: mai la sua pagina');
+        await page.evaluate(u => window.crea(u), YT('botXXXXXXXX'));
+        await aspetta(() => haEvento('stato', 'avvia'), 6000, 'avvia con il controllo');
+        await page.click('.yt-avvia');
+        await aspetta(() => haEvento('stato', 'bloccato'), 6000, 'bloccato');
+        const bloccato = await page.evaluate(() => {
+            const sp = document.querySelector('.yt-sipario');
+            const f = document.querySelector('.yt-palco iframe');
+            return {
+                nascosto: sp.hidden, classi: sp.className, testo: sp.innerText, scudo: !document.querySelector('.yt-scudo').hidden,
+                pe: getComputedStyle(f).pointerEvents, riprova: !document.querySelector('.yt-riprova').hidden, opaco: getComputedStyle(sp).backgroundColor
+            };
+        });
+        vero(!bloccato.nascosto && !/trasparente|foro/.test(bloccato.classi) && bloccato.scudo && bloccato.pe === 'none' && bloccato.riprova
+            && /Il video non riesce a partire/.test(bloccato.testo) && !(await haEvento('stato', 'tocca')),
+            'YouTube non carica il video: il sipario resta coperto, con «Il video non riesce a partire» e «Riprova»; la pagina di YouTube non si vede e non si tocca', JSON.stringify(bloccato));
+        const iframePrima = await page.$('.yt-palco iframe');
+        await page.click('.yt-riprova');
+        await aspetta(async () => { const f = await page.$('.yt-palco iframe'); return f && !(await f.evaluate((a, b) => a === b, iframePrima)); }, 5000, 'iframe nuovo');
+        vero(/La diretta sta arrivando/.test(await page.textContent('.yt-sipario')), '«Riprova»: un iframe nuovo, e di nuovo «La diretta sta arrivando…»');
+
+        console.log('\n7c. La sigla d\'apertura: il video si carica fermo al punto di partenza, poi parte subito');
+        await page.evaluate(u => { window.__attesa = true; window.__posizione = 30; window.crea(u, { inAttesa: () => window.__attesa, posizione: () => window.__attesa ? 30 : 30 + (Date.now() - window.__fineAttesa) / 1000 }); }, YT('normale0001'));
+        await aspetta(async () => (await comandi()).some(c => c[0] === 'pauseVideo'), 8000, 'fermo durante la sigla');
+        await pausa(2500);
+        const inAttesa = { stato: await frame().evaluate(() => window.__stato()), eventi: await eventi(), sipario: await page.evaluate(() => !document.querySelector('.yt-sipario').hidden) };
+        vero(inAttesa.stato === 2 && inAttesa.sipario && !inAttesa.eventi.some(e => e[1] === 'video' || e[1] === 'avvia'),
+            'durante la sigla: YouTube parte da solo e il player lo ferma (pauseVideo), sotto il sipario, senza «Guarda la diretta»', JSON.stringify(inAttesa));
+        const t0 = Date.now();
+        await page.evaluate(() => { window.__fineAttesa = Date.now(); window.__attesa = false; window.player.sincronizza(); });
+        await aspetta(() => haEvento('stato', 'video'), 5000, 'video dopo la sigla');
+        const dopoSigla = Date.now() - t0;
+        const salti = (await comandi()).filter(c => c[0] === 'seekTo').map(c => c[1]);
+        vero(dopoSigla < 2500 && salti.every(x => x >= 29 && x <= 33), 'finita la sigla il video si vede dopo ' + dopoSigla + ' ms, dal punto di partenza (' + salti.map(x => x.toFixed(1)).join(', ') + ')');
+
         await page.evaluate(u => window.crea(u), YT('silenzioXXX'));
         await aspetta(() => haEvento('stato', 'semplice'), 9000, 'semplice');
         const srcSemplice = await page.getAttribute('.yt-palco iframe', 'src');

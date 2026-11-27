@@ -1384,11 +1384,83 @@
         const cambiata = !ondaEvento || ondaEvento.secondi !== nuova.secondi || ondaEvento.da !== nuova.da || ondaEvento.inizio !== nuova.inizio;
         ondaEvento = nuova;
         if (cambiata && youtubeAttivo() && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+        if (cambiata && youtubeAttivo()) avviaSigla();
     }
+    // i secondi passati in onda (le pause non contano), con l'ora del sito
+    function secondiInOnda() {
+        const o = ondaEvento;
+        if (!o) return null;
+        return o.secondi + (o.da ? Math.max(0, (Date.now() + scartoOrologio - o.da) / 1000) : 0);
+    }
+    /* Il punto della registrazione: dopo la sigla d'apertura (sigla.js), che
+       dura durataSigla() secondi dall'inizio della diretta. */
     function posizioneRegistrazione() {
         const o = ondaEvento;
         if (!o) return null;
-        return o.inizio + o.secondi + (o.da ? Math.max(0, (Date.now() + scartoOrologio - o.da) / 1000) : 0);
+        return o.inizio + Math.max(0, secondiInOnda() - durataSigla());
+    }
+
+    /* ---------------------------------------------------------------
+       LA SIGLA D'APERTURA (sigla.js)
+       ---------------------------------------------------------------
+       Con il video di YouTube, a «Vai in onda» nel riquadro del video
+       partono le immagini Revilaw sul webinar e poi il conto alla rovescia;
+       intanto il video di YouTube si carica sotto, fermo al punto di
+       partenza (inSigla() -> opzione inAttesa del player). Finito il conto
+       il video parte e la sigla resta finche' non si vede (al massimo
+       SIGLA_ATTESA_VIDEO_MS). Chi entra dopo la sigla va diretto al video. */
+    const SIGLA_ATTESA_VIDEO_MS = 8000;
+    const sigla = { vista: null, timer: null, finitaDa: 0 };
+    function eventoSigla() { return Object.assign({ id: stato.idEvento }, stato.evento || {}); }
+    function durataSigla() {
+        const S = window.NGBSigla;
+        const ev = stato.evento;
+        if (!S || typeof S.durata !== 'function' || !ev) return 0;
+        if (!(ev.videoYouTube === true || eYouTubeUrl(String(ev.videoId || '')))) return 0;
+        try { return Math.max(0, Number(S.durata(eventoSigla())) || 0); } catch (e) { return 0; }
+    }
+    function inSigla() {
+        const t = secondiInOnda();
+        return t != null && t < durataSigla();
+    }
+    function siglaVisibile() { return !!(sigla.vista && sigla.vista.visibile()); }
+    function avviaSigla() {
+        if (sigla.timer) return;
+        sigla.timer = setInterval(aggiornaSigla, 250);
+        aggiornaSigla();
+    }
+    function fermaSigla() {
+        clearInterval(sigla.timer);
+        sigla.timer = null;
+        sigla.finitaDa = 0;
+        if (sigla.vista) sigla.vista.nascondi();
+    }
+    function aggiornaSigla() {
+        const S = window.NGBSigla;
+        const durata = durataSigla();
+        const t = secondiInOnda();
+        if (!S || !youtubeAttivo() || vista !== 'diretta' || !durata || t == null) { fermaSigla(); return; }
+        if (t < durata) {
+            if (!sigla.vista) sigla.vista = S.crea($('area-video'));
+            const primaVolta = !siglaVisibile();
+            sigla.finitaDa = 0;
+            sigla.vista.mostra(eventoSigla(), t);
+            if (primaVolta) aggiornaComandi();
+            return;
+        }
+        // la diretta e' oltre la sigla: chi arriva adesso va diretto al video
+        if (!siglaVisibile()) { fermaSigla(); return; }
+        if (!sigla.finitaDa) {
+            sigla.finitaDa = Date.now();
+            sigla.vista.fine();
+            // il video esce dall'attesa e parte dal punto di partenza
+            if (azoto.player && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+        }
+        if (azoto.ytStato === 'video' || azoto.ytStato === 'avvia' || azoto.ytStato === 'bloccato' || azoto.ytStato === 'fine'
+            || Date.now() - sigla.finitaDa > SIGLA_ATTESA_VIDEO_MS) {
+            fermaSigla();
+            aggiornaComandi();
+        }
     }
     /* L'ORA DEL SITO. onda.da e' scritto con l'orologio del servizio: un
        dispositivo con l'ora avanti o indietro di qualche minuto vedrebbe un
@@ -1512,6 +1584,8 @@
             leggiOraDelSito();
             azoto.player = P.crea($('video-player'), {
                 posizione: posizioneRegistrazione,
+                // la sigla d'apertura: il video si carica e resta fermo al punto di partenza
+                inAttesa: inSigla,
                 onPronto: () => { mostraLento(false); aggiornaSchermo(); },
                 onStato: st => {
                     azoto.ytStato = st;
@@ -1529,6 +1603,7 @@
                     aggiornaSchermo();
                 }
             });
+            avviaSigla();
             return azoto.player;
         }
         azoto.player = P.crea($('video-player'), {
@@ -1549,6 +1624,7 @@
         return azoto.player;
     }
     function distruggiAzoto() {
+        fermaSigla();
         if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
         Object.assign(azoto, { player: null, url: '', titolo: '', errore: '', youtube: false, semplice: false, ytStato: '' });
         /* senza player la modalita' la dice l'evento (videoYouTube): nell'attesa,
@@ -2336,7 +2412,8 @@
        html.modo-youtube). */
     function aggiornaComandiYouTube() {
         const a = azoto.audio;
-        const siVede = azoto.ytStato === 'video';
+        // durante la sigla d'apertura la diretta e' gia' cominciata: audio (da attivare prima del video) e «IN DIRETTA»
+        const siVede = azoto.ytStato === 'video' || siglaVisibile();
         const muto = $('btn-muto');
         muto.setAttribute('data-muto', a.muto ? '1' : '0');
         muto.setAttribute('aria-pressed', a.muto ? 'true' : 'false');
