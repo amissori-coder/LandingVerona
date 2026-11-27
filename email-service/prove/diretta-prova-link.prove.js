@@ -415,6 +415,50 @@ function webtv(opz) {
             vero(canale.esito === 'errore' && canale.titolo === 'Link di YouTube senza un video' && wc.registro.length === 0, 'un canale YouTube: errore, nessuna richiesta', JSON.stringify(canale));
         }
 
+        /* ================= IL PLAYER DI CASTR =================
+           (un identificativo finto: quello vero non va mai nel codice) */
+        {
+            const CASTR = 'https://player.castr.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9';
+            const VALORE = CASTR + '?autoplay=on';
+            const CODICE_CASTR = '<iframe src="' + CASTR + '" width="100%" style="aspect-ratio: 16/9; min-height: 340px;" frameborder="0" scrolling="no" allow="autoplay" allowfullscreen webkitallowfullscreen mozallowfullscreen oallowfullscreen msallowfullscreen></iframe>';
+            const pc = (h, corpo) => { const p = {}; p[VALORE] = { corpo: corpo || '<!doctype html><html><body><div id="player"></div></body></html>', h: Object.assign({ 'content-type': 'text/html; charset=utf-8' }, h || {}) }; return p; };
+            for (const link of [CASTR, CODICE_CASTR]) {
+                const { r, w } = await prova(link, pc());
+                vero(r.esito === 'ok' && r.tipo === 'incorporato' && r.valore === VALORE && r.info.incorporabile === true && r.problemi.length === 0
+                    && r.titolo === 'Player Castr: si può incorporare nella nostra pagina' && w.registro.length === 1 && w.registro[0].url === VALORE,
+                'player Castr (' + (link === CASTR ? 'indirizzo' : 'codice «Embed»') + '): si prova l\'indirizzo ricostruito (autoplay=on), esito ok', JSON.stringify(r));
+                vero(r.righe.indexOf(V.messaggio(V.leggi(VALORE))) >= 0 && /Player Castr/.test(V.messaggio(V.leggi(VALORE))), 'la descrizione del player Castr fra le righe: ' + JSON.stringify(r.righe));
+            }
+            {
+                const { r } = await prova(CASTR, pc({ 'content-security-policy': "frame-ancestors 'self' https://castr.com" }));
+                const p = problema(r, 'non-incorporabile');
+                vero(r.esito === 'errore' && p && p.grave && /Castr lo vieta/.test(p.messaggio) && /nextgenerationbusiness\.it/.test(p.messaggio) && p.testoWebTv === ''
+                    && r.titolo === 'Il player Castr non si può incorporare',
+                'player Castr limitato ad altri domini: «non-incorporabile» grave, con dove guardare in Castr e senza lettera per la web TV', JSON.stringify(r.problemi));
+            }
+            {
+                const pag = {};
+                pag[VALORE] = { stato: 302, h: { location: 'https://castr-player.esempio.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9' } };
+                pag['https://castr-player.esempio.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9'] = { corpo: '<!doctype html><html></html>', h: { 'content-type': 'text/html' } };
+                const { r } = await prova(CASTR, pag);
+                const p = problema(r, 'non-azoto');
+                vero(r.esito === 'errore' && p && /^Il player Castr rimanda a un altro sito \(castr-player\.esempio\.com\)/.test(p.messaggio) && /si incorpora solo player\.castr\.com/.test(p.messaggio) && p.testoWebTv === '',
+                    'il player Castr che rimanda a un altro sito: errore, con il nome di Castr', JSON.stringify(r.problemi));
+            }
+            {
+                const { r } = await prova(CASTR, pc({}, '<!doctype html><html><body><script>var src = "https://stream.castr.com/5f0e1d2c/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9/index.fmp4.m3u8";</script></body></html>'));
+                const riga = r.righe.find(x => /stream\.castr\.com/.test(x)) || '';
+                vero(r.esito === 'ok' && /flusso HLS di Castr/.test(riga) && /«Flusso diretto \(\.m3u8\)»/.test(riga),
+                    'un link .m3u8 nella pagina del player Castr: si propone di provarlo come flusso diretto («' + riga + '»)');
+            }
+            for (const link of ['https://castr.com/app/live/123', 'https://player.castr.com/', 'https://dashboard.castr.com/live_0a1b2c3d4e5f60718293a4b5c6d7e8f9']) {
+                const { r, w } = await prova(link, {});
+                const p = problema(r, 'castr');
+                vero(r.esito === 'errore' && p && p.grave && /non è il player/.test(p.messaggio) && r.titolo === 'Link di Castr che non è il player' && w.registro.length === 0,
+                    'un link di Castr che non e\' il player: «castr» grave, nessuna richiesta: ' + link, JSON.stringify(r));
+            }
+        }
+
         /* ---------- quello che non e' il player di Azoto: rifiutato senza scaricare niente ---------- */
         for (const link of [
             'https://player.webtv.esempio.it/embed/napoli',
@@ -428,7 +472,7 @@ function webtv(opz) {
             const { r, w } = await prova(link, html());
             const p = problema(r, 'non-azoto');
             vero(r.esito === 'errore' && codici(r) === 'non-azoto' && p.grave && /cdn\.azotosolutions\.com/.test(p.messaggio) && p.testoWebTv === ''
-                && r.titolo === 'Non è YouTube né il player Azoto: indirizzo non consentito' && r.tipo === '' && r.urlProva === '' && w.registro.length === 0 && w.risolti.length === 0,
+                && r.titolo === 'Non è YouTube né il player di Castr o di Azoto: indirizzo non consentito' && r.tipo === '' && r.urlProva === '' && w.registro.length === 0 && w.risolti.length === 0,
             'non e\' il player di Azoto: «non-azoto» grave, nessuna richiesta ne\' DNS: ' + link.slice(0, 70), JSON.stringify(r));
         }
         for (const [link, codice] of [

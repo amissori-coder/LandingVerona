@@ -150,7 +150,7 @@
     }
     function eventoNelLink(id) {
         const s = String(id || '');
-        if (!/you-?tu|azoto/.test(s)) return s;
+        if (!/you-?tu|azoto|(?:^|-)castr(?:-|$)/.test(s)) return s;
         return 'c.' + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
     /* L'email: UNA regola per pagina, gestione e servizio (email-service,
@@ -1374,6 +1374,11 @@
            registrazione che sembra una diretta (vedi LA REGISTRAZIONE CHE
            SEMBRA UNA DIRETTA, qui sotto). */
         youtube: false,           // il player in uso e' quello di YouTube
+        /* Con il player di Castr (una diretta vera, con i suoi comandi) a
+           «Vai in onda» c'e' prima la sigla, e l'iframe si crea quando la
+           sigla finisce (vedi LA SIGLA D'APERTURA). */
+        castr: false,             // l'indirizzo in uso e' il player di Castr
+        castrPronto: false,       // l'iframe di Castr ha caricato la sua pagina (load)
         semplice: false,          // YouTube non risponde ai messaggi: i comandi sono i suoi (niente nostri)
         ytStato: '',              // quello che dice player-youtube.js (onStato): 'video' = si vede
         audio: { muto: true, volume: 100 }
@@ -1400,10 +1405,22 @@
         if (typeof url !== 'string' || !url || !V || typeof V.eYouTube !== 'function') return false;
         try { return V.eYouTube(url) === true; } catch (e) { return false; }
     }
+    // l'indirizzo e' il player di Castr? (la regola e' quella di sorgente-video.js)
+    function eCastrUrl(url) {
+        const V = window.NGBSorgenteVideo;
+        if (typeof url !== 'string' || !url || !V || typeof V.eCastr !== 'function') return false;
+        try { return V.eCastr(url) === true; } catch (e) { return false; }
+    }
     // il player di YouTube con i NOSTRI comandi (non quello "semplice")
     function youtubeAttivo() {
         return modoVideo === 'azoto' && azoto.youtube && !!azoto.player && !azoto.semplice;
     }
+    // il player di Castr (i suoi comandi; prima del video la sigla)
+    function castrAttivo() {
+        return modoVideo === 'azoto' && azoto.castr && !azoto.youtube && !!azoto.player;
+    }
+    // un player con la sigla d'apertura: YouTube o Castr
+    function siglaPossibile() { return youtubeAttivo() || castrAttivo(); }
 
     /* ---------------------------------------------------------------
        LA REGISTRAZIONE CHE SEMBRA UNA DIRETTA
@@ -1429,7 +1446,7 @@
         const cambiata = !ondaEvento || ondaEvento.secondi !== nuova.secondi || ondaEvento.da !== nuova.da || ondaEvento.inizio !== nuova.inizio;
         ondaEvento = nuova;
         if (cambiata && youtubeAttivo() && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
-        if (cambiata && youtubeAttivo()) avviaSigla();
+        if (cambiata && siglaPossibile()) avviaSigla();
     }
     // i secondi passati in onda (le pause non contano), con l'ora del sito
     function secondiInOnda() {
@@ -1453,7 +1470,14 @@
        intanto il video di YouTube si carica sotto, fermo al punto di
        partenza (inSigla() -> opzione inAttesa del player). Finito il conto
        il video parte e la sigla resta finche' non si vede (al massimo
-       SIGLA_ATTESA_VIDEO_MS). Chi entra dopo la sigla va diretto al video. */
+       SIGLA_ATTESA_VIDEO_MS). Chi entra dopo la sigla va diretto al video.
+       Con il player di Castr (dal 27 novembre 2026) la stessa sigla, ma
+       sotto non c'e' niente: la diretta di Castr va avanti da sola e si
+       sentirebbe, quindi l'iframe si crea quando la sigla finisce
+       (iframeVisibile) e la sigla resta finche' la sua pagina non arriva
+       (castrPronto). La regia preme «Vai in onda» tanti secondi prima della
+       partenza della diretta su Castr quanti ne dura la sigla (la Regia lo
+       dice). */
     const SIGLA_ATTESA_VIDEO_MS = 8000;
     const sigla = { vista: null, timer: null, finitaDa: 0 };
     function eventoSigla() { return Object.assign({ id: stato.idEvento }, stato.evento || {}); }
@@ -1461,8 +1485,18 @@
         const S = window.NGBSigla;
         const ev = stato.evento;
         if (!S || typeof S.durata !== 'function' || !ev) return 0;
-        if (!(ev.videoYouTube === true || eYouTubeUrl(String(ev.videoId || '')))) return 0;
+        const v = String(ev.videoId || '');
+        if (!(ev.videoYouTube === true || eYouTubeUrl(v) || eCastrUrl(v))) return 0;
         try { return Math.max(0, Number(S.durata(eventoSigla())) || 0); } catch (e) { return 0; }
+    }
+    /* L'iframe del player incorporato (Castr): nascosto (tolto) sotto la
+       sigla, visibile fuori dalla sigla. Con YouTube o senza player non fa
+       niente; nascosto solo con Castr. */
+    function iframeVisibile(si) {
+        if (modoVideo !== 'azoto' || !azoto.player || azoto.youtube || typeof azoto.player.mostra !== 'function') return;
+        if (!si && !azoto.castr) return;
+        if (!si) azoto.castrPronto = false;
+        azoto.player.mostra(si);
     }
     function inSigla() {
         const t = secondiInOnda();
@@ -1484,25 +1518,31 @@
         const S = window.NGBSigla;
         const durata = durataSigla();
         const t = secondiInOnda();
-        if (!S || !youtubeAttivo() || vista !== 'diretta' || !durata || t == null) { fermaSigla(); return; }
+        if (!S || !siglaPossibile() || vista !== 'diretta' || !durata || t == null) { fermaSigla(); iframeVisibile(true); return; }
         if (t < durata) {
             if (!sigla.vista) sigla.vista = S.crea($('area-video'));
             const primaVolta = !siglaVisibile();
             sigla.finitaDa = 0;
             sigla.vista.mostra(eventoSigla(), t);
+            // Castr: sotto la sigla nessun iframe
+            if (castrAttivo()) iframeVisibile(false);
             if (primaVolta) aggiornaComandi();
             return;
         }
         // la diretta e' oltre la sigla: chi arriva adesso va diretto al video
-        if (!siglaVisibile()) { fermaSigla(); return; }
+        if (!siglaVisibile()) { fermaSigla(); iframeVisibile(true); return; }
         if (!sigla.finitaDa) {
             sigla.finitaDa = Date.now();
             sigla.vista.fine();
             // il video esce dall'attesa e parte dal punto di partenza
             if (azoto.player && typeof azoto.player.sincronizza === 'function') azoto.player.sincronizza();
+            // Castr: adesso l'iframe
+            iframeVisibile(true);
         }
-        if (azoto.ytStato === 'video' || azoto.ytStato === 'avvia' || azoto.ytStato === 'bloccato' || azoto.ytStato === 'fine'
-            || Date.now() - sigla.finitaDa > SIGLA_ATTESA_VIDEO_MS) {
+        const visto = azoto.youtube
+            ? azoto.ytStato === 'video' || azoto.ytStato === 'avvia' || azoto.ytStato === 'bloccato' || azoto.ytStato === 'fine'
+            : azoto.castrPronto;
+        if (visto || Date.now() - sigla.finitaDa > SIGLA_ATTESA_VIDEO_MS) {
             fermaSigla();
             aggiornaComandi();
         }
@@ -1598,6 +1638,7 @@
             return;
         }
         if (!azoto.player && !creaAzoto(yt)) { aggiornaSchermo(); return; }
+        azoto.castr = !yt && eCastrUrl(url);
         impostaModoPagina('azoto');
         if (url === azoto.url) {
             // lo stesso indirizzo: niente ricarica (magari e' cambiato solo il titolo)
@@ -1609,9 +1650,13 @@
             return;
         }
         // un indirizzo nuovo (o il primo): l'iframe si ricrea da zero
-        Object.assign(azoto, { url: url, titolo: titolo, errore: '' });
+        Object.assign(azoto, { url: url, titolo: titolo, errore: '', castrPronto: false });
         mostraLento(false);
+        // Castr durante la sigla: l'indirizzo resta pronto, l'iframe arriva alla fine della sigla
+        if (azoto.castr && inSigla()) iframeVisibile(false);
+        else iframeVisibile(true);
         azoto.player.carica(url, { titolo: titolo });
+        if (azoto.castr) avviaSigla();
         aggiornaSchermo();
     }
     function creaAzoto(conYouTube) {
@@ -1652,8 +1697,9 @@
             return azoto.player;
         }
         azoto.player = P.crea($('video-player'), {
-            // la pagina di Azoto e' arrivata: via l'avviso dei 15 secondi
+            // la pagina di Azoto (o di Castr) e' arrivata: via l'avviso dei 15 secondi
             onPronto: () => {
+                azoto.castrPronto = true;
                 mostraLento(false);
                 aggiornaSchermo();
             },
@@ -1671,7 +1717,7 @@
     function distruggiAzoto() {
         fermaSigla();
         if (azoto.player) { try { azoto.player.distruggi(); } catch (e) { /* gia' distrutto */ } }
-        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '', youtube: false, semplice: false, ytStato: '' });
+        Object.assign(azoto, { player: null, url: '', titolo: '', errore: '', youtube: false, castr: false, castrPronto: false, semplice: false, ytStato: '' });
         /* senza player la modalita' la dice l'evento (videoYouTube): nell'attesa,
            nella pausa e alla fine restano i comandi e i consigli di YouTube */
         if (stato.evento) impostaModoPagina(modoDi(stato.evento));

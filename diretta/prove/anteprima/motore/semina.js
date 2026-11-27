@@ -9,7 +9,7 @@
    2. l'evento "Next Generation Business 2026 · Napoli", di oggi, che
       comincia tra circa mezz'ora (conto alla rovescia visibile), con il
       video in modalita' A, il player incorporato: un video di YouTube
-      (tipoPlayer 'azoto', il campo «Player YouTube o Azoto»), come il
+      (tipoPlayer 'azoto', il campo «Player YouTube, Castr o Azoto»), come il
       webinar. C'e' anche un flusso diretto .m3u8 della web TV finta, per
       passare alla modalita' B dalla regia;
    3. quattro partecipanti, due con lo stesso nome (Mario Rossi e Mario
@@ -37,7 +37,7 @@ const VERSIONE_SEMINA = 2;
 const AZOTO_URL = 'https://cdn.azotosolutions.com/cloudtv/livetv91/player';
 /* Il video dell'evento di prova: un video di YouTube, come il webinar del
    10 dicembre 2026 (va nello stesso campo del player di Azoto, «Player
-   YouTube o Azoto»). Nell'anteprima al suo posto c'e' il riquadro di prova. */
+   YouTube, Castr o Azoto»). Nell'anteprima al suo posto c'e' il riquadro di prova. */
 const YOUTUBE_URL = 'https://www.youtube.com/live/ngbDiretta1';
 const GESTORE = { email: 'gestore@anteprima.it', password: 'Regia-Napoli-26' };
 // la relatrice: una partecipante dell'evento, segnata come relatrice dalla regia

@@ -1,14 +1,15 @@
 /* ============================================================
    Il video della diretta: da dove arriva. UNA sola funzione.
    ------------------------------------------------------------
-   Il video arriva da YOUTUBE o dalla web TV Azoto Solutions, in una
-   delle due modalita' che la gestione sceglie per ogni evento
+   Il video arriva da YOUTUBE, da CASTR o dalla web TV Azoto Solutions,
+   in una delle due modalita' che la gestione sceglie per ogni evento
    (tipoPlayer):
      A) 'azoto'  un PLAYER INCORPORATO dentro un iframe della nostra
                  pagina (la modalita' predefinita): il video di YouTube
-                 (dal webinar del 10 dicembre 2026) oppure il player di
-                 Azoto, con i loro comandi (e l'eventuale logo). Il nome
-                 'azoto' resta per i documenti gia' salvati;
+                 (dal webinar del 10 dicembre 2026), il player di Castr
+                 (dal 27 novembre 2026) oppure il player di Azoto, con i
+                 loro comandi (e l'eventuale logo). Il nome 'azoto' resta
+                 per i documenti gia' salvati;
      B) 'flusso' il FLUSSO DIRETTO (.m3u8, o .mpd) riprodotto dal
                  NOSTRO player, con i nostri comandi e senza loghi:
                  quando Azoto ci dara' il link.
@@ -52,6 +53,16 @@
        incollati da altri. Un link di YouTube senza un video (la pagina di
        un canale, una playlist) e' l'errore 'youtube'.
                                                            -> 'incorporato'
+     - CASTR: l'indirizzo del player (https://player.castr.com/live_…,
+       quello di una diretta, o di un video) oppure il codice «Embed»
+       (iframe) di Castr, da cui si prende il src del primo <iframe>. Si
+       tiene solo il percorso del player (l'identificativo) e il valore
+       e' ricostruito qui: https://player.castr.com/<id>?autoplay=on,
+       con &muted=on solo se c'era nel link incollato (il video parte
+       senza audio). Gli altri parametri si buttano via. Un link di
+       castr.com che non e' il player (la pagina del pannello, il sito)
+       e' l'errore 'castr'. Il link HLS di Castr (…/index.m3u8) e' invece
+       un flusso diretto, come gli altri.                  -> 'incorporato'
    Non si accettano, con il motivo: indirizzi http (il browser li
    bloccherebbe in una pagina https), indirizzi con nome utente e
    password dentro, i link RTMP/RTSP/SRT (sono per trasmettere, non
@@ -62,16 +73,18 @@
 
    leggi(testo)    -> { tipo, valore } | { errore } | null (vuoto): tutti
                       e tre i tipi (e' la regola della prova del link);
-   perAzoto(testo) -> il campo del player incorporato («Player YouTube o
-                      Azoto»): solo 'incorporato' (un flusso qui e'
-                      l'errore 'e-flusso');
+   perAzoto(testo) -> il campo del player incorporato («Player YouTube,
+                      Castr o Azoto»): solo 'incorporato' (un flusso qui
+                      e' l'errore 'e-flusso');
    perFlusso(testo)-> il campo «Flusso diretto (.m3u8)»: solo 'hls' e
                       'dash' (il player di Azoto qui e' l'errore 'e-azoto');
    eAzoto(url)     -> true se url e' l'indirizzo di un player da
-                      incorporare, di Azoto o di YouTube (un indirizzo, non
-                      il codice da incollare): il nome resta quello di
-                      quando c'era solo Azoto;
+                      incorporare, di Azoto, di YouTube o di Castr (un
+                      indirizzo, non il codice da incollare): il nome resta
+                      quello di quando c'era solo Azoto;
    eYouTube(url)   -> true se url e' il player di YouTube (per i nomi a video);
+   eCastr(url)     -> true se url e' il player di Castr (i nomi a video, e
+                      la pagina: la sigla d'apertura prima del video);
    idYouTube(url)  -> l'identificativo del video (11 caratteri) di un
                       valore gia' salvato del player di YouTube (o di un
                       link di YouTube), '' se non lo e': lo usa diretta/player-youtube.js, che con il
@@ -104,10 +117,15 @@
     var SITI_YOUTUBE = ['youtube.com', 'youtube-nocookie.com', 'youtu.be'];
     // play solo in linea sul telefono, niente video "correlati" di altri canali alla fine
     var PARAMETRI_YOUTUBE = '?autoplay=1&playsinline=1&rel=0';
+    /* Il player di Castr: l'unico indirizzo di Castr che si incorpora,
+       ricostruito da qui con il percorso del player (live_…). */
+    var CASTR_PLAYER = 'player.castr.com';
+    var SITO_CASTR = 'castr.com';
+    var RE_PEZZO_CASTR = /^[A-Za-z0-9][A-Za-z0-9_-]{2,99}$/;
     // file video e segmenti: si possono scaricare, ma non sono una diretta
     var RE_FILE = /\.(mp4|m4v|mov|webm|mkv|avi|flv|ts|m4s)$/;
 
-    var AVVISO_INCORPORATO = 'Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Azoto restano invece i suoi comandi e il suo logo.';
+    var AVVISO_INCORPORATO = 'Il video di YouTube si vede come una diretta, con i nostri comandi: tutti allo stesso punto da quando vai in onda, senza la barra, la durata, il titolo o il link di YouTube. Con il player di Castr o di Azoto restano invece i loro comandi (e l\'eventuale logo); con Castr, a «Vai in onda», prima del video c\'è la sigla Revilaw.';
 
     /* Dal codice incollato si prende l'indirizzo (src) del PRIMO <iframe>,
        e nient'altro. Si leggono gli attributi del tag uno per uno, come
@@ -168,6 +186,21 @@
         return 'https://' + YOUTUBE_EMBED + '/embed/' + id + PARAMETRI_YOUTUBE;
     }
 
+    /* Un link di Castr? null se non e' di castr.com; '' se e' di Castr ma
+       non e' il player (o il player senza un identificativo); altrimenti il
+       valore del player, ricostruito: il percorso (uno o due pezzi di
+       lettere, numeri, _ e -) con autoplay=on, e muted=on solo se il link
+       incollato lo chiedeva. */
+    function playerCastr(u) {
+        var h = u.hostname.toLowerCase();
+        if (h !== SITO_CASTR && h.slice(-(SITO_CASTR.length + 1)) !== '.' + SITO_CASTR) return null;
+        if (h !== CASTR_PLAYER || u.port !== '') return '';
+        var pezzi = u.pathname.split('/').filter(function (p) { return p !== ''; });
+        if (pezzi.length < 1 || pezzi.length > 2 || !pezzi.every(function (p) { return RE_PEZZO_CASTR.test(p); })) return '';
+        var muto = String(u.searchParams.get('muted') || '').toLowerCase() === 'on';
+        return 'https://' + CASTR_PLAYER + '/' + pezzi.join('/') + '?autoplay=on' + (muto ? '&muted=on' : '');
+    }
+
     function leggi(v) {
         var s = String(v == null ? '' : v).trim();
         if (!s) return null;
@@ -194,6 +227,10 @@
         if (/\.m3u8$/.test(percorso)) { u.hash = ''; return { tipo: 'hls', valore: u.href }; }
         if (/\.mpd$/.test(percorso)) { u.hash = ''; return { tipo: 'dash', valore: u.href }; }
         if (RE_FILE.test(percorso)) return { errore: 'file' };
+        // Castr: solo il suo player, ricostruito da questo file
+        var castr = playerCastr(u);
+        if (castr === '') return { errore: 'castr' };
+        if (castr) return { tipo: 'incorporato', valore: castr, castr: true };
         // una pagina da incorporare: SOLO il player di Azoto
         if (!hostAzoto(u)) return { errore: 'non-azoto' };
         return { tipo: 'incorporato', valore: u.href };
@@ -236,6 +273,12 @@
         var s = leggi(valore);
         return !!s && s.youtube === true;
     }
+    // un valore gia' salvato e' il player di Castr? (per i nomi a video, e per la sigla d'apertura)
+    function eCastr(valore) {
+        if (typeof valore !== 'string' || valore.indexOf('<') >= 0) return false;
+        var s = leggi(valore);
+        return !!s && s.castr === true;
+    }
 
     /* L'identificativo del video (11 caratteri) di un video di YouTube: dal
        valore salvato (il player youtube-nocookie) o da un link di YouTube
@@ -267,6 +310,7 @@
         hls: 'Flusso HLS (.m3u8): lo riproduce il nostro player, con i nostri comandi e senza loghi.',
         dash: 'Flusso DASH (.mpd): lo riproduce il nostro player.',
         incorporato: 'Player Azoto: si vede dentro la nostra pagina con i comandi di Azoto.',
+        castr: 'Player Castr: si vede dentro la nostra pagina con i comandi di Castr (play, audio, schermo intero); a «Vai in onda», prima del video, la sigla Revilaw.',
         youtube: 'Video YouTube: si vede come una diretta, con i nostri comandi (tutti allo stesso punto, senza barra, titolo o link di YouTube).'
     };
     function descrizione(tipo) {
@@ -275,22 +319,24 @@
 
     var MESSAGGI = {
         vuoto: 'Incolla il link della diretta.',
-        codice: 'Nel codice incollato non trovo l\'indirizzo del player (<iframe src="https://…">): incolla tutto il codice che vi ha dato Azoto, oppure solo l\'indirizzo del player.',
+        codice: 'Nel codice incollato non trovo l\'indirizzo del player (<iframe src="https://…">): incolla tutto il codice che vi ha dato Azoto (o il codice «Embed» di Castr), oppure solo l\'indirizzo del player.',
         rtmp: 'Questo è l\'indirizzo per trasmettere (RTMP/RTSP/SRT), non per guardare: chiedi alla web TV il link HLS (.m3u8) in https.',
         https: 'Serve un indirizzo che comincia con https:// (con http:// il browser non mostra il video in una pagina sicura): chiedi alla web TV il link in https.',
-        formato: 'Non riconosco un link valido: incolla il link del video YouTube, il codice o l\'indirizzo del player Azoto (https://' + HOST_AZOTO[0] + '/…) oppure il link del flusso diretto (…/playlist.m3u8).',
+        formato: 'Non riconosco un link valido: incolla il link del video YouTube, l\'indirizzo del player Castr (https://' + CASTR_PLAYER + '/…), il codice o l\'indirizzo del player Azoto (https://' + HOST_AZOTO[0] + '/…) oppure il link del flusso diretto (…/playlist.m3u8).',
         lungo: 'Il link è troppo lungo (più di ' + LUNGHEZZA_MASSIMA + ' caratteri).',
         credenziali: 'Il link contiene un nome utente e una password: non va usato in una pagina pubblica. Chiedi alla web TV un link senza credenziali.',
         file: 'Questo è un file video (o un pezzo del flusso), non una diretta: chiedi alla web TV il link HLS (.m3u8) del canale.',
-        'non-azoto': 'Qui si accetta il link di un video YouTube oppure un indirizzo https di ' + HOST_AZOTO.join(' o ') + ' (quello nel codice che vi ha dato Azoto): le pagine di altri siti non si incorporano.',
+        'non-azoto': 'Qui si accetta il link di un video YouTube, l\'indirizzo del player Castr (https://' + CASTR_PLAYER + '/…) oppure un indirizzo https di ' + HOST_AZOTO.join(' o ') + ' (quello nel codice che vi ha dato Azoto): le pagine di altri siti non si incorporano.',
+        castr: 'Questo link di Castr non è il player: incolla l\'indirizzo del player (https://' + CASTR_PLAYER + '/live_…) oppure il codice «Embed» (iframe) che trovi in Castr.',
         youtube: 'Questo link di YouTube non porta a un video: incolla il link del video o della diretta, per esempio https://www.youtube.com/watch?v=… oppure https://youtu.be/…',
         'non-flusso': 'Questo non è il link di un flusso diretto: serve il link che finisce con .m3u8 (HLS) o .mpd (DASH), da chiedere ad Azoto.',
         'e-flusso': 'Questo è il link di un flusso diretto: va nel campo «Flusso diretto (.m3u8)».',
-        'e-azoto': 'Questo è il link di un player da incorporare (YouTube o Azoto): va nel campo «Player YouTube o Azoto».'
+        'e-azoto': 'Questo è il link di un player da incorporare (YouTube, Castr o Azoto): va nel campo «Player YouTube, Castr o Azoto».'
     };
     function messaggio(esito) {
         if (!esito) return MESSAGGI.vuoto;
         if (!esito.errore && esito.youtube) return DESCRIZIONI.youtube;
+        if (!esito.errore && esito.castr) return DESCRIZIONI.castr;
         if (!esito.errore && DESCRIZIONI[esito.tipo]) return DESCRIZIONI[esito.tipo];
         return MESSAGGI[esito.errore] || MESSAGGI.formato;
     }
@@ -300,12 +346,14 @@
         TIPI: TIPI,
         HOST_AZOTO: HOST_AZOTO,
         YOUTUBE_EMBED: YOUTUBE_EMBED,
+        CASTR_PLAYER: CASTR_PLAYER,
         AVVISO_INCORPORATO: AVVISO_INCORPORATO,
         leggi: leggi,
         perAzoto: perAzoto,
         perFlusso: perFlusso,
         eAzoto: eAzoto,
         eYouTube: eYouTube,
+        eCastr: eCastr,
         idYouTube: idYouTubeDi,
         oembedYouTube: oembedYouTube,
         tipoDi: tipoDi,

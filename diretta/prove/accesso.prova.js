@@ -901,7 +901,7 @@ async function provaVideoWebTv(tokG, P, segrete) {
         const incorporato = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: '<iframe src="https://player.webtv.esempio.it/embed/9?a=1&amp;b=2"></iframe>' }, tokG);
         vero(incorporato.stato === 400 && /non è il link di un flusso diretto/.test(incorporato.dati.msg || ''), 'la pagina da incorporare di un\'altra web TV nel campo del flusso: 400 («' + incorporato.dati.msg + '»)');
         const azotoNelFlusso = await gestione({ azione: 'evento-video', idEvento: EVENTO, videoUrl: CODICE_AZOTO }, tokG);
-        vero(azotoNelFlusso.stato === 400 && azotoNelFlusso.dati.codice === 'video' && /va nel campo «Player YouTube o Azoto»/.test(azotoNelFlusso.dati.msg || ''),
+        vero(azotoNelFlusso.stato === 400 && azotoNelFlusso.dati.codice === 'video' && /va nel campo «Player YouTube, Castr o Azoto»/.test(azotoNelFlusso.dati.msg || ''),
             'il codice di Azoto nel campo del flusso: 400 («' + azotoNelFlusso.dati.msg + '»)');
         const flussoInAzoto = await gestione({ azione: 'evento-salva', evento: { id: EVENTO, azotoUrl: LINK_WEBTV } }, tokG);
         vero(flussoInAzoto.stato === 400 && flussoInAzoto.dati.codice === 'azoto' && /va nel campo «Flusso diretto \(\.m3u8\)»/.test(flussoInAzoto.dati.msg || ''),
