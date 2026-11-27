@@ -68,7 +68,9 @@ const RICEVUTE = {
 };
 const nomeRicevuta = v => RICEVUTE[v.ricevuta] || 'Ricevuta';
 const PASSI = { sollecito1: 'primo sollecito', sollecito2: 'secondo sollecito' };
-const coordinate = m => (m && Number(m.uid) ? { chiave: riga(m.chiave, 80), uid: Number(m.uid), uidValidity: riga(m.uidValidity, 40), dimensione: Number(m.dimensione) || 0 } : null);
+// dove sta il messaggio: anche in quale casella, se non e' quella dello studio
+const coordinate = m => (m && Number(m.uid) ? Object.assign({ chiave: riga(m.chiave, 80), uid: Number(m.uid), uidValidity: riga(m.uidValidity, 40), dimensione: Number(m.dimensione) || 0 },
+    /^pec[2-9]$/.test(String(m.casella || '')) ? { casella: String(m.casella) } : {}) : null);
 
 /* Una notizia per chi ha preparato la lettera `inv` (scheda di circInvii).
    `voce`: { tipo: 'ricevuta' | 'risposta' | 'invio', chiave, passo, titolo,
@@ -104,19 +106,32 @@ function nomeFile(testo) {
 function fileRicevuta(v) {
     return nomeFile(nomeRicevuta(v) + (PASSI[v.passo] ? ' (' + PASSI[v.passo] + ')' : '') + ' - ' + (v.codice || 'lettera') + ' - ' + (v.destinatario || v.pec || ''));
 }
-/* La casella si apre una volta sola, e solo se serve davvero un file.
+/* Ogni casella si apre una volta sola, e solo se serve davvero un file.
    `apri` e' LETTORE.sessione (lo passa chi chiama: il lettore importa
-   circ-dati, che importa questo file). */
+   circ-dati, che importa questo file): riceve la casella ('studio' o
+   'pec2'...), presa da `dove.casella`. */
 function cassetto(apri) {
-    let s = null, provata = false;
+    const sessioni = new Map();       // casella -> sessione aperta (null se non si apre)
+    const sessione = async dove => {
+        const id = /^pec[2-9]$/.test(String((dove && dove.casella) || '')) ? String(dove.casella) : 'studio';
+        if (!sessioni.has(id)) { let x = null; try { x = await apri(id); } catch (_) { x = null; } sessioni.set(id, x); }
+        return sessioni.get(id);
+    };
     return {
         async prendi(dove, max) {
             if (!apri) return { ok: false, perche: 'assente' };
-            if (!provata) { provata = true; try { s = await apri(); } catch (_) { s = null; } }
+            const s = await sessione(dove);
             if (!s) return { ok: false, perche: 'guasto' };
             try { return await s.sorgente(dove, max); } catch (_) { return { ok: false, perche: 'guasto' }; }
         },
-        async chiudi() { if (s) { try { await s.chiudi(); } catch (_) { /* si chiude da sola */ } } }
+        // testo e allegati decodificati (l'inoltro delle risposte)
+        async contenuto(dove, max) {
+            if (!apri) return { ok: false, perche: 'assente' };
+            const s = await sessione(dove);
+            if (!s || typeof s.contenuto !== 'function') return { ok: false, perche: 'guasto' };
+            try { return await s.contenuto(dove, max); } catch (_) { return { ok: false, perche: 'guasto' }; }
+        },
+        async chiudi() { for (const s of sessioni.values()) { if (s) { try { await s.chiudi(); } catch (_) { /* si chiude da sola */ } } } }
     };
 }
 /* Mette il file su una notizia (v.file) o annota perche' non c'e'
@@ -332,7 +347,7 @@ async function spedisciDaAssociare(db, opz) {
     const ora = Date.now();
     const nuovi = docs.map(s => Object.assign({ id: s.id }, s.data() || {}))
         .filter(m => !m.avvisato && (Number(m.quando) || Number(m.letto) || ora) > ora - VECCHIO_MS)
-        .map(m => Object.assign(m, { quando: Number(m.quando) || Number(m.letto) || ora, messo: Number(m.letto) || Number(m.quando) || ora, msg: coordinate({ chiave: m.id, uid: m.uid, uidValidity: m.uidValidity, dimensione: m.dimensione }) }))
+        .map(m => Object.assign(m, { quando: Number(m.quando) || Number(m.letto) || ora, messo: Number(m.letto) || Number(m.quando) || ora, msg: coordinate({ chiave: m.id, uid: m.uid, uidValidity: m.uidValidity, dimensione: m.dimensione, casella: m.casella }) }))
         .sort((x, y) => (x.quando - y.quando) || (x.id < y.id ? -1 : 1));
     if (!nuovi.length) return { ok: true, inviate: 0, messaggi: 0 };
     if (!ERRORI.postaConfigurata()) return { ok: false, inviate: 0, messaggi: 0, msg: 'posta non configurata' };

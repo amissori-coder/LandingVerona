@@ -937,7 +937,9 @@ messaggi**), `lib/circ-dati.js` (le schede su Firestore e chi le vede),
 `lib/circ-giro.js` (la coda che spedisce), `lib/circ-lettore.js` (la casella:
 ricevute, risposte, scaricamenti), `lib/circ-bozze.js` (la bozza delle nuove
 lettere, salvata sul portale), `lib/circ-registro.js` (il registro delle
-operazioni: chi ha fatto che cosa). La parte a video e' in
+operazioni: chi ha fatto che cosa), `lib/circ-inoltri.js` (le risposte
+inoltrate per email a chi ha la revisione legale, negli incarichi "per conto
+di"). La parte a video e' in
 `area-riservata/app.js`, blocco "CIRCOLARIZZAZIONI VIA PEC".
 
 ### Le variabili da impostare su Vercel
@@ -956,6 +958,9 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 | `CIRC_PEC_SMTP_HOST`, `CIRC_PEC_SMTP_PORT` | *(facoltative)* senza: `smtps.pec.aruba.it`, `465` |
 | `CIRC_PEC_IMAP_HOST`, `CIRC_PEC_IMAP_PORT`, `CIRC_PEC_IMAP_CARTELLA` | *(facoltative)* senza: `imaps.pec.aruba.it`, `993`, `INBOX` |
 | `CIRC_PEC_IMAP_USER`, `CIRC_PEC_IMAP_PASS` | *(facoltative)* solo se la lettura ha credenziali diverse dall'invio |
+| `CIRC_PEC2_USER`, `CIRC_PEC2_PASS` | *(facoltative)* una **seconda casella PEC**, per gli incarichi "per conto di" (il collegio sindacale, il sindaco unico o un'altra societa' di revisione): le lettere di quegli incarichi partono da qui e le risposte si leggono qui. Per altre caselle: `CIRC_PEC3_…`, `CIRC_PEC4_…`, fino a `CIRC_PEC9_…`. Vedi "Gli incarichi per conto di" |
+| `CIRC_PEC2_NOME` | *(facoltativa)* come si chiama la casella nell'area riservata, per esempio `PEC del collegio sindacale`. Senza: `PEC 2` |
+| `CIRC_PEC2_SMTP_HOST`, `…_SMTP_PORT`, `…_IMAP_HOST`, `…_IMAP_PORT`, `…_IMAP_USER`, `…_IMAP_PASS`, `…_IMAP_CARTELLA`, `…_FROM_EMAIL`, `…_PROXY` | *(facoltative)* come le omonime della casella dello studio, per la seconda casella (e per le altre, con il loro numero). Senza `…_PROXY` vale il ponte della casella dello studio, se c'e' |
 | `CIRC_PDF_MAX_MB` | *(facoltativa)* quanto puo' pesare la lettera in PDF. Senza: `5` |
 | `CIRC_PDF_GIORNI` | *(facoltativa)* per quanti giorni, dalla preparazione della lettera, il suo PDF resta sul portale. Senza: `365` |
 | `CIRC_BOZZA_GIORNI` | *(facoltativa)* per quanti giorni dall'ultima modifica una bozza di nuove lettere non inviata (righe e PDF) resta sul portale. Senza: `30` |
@@ -971,8 +976,8 @@ la funzione risponde "non ancora attiva" e non spedisce niente.
 
 Servono anche `FIREBASE_SERVICE_ACCOUNT`, `ALLOWED_ORIGIN` e `CRON_SECRET`, che
 ci sono gia'. **Nessuna regola Firestore da aggiungere**: le raccolte
-`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze`, `circRegistro` e i documenti
-`meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` non hanno un
+`circInvii`, `circRiferimenti`, `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze`, `circRegistro`, `circInoltri` e i documenti
+`meta/circolarizzazioni`, `meta/circGiro`, `meta/circLettore` (e `meta/circLettore~pec2`… per le altre caselle) non hanno un
 `match`, quindi dal browser non si leggono e non si scrivono (stessa scelta di
 `sbloccoIncarichi`). Le interrogazioni usano solo uguaglianze, o un intervallo
 sullo stesso campo su cui si ordina: **nessun indice da creare a mano**.
@@ -1568,6 +1573,66 @@ ai supervisori se ricevono anche gli errori.
 - L'associazione si fa sempre dall'area riservata (amministratore o
   supervisori): l'email serve a saperlo subito e a leggere il messaggio.
 
+### Gli incarichi "per conto di": altre caselle, lettere inviate da altri, risposte inoltrate
+
+In alcuni incarichi lo studio lavora **per conto di chi ha la revisione
+legale**: il collegio sindacale, il sindaco unico o un'altra societa' di
+revisione. Per questi incarichi cambiano tre cose.
+
+**1. Le lettere partono da un'altra PEC, a nome di chi ha la revisione.**
+L'amministratore (o un supervisore della sezione) apre l'incarico e preme
+**«Indica per conto di chi»**: sceglie il tipo (collegio sindacale, sindaco
+unico, societa' di revisione, altro), scrive il nome come deve comparire sulle
+lettere (per esempio `Collegio sindacale di ALFA S.r.l.`), sceglie la casella
+PEC da cui partono e, se serve, fino a cinque indirizzi email a cui inoltrare
+le risposte. Il team vede il riquadro ma non lo modifica; ogni cambio resta nel
+registro delle operazioni (azione `committente`, con il prima e il dopo).
+
+Da quel momento le nuove lettere dell'incarico:
+
+- partono dalla casella scelta (`CIRC_PEC2_…`), con il nome di chi ha la
+  revisione come mittente;
+- hanno l'intestazione, il riquadro ("Soggetto incaricato della revisione
+  legale") e la firma a nome suo: il testo non presenta lo studio come
+  revisore. «Vedi il testo della PEC» mostra come arrivano;
+- portano con se' la casella e il nome: i solleciti partono dalla stessa
+  casella con lo stesso nome anche se l'impostazione cambia dopo. Le lettere
+  gia' partite restano sulla casella da cui sono partite.
+
+**Ogni casella e' letta e spedita per conto suo.** Il giro programmato legge
+tutte le caselle configurate (ricevute e risposte si abbinano solo alle lettere
+partite da quella casella); se il gestore sospende gli invii di una casella,
+la pausa vale solo per quella e le lettere delle altre continuano a partire.
+Lo stato di ogni casella e' nelle Impostazioni della sezione («Le caselle
+PEC»). La seconda casella, se e' di Aruba, ha lo stesso problema della prima
+con gli invii dall'estero: va autorizzata allo stesso modo, o passa dal ponte
+(`CIRC_PEC2_PROXY`, oppure quello dello studio). Vedi "Quando il gestore
+sospende gli invii".
+
+**2. Alcune lettere le manda qualcun altro.** In «Nuove lettere», con la
+spunta **«Alcune lettere le invia un altro soggetto»** (gia' accesa negli
+incarichi "per conto di"), compare la colonna **«Chi la invia»**: "Noi, dal
+portale" oppure la societa' di revisione, il collegio sindacale o il sindaco,
+il revisore del gruppo (EY, PwC, Deloitte, KPMG…: va scritto il nome) o un
+altro soggetto. Le lettere inviate da altri si registrano senza PEC, senza PDF
+e senza date: in tabella compaiono come **«A cura di altri»**. Quando la
+risposta arriva, si apre la lettera e si preme **«Risposta ricevuta»**,
+scrivendo come e' arrivata. Contano nei numeri e nel report (lettere, "a cura
+di altri", risposte). Nel registro: `lettera-esterna`.
+
+**3. Le risposte si inoltrano anche a chi ha la revisione.** Se sull'incarico
+ci sono indirizzi di inoltro, ogni risposta abbinata a una lettera (dal giro o
+associata a mano) entra in coda (`circInoltri`, una riga per lettera e
+messaggio: la stessa risposta non parte due volte). Il giro programmato prende
+dalla casella PEC il testo e gli allegati (nel database non ci sono) e li
+spedisce per posta ordinaria, con il messaggio originale `.eml` quando ci sta;
+oltre `CIRC_EMAIL_ALLEGATI_MB` le email diventano piu' d'una. Rispondi a: chi
+ha preparato la lettera. L'oggetto e' `Circolarizzazione <societa'>: risposta
+di <destinatario> (rif. <codice>)`. Se la casella o la posta non rispondono si
+riprova al giro dopo; dopo due ore l'inoltro va nel registro degli errori, e si
+continua a provare per tre giorni. L'inoltro fatto resta scritto sulla
+risposta ("inoltrata a … il …") e nel registro (`risposta-inoltrata`).
+
 ### I dati non restano sul portale
 
 Ai team l'area riservata lo dice in ogni pagina: ricevute e risposte vanno
@@ -1645,6 +1710,17 @@ uscita rilevato al rifiuto, non mandato al team), l'amministratore che
 cancella e riassocia (solo lui, solleciti che ripartono, registro con il
 riepilogo), equity e founding partner in sola visualizzazione (leggono tutto,
 ogni modifica rifiutata), cancellazione.
+
+Gli incarichi "per conto di" hanno le loro prove:
+
+    node prove/circ-caselle.prove.js
+
+chi puo' impostarli, la lettera che parte dalla seconda casella con il nome di
+chi ha la revisione (anche i solleciti, anche se l'impostazione cambia dopo),
+ricevute e risposte lette e abbinate per casella, la pausa di una casella che
+non ferma l'altra, le lettere inviate da altri (senza PEC e senza PDF, segnate
+a mano, contate), l'inoltro delle risposte (allegati, una volta sola, diviso
+oltre il tetto, errori e ripresa), il registro.
 
 Per provare **la sezione nell'area riservata senza spedire niente** c'e' un
 banco di prova locale, con lo stesso codice e gli stessi finti:

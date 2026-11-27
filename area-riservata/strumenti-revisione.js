@@ -27,7 +27,7 @@
    modifica cambiare SR_DATI_VERSIONE in app.js (e la ?v= di app.js in index.html).
 ========================================================= */
 window.RV_STRUMENTI_REVISIONE = {
- "aggiornato": "2026-11-22",
+ "aggiornato": "2026-11-27",
  "fasi": {
   "interim": "Fase interim",
   "final": "Fase final",
@@ -396,7 +396,7 @@ window.RV_STRUMENTI_REVISIONE = {
     "Il cliente compila e firma l'attestazione 2026 con l'elenco dei soggetti e delle carte prepagate (o dichiara che non ce ne sono); se non indica legali, firma l'autocertificazione sui rischi legali.",
     "Il team prepara le lettere dai fac-simile 2026 (la data entro cui rispondere si scrive a mano); il cliente le stampa e le firma su carta intestata entro 5 giorni.",
     "Sui mastrini al 31/12/2026 si controlla che nell'attestazione ci siano tutti i soggetti e si verificano le PEC su INI-PEC.",
-    "Le lettere firmate si inviano dall'area riservata con «Invia le PEC»: una tabella per tipologia (banche, legali, assicurazioni…), la data entro cui rispondere e i due solleciti già programmati. Partono dalla PEC circolarizzazionirevilaw@pec.it, così il revisore controlla invio e risposte senza passare dalla società.",
+    "Le lettere firmate si inviano dall'area riservata con «Invia le PEC»: una tabella per tipologia (banche, legali, assicurazioni…), la data entro cui rispondere e i due solleciti già programmati. Partono dalla PEC circolarizzazionirevilaw@pec.it (negli incarichi per conto del collegio sindacale, del sindaco unico o di un'altra società di revisione, dalla loro PEC e a loro nome), così il revisore controlla invio e risposte senza passare dalla società.",
     "Chi ha inviato riceve un'email per ogni risposta e per ogni PEC non consegnata; ricevute e risposte si scaricano dall'area e il report degli invii si stampa per società.",
     "Con la Centrale Rischi al 31/12/2026 si verificano fondo rischi, saldi dei conti correnti, debiti verso consulenti e informazioni in nota integrativa."
    ],
@@ -432,7 +432,7 @@ window.RV_STRUMENTI_REVISIONE = {
     "Chiedere le schede contabili e gli elenchi xls di clienti e fornitori, anche a saldo zero, che quadrino con il bilancio al 31/12.",
     "Importare gli elenchi in Revisoft (attenzione ai segni dei saldi) e campionare: 3.4.7 per i clienti, 3.4.17 per i fornitori.",
     "Chiedere le PEC dei campionati, preparare le lettere (ai clienti con l'estratto conto al 31/12) e farle firmare su carta intestata entro 5 giorni.",
-    "Verificare le PEC su INI-PEC e inviare le lettere dall'area riservata con «Invia le PEC»: una tabella per i clienti e una per i fornitori (con il saldo da confermare), la data entro cui rispondere e i due solleciti già programmati. Partono dalla casella circolarizzazionirevilaw@pec.it.",
+    "Verificare le PEC su INI-PEC e inviare le lettere dall'area riservata con «Invia le PEC»: una tabella per i clienti e una per i fornitori (con il saldo da confermare), la data entro cui rispondere e i due solleciti già programmati. Partono dalla casella circolarizzazionirevilaw@pec.it (negli incarichi per conto del collegio sindacale, del sindaco unico o di un'altra società di revisione, dalla loro PEC e a loro nome).",
     "Chi ha inviato riceve un'email per ogni risposta e per ogni PEC non consegnata; ricevute e risposte si scaricano dall'area e il report degli invii si stampa per società.",
     "Per chi non risponde procedure alternative; controllare le fatture da emettere e ricevere e l'aging di crediti e debiti."
    ],
@@ -1069,7 +1069,7 @@ window.RV_STRUMENTI_REVISIONE = {
   "circObbligatorie": {
    "titolo": "Check list circolarizzazione soggetti obbligatori",
    "note": [
-    "Le lettere si inviano dall'area riservata, a mezzo PEC dalla casella circolarizzazionirevilaw@pec.it: chi le prepara riceve un'email per ogni risposta arrivata e per ogni PEC non consegnata."
+    "Le lettere si inviano dall'area riservata, a mezzo PEC dalla casella circolarizzazionirevilaw@pec.it (negli incarichi per conto del collegio sindacale, del sindaco unico o di un'altra società di revisione, dalla loro PEC e a loro nome): chi le prepara riceve un'email per ogni risposta arrivata e per ogni PEC non consegnata."
    ],
    "blocchi": [
     {
@@ -1162,7 +1162,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 9,
-       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: le tabelle delle tipologie sono già pronte: in ogni riga si scrivono denominazione e PEC, si allega la lettera firmata in PDF e si scelgono, dal calendario, il giorno entro cui rispondere e il giorno e l'orario del primo e del secondo sollecito. Ogni riga ha la sua lettera in PDF. Dopo l'invio si possono aggiungere altre righe; le lettere già inviate restano in tabella e se ne possono cambiare solo i solleciti non ancora partiti. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it.",
+       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: le tabelle delle tipologie sono già pronte: in ogni riga si scrivono denominazione e PEC, si allega la lettera firmata in PDF e si scelgono, dal calendario, il giorno entro cui rispondere e il giorno e l'orario del primo e del secondo sollecito. Ogni riga ha la sua lettera in PDF. Dopo l'invio si possono aggiungere altre righe; le lettere già inviate restano in tabella e se ne possono cambiare solo i solleciti non ancora partiti. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it; negli incarichi svolti per conto del collegio sindacale, del sindaco unico o di un'altra società di revisione partono invece dalla loro casella PEC e a loro nome, e ogni risposta viene inoltrata anche al loro indirizzo email. Le lettere che invia un altro soggetto (la società di revisione, il collegio sindacale o il sindaco, il revisore del gruppo) si registrano nella stessa tabella, indicandolo nella colonna «Chi la invia», senza PDF.",
        "doc": [
         {
          "p": "obbligatorie",
@@ -1192,7 +1192,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 11,
-       "testo": "Seguire le risposte (arriva un'email per ognuna): i solleciti programmati partono da soli e si fermano quando la risposta arriva. Una risposta arrivata per altra via si segna a mano sulla lettera."
+       "testo": "Seguire le risposte (arriva un'email per ognuna): i solleciti programmati partono da soli e si fermano quando la risposta arriva. Una risposta arrivata per altra via si segna a mano sulla lettera, come quelle alle lettere inviate da altri soggetti («Risposta ricevuta»)."
       },
       {
        "n": 12,
@@ -1471,7 +1471,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 10,
-       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: le tabelle delle tipologie sono già pronte: in ogni riga si scrivono denominazione e PEC, si allega la lettera firmata in PDF e si scelgono, dal calendario, il giorno entro cui rispondere e il giorno e l'orario del primo e del secondo sollecito. Ogni riga ha la sua lettera in PDF. Dopo l'invio si possono aggiungere altre righe; le lettere già inviate restano in tabella e se ne possono cambiare solo i solleciti non ancora partiti. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it.",
+       "testo": "Inviare le lettere dall'area riservata con «Invia le PEC»: le tabelle delle tipologie sono già pronte: in ogni riga si scrivono denominazione e PEC, si allega la lettera firmata in PDF e si scelgono, dal calendario, il giorno entro cui rispondere e il giorno e l'orario del primo e del secondo sollecito. Ogni riga ha la sua lettera in PDF. Dopo l'invio si possono aggiungere altre righe; le lettere già inviate restano in tabella e se ne possono cambiare solo i solleciti non ancora partiti. Le PEC partono dalla casella circolarizzazionirevilaw@pec.it; negli incarichi svolti per conto del collegio sindacale, del sindaco unico o di un'altra società di revisione partono invece dalla loro casella PEC e a loro nome, e ogni risposta viene inoltrata anche al loro indirizzo email. Le lettere che invia un altro soggetto (la società di revisione, il collegio sindacale o il sindaco, il revisore del gruppo) si registrano nella stessa tabella, indicandolo nella colonna «Chi la invia», senza PDF.",
        "doc": [
         {
          "p": "clientiFornitori",
@@ -1493,7 +1493,7 @@ window.RV_STRUMENTI_REVISIONE = {
       },
       {
        "n": 12,
-       "testo": "Seguire le risposte (arriva un'email per ognuna): i solleciti programmati partono da soli e si fermano quando la risposta arriva. Una risposta arrivata per altra via si segna a mano sulla lettera."
+       "testo": "Seguire le risposte (arriva un'email per ognuna): i solleciti programmati partono da soli e si fermano quando la risposta arriva. Una risposta arrivata per altra via si segna a mano sulla lettera, come quelle alle lettere inviate da altri soggetti («Risposta ricevuta»)."
       },
       {
        "n": 13,
@@ -3222,4 +3222,4 @@ window.RV_STRUMENTI_REVISIONE = {
   }
  }
 };
-window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=7f5ecc7e6b", "pagine": 39, "kb": 823, "documenti": 18}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=eb408e8af8", "pagine": 29, "kb": 1244, "documenti": 11}}};
+window.RV_STRUMENTI_REVISIONE.fascicoli = {"2026": {"circObbligatorie": {"file": "strumenti-revisione/fascicoli/2026-circObbligatorie.pdf?v=19cb2742af", "pagine": 39, "kb": 825, "documenti": 18}, "circClientiFornitori": {"file": "strumenti-revisione/fascicoli/2026-circClientiFornitori.pdf?v=a48132c5cd", "pagine": 29, "kb": 1247, "documenti": 11}}};

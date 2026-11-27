@@ -62,6 +62,8 @@ function pulisciRiga(r, ambito) {
         id: id, categoria: categoria,
         nome: C.unaRiga(r.nome, 160), pec: C.unaRiga(r.pec, 200), saldo: C.unaRiga(r.saldo, 30), nota: C.unaRiga(r.nota, 200),
         forza: r.forza === true,
+        // chi la invia: '' noi, altrimenti il tipo di soggetto che la manda (C.TIPI_ESTERNI) e il suo nome
+        chi: ha(C.TIPI_ESTERNI, String(r.chi || '')) ? String(r.chi) : '', chiNome: C.unaRiga(r.chiNome, 120),
         file: f && C.unaRiga(f.nome, 140) ? { nome: C.unaRiga(f.nome, 140), peso: Math.max(0, Math.round(Number(f.peso) || 0)) } : null,
         /* Quando rispondere e quando sollecitare, riga per riga: `scad` il
            termine; per ogni sollecito il giorno (`d`), l'orario (`o`) e il

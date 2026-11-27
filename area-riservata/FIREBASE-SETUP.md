@@ -254,7 +254,7 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
    > chi chiede lo sblocco potrebbe leggersi il gettone e approvarsi da solo.
 
    > **Circolarizzazioni via PEC: anche `circInvii`, `circRiferimenti`,
-   > `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze` e `circRegistro` restano fuori dalle regole.** Le lettere
+   > `circMessaggi`, `circIncarichi`, `circErrori`, `circAvvisi`, `circBozze`, `circRegistro` e `circInoltri` restano fuori dalle regole.** Le lettere
    > di circolarizzazione, le loro ricevute e le risposte dei terzi si vedono
    > incarico per incarico (team, responsabile dell'incarico, responsabile
    > della qualita'; tutto solo per l'amministratore e i supervisori), e le

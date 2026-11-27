@@ -36,6 +36,7 @@ const D = require('./daticert');
 const ERRORI = require('./circ-errori');
 const AVVISI = require('./circ-avvisi');
 const BOZZE = require('./circ-bozze');
+const INOLTRI = require('./circ-inoltri');
 const { eRuoloAdmin } = require('./utente-effettivo');
 
 const INVII = 'circInvii', RIF = 'circRiferimenti', MSG = 'circMessaggi', INC = 'circIncarichi';
@@ -96,14 +97,27 @@ function ruoliSuIncarico(inc, idPersone, risolvi) {
     return r;
 }
 const STATI_ESCLUSI = ['proposta', 'nonAccettato'];     // un incarico mai partito non ha circolarizzazioni
-function incaricoBreve(inc, ruoli, risolvi, soloLettura) {
+function incaricoBreve(inc, ruoli, risolvi, soloLettura, committente) {
     const nomi = campo => dividiNomi(campo).map(t => nomePersona(risolvi(t)) || t).join(', ');
-    return {
+    const out = {
         id: String(inc.id), cliente: String(inc.cliente || ''), stato: String(inc.stato || 'attivo'),
         responsabile: nomi(inc.respIncarico), qualita: nomi(inc.qualita), team: nomi(inc.team),
         ruoli: ruoli || [],
         // lo si vede soltanto: invii e risposte si leggono, niente si modifica
         soloLettura: !!soloLettura
+    };
+    if (committente) out.committente = committenteBreve(committente);
+    return out;
+}
+/* Per conto di chi si lavora su un incarico, come lo vede l'area riservata:
+   chi, da quale casella partono le lettere e a chi si inoltrano le risposte. */
+function committenteBreve(x) {
+    const cas = C.configurazione(x.casella);
+    return {
+        tipo: x.tipo, nome: x.nome, nomeTipo: C.TIPI_COMMITTENTE[x.tipo] || '',
+        casella: C.idCasella(x.casella), casellaIndirizzo: cas.mittente || '', casellaEtichetta: cas.etichetta, casellaPronta: C.configurato(x.casella),
+        inoltro: Array.isArray(x.inoltro) ? x.inoltro.slice() : [],
+        aggiornato: Number(x.aggiornato) || 0, da: String(x.da || '')
     };
 }
 /* Equity partner e founding partner. Vale la qualifica dell'anagrafica (la
@@ -118,7 +132,14 @@ function ePartner(ue, persone, mie) {
 async function impostazioni(db) {
     let d = {};
     try { const s = await docImpostazioni(db).get(); d = s.exists ? (s.data() || {}) : {}; } catch (_) { d = {}; }
-    return { supervisori: Array.isArray(d.supervisori) ? d.supervisori.map(x => String(x).toLowerCase()) : [] };
+    /* Gli incarichi "per conto di": incarico -> { tipo, nome, casella, inoltro }.
+       Uno tolto resta con valore null (cosi' si toglie anche unendo i campi). */
+    const committenti = {};
+    Object.keys(d.committenti || {}).forEach(k => {
+        const x = d.committenti[k];
+        if (x && typeof x === 'object' && x.nome) committenti[k] = x;
+    });
+    return { supervisori: Array.isArray(d.supervisori) ? d.supervisori.map(x => String(x).toLowerCase()) : [], committenti: committenti };
 }
 /* `ue` e' il risultato di utenteEffettivo(): per un collaboratore valgono i
    permessi del suo utente di riferimento, e nei timbri resta chi ha agito. */
@@ -153,7 +174,7 @@ async function profilo(db, ue, base) {
         if (!inc || !inc.id || STATI_ESCLUSI.indexOf(String(inc.stato || '')) >= 0) return;
         const ruoli = mie.size ? ruoliSuIncarico(inc, mie, risolvi) : [];
         const lavora = admin || supervisore || ruoli.length > 0;
-        if (lavora || partner) visibili.push(incaricoBreve(inc, ruoli, risolvi, !lavora));
+        if (lavora || partner) visibili.push(incaricoBreve(inc, ruoli, risolvi, !lavora, (imp.committenti || {})[String(inc.id)]));
     });
     const nome = String((ue.sessione && ue.sessione.nome) || (ue.dati && ue.dati.nome) || sessione);
     return {
@@ -178,6 +199,8 @@ function esitoPasso(p) { return inviato(p) || (p && p.stato === 'invio') ? D.esi
 function statoDi(inv) {
     const p = passo(inv, 'primo');
     if (inv.annullato) return 'annullata';
+    // la manda un altro soggetto: o si aspetta, o e' arrivata
+    if (inv.esterna) return inv.risposta ? 'risposta' : 'esterna';
     if (p.stato === 'bozza') return 'bozza';
     if (inv.risposta) return 'risposta';
     if (p.stato === 'coda' || p.stato === 'invio') return 'coda';
@@ -259,6 +282,8 @@ function segnaSporco(tx, db, inv) {
 function conteggi(schede, oggi) {
     const c = {
         totale: 0, inCoda: 0, inviate: 0, consegnate: 0, errori: 0, inDubbio: 0, risposte: 0, senzaRisposta: 0, scadute: 0, annullate: 0,
+        // le lettere che manda un altro soggetto, e quante di quelle sono gia' arrivate
+        esterne: 0, esterneRicevute: 0,
         sollecito1: { programmati: 0, inviati: 0, bloccati: 0 }, sollecito2: { programmati: 0, inviati: 0, bloccati: 0 },
         ultimoInvio: 0, ultimaRisposta: 0
     };
@@ -267,6 +292,12 @@ function conteggi(schede, oggi) {
         if (st === 'bozza') return;
         if (st === 'annullata') { c.annullate++; return; }
         c.totale++;
+        // la manda un altro soggetto: conta fra le lettere e, quando arriva, fra le risposte; non fra le PEC partite
+        if (inv.esterna) {
+            c.esterne++;
+            if (inv.risposta) { c.esterneRicevute++; c.risposte++; c.ultimaRisposta = Math.max(c.ultimaRisposta, Number(inv.risposta.il) || 0); }
+            return;
+        }
         const p = passo(inv, 'primo');
         if (inviato(p)) { c.inviate++; c.ultimoInvio = Math.max(c.ultimoInvio, Number(p.inviatoIl) || 0); }
         if (st === 'coda') c.inCoda++;
@@ -369,7 +400,7 @@ async function doppioni(db, incaricoId, pec) {
 }
 async function crea(db, prof, inc, dati, opz) {
     opz = opz || {};
-    if (!opz.forza) {
+    if (!opz.forza && dati.pec) {
         const gia = await doppioni(db, inc.id, dati.pec);
         if (gia.length) {
             return {
@@ -387,12 +418,30 @@ async function crea(db, prof, inc, dati, opz) {
         destinatario: dati.destinatario, pec: dati.pec, categoria: dati.categoria,
         saldo: dati.saldo == null ? null : dati.saldo, nota: dati.nota || '',
         bilancio: dati.bilancio, scadenza: dati.scadenza, codice: codice,
-        allegato: Object.assign({}, dati.allegato, { sha256: '' }), allegatoFino: null,
+        allegato: dati.allegato ? Object.assign({}, dati.allegato, { sha256: '' }) : null, allegatoFino: null,
         creato: { il: ora, da: prof.email, nome: prof.nome },
         passi: { primo: { stato: 'bozza' }, sollecito1: sollecito(dati.sollecito1), sollecito2: sollecito(dati.sollecito2) },
         risposta: null, risposte: [], messaggi: [], annullato: null,
         stato: 'bozza', prossimo: null, aggiornato: ora
     };
+    /* Per conto di chi ha la revisione legale: la lettera parte dalla sua casella
+       e a suo nome. Si fissa ADESSO sulla lettera: i solleciti partono dalla
+       stessa casella e con lo stesso nome anche se l'incarico poi cambia, e le
+       risposte si cercano dove la lettera e' partita. */
+    const com = inc.committente;
+    if (com && com.nome) {
+        inv.committente = { tipo: com.tipo, nome: com.nome };
+        if (C.idCasella(com.casella) !== C.STUDIO) inv.casella = C.idCasella(com.casella);
+    }
+    /* La manda un altro soggetto: non parte dal portale. Si registra per sapere
+       chi la manda e quando arriva la risposta: niente PDF, niente coda. */
+    if (dati.esterna) {
+        inv.esterna = { tipo: dati.esterna.tipo, nome: dati.esterna.nome || '' };
+        inv.passi = { primo: { stato: 'esterno' }, sollecito1: { stato: 'non-previsto' }, sollecito2: { stato: 'non-previsto' } };
+        delete inv.casella;
+        await db.runTransaction(async tx => { chiudi(inv, ora); tx.set(rif, inv); segnaSporco(tx, db, inv); });
+        return { ok: true, id: rif.id, codice: codice, esterna: true };
+    }
     await rif.set(inv);
     return { ok: true, id: rif.id, codice: codice, pezzi: dati.allegato.pezzi, pezzoByte: C.LIMITI.pezzoByte };
 }
@@ -540,7 +589,7 @@ async function prendi(db, id, ora, lettoreOk) {
             return Object.assign(salva('senza allegato'), { errore: { inv: inv, passo: n, testo: p.errore } });
         }
 
-        const riferimento = C.riferimentoNuovo();
+        const riferimento = C.riferimentoNuovo(inv.casella);
         p.stato = 'invio';
         p.riferimento = riferimento;
         p.riferimenti = (p.riferimenti || []).concat([riferimento]).slice(-MAX_TENTATIVI);
@@ -746,13 +795,16 @@ async function registraRisposta(db, idInvio, r) {
             return { ok: true, cambiato: false, incaricoId: inv.incaricoId };
         }
         const ora = Date.now();
-        risposte.push({
+        const voce = {
             chiave: r.chiave, uid: r.uid, uidValidity: r.uidValidity, quando: r.quando || ora,
             da: String(r.da || '').slice(0, 200), oggetto: String(r.oggetto || '').slice(0, 250),
             certificata: !!r.certificata, automatica: !!r.automatica, via: String(r.via || ''),
             allegati: (r.allegati || []).slice(0, 20), dimensione: Number(r.dimensione) || 0,
             associataDa: r.associataDa || null
-        });
+        };
+        // in quale casella sta il messaggio (manca per quella dello studio)
+        if (C.idCasella(r.casella) !== C.STUDIO) voce.casella = C.idCasella(r.casella);
+        risposte.push(voce);
         risposte.sort((a, b) => (a.quando || 0) - (b.quando || 0));
         inv.risposte = risposte.slice(-30);
         if (!r.automatica) {
@@ -773,6 +825,11 @@ async function registraRisposta(db, idInvio, r) {
             tipo: 'risposta', chiave: 'risposta~' + idInvio + '~' + r.chiave, quando: r.quando, da: r.da, oggetto: r.oggetto,
             certificata: !!r.certificata, allegati: (r.allegati || []).map(a => a.nome)
         });
+        /* Se l'incarico e' "per conto di" e chi ha la revisione vuole le risposte
+           anche alla sua email, la risposta gli si inoltra, con gli allegati
+           (lib/circ-inoltri.js). Le impostazioni si leggono adesso: vale chi e'
+           indicato quando la risposta arriva. */
+        await INOLTRI.accoda(db, esito.scheda, String(idInvio), r);
     }
     delete esito.scheda;
     return esito;
@@ -780,10 +837,12 @@ async function registraRisposta(db, idInvio, r) {
 /* Le schede a cui potrebbe riferirsi una risposta arrivata da `indirizzo`,
    quando ne' il messaggio a cui risponde ne' il riferimento nell'oggetto
    bastano a dirlo. Solo lettere partite e non annullate. */
-async function candidatiPerIndirizzo(db, indirizzo) {
+async function candidatiPerIndirizzo(db, indirizzo, casella) {
     if (!indirizzo) return [];
     const q = await db.collection(INVII).where('pec', '==', String(indirizzo).toLowerCase()).get();
-    return q.docs.map(conId).filter(x => x.stato !== 'bozza' && x.stato !== 'annullata' && inviato(passo(x, 'primo')));
+    // una risposta arrivata in una casella e' di una lettera partita da quella casella
+    return q.docs.map(conId).filter(x => x.stato !== 'bozza' && x.stato !== 'annullata' && inviato(passo(x, 'primo'))
+        && (casella === undefined || C.idCasella(x.casella) === C.idCasella(casella)));
 }
 
 /* ============================================================
@@ -831,6 +890,12 @@ function modificaSolleciti(db, id, nuovi, prof) {
 function annulla(db, id, prof) {
     return cambia(db, id, (inv, ora) => {
         const p = passo(inv, 'primo');
+        if (inv.annullato) return { ok: false, stato: 409, msg: 'Questa lettera è già annullata.' };
+        if (inv.esterna) {
+            if (inv.risposta) return { ok: false, stato: 409, msg: 'La risposta è già arrivata: togli prima la risposta segnata.' };
+            inv.annullato = { il: ora, da: prof.firma };
+            return { cosa: 'lettera' };
+        }
         if (p.stato === 'invio') return { ok: false, stato: 409, msg: 'La PEC sta partendo in questo momento: riprova fra un minuto.' };
         if (p.stato === 'bozza' || p.stato === 'coda' || p.stato === 'errore') { inv.annullato = { il: ora, da: prof.firma }; return { cosa: 'lettera' }; }
         let n = 0;
@@ -847,7 +912,9 @@ function annulla(db, id, prof) {
 function rispostaManuale(db, id, nota, prof) {
     return cambia(db, id, (inv, ora) => {
         if (inv.risposta && inv.risposta.modo !== 'manuale') return { ok: false, stato: 409, msg: 'La risposta è già registrata.' };
-        if (!inviato(passo(inv, 'primo'))) return { ok: false, stato: 409, msg: 'La lettera non è ancora partita.' };
+        if (inv.annullato) return { ok: false, stato: 409, msg: 'Questa lettera è stata annullata.' };
+        // la lettera di un altro soggetto non "parte": la sua risposta arriva quando arriva
+        if (!inviato(passo(inv, 'primo')) && !inv.esterna) return { ok: false, stato: 409, msg: 'La lettera non è ancora partita.' };
         inv.risposta = { il: ora, modo: 'manuale', da: prof.firma, nota: C.unaRiga(nota, 300) };
         bloccaSolleciti(inv, 'Risposta registrata a mano il ' + C.dataBreve(C.giornoRoma(ora)) + '.', 'manuale');
         return null;
@@ -880,6 +947,36 @@ function reinvia(db, id, pec, prof) {
 }
 
 /* ============================================================
+   PER CONTO DI CHI SI LAVORA SU UN INCARICO
+   Lo decidono l'amministratore e i supervisori (api/circolarizzazioni.js).
+   `x`: { tipo, nome, casella, inoltro: [indirizzi] } oppure null per
+   togliere. Torna { ok, prima, dopo } oppure { ok: false, stato, msg }.
+   ============================================================ */
+const MAX_INOLTRO = 5;
+async function impostaCommittente(db, incaricoId, x, prof) {
+    incaricoId = String(incaricoId || '');
+    if (!incaricoId) return { ok: false, stato: 400, msg: 'Incarico non indicato.' };
+    let dopo = null;
+    if (x) {
+        const com = C.committentePulito(x);
+        if (!com) return { ok: false, stato: 400, msg: 'Indica per conto di chi si lavora.' };
+        if (com.errore) return { ok: false, stato: 400, msg: com.errore };
+        const casella = C.idCasella(x.casella);
+        if (casella !== String(x.casella || C.STUDIO) && x.casella) return { ok: false, stato: 400, msg: 'Casella PEC sconosciuta.' };
+        if (!C.caselle().some(k => k.id === casella)) return { ok: false, stato: 400, msg: 'Questa casella PEC non è configurata sul servizio.' };
+        const grezzi = (Array.isArray(x.inoltro) ? x.inoltro : String(x.inoltro || '').split(/[,;\s]+/)).map(v => C.unaRiga(v, 200).toLowerCase()).filter(Boolean);
+        const sbagliato = grezzi.find(v => !C.EMAIL_RE.test(v));
+        if (sbagliato) return { ok: false, stato: 400, msg: 'Indirizzo per l\'inoltro non valido: ' + sbagliato };
+        const inoltro = grezzi.filter((v, i) => grezzi.indexOf(v) === i);
+        if (inoltro.length > MAX_INOLTRO) return { ok: false, stato: 400, msg: 'Al massimo ' + MAX_INOLTRO + ' indirizzi per l\'inoltro delle risposte.' };
+        dopo = { tipo: com.tipo, nome: com.nome, casella: casella, inoltro: inoltro, aggiornato: Date.now(), da: prof.firma };
+    }
+    const prima = (await impostazioni(db)).committenti[incaricoId] || null;
+    await docImpostazioni(db).set({ committenti: { [incaricoId]: dopo }, aggiornato: Date.now(), da: prof.firma }, { merge: true });
+    return { ok: true, prima: prima, dopo: dopo };
+}
+
+/* ============================================================
    L'AMMINISTRATORE: risposte non associate, cancellazioni
    ============================================================ */
 async function nonAssociate(db) {
@@ -893,7 +990,7 @@ async function associa(db, chiave, idInvio, prof) {
     const m = sm.data() || {};
     if (m.stato !== 'non-associato') return { ok: false, stato: 409, msg: 'Questo messaggio è già stato associato o scartato.' };
     const r = await registraRisposta(db, idInvio, {
-        chiave: String(chiave), uid: m.uid, uidValidity: m.uidValidity, quando: m.quando, da: m.da, oggetto: m.oggetto,
+        chiave: String(chiave), uid: m.uid, uidValidity: m.uidValidity, casella: m.casella, quando: m.quando, da: m.da, oggetto: m.oggetto,
         certificata: !!m.certificata, automatica: false, allegati: m.allegati || [], dimensione: m.dimensione, via: 'manuale',
         associataDa: { il: Date.now(), da: prof.firma }
     });
@@ -967,7 +1064,7 @@ async function cancellaRisposta(db, idInvio, chiave, prof) {
 function rimettiNonAssociata(db, chiave, tolta, prof) {
     return db.collection(MSG).doc(String(chiave)).set({
         stato: 'non-associato', genere: tolta.certificata ? 'risposta' : 'posta', invio: '',
-        uid: tolta.uid, uidValidity: tolta.uidValidity, quando: tolta.quando || Date.now(),
+        uid: tolta.uid, uidValidity: tolta.uidValidity, casella: C.idCasella(tolta.casella), quando: tolta.quando || Date.now(),
         da: tolta.da || '', oggetto: tolta.oggetto || '', certificata: !!tolta.certificata,
         allegati: tolta.allegati || [], dimensione: Number(tolta.dimensione) || 0, candidati: [],
         dissociataDa: prof.firma, dissociataIl: Date.now(),
@@ -993,7 +1090,7 @@ async function spostaRisposta(db, idInvio, chiave, idNuova, prof) {
     if (!r.ok) return r;
     const t = r.tolta;
     const messa = await registraRisposta(db, idNuova, {
-        chiave: String(chiave), uid: t.uid, uidValidity: t.uidValidity, quando: t.quando, da: t.da, oggetto: t.oggetto,
+        chiave: String(chiave), uid: t.uid, uidValidity: t.uidValidity, casella: t.casella, quando: t.quando, da: t.da, oggetto: t.oggetto,
         certificata: !!t.certificata, automatica: !!t.automatica, allegati: t.allegati || [], dimensione: t.dimensione, via: 'manuale',
         associataDa: { il: Date.now(), da: prof.firma }
     });
@@ -1048,7 +1145,7 @@ async function pulizia(db, ora, max) {
 
 module.exports = {
     INVII, RIF, MSG, INC, PROPRIETARIO, VERIFICA_MS, RIPROVA_MS, MAX_TENTATIVI,
-    profilo, leggiBase, incaricoDi, impostazioni, docImpostazioni,
+    profilo, leggiBase, incaricoDi, impostazioni, docImpostazioni, impostaCommittente, committenteBreve,
     statoDi, prossimoDi, passoDovuto, conteggi, conteggiPerAmbito, passo, inviato, esitoPasso,
     schedeIncarico, leggi, riepiloghi, crea, caricaPezzo, caricaIntero, leggiAllegato,
     chiaviMsgId, trovaRiferimento, prendi, esitoInvio, rifiutoProprio, respintaInAttesa,

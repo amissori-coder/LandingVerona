@@ -30,6 +30,15 @@
    Se nessuna strada porta a una lettera sola, la risposta NON si
    abbina a caso: resta fra le "non associate", con le lettere
    candidate, e la associa l'amministratore.
+
+   PIU' CASELLE. Le lettere degli incarichi "per conto di" partono da
+   un'altra casella (lib/circ-comune.js, caselle), e ricevute e
+   risposte arrivano li'. Ogni casella si legge per conto suo, con il
+   suo segnaposto (meta/circLettore per quella dello studio,
+   meta/circLettore~pec2 per le altre) e il suo lucchetto. I
+   messaggi delle altre caselle hanno la chiave che comincia con il
+   nome della casella ("pec2~777_15"): due caselle diverse possono
+   dare lo stesso numero a due messaggi diversi.
    ============================================================ */
 'use strict';
 
@@ -60,13 +69,18 @@ const LUCCHETTO_MS = 3 * 60 * 1000;
 const PAUSA_ERRORE_MS = 10 * 60 * 1000;
 const MAX_ERRORI_AUTH = 3;
 
-function docMeta(db) { return db.collection('meta').doc('circLettore'); }
-function configurato() {
-    const c = C.configurazione();
+function nomeMeta(casella) { return C.idCasella(casella) === C.STUDIO ? 'circLettore' : 'circLettore~' + C.idCasella(casella); }
+function docMeta(db, casella) { return db.collection('meta').doc(nomeMeta(casella)); }
+// il nome della casella davanti alla chiave del messaggio: vuoto per quella dello studio
+function prefisso(casella) { return C.idCasella(casella) === C.STUDIO ? '' : C.idCasella(casella) + '~'; }
+function configurato(casella) {
+    const c = C.configurazione(casella);
     return !!(c.imapHost && c.imapUtente && c.imapPassword);
 }
-function nuovoClient() {
-    const c = C.configurazione();
+// le caselle che si leggono: quelle configurate per la lettura
+function daLeggere() { return C.caselle().filter(c => configurato(c.id)).map(c => c.id); }
+function nuovoClient(casella) {
+    const c = C.configurazione(casella);
     const client = new (ImapFlowClasse())({
         host: c.imapHost, port: c.imapPorta, secure: true,
         auth: { user: c.imapUtente, pass: c.imapPassword },
@@ -103,29 +117,39 @@ async function parteGrezza(client, uid, chiave, da, quanti) {
 }
 
 /* ---------- il lucchetto e lo stato ---------- */
-async function prendiLucchetto(db, chi) {
+async function prendiLucchetto(db, chi, casella) {
     return db.runTransaction(async tx => {
-        const snap = await tx.get(docMeta(db));
+        const snap = await tx.get(docMeta(db, casella));
         const d = snap.exists ? (snap.data() || {}) : {};
         const ora = Date.now();
         if (d.lucchetto && d.lucchetto.fino > ora) return { preso: false };
-        tx.set(docMeta(db), { lucchetto: { fino: ora + LUCCHETTO_MS, chi: String(chi || '').slice(0, 120) } }, { merge: true });
+        tx.set(docMeta(db, casella), { lucchetto: { fino: ora + LUCCHETTO_MS, chi: String(chi || '').slice(0, 120) } }, { merge: true });
         return { preso: true, stato: d };
     });
 }
-async function mollaLucchetto(db, campi) {
-    try { await docMeta(db).set(Object.assign({ lucchetto: null }, campi || {}), { merge: true }); } catch (_) { /* scade da solo */ }
+async function mollaLucchetto(db, campi, casella) {
+    try { await docMeta(db, casella).set(Object.assign({ lucchetto: null }, campi || {}), { merge: true }); } catch (_) { /* scade da solo */ }
 }
-async function stato(db) {
+async function statoDi(db, casella) {
     let d = {};
-    try { const s = await docMeta(db).get(); d = s.exists ? (s.data() || {}) : {}; } catch (_) { d = {}; }
+    try { const s = await docMeta(db, casella).get(); d = s.exists ? (s.data() || {}) : {}; } catch (_) { d = {}; }
     return {
-        configurato: configurato(),
+        configurato: configurato(casella),
         ultimoGiro: d.ultimoGiro || null, ultimoOk: Number(d.ultimoOk) || 0,
         // la password per i programmi di posta di Aruba scade ogni sei mesi
         fermoPerCredenziali: (Number(d.erroriAuth) || 0) >= MAX_ERRORI_AUTH,
-        inCorso: !!(d.lucchetto && d.lucchetto.fino > Date.now())
+        inCorso: !!(d.lucchetto && d.lucchetto.fino > Date.now()),
+        mai: !d.uidValidity
     };
+}
+/* Lo stato della casella dello studio, con in piu' (`caselle`) quello delle
+   altre caselle configurate. */
+async function stato(db) {
+    const altre = C.caselle().filter(c => c.id !== C.STUDIO);
+    const [st, ...resto] = await Promise.all([statoDi(db, C.STUDIO)].concat(altre.map(c => statoDi(db, c.id))));
+    delete st.mai;
+    if (altre.length) st.caselle = altre.map((c, i) => Object.assign({ id: c.id, etichetta: c.etichetta, indirizzo: c.mittente || '' }, resto[i]));
+    return st;
 }
 
 /* ---------- a chi appartiene una risposta ---------- */
@@ -137,7 +161,7 @@ function normale(v) {
 function riferimenti(v) { return String(v || '').split(/[\s,]+/).filter(x => x.indexOf('@') > 0); }
 /* Torna { invio, via } quando la lettera e' una sola, altrimenti
    { candidati: [...] } (anche vuoto). `h` busta, `hi` messaggio dentro. */
-async function abbina(db, h, hi, mittente) {
+async function abbina(db, h, hi, mittente, casella) {
     hi = hi || {};
     const chiavi = [];
     [h['in-reply-to'], hi['in-reply-to']].concat(riferimenti(h['references'])).concat(riferimenti(hi['references'])).forEach(v => {
@@ -150,7 +174,7 @@ async function abbina(db, h, hi, mittente) {
         dove = await DATI.trovaRiferimento(db, ['c~' + codice]);
         if (dove) return { invio: dove.invio, via: 'riferimento' };
     }
-    const cand = await DATI.candidatiPerIndirizzo(db, mittente);
+    const cand = await DATI.candidatiPerIndirizzo(db, mittente, casella);
     if (cand.length === 1) return { invio: cand[0].id, via: 'indirizzo' };
     if (cand.length > 1) {
         const oggetto = ' ' + normale(D.oggettoPulito(h['subject']) + ' ' + (hi['subject'] || '')) + ' ';
@@ -161,13 +185,14 @@ async function abbina(db, h, hi, mittente) {
 }
 
 /* ---------- un messaggio ---------- */
-async function lavora(db, client, m, uidValidity, conto) {
+async function lavora(db, client, m, uidValidity, conto, casella) {
     const h = D.intestazioni(m.headers);
     const g = D.genere(h);
     const uid = Number(m.uid);
-    const chiave = uidValidity + '_' + uid;
+    const chiave = prefisso(casella) + uidValidity + '_' + uid;
     const quando = m.internalDate ? new Date(m.internalDate).getTime() : Date.now();
     const coordinate = { chiave: chiave, uid: uid, uidValidity: uidValidity, dimensione: Number(m.size) || 0 };
+    if (prefisso(casella)) coordinate.casella = C.idCasella(casella);
 
     if (g.genere === 'estraneo') { conto.estranei++; return { stato: 'ignorato' }; }
 
@@ -231,7 +256,8 @@ async function lavora(db, client, m, uidValidity, conto) {
         oggetto: D.oggettoPulito(h['subject']), certificata: g.genere === 'risposta', automatica: automatica,
         allegati: allegati, dimensione: Number(m.size) || 0
     };
-    const esito = await abbina(db, h, hi, mittente);
+    if (prefisso(casella)) risposta.casella = C.idCasella(casella);
+    const esito = await abbina(db, h, hi, mittente, casella);
     if (esito.invio) {
         const r = await DATI.registraRisposta(db, esito.invio, Object.assign({ via: esito.via }, risposta));
         if (r.ok) { conto.risposte++; return { stato: 'associato', genere: 'risposta', invio: esito.invio, automatica: automatica }; }
@@ -245,28 +271,56 @@ async function lavora(db, client, m, uidValidity, conto) {
     };
 }
 
-/* ---------- un giro di lettura ---------- */
+/* ---------- un giro di lettura ----------
+   `opz.casella`: si legge solo quella. Senza, si leggono tutte le caselle
+   configurate, una dopo l'altra, nel tempo che c'e'; il risultato somma i
+   conteggi (e in `caselle` c'e' quello di ognuna). */
 async function giro(db, opz) {
     opz = opz || {};
+    if (opz.casella) return giroCasella(db, opz, C.idCasella(opz.casella));
+    const ids = daLeggere();
+    if (ids.length <= 1) return giroCasella(db, opz, ids[0] || C.STUDIO);
+    const inizio = Date.now(), budget = Number(opz.budgetMs) || 40000;
+    const esiti = {};
+    for (const id of ids) {
+        const resta = budget - (Date.now() - inizio);
+        if (resta < 3000) { esiti[id] = { ok: true, esito: 'rimandata', restanti: true }; continue; }
+        esiti[id] = await giroCasella(db, Object.assign({}, opz, { budgetMs: resta }), id);
+    }
+    const tutti = ids.map(id => esiti[id]);
+    const somma = k => tutti.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+    const nonOk = tutti.find(r => !r.ok);
+    const etichetta = id => C.configurazione(id).etichetta;
+    return {
+        ok: !nonOk, esito: nonOk ? nonOk.esito : (tutti.some(r => r.esito === 'occupato') ? 'occupato' : 'ok'),
+        msg: ids.filter(id => !esiti[id].ok && esiti[id].msg).map(id => etichetta(id) + ': ' + esiti[id].msg).join(' '),
+        quando: Math.max.apply(null, tutti.map(r => Number(r.quando) || 0)), durataMs: Date.now() - inizio,
+        restanti: tutti.some(r => r.restanti),
+        letti: somma('letti'), ricevute: somma('ricevute'), risposte: somma('risposte'), nonAssociate: somma('nonAssociate'), estranei: somma('estranei'),
+        caselle: esiti
+    };
+}
+async function giroCasella(db, opz, casella) {
     const inizio = Date.now();
     const budget = Number(opz.budgetMs) || 40000;
-    if (!configurato()) return { ok: false, esito: 'non-configurato', msg: 'La casella PEC delle circolarizzazioni non è configurata per la lettura.' };
-    const preso = await prendiLucchetto(db, opz.da || 'giro');
+    const nomeCasella = casella === C.STUDIO ? 'La casella PEC delle circolarizzazioni' : 'La casella PEC «' + C.configurazione(casella).etichetta + '»';
+    if (!configurato(casella)) return { ok: false, esito: 'non-configurato', msg: nomeCasella + ' non è configurata per la lettura.' };
+    const preso = await prendiLucchetto(db, opz.da || 'giro', casella);
     if (!preso.preso) return { ok: true, esito: 'occupato', msg: 'Un controllo della casella è già in corso.' };
     const prima = preso.stato || {};
     const ultimo = prima.ultimoGiro || {};
     if (!opz.forza) {
         if ((Number(prima.erroriAuth) || 0) >= MAX_ERRORI_AUTH) {
-            await mollaLucchetto(db);
+            await mollaLucchetto(db, null, casella);
             return { ok: false, esito: 'credenziali', msg: 'Il controllo della casella è fermo: la PEC ha rifiutato la password tre volte. Va rigenerata la password per i programmi di posta e aggiornata nelle variabili del servizio.' };
         }
         if (ultimo.esito === 'errore' && (Date.now() - (ultimo.quando || 0)) < PAUSA_ERRORE_MS) {
-            await mollaLucchetto(db);
+            await mollaLucchetto(db, null, casella);
             return { ok: false, esito: 'in-pausa', msg: 'Il controllo precedente non è riuscito: si riprova fra qualche minuto.' };
         }
     }
-    const c = C.configurazione();
-    const client = nuovoClient();
+    const c = C.configurazione(casella);
+    const client = nuovoClient(casella);
     const conto = { letti: 0, ricevute: 0, risposte: 0, nonAssociate: 0, estranei: 0 };
     let restanti = false, uidValidity = '', ultimoUid = 0, esito = 'ok', motivo = '';
     try {
@@ -290,23 +344,23 @@ async function giro(db, opz) {
             for (const m of messaggi) {
                 if (Date.now() - inizio > budget) { restanti = true; break; }
                 const uid = Number(m.uid);
-                const rifVisto = db.collection(DATI.MSG).doc(uidValidity + '_' + uid);
+                const rifVisto = db.collection(DATI.MSG).doc(prefisso(casella) + uidValidity + '_' + uid);
                 let gia = false;
                 try { gia = (await rifVisto.get()).exists; } catch (_) { gia = false; }
                 if (gia) { ultimoUid = uid; continue; }
                 let annotato;
-                try { annotato = await lavora(db, client, m, uidValidity, conto); }
+                try { annotato = await lavora(db, client, m, uidValidity, conto, casella); }
                 catch (e) {
                     if (client.usable === false) throw e;     // connessione caduta: non e' colpa del messaggio
                     annotato = { stato: 'ignorato', tipo: 'illeggibile' };
                     await ERRORI.segna(db, {
-                        chiave: 'casella~messaggio~' + uidValidity + '_' + uid, tipo: 'casella', gravita: 'avviso', titolo: 'Un messaggio della casella PEC non si è potuto leggere',
+                        chiave: 'casella~messaggio~' + prefisso(casella) + uidValidity + '_' + uid, tipo: 'casella', gravita: 'avviso', titolo: 'Un messaggio della casella PEC non si è potuto leggere' + (prefisso(casella) ? ' (' + c.etichetta + ')' : ''),
                         dettaglio: 'Messaggio del ' + new Date(m.internalDate || Date.now()).toISOString().slice(0, 16).replace('T', ' ') + ' UTC: ' + String((e && e.message) || 'errore').slice(0, 200) + '. Se è una ricevuta o una risposta, va guardata dalla casella.'
                     });
                 }
                 // il segnaposto si scrive DOPO il lavoro: scritto prima, un guasto a meta' farebbe perdere il messaggio
                 try {
-                    await rifVisto.set(Object.assign({ quando: m.internalDate ? new Date(m.internalDate).getTime() : Date.now(), letto: Date.now(), uid: uid, uidValidity: uidValidity }, annotato));
+                    await rifVisto.set(Object.assign({ quando: m.internalDate ? new Date(m.internalDate).getTime() : Date.now(), letto: Date.now(), uid: uid, uidValidity: uidValidity }, prefisso(casella) ? { casella: casella } : {}, annotato));
                 } catch (_) { /* al massimo si rilegge: le scritture sono idempotenti */ }
                 conto.letti++;
                 ultimoUid = uid;
@@ -318,15 +372,17 @@ async function giro(db, opz) {
         const auth = /auth|login|credential|invalid user|password/i.test(testo) || !!(e && e.authenticationFailed);
         esito = 'errore';
         motivo = auth ? 'La casella PEC ha rifiutato le credenziali: ' + testo : testo;
-        try { await docMeta(db).set({ erroriAuth: auth ? (Number(prima.erroriAuth) || 0) + 1 : 0 }, { merge: true }); } catch (_) { /* niente da fare */ }
+        try { await docMeta(db, casella).set({ erroriAuth: auth ? (Number(prima.erroriAuth) || 0) + 1 : 0 }, { merge: true }); } catch (_) { /* niente da fare */ }
         /* Nel registro degli errori: la password rifiutata subito (dopo tre
            volte il lettore si ferma); un collegamento caduto solo se e' la
            seconda volta di fila, perche' una caduta isolata si sistema da sola
            al giro dopo e non merita un avviso. */
+        const quale = prefisso(casella) ? ' (' + c.etichetta + ')' : '';
+        const variabile = casella === C.STUDIO ? 'CIRC_PEC_PASS' : 'CIRC_PEC' + casella.slice(3) + '_PASS';
         if (auth) {
-            await ERRORI.segna(db, { chiave: 'casella~credenziali', tipo: 'casella', titolo: 'La casella PEC rifiuta la password', dettaglio: testo + '. Dopo tre rifiuti la lettura si ferma: va rinnovata la password per i programmi di posta e aggiornata su Vercel (CIRC_PEC_PASS).' });
+            await ERRORI.segna(db, { chiave: 'casella~credenziali' + (prefisso(casella) ? '~' + casella : ''), tipo: 'casella', titolo: 'La casella PEC rifiuta la password' + quale, dettaglio: testo + '. Dopo tre rifiuti la lettura si ferma: va rinnovata la password per i programmi di posta e aggiornata su Vercel (' + variabile + ').' });
         } else if (ultimo.esito === 'errore') {
-            await ERRORI.segna(db, { chiave: 'casella~lettura', tipo: 'casella', titolo: 'La casella PEC non si riesce a leggere', dettaglio: testo + '. Finché non si legge, ricevute e risposte non si aggiornano e i solleciti non vengono fermati dalle risposte.' });
+            await ERRORI.segna(db, { chiave: 'casella~lettura' + (prefisso(casella) ? '~' + casella : ''), tipo: 'casella', titolo: 'La casella PEC non si riesce a leggere' + quale, dettaglio: testo + '. Finché non si legge, ricevute e risposte non si aggiornano e i solleciti non vengono fermati dalle risposte.' });
         }
     } finally {
         await chiudi(client);
@@ -338,7 +394,7 @@ async function giro(db, opz) {
         // "la casella e' stata letta fino in fondo a quest'ora": lo usa il giro degli invii
         if (!restanti) salva.ultimoOk = inizio;
     }
-    await mollaLucchetto(db, salva);
+    await mollaLucchetto(db, salva, casella);
     return Object.assign({ ok: esito === 'ok', msg: motivo }, riepilogo);
 }
 
@@ -347,13 +403,13 @@ async function giro(db, opz) {
    lettera che l'utente puo' vedere (api/circolarizzazioni.js): qui non c'e'
    modo di saperlo. */
 async function conMessaggio(opz, fn) {
-    if (!configurato()) return { ok: false, msg: 'Casella PEC non configurata per la lettura.' };
+    if (!configurato(opz.casella)) return { ok: false, msg: 'Casella PEC non configurata per la lettura.' };
     const uid = Number(opz.uid) || 0;
     if (!uid) return { ok: false, msg: 'Messaggio non indicato.' };
-    const client = nuovoClient();
+    const client = nuovoClient(opz.casella);
     try {
         await client.connect();
-        const mb = await client.mailboxOpen(C.configurazione().cartella, { readOnly: true });
+        const mb = await client.mailboxOpen(C.configurazione(opz.casella).cartella, { readOnly: true });
         // se la cartella e' stata rigenerata quell'uid non indica piu' lo stesso messaggio
         if (opz.uidValidity && String(mb.uidValidity) !== String(opz.uidValidity)) {
             return { ok: false, msg: 'Il messaggio non è più rintracciabile con lo stesso riferimento: aprilo dalla casella PEC.' };
@@ -427,13 +483,13 @@ function scarica(opz) {
                 rigenerata, messaggio spostato): riprovare non serve;
      'grande'   pesa piu' di `max`;
      'guasto'   la casella non risponde: al giro dopo puo' andare. */
-async function sessione() {
-    const client = configurato() ? nuovoClient() : null;
+async function sessione(casella) {
+    const client = configurato(casella) ? nuovoClient(casella) : null;
     let mb = null, guasta = !client, tentata = false;
     const apri = async () => {
         if (mb || guasta) return;
         tentata = true;
-        try { await client.connect(); mb = await client.mailboxOpen(C.configurazione().cartella, { readOnly: true }); }
+        try { await client.connect(); mb = await client.mailboxOpen(C.configurazione(casella).cartella, { readOnly: true }); }
         catch (_) { guasta = true; }
     };
     return {
@@ -454,9 +510,63 @@ async function sessione() {
                 return { ok: false, perche: 'guasto' };
             }
         },
+        /* Il testo e gli allegati di una risposta, decodificati: servono
+           all'inoltro a chi ha la revisione legale (lib/circ-inoltri.js).
+           `max`: quanti byte di allegati, in tutto, al massimo. Torna
+           { ok, testo, file: [{ filename, content, contentType }], mancanti:
+           [{ nome, motivo }] } oppure { ok: false, perche } come sorgente(). */
+        async contenuto(dove, max) {
+            const uid = Number(dove && dove.uid) || 0;
+            if (!uid) return { ok: false, perche: 'assente' };
+            await apri();
+            if (!mb) return { ok: false, perche: 'guasto' };
+            if (dove.uidValidity && String(mb.uidValidity) !== String(dove.uidValidity)) return { ok: false, perche: 'assente' };
+            try {
+                let trovato = null;
+                for await (const m of client.fetch({ uid: uid + ':' + uid }, { uid: true, size: true, bodyStructure: true }, { uid: true })) {
+                    if (Number(m.uid) === uid) trovato = m;
+                }
+                if (!trovato) return { ok: false, perche: 'assente' };
+                const struttura = D.normalizzaParti(trovato.bodyStructure);
+                let testo = '';
+                const leggibile = D.trovaLeggibile(struttura);
+                if (leggibile && (leggibile.dentroBusta || !D.trovaBusta(struttura))) {
+                    try {
+                        const grezzo = await parteGrezza(client, uid, String(leggibile.parte || '1'), 0, MAX_TESTO);
+                        if (grezzo) {
+                            const tagliato = grezzo.length >= MAX_TESTO;
+                            let t = D.decodificaTesto(D.decodificaTrasferimento(grezzo, leggibile.codifica, tagliato), leggibile.gioco, tagliato);
+                            if (leggibile.html) t = D.testoDaHtml(t);
+                            else if (leggibile.flowed) t = D.testoFlowed(t.replace(/\r\n?/g, '\n'), leggibile.delsp);
+                            testo = t.replace(/\r\n?/g, '\n').trim().slice(0, 20000);
+                        }
+                    } catch (e) { if (client.usable === false) throw e; testo = ''; }
+                }
+                const tetto = Math.max(1, Number(max) || C.LIMITI.rispostaMaxByte);
+                const file = [], mancanti = [];
+                let usati = 0;
+                for (const a of D.trovaAllegati(struttura)) {
+                    const nome = String(a.nome || 'allegato').replace(/[\/\\]/g, '-').slice(0, 120);
+                    if (!a.parte) { mancanti.push({ nome: nome, motivo: 'non leggibile' }); continue; }
+                    // stima dal peso codificato: in base64 un file pesa circa un terzo in piu'
+                    const stima = a.codifica === 'base64' ? Math.round((Number(a.dimensione) || 0) * 0.74) : (Number(a.dimensione) || 0);
+                    if (usati + stima > tetto) { mancanti.push({ nome: nome, motivo: 'peso', dimensione: stima }); continue; }
+                    const grezzo = await parteGrezza(client, uid, String(a.parte), 0, Math.ceil(tetto * 1.4) + 4096);
+                    if (!grezzo) { mancanti.push({ nome: nome, motivo: 'non leggibile' }); continue; }
+                    const buf = D.decodificaTrasferimento(grezzo, a.codifica, false);
+                    if (usati + buf.length > tetto) { mancanti.push({ nome: nome, motivo: 'peso', dimensione: buf.length }); continue; }
+                    usati += buf.length;
+                    file.push({ filename: nome, content: buf, contentType: a.tipo || 'application/octet-stream' });
+                }
+                return { ok: true, testo: testo, file: file, mancanti: mancanti };
+            } catch (e) {
+                if (client.usable === false) { guasta = true; mb = null; }
+                return { ok: false, perche: 'guasto' };
+            }
+        },
         // si chiude solo un collegamento che si e' provato ad aprire
         async chiudi() { if (client && tentata) await chiudi(client); }
     };
 }
 
-module.exports = { configurato, stato, giro, leggiTesto, scarica, sessione, MAX_MESSAGGI, _interni: { lavora, abbina, normale, docMeta } };
+module.exports = { configurato, stato, statoDi, giro, leggiTesto, scarica, sessione, daLeggere, nomeMeta, MAX_MESSAGGI, _interni: { lavora, abbina, normale, docMeta, prefisso } };

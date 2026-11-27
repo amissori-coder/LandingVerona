@@ -4543,6 +4543,17 @@ table.sr-dove td.sr-dove-carta, table.sr-dove th:last-child { text-align: right;
 .pc-schede { margin-bottom: 14px; }
 .pc-fatti { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .pc-fatti strong { overflow-wrap: anywhere; }
+/* incarico "per conto di": chi ha la revisione legale, da quale PEC, a chi si inoltrano le risposte */
+.pc-committente {
+    display: flex; gap: 14px; align-items: flex-start; justify-content: space-between;
+    background: #EEF4FA; border: 1px solid #C9DAEA; border-left: 4px solid var(--blu-900, #0A2844); border-radius: var(--raggio);
+    padding: 10px 14px; margin: 0 0 16px; font-size: 0.86rem; line-height: 1.5; color: #1E293B;
+}
+.pc-committente p { margin: 4px 0 0; text-align: justify; }
+.pc-committente .badge { margin-left: 4px; vertical-align: 1px; }
+.pc-committente-testo { flex: 1 1 auto; min-width: 0; }
+.pc-committente .btn { flex: 0 0 auto; }
+.pc-committente-vuoto { font-size: 0.84rem; color: var(--grigio-600); margin: -4px 0 14px; }
 table.pc-tab td { vertical-align: top; }
 table.pc-tab .pc-num { font-variant-numeric: tabular-nums; }
 /* l'elenco degli incarichi diviso per ruolo: il filtro in alto, un colore per ruolo */
@@ -4666,6 +4677,11 @@ table.pc-xls td.x-num, table.pc-xls td.x-num input { text-align: right; font-var
 table.pc-xls td.x-quando { text-align: center; font-variant-numeric: tabular-nums; }
 table.pc-xls td.x-fermo { padding: 0 6px; background: #F6F7F8; color: #5F6368; white-space: nowrap; text-overflow: ellipsis; }
 table.pc-xls td.x-fermo.x-num { text-align: right; }
+/* «Chi la invia»: la scelta e, sotto, il nome di chi la manda; la riga di una lettera mandata da altri ha un tono diverso */
+table.pc-xls td.x-chi select { height: 27px; }
+table.pc-xls td.x-chi input[type="text"] { border-top: 1px dashed #D4D7DB; font-size: 0.8rem; }
+table.pc-xls tr.pc-r-altri td.x-chi { height: 56px; }
+table.pc-xls tr.pc-r-altri:not(.pc-fatta) td:not(.x-fermo):not(.x-stato):not(.x-azioni) { background: #F4F8FC; }
 table.pc-xls tr.pc-fatta td:nth-child(2) { background: #F6F7F8; font-weight: 600; color: #3C4043; }
 table.pc-xls td.x-cambiata { background: #FFF4C2; }
 table.pc-xls tr.pc-r-vuota td.x-quando input, table.pc-xls tr.pc-r-vuota td.x-quando select { color: #A8AEB5; }

@@ -29,6 +29,15 @@
    lo controlla `prendi`, nella stessa transazione che lo blocca.
    Per questo, quando il giro e' quello programmato, PRIMA si legge
    la casella (api/circolarizzazioni.js) e poi si spedisce.
+
+   PIU' CASELLE. Ogni lettera parte dalla casella su cui e' nata (lib/
+   circ-comune.js, caselle): quella dello studio, o quella di chi ha la
+   revisione legale negli incarichi "per conto di". Ogni casella ha il
+   suo collegamento e la sua pausa dopo un rifiuto del gestore: una
+   casella bloccata non ferma le lettere delle altre. Lo stato della
+   casella dello studio sta dove e' sempre stato (meta/circGiro), quello
+   delle altre sotto `caselle`. Il lucchetto e il tetto orario sono uno
+   solo per tutte.
    ============================================================ */
 'use strict';
 
@@ -49,9 +58,9 @@ function pausaDopo(rifiuti) { return PAUSE_MIN[Math.min(Math.max(1, rifiuti), PA
 /* Che cosa vuol dire, in parole, il rifiuto del gestore: sta nell'avviso e nel
    registro degli errori, perche' il testo del server da solo non dice che
    fare. */
-function spiegaRifiuto(testo) {
+function spiegaRifiuto(testo, cfg) {
     const t = String(testo || '').toLowerCase();
-    const conPonte = !!C.configurazione().proxy;
+    const conPonte = !!(cfg || C.configurazione()).proxy;
     if (/proxy|econnrefused|ehostunreach|enetunreach|enotfound|eai_again/.test(t)) {
         return conPonte ? 'Non risponde il ponte, cioè il server con indirizzo italiano da cui passano gli invii (CIRC_PEC_PROXY): va controllato che sia acceso, che la porta sia aperta e che utente e password siano quelli giusti.'
             : 'Il servizio non è riuscito a collegarsi al server di posta: non dipende dalle lettere.';
@@ -85,8 +94,8 @@ async function indirizzoUscita() {
 function docGiro(db) { return db.collection('meta').doc('circGiro'); }
 function aspetta(ms) { return ms > 0 ? new Promise(r => setTimeout(r, ms)) : Promise.resolve(); }
 
-function trasporto() {
-    const c = C.configurazione();
+function trasporto(casella) {
+    const c = C.configurazione(casella);
     const opz = {
         host: c.smtpHost, port: c.smtpPorta, secure: c.smtpPorta === 465,
         auth: { user: c.utente, pass: c.password },
@@ -156,7 +165,17 @@ async function stato(db) {
     let d = {};
     try { const s = await docGiro(db).get(); d = s.exists ? (s.data() || {}) : {}; } catch (_) { d = {}; }
     const adesso = chiaveOra(Date.now());
+    // le altre caselle: la loro pausa e il loro ultimo rifiuto
+    const altre = {};
+    C.caselle().filter(k => k.id !== C.STUDIO).forEach(k => {
+        const x = (d.caselle || {})[k.id] || {};
+        altre[k.id] = {
+            sospesoFino: (Number(x.sospesoFino) || 0) > Date.now() ? Number(x.sospesoFino) : 0, rifiuti: Number(x.rifiuti) || 0,
+            rifiuto: x.rifiuto && x.rifiuto.testo ? x.rifiuto : null, ultimoOk: Number(x.ultimoOk) || 0
+        };
+    });
     return {
+        caselle: altre,
         ultimoGiro: d.ultimoGiro || null,
         // gli invii sono fermi fino a questo istante (0: non sono fermi), dopo quanti rifiuti di fila
         sospesoFino: (Number(d.sospesoFino) || 0) > Date.now() ? Number(d.sospesoFino) : 0, rifiuti: Number(d.rifiuti) || 0,
@@ -181,10 +200,13 @@ async function inAttesa(db, max) {
 async function giro(db, opz) {
     opz = opz || {};
     const inizio = Date.now();
-    if (!C.configurato()) {
+    const configurate = C.caselle().filter(k => C.configurato(k.id)).map(k => k.id);
+    if (!configurate.length) {
         return { ok: false, esito: 'non-configurato', msg: 'La casella PEC delle circolarizzazioni non è configurata (CIRC_PEC_USER e CIRC_PEC_PASS).' };
     }
-    if (C.configurazione().proxyErrato) {
+    // con la sola casella dello studio il giro fa esattamente quello che ha sempre fatto
+    const soloStudio = configurate.length === 1 && configurate[0] === C.STUDIO;
+    if (C.configurato() && C.configurazione().proxyErrato) {
         // la variabile c'e' ma non si legge: spedire senza ponte darebbe di nuovo il rifiuto del gestore, e non si capirebbe perche'
         const msg = 'La variabile CIRC_PEC_PROXY non è un indirizzo valido: deve avere la forma http://utente:password@indirizzo:porta. Le lettere restano in coda.';
         await ERRORI.segna(db, { chiave: 'server~ponte', tipo: 'server', titolo: 'Il ponte per gli invii non è configurato bene', dettaglio: msg });
@@ -198,57 +220,86 @@ async function giro(db, opz) {
     const budget = Number(opz.budgetMs) || 200000;
     const disponibili = Math.min(Number(opz.max) || C.LIMITI.perGiro, C.LIMITI.perOra - giaNellOra);
     const conto = { inviate: 0, errori: 0, saltate: 0, solleciti: 0, respinte: 0 };
-    let fermato = '', rifiutato = false, restanti = false, incarichi = {};
-    let tentate = 0, ultimoDubbio = '';
-    const inDubbio = [];            // respinte in questo giro senza sapere ancora se il problema e' loro o del servizio
-    const ultimoOk = Number(prima.ultimoOk) || 0;       // l'ultima volta che una PEC e' partita
+    let restanti = false, incarichi = {};
 
-    // il gestore ha appena respinto il servizio: fino alla fine della pausa non si riprova (salvo chi lo chiede a mano)
-    const sospesoFino = Number(prima.sospesoFino) || 0;
-    const inPausa = !opz.forza && sospesoFino > inizio;
-    const sospeso = () => ({ ok: false, esito: 'sospeso', sospesoFino: sospesoFino, msg: 'Il gestore della PEC ha sospeso gli invii: le lettere restano in coda e si riprova alle ' + C.oraBreve(sospesoFino) + '.', inviate: 0, errori: 0, restanti: true });
-    if (inPausa && !opz.nuove) {
+    /* Ogni casella con il suo stato: il collegamento, la pausa dopo un
+       rifiuto, le lettere "in dubbio". Quella dello studio si legge dai campi
+       di sempre, le altre da `caselle`. */
+    const ctx = {};
+    const casellaDi = id => {
+        id = C.idCasella(id);
+        if (ctx[id]) return ctx[id];
+        const st = id === C.STUDIO ? prima : (((prima.caselle || {})[id]) || {});
+        const sospesoFino = Number(st.sospesoFino) || 0;
+        const inPausa = !opz.forza && sospesoFino > inizio;
+        ctx[id] = {
+            id: id, cfg: C.configurazione(id), st: st, posta: null, inviate: 0, tentate: 0,
+            fermato: '', rifiutato: false, inDubbio: [], ultimoDubbio: '',
+            ultimoOk: Number(st.ultimoOk) || 0,         // l'ultima volta che una PEC e' partita da questa casella
+            sospesoFino: sospesoFino, inPausa: inPausa,
+            soloNuove: inPausa,                          // in pausa, ma qualcuno ha appena premuto Invia: si provano solo le lettere mai respinte
+            lettoreOk: null, bloccata: ''
+        };
+        if (!C.configurato(id)) ctx[id].bloccata = 'La casella PEC «' + ctx[id].cfg.etichetta + '» non è configurata sul servizio.';
+        else if (id !== C.STUDIO && ctx[id].cfg.proxyErrato) ctx[id].bloccata = 'Il ponte della casella «' + ctx[id].cfg.etichetta + '» non è un indirizzo valido.';
+        return ctx[id];
+    };
+    const studio = casellaDi(C.STUDIO);
+    const sospeso = () => ({ ok: false, esito: 'sospeso', sospesoFino: studio.sospesoFino, msg: 'Il gestore della PEC ha sospeso gli invii: le lettere restano in coda e si riprova alle ' + C.oraBreve(studio.sospesoFino) + '.', inviate: 0, errori: 0, restanti: true });
+    if (soloStudio && studio.inPausa && !opz.nuove) {
         await mollaLucchetto(db);
         return sospeso();
     }
-    // in pausa, ma qualcuno ha appena premuto Invia: si provano solo le lettere mai respinte
-    const soloNuove = inPausa;
 
     if (disponibili <= 0) {
         await mollaLucchetto(db);
         return { ok: true, esito: 'tetto', msg: 'Raggiunto il tetto di ' + C.LIMITI.perOra + ' PEC all\'ora: le altre partono nell\'ora successiva.', inviate: 0, errori: 0, restanti: true };
     }
 
-    let posta = null;
-    try {
-        let lettoreOk = 0, mai = true;
+    /* Prima di spedire la prima PEC da una casella, la casella si legge: fissa
+       il punto da cui il lettore partira' (lib/circ-lettore.js) e verifica che
+       la lettura funzioni. Spedire senza poter leggere le ricevute vorrebbe
+       dire non sapere mai se le lettere sono arrivate. Torna '' se si puo'
+       spedire, altrimenti il motivo. */
+    const LETTORE = require('./circ-lettore');
+    const pronta = async x => {
+        if (x.lettoreOk !== null) return x.bloccata;
+        let mai = true;
         try {
-            const s = await db.collection('meta').doc('circLettore').get();
-            const dl = s.exists ? (s.data() || {}) : {};
-            lettoreOk = Number(dl.ultimoOk) || 0;
+            const s0 = await db.collection('meta').doc(LETTORE.nomeMeta(x.id)).get();
+            const dl = s0.exists ? (s0.data() || {}) : {};
+            x.lettoreOk = Number(dl.ultimoOk) || 0;
             mai = !dl.uidValidity;
-        } catch (_) { lettoreOk = 0; }
-        /* La casella non e' mai stata letta: lo si fa adesso, PRIMA di spedire
-           la prima PEC. Fissa il punto da cui il lettore partira' (lib/
-           circ-lettore.js), e verifica che la lettura funzioni: spedire senza
-           poter leggere le ricevute vorrebbe dire non sapere mai se le lettere
-           sono arrivate. */
-        if (mai) {
-            const primo = await require('./circ-lettore').giro(db, { da: 'primo avvio', forza: true, budgetMs: 20000 });
+        } catch (_) { x.lettoreOk = 0; }
+        if (mai && !x.bloccata) {
+            const primo = await LETTORE.giro(db, { da: 'primo avvio', forza: true, budgetMs: 20000, casella: x.id });
             if (!primo.ok) {
-                await mollaLucchetto(db);
-                await ERRORI.segna(db, { chiave: 'casella~primo-avvio', tipo: 'casella', titolo: 'Le lettere restano in coda: la casella PEC non si legge', dettaglio: primo.msg || 'Prima di spedire la prima PEC va letta la casella, e la lettura non è riuscita.' });
-                return { ok: false, esito: 'casella', msg: 'Le lettere restano in coda: prima di spedire va letta la casella PEC, e la lettura non è riuscita' + (primo.msg ? ' (' + primo.msg + ')' : '') + '.', inviate: 0, errori: 0, restanti: true };
-            }
-            lettoreOk = Number(primo.quando) || Date.now();
+                const quale = x.id === C.STUDIO ? '' : ' («' + x.cfg.etichetta + '»)';
+                await ERRORI.segna(db, { chiave: 'casella~primo-avvio' + (x.id === C.STUDIO ? '' : '~' + x.id), tipo: 'casella', titolo: 'Le lettere restano in coda: la casella PEC' + quale + ' non si legge', dettaglio: primo.msg || 'Prima di spedire la prima PEC va letta la casella, e la lettura non è riuscita.' });
+                x.bloccata = 'Le lettere restano in coda: prima di spedire va letta la casella PEC' + quale + ', e la lettura non è riuscita' + (primo.msg ? ' (' + primo.msg + ')' : '') + '.';
+            } else x.lettoreOk = Number(primo.quando) || Date.now();
         }
+        return x.bloccata;
+    };
+    if (C.configurato()) {
+        const no = await pronta(studio);
+        if (no && soloStudio) {
+            await mollaLucchetto(db);
+            return { ok: false, esito: 'casella', msg: no, inviate: 0, errori: 0, restanti: true };
+        }
+    }
+
+    try {
         // qualcuna in piu' di quante se ne possono spedire: alcune si saltano (risposta arrivata, in verifica)
         const dovute = await db.collection(DATI.INVII).where('prossimo', '<=', inizio).orderBy('prossimo').limit(disponibili + 25).get();
-        const mitt = C.configurazione();
         for (const doc of dovute.docs) {
             if (conto.inviate >= disponibili || Date.now() - inizio > budget) { restanti = true; break; }
-            if (soloNuove && DATI.respintaInAttesa(doc.data() || {}, Date.now())) { restanti = true; continue; }     // gia' respinta: aspetta la fine della pausa
-            const lavoro = await DATI.prendi(db, doc.id, Date.now(), lettoreOk);
+            const x = casellaDi((doc.data() || {}).casella);
+            // questa casella e' ferma (rifiuto del gestore in questo giro, pausa, casella non pronta): la lettera aspetta
+            if (x.fermato || (x.inPausa && !opz.nuove)) { restanti = true; continue; }
+            if (await pronta(x)) { restanti = true; continue; }
+            if (x.soloNuove && DATI.respintaInAttesa(doc.data() || {}, Date.now())) { restanti = true; continue; }     // gia' respinta: aspetta la fine della pausa
+            const lavoro = await DATI.prendi(db, doc.id, Date.now(), x.lettoreOk);
             if (lavoro.saltato) { conto.saltate++; continue; }
             const inv = lavoro.invio;
             const allegato = await DATI.leggiAllegato(db, inv.id, (inv.allegato || {}).pezzi || 0);
@@ -258,11 +309,13 @@ async function giro(db, opz) {
                 continue;
             }
             const m = C.messaggio(inv, lavoro.passo);
-            if (!posta) posta = trasporto();
-            tentate++;
+            if (!x.posta) x.posta = trasporto(x.id);
+            x.tentate++;
+            // a nome di chi: chi ha la revisione legale, negli incarichi "per conto di"
+            const nome = String((inv.committente && inv.committente.nome) || x.cfg.nome).replace(/[\r\n"]/g, ' ').slice(0, 80);
             try {
-                await posta.sendMail({
-                    from: '"' + mitt.nome + '" <' + mitt.mittente + '>',
+                await x.posta.sendMail({
+                    from: '"' + nome + '" <' + x.cfg.mittente + '>',
                     to: inv.pec,
                     subject: m.oggetto, text: m.testo, html: m.html,
                     // il filo per ritrovare le ricevute: il gestore lo ricopia in ognuna
@@ -271,43 +324,45 @@ async function giro(db, opz) {
                     attachments: [{ filename: inv.allegato.nome, content: allegato, contentType: 'application/pdf' }]
                 });
                 await DATI.esitoInvio(db, inv.id, lavoro.passo, lavoro.riferimento, { ok: true });
-                conto.inviate++;
+                conto.inviate++; x.inviate++;
                 if (lavoro.passo !== 'primo') conto.solleciti++;
                 incarichi[inv.incaricoId] = 1;
-                // una PEC e' partita: il servizio funziona, quindi la lettera respinta poco fa ha un problema suo
-                for (const d of inDubbio.splice(0)) { if (await DATI.rifiutoProprio(db, d.id, d.passo, Date.now())) conto.respinte++; }
+                // una PEC e' partita da questa casella: funziona, quindi la lettera respinta poco fa ha un problema suo
+                for (const d of x.inDubbio.splice(0)) { if (await DATI.rifiutoProprio(db, d.id, d.passo, Date.now())) conto.respinte++; }
             } catch (e) {
                 let testo = String((e && (e.response || e.message)) || 'errore').replace(/\s+/g, ' ').slice(0, 250);
                 // l'indirizzo del ponte non va in giro: l'avviso lo leggono tutti quelli dell'incarico
-                const hostPonte = (mitt.proxyDove || '').replace(/:\d+$/, '');
+                const hostPonte = (x.cfg.proxyDove || '').replace(/:\d+$/, '');
                 if (hostPonte) testo = testo.split(hostPonte).join('[ponte]');
                 if (fermaTutto(e)) {
                     const certo = bloccoCerto(e);
                     const p0 = (inv.passi || {})[lavoro.passo] || {};
-                    /* Il problema e' di QUESTA lettera se intanto le altre
-                       partono: in questo giro, o fra un suo rifiuto e l'altro.
-                       Si ritenta da sola, e le altre vanno avanti. */
-                    if (!certo && (p0.propria || conto.inviate > 0 || (p0.respintaIl && ultimoOk > p0.respintaIl))) {
+                    /* Il problema e' di QUESTA lettera se intanto le altre della
+                       stessa casella partono: in questo giro, o fra un suo
+                       rifiuto e l'altro. Si ritenta da sola, e le altre vanno avanti. */
+                    if (!certo && (p0.propria || x.inviate > 0 || (p0.respintaIl && x.ultimoOk > p0.respintaIl))) {
                         await DATI.esitoInvio(db, inv.id, lavoro.passo, lavoro.riferimento, { ok: false, riprova: true, propria: true, msg: testo });
                         conto.respinte++;
                         await aspetta(C.LIMITI.pausaMs);
                         continue;
                     }
                     await DATI.esitoInvio(db, inv.id, lavoro.passo, lavoro.riferimento, { ok: false, riprova: true, msg: testo });
-                    ultimoDubbio = testo;
+                    x.ultimoDubbio = testo;
                     /* Una PEC bloccata non tiene ferme le altre: prima di
-                       fermare tutto si prova la lettera dopo. Se parte, il
+                       fermare la casella si prova la lettera dopo. Se parte, il
                        problema era di questa; se viene respinta anche lei, e'
-                       il servizio a essere bloccato. */
-                    if (!certo && !soloNuove && !inDubbio.length) {
-                        inDubbio.push({ id: inv.id, passo: lavoro.passo });
+                       la casella a essere bloccata. */
+                    if (!certo && !x.soloNuove && !x.inDubbio.length) {
+                        x.inDubbio.push({ id: inv.id, passo: lavoro.passo });
                         await aspetta(C.LIMITI.pausaMs);
                         continue;
                     }
-                    fermato = testo;
-                    rifiutato = true;
+                    x.fermato = testo;
+                    x.rifiutato = true;
                     restanti = true;
-                    break;
+                    // con una casella sola non c'e' altro da provare
+                    if (soloStudio) break;
+                    continue;
                 }
                 await DATI.esitoInvio(db, inv.id, lavoro.passo, lavoro.riferimento, { ok: false, msg: 'Il server PEC ha rifiutato il messaggio: ' + testo });
                 conto.errori++;
@@ -315,57 +370,75 @@ async function giro(db, opz) {
             await aspetta(C.LIMITI.pausaMs);
         }
         if (!restanti && dovute.docs.length >= disponibili + 25) restanti = true;
-        // l'unica lettera tentata e' stata respinta e nessun'altra e' partita: non si puo' dire che il problema sia suo
-        if (!fermato && inDubbio.length) { fermato = ultimoDubbio; rifiutato = true; restanti = true; }
+        // l'unica lettera tentata e' stata respinta e nessun'altra della casella e' partita: non si puo' dire che il problema sia suo
+        Object.values(ctx).forEach(x => { if (!x.fermato && x.inDubbio.length) { x.fermato = x.ultimoDubbio; x.rifiutato = true; restanti = true; } });
     } catch (e) {
-        fermato = fermato || String((e && e.message) || 'errore').slice(0, 250);
+        studio.fermato = studio.fermato || String((e && e.message) || 'errore').slice(0, 250);
     } finally {
-        if (posta) { try { posta.close(); } catch (_) { /* gia' chiusa */ } }
+        Object.values(ctx).forEach(x => { if (x.posta) { try { x.posta.close(); } catch (_) { /* gia' chiusa */ } } });
     }
 
-    /* Il gestore ha respinto il servizio: gli invii si fermano per un po', ogni
-       volta di piu' se si ripete. Un giro che ha spedito almeno una PEC senza
-       rifiuti azzera la conta. */
+    /* Il gestore ha respinto una casella: i suoi invii si fermano per un po',
+       ogni volta di piu' se si ripete. Un giro che ha spedito almeno una PEC
+       senza rifiuti azzera la conta. */
     const fine = Date.now();
     // in pausa non c'era nessuna lettera nuova da provare: resta tutto com'e'
-    if (soloNuove && !tentate && !fermato) {
+    if (soloStudio && studio.soloNuove && !studio.tentate && !studio.fermato) {
         await mollaLucchetto(db);
         return sospeso();
     }
-    /* Una lettera nuova provata durante la pausa e respinta conferma il blocco,
-       ma non allunga la pausa: altrimenti ogni Invia la sposterebbe in avanti. */
-    const conferma = rifiutato && soloNuove;
-    const rifiuti = conferma ? (Number(prima.rifiuti) || 0) : (rifiutato ? (Number(prima.rifiuti) || 0) + 1 : (conto.inviate ? 0 : (Number(prima.rifiuti) || 0)));
-    const finoA = conferma ? sospesoFino : (rifiutato ? fine + pausaDopo(rifiuti) : (conto.inviate ? 0 : Math.max(0, sospesoFino > fine ? sospesoFino : 0)));
-    /* L'ultimo rifiuto resta scritto finche' una PEC non parte davvero: un giro
-       che non ha trovato niente da spedire non dimostra che il blocco e' finito. */
-    // `ip` e `regione` ci sono sempre: il documento si scrive unendo i campi, e quelli di un rifiuto vecchio resterebbero li'
-    let rifiuto = rifiutato ? { quando: fine, testo: fermato, spiegazione: spiegaRifiuto(fermato), ip: '', regione: '' } : (conto.inviate ? null : (prima.rifiuto || null));
-    /* Il gestore ha respinto l'indirizzo di rete: per autorizzare la casella la
-       sua assistenza chiede da quale indirizzo ci si e' collegati e quando.
-       Con il ponte l'indirizzo e' il suo, e non serve chiederlo. */
-    if (rifiutato && !C.configurazione().proxy && /bloccat|blocked|abus|5\.7\.\d/i.test(fermato)) {
-        rifiuto = Object.assign(rifiuto, { ip: await indirizzoUscita(), regione: String(process.env.VERCEL_REGION || '').slice(0, 20) });
-    }
-    // il giro si e' fermato per un rifiuto che riguarda la casella (tetto, blocco, password) o per un guasto
-    if (fermato) {
-        await ERRORI.segna(db, {
-            chiave: 'server~invii-sospesi', tipo: 'server', titolo: 'Il server PEC ha sospeso gli invii',
-            // prima che cosa succede adesso, poi il perche' (il registro tiene 600 caratteri)
-            dettaglio: fermato.slice(0, 170) + '. ' + (rifiutato ? 'Le lettere restano in coda: il servizio riprova da solo alle ' + C.oraBreve(finoA) + (rifiuti > 1 ? ' (è il ' + rifiuti + '° rifiuto di fila)' : '') + '. ' + spiegaRifiuto(fermato) : 'Le lettere restano in coda e ripartono da sole al prossimo giro.')
-        });
-    }
+    const chiudiCasella = async x => {
+        const st = x.st;
+        /* Una lettera nuova provata durante la pausa e respinta conferma il blocco,
+           ma non allunga la pausa: altrimenti ogni Invia la sposterebbe in avanti. */
+        const conferma = x.rifiutato && x.soloNuove;
+        const rifiuti = conferma ? (Number(st.rifiuti) || 0) : (x.rifiutato ? (Number(st.rifiuti) || 0) + 1 : (x.inviate ? 0 : (Number(st.rifiuti) || 0)));
+        const finoA = conferma ? x.sospesoFino : (x.rifiutato ? fine + pausaDopo(rifiuti) : (x.inviate ? 0 : Math.max(0, x.sospesoFino > fine ? x.sospesoFino : 0)));
+        /* L'ultimo rifiuto resta scritto finche' una PEC non parte davvero: un giro
+           che non ha trovato niente da spedire non dimostra che il blocco e' finito. */
+        // `ip` e `regione` ci sono sempre: il documento si scrive unendo i campi, e quelli di un rifiuto vecchio resterebbero li'
+        let rifiuto = x.rifiutato ? { quando: fine, testo: x.fermato, spiegazione: spiegaRifiuto(x.fermato, x.cfg), ip: '', regione: '' } : (x.inviate ? null : (st.rifiuto || null));
+        /* Il gestore ha respinto l'indirizzo di rete: per autorizzare la casella la
+           sua assistenza chiede da quale indirizzo ci si e' collegati e quando.
+           Con il ponte l'indirizzo e' il suo, e non serve chiederlo. */
+        if (x.rifiutato && !x.cfg.proxy && /bloccat|blocked|abus|5\.7\.\d/i.test(x.fermato)) {
+            rifiuto = Object.assign(rifiuto, { ip: await indirizzoUscita(), regione: String(process.env.VERCEL_REGION || '').slice(0, 20) });
+        }
+        // il giro si e' fermato per un rifiuto che riguarda la casella (tetto, blocco, password) o per un guasto
+        if (x.fermato) {
+            const quale = x.id === C.STUDIO ? '' : ' («' + x.cfg.etichetta + '»)';
+            await ERRORI.segna(db, {
+                chiave: 'server~invii-sospesi' + (x.id === C.STUDIO ? '' : '~' + x.id), tipo: 'server', titolo: 'Il server PEC ha sospeso gli invii' + quale,
+                // prima che cosa succede adesso, poi il perche' (il registro tiene 600 caratteri)
+                dettaglio: x.fermato.slice(0, 170) + '. ' + (x.rifiutato ? 'Le lettere restano in coda: il servizio riprova da solo alle ' + C.oraBreve(finoA) + (rifiuti > 1 ? ' (è il ' + rifiuti + '° rifiuto di fila)' : '') + '. ' + spiegaRifiuto(x.fermato, x.cfg) : 'Le lettere restano in coda e ripartono da sole al prossimo giro.')
+            });
+        }
+        return { rifiuti: rifiuti, sospesoFino: finoA, rifiuto: rifiuto, ultimoOk: x.inviate ? fine : x.ultimoOk };
+    };
+    const esiti = {};
+    for (const x of Object.values(ctx)) esiti[x.id] = await chiudiCasella(x);
+    const fermate = Object.values(ctx).filter(x => x.fermato);
+    const primaFerma = fermate[0] || null;
+    const detto = x => (x.id === C.STUDIO || soloStudio ? '' : '«' + x.cfg.etichetta + '»: ') + x.fermato;
+    const fermato = fermate.map(detto).join(' · ');
     const riepilogo = {
         quando: fine, durataMs: fine - inizio, da: String(opz.da || 'giro').slice(0, 120),
         inviate: conto.inviate, solleciti: conto.solleciti, errori: conto.errori, saltate: conto.saltate,
         // lettere respinte dal gestore mentre le altre partivano: si ritentano da sole
         respinte: conto.respinte,
-        restanti: restanti, fermato: fermato, spiegazione: rifiutato ? spiegaRifiuto(fermato) : ''
+        restanti: restanti, fermato: fermato, spiegazione: primaFerma && primaFerma.rifiutato ? spiegaRifiuto(primaFerma.fermato, primaFerma.cfg) : ''
     };
-    await mollaLucchetto(db, { ora: oraChiave, inviati: giaNellOra + conto.inviate, ultimoGiro: riepilogo, rifiuti: rifiuti, sospesoFino: finoA, rifiuto: rifiuto, ultimoOk: conto.inviate ? fine : ultimoOk });
+    const campi = Object.assign({ ora: oraChiave, inviati: giaNellOra + conto.inviate, ultimoGiro: riepilogo }, esiti[C.STUDIO]);
+    const altre = Object.keys(esiti).filter(id => id !== C.STUDIO);
+    if (altre.length) campi.caselle = altre.reduce((o, id) => { o[id] = esiti[id]; return o; }, {});
+    await mollaLucchetto(db, campi);
+    const rifiutata = fermate.some(x => x.rifiutato);
+    const finoA = esiti[C.STUDIO].sospesoFino;
+    const quandoRiprova = primaFerma && primaFerma.rifiutato ? C.oraBreve(esiti[primaFerma.id].sospesoFino) : '';
     return Object.assign({
         ok: !fermato, esito: fermato ? 'fermato' : 'ok', incarichi: Object.keys(incarichi), sospesoFino: finoA,
-        msg: fermato ? 'Invio sospeso dal server PEC: ' + fermato + '. Le lettere restano in coda' + (rifiutato ? ': si riprova alle ' + C.oraBreve(finoA) + '.' : ' e ripartono da sole.') : ''
+        msg: fermato ? 'Invio sospeso dal server PEC: ' + fermato + '. Le lettere restano in coda' + (rifiutata ? ': si riprova alle ' + quandoRiprova + '.' : ' e ripartono da sole.') : '',
+        caselle: altre.length ? altre.reduce((o, id) => { o[id] = { inviate: ctx[id].inviate, fermato: ctx[id].fermato || ctx[id].bloccata, sospesoFino: esiti[id].sospesoFino }; return o; }, {}) : undefined
     }, riepilogo);
 }
 

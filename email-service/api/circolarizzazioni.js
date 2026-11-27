@@ -39,6 +39,7 @@ const ERRORI = require('../lib/circ-errori');
 const AVVISI = require('../lib/circ-avvisi');
 const BOZZE = require('../lib/circ-bozze');
 const REGISTRO = require('../lib/circ-registro');
+const INOLTRI = require('../lib/circ-inoltri');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -84,12 +85,17 @@ function perArea(inv) {
         bilancio: inv.bilancio, scadenza: inv.scadenza, codice: inv.codice, stato: inv.stato,
         allegato: inv.allegato ? { nome: inv.allegato.nome, dimensione: inv.allegato.dimensione, tolto: !!inv.allegato.tolto } : null,
         creato: inv.creato || null, annullato: inv.annullato || null,
+        // da quale casella parte, a nome di chi, e se la manda un altro soggetto
+        casella: C.idCasella(inv.casella), casellaIndirizzo: C.configurazione(inv.casella).mittente || '',
+        committente: inv.committente || null, esterna: inv.esterna || null,
         passi: { primo: passo(passi.primo), sollecito1: passo(passi.sollecito1), sollecito2: passo(passi.sollecito2) },
         risposta: inv.risposta || null,
         risposte: (inv.risposte || []).map(r => ({
             chiave: r.chiave, quando: r.quando, da: r.da, oggetto: r.oggetto, certificata: !!r.certificata, automatica: !!r.automatica,
             via: r.via || '', dimensione: r.dimensione || 0, associataDa: r.associataDa || null,
-            allegati: (r.allegati || []).map(a => ({ nome: a.nome, dimensione: a.dimensione, parte: a.parte, tipo: a.tipo }))
+            allegati: (r.allegati || []).map(a => ({ nome: a.nome, dimensione: a.dimensione, parte: a.parte, tipo: a.tipo })),
+            // inoltrata a chi ha la revisione legale (incarichi "per conto di")
+            inoltrata: r.inoltrata ? { a: r.inoltrata.a || [], il: r.inoltrata.il || 0, file: r.inoltrata.file || 0, mancanti: r.inoltrata.mancanti || [] } : null
         })),
         messaggi: (inv.messaggi || []).map(m => ({ chiave: m.chiave, quando: m.quando, tipo: m.tipo, passo: m.passo, dimensione: m.dimensione || 0 })),
         storico: inv.storico || []
@@ -158,11 +164,13 @@ async function tracciaInCoda(db, prof, id, come) {
     if (!inv) return;
     const p = inv.passi || {}, a = inv.allegato || {};
     const sol = (x, nome) => x && x.stato === 'programmato' ? '; ' + nome + ' il ' + giornoDetto(x.data) + ' alle ' + (x.ora || C.LIMITI.oraSollecito) + ' (risposta entro il ' + giornoDetto(x.scadenza) + ')' : '';
+    // per conto di chi, e da quale casella
+    const perConto = inv.committente ? ' Per conto di: ' + inv.committente.nome + ', dalla PEC ' + (C.configurazione(inv.casella).mittente || C.idCasella(inv.casella)) + '.' : '';
     await traccia(db, prof, 'lettera-in-coda', Object.assign(REGISTRO.diLettera(inv), {
         dettaglio: ((C.CATEGORIE[inv.categoria] || {}).uno || inv.categoria) + ', bilancio al ' + giornoDetto(inv.bilancio) + '; rispondere entro il ' + giornoDetto(inv.scadenza)
             + sol(p.sollecito1, 'primo sollecito') + sol(p.sollecito2, 'secondo sollecito')
             + (inv.saldo != null ? '; saldo ' + String(inv.saldo).replace('.', ',') + ' €' : '') + (inv.nota ? '; nota: ' + inv.nota : '')
-            + '. Allegato «' + (a.nome || '') + '» (' + (a.dimensione || 0) + ' byte), ' + come + '.',
+            + '. Allegato «' + (a.nome || '') + '» (' + (a.dimensione || 0) + ' byte), ' + come + '.' + perConto,
         dati: { allegato: a.nome || '', byte: a.dimensione || 0, sha256: a.sha256 || '', scadenza: inv.scadenza || '', bilancio: inv.bilancio || '' }
     }));
 }
@@ -203,7 +211,8 @@ function messaggioDi(inv, chiave, parte) {
         if (!allegato) esci(404, 'Allegato non trovato su questo messaggio.');
         if (allegato.dimensione > C.LIMITI.rispostaMaxByte * 1.4) esci(413, 'Questo allegato supera ' + C.megabyte(C.LIMITI.rispostaMaxByte) + ': aprilo dalla casella PEC.');
     }
-    return { uid: m.uid, uidValidity: m.uidValidity, allegato: allegato, risposta: !!r };
+    // la casella in cui sta il messaggio: quella della risposta, oppure (per una ricevuta) quella da cui e' partita la lettera
+    return { uid: m.uid, uidValidity: m.uidValidity, allegato: allegato, risposta: !!r, casella: C.idCasella(m.casella || (r ? '' : inv.casella)) };
 }
 
 const AZIONI = {
@@ -229,12 +238,22 @@ const AZIONI = {
             profilo: { nome: prof.nome, email: prof.email, admin: prof.admin, supervisore: prof.supervisore, vedeTutto: prof.vedeTutto, partner: !!prof.partner },
             limiti: { pdfMaxByte: C.LIMITI.pdfMaxByte, pezzoByte: C.LIMITI.pezzoByte, rispostaMaxByte: C.LIMITI.rispostaMaxByte, perOra: C.LIMITI.perOra, pdfGiorni: C.LIMITI.pdfGiorni, bozzaGiorni: C.LIMITI.bozzaGiorni, bozzaRighe: BOZZE.MAX_RIGHE },
             ambiti: Object.keys(C.AMBITI).map(k => ({ id: k, nome: C.AMBITI[k] })),
+            // per conto di chi si puo' lavorare, e chi altro puo' mandare una lettera
+            tipiCommittente: Object.keys(C.TIPI_COMMITTENTE).map(k => ({ id: k, nome: C.TIPI_COMMITTENTE[k] })),
+            tipiEsterni: Object.keys(C.TIPI_ESTERNI).map(k => ({ id: k, nome: C.TIPI_ESTERNI[k] })),
             categorie: Object.keys(C.CATEGORIE).map(k => ({ id: k, nome: C.CATEGORIE[k].nome, uno: C.CATEGORIE[k].uno, ambito: C.ambitoDi(k), saldo: !!C.CATEGORIE[k].saldo })),
             oggi: C.giornoRoma(), incarichi: incarichi,
             giro: giro, lettore: lettore
         };
         // l'indirizzo di rete da cui e' uscito il servizio serve a chi parla con l'assistenza del gestore: agli altri non si manda
         if (!prof.vedeTutto && giro.rifiuto) out.giro = Object.assign({}, giro, { rifiuto: Object.assign({}, giro.rifiuto, { ip: '', regione: '' }) });
+        if (!prof.vedeTutto && giro.caselle) {
+            const altre = {};
+            Object.keys(giro.caselle).forEach(k => { const x = giro.caselle[k]; altre[k] = Object.assign({}, x, x.rifiuto ? { rifiuto: Object.assign({}, x.rifiuto, { ip: '', regione: '' }) } : {}); });
+            out.giro = Object.assign({}, out.giro, { caselle: altre });
+        }
+        // le caselle da cui possono partire le lettere: servono a chi imposta gli incarichi "per conto di"
+        if (prof.vedeTutto) out.caselle = C.caselle().map(C.casellaBreve);
         if (prof.vedeTutto) {
             out.errori = errori;
             out.nonAssociate = nonAssociate.length;
@@ -262,22 +281,39 @@ const AZIONI = {
         if (!inc) esci(403, 'Non segui questo incarico.');
         const passo = C.PASSI.indexOf(String(b.passo)) >= 0 ? String(b.passo) : 'primo';
         const oggi = C.giornoRoma();
+        const com = inc.committente || null;
         const d = {
             cliente: inc.cliente, destinatario: C.unaRiga(b.destinatario, 160) || 'Denominazione del destinatario',
             categoria: Object.prototype.hasOwnProperty.call(C.CATEGORIE, String(b.categoria)) ? String(b.categoria) : 'altro',
-            bilancio: C.giornoValido(b.bilancio) ? b.bilancio : oggi, codice: 'RVL-XXXXXX', casella: C.configurazione().mittente || 'la casella PEC di Revilaw',
+            committente: com ? { tipo: com.tipo, nome: com.nome } : null,
+            bilancio: C.giornoValido(b.bilancio) ? b.bilancio : oggi, codice: 'RVL-XXXXXX',
+            casella: C.configurazione(com ? com.casella : '').mittente || (com ? 'la casella PEC indicata per questo incarico' : 'la casella PEC di Revilaw'),
             scadenza: C.giornoValido(b.scadenza) ? b.scadenza : C.aggiungiGiorni(oggi, 10),
             scadenzaPrima: C.giornoValido(b.scadenzaPrima) ? b.scadenzaPrima : '', inviatoIl: oggi,
             sollecito1Il: passo === 'sollecito2' && C.giornoValido(b.sollecito1Il) ? b.sollecito1Il : ''
         };
-        return { ok: true, oggetto: C.oggetto(passo, d), html: C.html(passo, d), testo: C.testoSemplice(passo, d) };
+        return { ok: true, oggetto: C.oggetto(passo, d), html: C.html(passo, d), testo: C.testoSemplice(passo, d), da: (com ? com.nome : C.configurazione().nome) + ' <' + (C.configurazione(com ? com.casella : '').mittente || '') + '>' };
     },
     /* Una lettera nuova: la scheda nasce in bozza, poi arriva il PDF a pezzi. */
     async crea(db, prof, b) {
-        if (!C.configurato()) esci(503, 'La casella PEC delle circolarizzazioni non è ancora configurata: avvisa l\'amministratore.');
         const inc = incaricoScrivibile(prof, b.incaricoId);
+        // la lettera parte dalla casella dell'incarico (quella di chi ha la revisione, negli incarichi "per conto di")
+        const casella = inc.committente ? inc.committente.casella : C.STUDIO;
+        if (!b.esterna && !C.configurato(casella)) {
+            esci(503, casella === C.STUDIO ? 'La casella PEC delle circolarizzazioni non è ancora configurata: avvisa l\'amministratore.'
+                : 'La casella PEC di questo incarico («' + C.configurazione(casella).etichetta + '») non è configurata sul servizio: avvisa l\'amministratore.');
+        }
         const c = daEsito(C.controllaRichiesta(b, C.giornoRoma()));
-        return daEsito(await DATI.crea(db, prof, inc, c.dati, { forza: b.forza === true }));
+        const r = daEsito(await DATI.crea(db, prof, inc, c.dati, { forza: b.forza === true }));
+        if (r.esterna) {
+            const inv = await DATI.leggi(db, r.id);
+            if (inv) await traccia(db, prof, 'lettera-esterna', Object.assign(REGISTRO.diLettera(inv), {
+                dettaglio: ((C.CATEGORIE[inv.categoria] || {}).uno || inv.categoria) + ', bilancio al ' + giornoDetto(inv.bilancio) + '. La invia ' + C.esternoDetto(inv.esterna)
+                    + ' (' + (C.TIPI_ESTERNI[inv.esterna.tipo] || '').toLowerCase() + '): non parte dal portale, se ne segna la risposta quando arriva.'
+                    + (inv.saldo != null ? ' Saldo ' + String(inv.saldo).replace('.', ',') + ' €.' : '') + (inv.nota ? ' Nota: ' + inv.nota + '.' : '')
+            }));
+        }
+        return r;
     },
     async allegato(db, prof, b) {
         const r = daEsito(await DATI.caricaPezzo(db, prof, b.id, b.n, b.dati));
@@ -359,12 +395,13 @@ const AZIONI = {
         const prima = await letteraDaModificare(db, prof, b.id);
         const r = daEsito(b.togli ? await DATI.togliRispostaManuale(db, b.id) : await DATI.rispostaManuale(db, b.id, b.nota, prof));
         if (b.togli) await traccia(db, prof, 'risposta-manuale-tolta', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Era stata segnata da ' + ((prima.risposta || {}).da || '?') + ((prima.risposta || {}).nota ? ' con la nota «' + prima.risposta.nota + '»' : '') + '. I solleciti fermi tornano in programma.', campi: diffSolleciti(prima, r.invio) }));
+        else if (prima.esterna) await traccia(db, prof, 'risposta-manuale', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Risposta ricevuta da ' + C.esternoDetto(prima.esterna) + ', che ha inviato la lettera' + ((r.invio.risposta || {}).nota ? ': «' + r.invio.risposta.nota + '»' : '') + '.' }));
         else await traccia(db, prof, 'risposta-manuale', Object.assign(REGISTRO.diLettera(r.invio), { dettaglio: 'Risposta arrivata fuori dalla casella PEC' + ((r.invio.risposta || {}).nota ? ': «' + r.invio.risposta.nota + '»' : '') + '. I solleciti in programma si fermano.', campi: diffSolleciti(prima, r.invio) }));
         return { ok: true, scheda: perArea(r.invio) };
     },
     async reinvia(db, prof, b) {
-        if (!C.configurato()) esci(503, 'La casella PEC delle circolarizzazioni non è configurata.');
         const prima = await letteraDaModificare(db, prof, b.id);
+        if (!C.configurato(prima.casella)) esci(503, 'La casella PEC di questa lettera non è configurata.');
         const r = daEsito(await DATI.reinvia(db, b.id, b.pec, prof));
         await traccia(db, prof, 'lettera-reinviata', Object.assign(REGISTRO.diLettera(r.invio), {
             dettaglio: 'La prima PEC non era arrivata: la lettera torna in coda con lo stesso PDF.',
@@ -377,14 +414,14 @@ const AZIONI = {
         let coord;
         if (b.id) coord = messaggioDi(await letteraDi(db, prof, b.id), b.chiave);
         else coord = await nonAssociata(db, prof, b.chiave);
-        return daEsito(await LETTORE.leggiTesto(coord));
+        return daEsito(await LETTORE.leggiTesto(coord));     // coord porta anche la casella in cui sta il messaggio
     },
     /* Un tratto del messaggio (.eml) o di un allegato, da ricomporre nell'area riservata. */
     async scarica(db, prof, b) {
         let coord;
         if (b.id) coord = messaggioDi(await letteraDi(db, prof, b.id), b.chiave, b.parte);
         else coord = await nonAssociata(db, prof, b.chiave, b.parte);
-        const r = daEsito(await LETTORE.scarica({ uid: coord.uid, uidValidity: coord.uidValidity, parte: b.parte ? String(b.parte) : '', da: b.da, totale: coord.allegato ? coord.allegato.dimensione : 0 }));
+        const r = daEsito(await LETTORE.scarica({ uid: coord.uid, uidValidity: coord.uidValidity, casella: coord.casella, parte: b.parte ? String(b.parte) : '', da: b.da, totale: coord.allegato ? coord.allegato.dimensione : 0 }));
         if (coord.allegato) Object.assign(r, { codifica: coord.allegato.codifica || '', tipo: coord.allegato.tipo || '', nome: coord.allegato.nome });
         return r;
     },
@@ -399,6 +436,8 @@ const AZIONI = {
                 chiave: m.id, quando: m.quando, da: m.da || '', oggetto: m.oggetto || '', certificata: !!m.certificata, dimensione: m.dimensione || 0,
                 // quando e' stata segnalata per email alla casella dello studio (0: non ancora, o rimessa qui a mano)
                 segnalata: m.dissociataIl ? 0 : (Number(m.avvisato) || 0),
+                // in quale casella e' arrivato (vuoto: quella dello studio)
+                casella: C.idCasella(m.casella) === C.STUDIO ? '' : C.configurazione(m.casella).etichetta,
                 allegati: (m.allegati || []).map(a => ({ nome: a.nome, dimensione: a.dimensione, parte: a.parte, tipo: a.tipo })),
                 candidati: m.candidati || []
             }))
@@ -465,6 +504,24 @@ const AZIONI = {
         const av = await ERRORI.destinatari(db);
         if (!!primaAv.supervisori !== !!av.supervisori) await traccia(db, prof, 'avvisi-errori', { campi: [{ campo: 'Email degli errori anche ai supervisori', prima: primaAv.supervisori ? 'sì' : 'no', dopo: av.supervisori ? 'sì' : 'no' }] });
         return { ok: true, avvisiErrori: { destinatari: av.lista, supervisori: av.supervisori, posta: ERRORI.postaConfigurata() } };
+    },
+    /* Per conto di chi si lavora su un incarico: chi ha la revisione legale, da
+       quale casella partono le lettere, a chi si inoltrano le risposte. Lo
+       decidono l'amministratore e i supervisori. */
+    async committente(db, prof, b) {
+        soloChiVedeTutto(prof);
+        const inc = DATI.incaricoDi(prof, b.incaricoId);
+        if (!inc) esci(404, 'Incarico non trovato.');
+        const r = daEsito(await DATI.impostaCommittente(db, inc.id, b.committente || null, prof));
+        const detto = x => x ? x.nome + ' (' + (C.TIPI_COMMITTENTE[x.tipo] || x.tipo) + ')' : 'nessuno: le lettere partono a nome di Revilaw';
+        const casellaDetta = x => x ? (C.configurazione(x.casella).mittente || C.idCasella(x.casella)) : (C.configurazione().mittente || 'casella dello studio');
+        const campi = [
+            { campo: 'Per conto di', prima: detto(r.prima), dopo: detto(r.dopo) },
+            { campo: 'Casella PEC da cui partono le lettere', prima: casellaDetta(r.prima), dopo: casellaDetta(r.dopo) },
+            { campo: 'Risposte inoltrate anche a', prima: ((r.prima || {}).inoltro || []).join(', ') || 'nessuno', dopo: ((r.dopo || {}).inoltro || []).join(', ') || 'nessuno' }
+        ].filter(x => x.prima !== x.dopo);
+        if (campi.length) await traccia(db, prof, 'committente', { incaricoId: inc.id, cliente: inc.cliente, campi: campi, dettaglio: 'Vale per le lettere preparate da adesso: quelle già preparate restano sulla casella da cui sono partite, e a nome di chi erano.' });
+        return { ok: true, committente: r.dopo ? DATI.committenteBreve(r.dopo) : null };
     },
     async supervisori(db, prof, b) {
         soloAdmin(prof);
@@ -582,7 +639,7 @@ async function nonAssociata(db, prof, chiave, parte) {
         if (!allegato) esci(404, 'Allegato non trovato su questo messaggio.');
         if (allegato.dimensione > C.LIMITI.rispostaMaxByte * 1.4) esci(413, 'Questo allegato supera ' + C.megabyte(C.LIMITI.rispostaMaxByte) + ': aprilo dalla casella PEC.');
     }
-    return { uid: m.uid, uidValidity: m.uidValidity, allegato: allegato };
+    return { uid: m.uid, uidValidity: m.uidValidity, allegato: allegato, casella: C.idCasella(m.casella) };
 }
 
 /* Il giro programmato: casella, invii, pulizie. */
@@ -635,6 +692,8 @@ async function giroProgrammato(db) {
     try {
         out.daAssociare = await AVVISI.spedisciDaAssociare(db, { casella: casella, scadenza: scadenza });
         out.avvisiUtenti = await AVVISI.spedisci(db, { casella: casella, scadenza: scadenza });
+        // le risposte da inoltrare a chi ha la revisione legale (incarichi "per conto di")
+        out.inoltri = await INOLTRI.spedisci(db, { casella: casella, scadenza: scadenza });
     } finally {
         await casella.chiudi();
     }

@@ -53,6 +53,9 @@ const AZIONI = {
     'risposta-dissociata': 'Risposta rimessa fra le non associate',
     'bozza-svuotata': 'Bozza delle nuove lettere svuotata',
     'invii-riprovati': 'Invii ripresi a mano dopo una sospensione',
+    'committente': 'Per conto di chi si lavora cambiato',
+    'lettera-esterna': 'Lettera a cura di un altro soggetto registrata',
+    'risposta-inoltrata': 'Risposta inoltrata a chi ha la revisione legale',
     'pulizie': 'Pulizie automatiche'
 };
 /* Il servizio quando agisce da solo (le pulizie del giro programmato). */

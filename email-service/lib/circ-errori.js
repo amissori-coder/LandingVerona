@@ -198,7 +198,7 @@ function messaggio(nuovi, totaleAperti) {
    `interno` e' l'HTML del messaggio; `allegati` (facoltativo) e' un elenco di
    { filename, content, contentType }. Torna { ok, errore }. La usano anche
    gli avvisi a chi ha inviato le lettere (lib/circ-avvisi.js). */
-async function mandaConEsito(a, oggetto, interno, testo, etichetta, allegati) {
+async function mandaConEsito(a, oggetto, interno, testo, etichetta, allegati, opz) {
     try {
         const porta = Number(process.env.SMTP_PORT) || 465;
         const posta = nodemailer.createTransport({
@@ -211,7 +211,9 @@ async function mandaConEsito(a, oggetto, interno, testo, etichetta, allegati) {
             to: a, subject: senzaTrattiniLunghi(oggetto).replace(/[\r\n]/g, ' ').slice(0, 200),
             text: senzaTrattiniLunghi(testo), html: avvolgi(senzaTrattiniLunghi(interno)),
             headers: { 'X-Circolarizzazioni': etichetta || 'avviso' },
-            attachments: (allegati || []).map(f => ({ filename: f.filename, content: f.content, contentType: f.contentType || 'application/octet-stream' }))
+            attachments: (allegati || []).map(f => ({ filename: f.filename, content: f.content, contentType: f.contentType || 'application/octet-stream' })),
+            // a chi tornano le risposte (l'inoltro: a chi ha preparato la lettera)
+            replyTo: opz && opz.replyTo ? String(opz.replyTo) : undefined
         });
         return { ok: true, errore: '' };
     } catch (x) {

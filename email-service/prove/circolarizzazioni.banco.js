@@ -29,11 +29,20 @@
      /banco/notizie    le email a chi ha preparato le lettere partite finora
                        (ricevute con i nomi dei file allegati, risposte, PEC non partite)
      /banco/associare  le email "PEC da associare" alla casella dello studio
+     /banco/inoltri    le email che inoltrano le risposte a chi ha la revisione
+                       legale (incarichi "per conto di")
      /banco/posta      le PEC partite finora
+
+   C'e' anche una seconda casella PEC (CIRC_PEC2_*, "PEC del collegio
+   sindacale"), per gli incarichi "per conto di": ricevute e risposte
+   delle PEC partite da li' arrivano li'.
    ============================================================ */
 'use strict';
 const http = require('http');
 const F = require('./circ-finti');
+// la seconda casella, per gli incarichi "per conto di"
+const COLLEGIO = 'collegio.sindacale.prova@pec.it';
+Object.assign(process.env, { CIRC_PEC2_USER: COLLEGIO, CIRC_PEC2_PASS: 'prova', CIRC_PEC2_NOME: 'PEC del collegio sindacale' });
 const api = require('../api/circolarizzazioni');
 
 const persone = [
@@ -69,9 +78,11 @@ function ricevute() {
         const rif = String(m.messageId).replace(/[<>]/g, '');
         if (conRicevute.has(rif)) return;
         conRicevute.add(rif);
-        F.ricevuta('accettazione', rif, { identificativo: 'opec-' + rif });
-        if (/errore/.test(m.to)) F.ricevuta('errore-consegna', rif, { errore: 'no-dest', erroreEsteso: '5.1.1 - casella inesistente' });
-        else F.ricevuta('avvenuta-consegna', rif, { consegna: m.to });
+        // le ricevute arrivano nella casella da cui e' partita la PEC
+        const dove = m._casella === COLLEGIO ? COLLEGIO : '';
+        F.ricevuta('accettazione', rif, { identificativo: 'opec-' + rif, casella: dove });
+        if (/errore/.test(m.to)) F.ricevuta('errore-consegna', rif, { errore: 'no-dest', erroreEsteso: '5.1.1 - casella inesistente', casella: dove });
+        else F.ricevuta('avvenuta-consegna', rif, { consegna: m.to, casella: dove });
         n++;
     });
     return n;
@@ -82,6 +93,8 @@ function rispondi(b) {
     F.risposta({
         da: b.da || b.pec, oggetto: b.oggetto || (m && b.inRisposta !== false ? 'R: ' + m.subject : 'Riscontro alla Vostra richiesta'),
         inRisposta: b.inRisposta && rif ? 'opec-' + rif : '', ordinaria: !!b.ordinaria, pdfByte: Number(b.pdfByte) || 40000,
+        // la risposta arriva nella casella da cui e' partita la lettera
+        casella: m && m._casella === COLLEGIO ? COLLEGIO : '',
         testo: b.testo || 'Spett.le Revilaw S.p.A.,\nin allegato la lettera di conferma compilata e firmata.\n\nDistinti saluti'
     });
     return 1;
@@ -119,8 +132,9 @@ http.createServer((req, res) => {
             }
             else if (req.url === '/banco/notizie') out = { stato: 200, corpo: { ok: true, notizie: F.notizie.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegati: (m.attachments || []).map(f => ({ nome: f.filename, byte: f.content.length })) })) } };
             else if (req.url === '/banco/associare') out = { stato: 200, corpo: { ok: true, associare: F.associare.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegati: (m.attachments || []).map(f => ({ nome: f.filename, byte: f.content.length })) })) } };
+            else if (req.url === '/banco/inoltri') out = { stato: 200, corpo: { ok: true, inoltri: F.inoltri.map(m => ({ a: m.to, rispondiA: m.replyTo || '', oggetto: m.subject, testo: m.text, html: m.html, allegati: (m.attachments || []).map(f => ({ nome: f.filename, byte: f.content.length })) })) } };
             else if (req.url === '/banco/avvisi') out = { stato: 200, corpo: { ok: true, avvisi: F.avvisi.map(m => ({ a: m.to, da: m.from, oggetto: m.subject, testo: m.text, html: m.html })) } };
-            else if (req.url === '/banco/posta') out = { stato: 200, corpo: { ok: true, posta: F.posta.map(m => ({ a: m.to, oggetto: m.subject, testo: m.text, html: m.html, allegato: m.attachments[0].filename })) } };
+            else if (req.url === '/banco/posta') out = { stato: 200, corpo: { ok: true, posta: F.posta.map(m => ({ a: m.to, da: m.from, casella: m._casella || '', oggetto: m.subject, testo: m.text, html: m.html, allegato: m.attachments[0].filename })) } };
             else out = await chiama('POST', b);
         } catch (e) { out = { stato: 500, corpo: { ok: false, msg: String(e && e.message) } }; }
         res.writeHead(out.stato, Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, cors));

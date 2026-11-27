@@ -16,6 +16,17 @@
    dedicata, CIRC_PEC_*, perche' li' arrivano le risposte dei terzi,
    che sono elementi probativi della revisione e non devono
    mescolarsi con altra posta.
+
+   ALTRE CASELLE, PER GLI INCARICHI "PER CONTO DI". In alcuni
+   incarichi lo studio lavora per conto del collegio sindacale, del
+   sindaco unico o di un'altra societa' di revisione: le lettere
+   partono da un'altra PEC (e le risposte si leggono li'). Le caselle
+   in piu' si configurano come la prima, con un numero da 2 a 9:
+   CIRC_PEC2_USER, CIRC_PEC2_PASS, ... (vedi configurazione). Ogni
+   incarico dice da quale casella partono le sue lettere
+   (lib/circ-dati.js, committenti) e ogni lettera ricorda da quale
+   e' partita: i solleciti partono dalla stessa, e le risposte si
+   cercano li'.
    ============================================================ */
 'use strict';
 
@@ -42,30 +53,53 @@ function ponte(v) {
     if (!/^https?:$/.test(u.protocol) || !u.hostname) return { errato: true };
     return { url: t, dove: u.hostname + (u.port ? ':' + u.port : '') };
 }
-function configurazione() {
-    const utente = s(process.env.CIRC_PEC_USER);
-    const pt = ponte(process.env.CIRC_PEC_PROXY);
+/* Le caselle: 'studio' e' quella di sempre (CIRC_PEC_*); 'pec2'...'pec9' le
+   altre (CIRC_PEC2_*, ... CIRC_PEC9_*), con gli stessi nomi di variabile dopo
+   il numero. Per le altre, CIRC_PECn_NOME e' come la casella si chiama
+   nell'area riservata (per esempio "PEC del collegio sindacale di Alfa");
+   host e porte, se mancano, sono quelli di Aruba; il ponte, se manca il suo
+   (CIRC_PECn_PROXY), e' quello della prima casella. */
+const STUDIO = 'studio';
+const MAX_CASELLA = 9;
+function numeroCasella(id) { const m = /^pec([2-9])$/.exec(String(id || '')); return m ? Number(m[1]) : 0; }
+function idCasella(id) { return numeroCasella(id) ? String(id) : STUDIO; }
+function configurazione(id) {
+    const n = numeroCasella(id);
+    const v = k => process.env[(n ? 'CIRC_PEC' + n + '_' : 'CIRC_PEC_') + k];
+    const utente = s(v('USER'));
+    const pt = ponte(n && s(v('PROXY')) ? v('PROXY') : process.env.CIRC_PEC_PROXY);
     return {
+        id: n ? 'pec' + n : STUDIO,
+        etichetta: n ? (s(v('NOME')).replace(/[\r\n]/g, ' ').slice(0, 80) || 'PEC ' + n) : 'PEC dello studio',
         proxy: pt.url || '', proxyDove: pt.dove || '', proxyErrato: !!pt.errato,
         utente: utente,
-        password: String(process.env.CIRC_PEC_PASS || ''),
+        password: String(v('PASS') || ''),
         // il mittente di una PEC DEVE essere la casella: il gestore rifiuta ogni altro indirizzo
-        mittente: s(process.env.CIRC_PEC_FROM_EMAIL) || utente,
-        nome: s(process.env.CIRC_PEC_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n"]/g, ' ').slice(0, 80),
-        smtpHost: s(process.env.CIRC_PEC_SMTP_HOST) || 'smtps.pec.aruba.it',
-        smtpPorta: Number(process.env.CIRC_PEC_SMTP_PORT) || 465,
-        imapHost: s(process.env.CIRC_PEC_IMAP_HOST) || 'imaps.pec.aruba.it',
-        imapPorta: Number(process.env.CIRC_PEC_IMAP_PORT) || 993,
+        mittente: s(v('FROM_EMAIL')) || utente,
+        nome: s(v('FROM_NAME') || 'Revilaw S.p.A.').replace(/[\r\n"]/g, ' ').slice(0, 80),
+        smtpHost: s(v('SMTP_HOST')) || 'smtps.pec.aruba.it',
+        smtpPorta: Number(v('SMTP_PORT')) || 465,
+        imapHost: s(v('IMAP_HOST')) || 'imaps.pec.aruba.it',
+        imapPorta: Number(v('IMAP_PORT')) || 993,
         // con la verifica in due passaggi Aruba vuole una password dedicata ai programmi di posta
-        imapUtente: s(process.env.CIRC_PEC_IMAP_USER) || utente,
-        imapPassword: String(process.env.CIRC_PEC_IMAP_PASS || process.env.CIRC_PEC_PASS || ''),
-        cartella: s(process.env.CIRC_PEC_IMAP_CARTELLA) || 'INBOX'
+        imapUtente: s(v('IMAP_USER')) || utente,
+        imapPassword: String(v('IMAP_PASS') || v('PASS') || ''),
+        cartella: s(v('IMAP_CARTELLA')) || 'INBOX'
     };
 }
-function configurato() {
-    const c = configurazione();
+function configurato(id) {
+    const c = configurazione(id);
     return !!(c.utente && c.password && c.mittente);
 }
+/* Tutte le caselle: quella dello studio (anche se non e' configurata) e le
+   altre che hanno almeno l'indirizzo. */
+function caselle() {
+    const out = [configurazione(STUDIO)];
+    for (let n = 2; n <= MAX_CASELLA; n++) if (s(process.env['CIRC_PEC' + n + '_USER'])) out.push(configurazione('pec' + n));
+    return out;
+}
+/* La casella come la vede l'area riservata: niente credenziali, niente ponte. */
+function casellaBreve(c) { return { id: c.id, etichetta: c.etichetta, indirizzo: c.mittente || '', configurata: !!(c.utente && c.password && c.mittente) }; }
 
 /* ---------- i limiti ----------
    Un PDF per lettera. 5 MB bastano per una lettera firmata e passata allo
@@ -121,6 +155,42 @@ const AMBITI = { obbligatorie: 'Circolarizzazioni obbligatorie', clientiFornitor
 function ambitoDi(categoria) { return (CATEGORIE[categoria] || {}).ambito || 'obbligatorie'; }
 const PASSI = ['primo', 'sollecito1', 'sollecito2'];
 const NOME_PASSO = { primo: 'Invio', sollecito1: 'Primo sollecito', sollecito2: 'Secondo sollecito' };
+
+/* ---------- per conto di chi, e chi invia ----------
+   COMMITTENTE: l'incarico in cui lo studio lavora per conto di chi ha la
+   revisione legale (il collegio sindacale, il sindaco unico, un'altra societa'
+   di revisione). Le PEC di quell'incarico partono a suo nome.
+   ESTERNI: le lettere che non mandiamo noi ma un altro soggetto (la societa' di
+   revisione stessa, il collegio o il sindaco, il revisore del gruppo): si
+   registrano per sapere chi le manda e quando la risposta e' arrivata, ma non
+   partono dal portale. */
+const TIPI_COMMITTENTE = { collegio: 'Collegio sindacale', sindaco: 'Sindaco unico', societa: 'Società di revisione', altro: 'Altro soggetto' };
+const TIPI_ESTERNI = { revisione: 'La società di revisione', collegio: 'Il collegio sindacale o il sindaco', gruppo: 'Il revisore del gruppo', altro: 'Un altro soggetto' };
+// i tipi per cui il nome del soggetto e' obbligatorio (per gli altri basta il tipo)
+const ESTERNI_CON_NOME = ['gruppo', 'altro'];
+/* Il committente come arriva dall'area riservata: { tipo, nome }. Torna null
+   se non c'e', { errore } se e' sbagliato. */
+function committentePulito(x) {
+    if (!x || typeof x !== 'object') return null;
+    const tipo = Object.prototype.hasOwnProperty.call(TIPI_COMMITTENTE, String(x.tipo)) ? String(x.tipo) : '';
+    const nome = unaRiga(x.nome, 160);
+    if (!tipo) return { errore: 'Scegli per conto di chi si lavora.' };
+    if (nome.length < 3) return { errore: 'Scrivi il nome come deve comparire nella PEC (per esempio «Collegio sindacale di Alfa S.p.A.»).' };
+    return { tipo: tipo, nome: nome };
+}
+/* Chi manda una lettera che non parte dal portale: { tipo, nome }. */
+function esternoPulito(x) {
+    if (!x || typeof x !== 'object') return null;
+    const tipo = Object.prototype.hasOwnProperty.call(TIPI_ESTERNI, String(x.tipo)) ? String(x.tipo) : '';
+    const nome = unaRiga(x.nome, 120);
+    if (!tipo) return { errore: 'Indica chi invia la lettera.' };
+    if (ESTERNI_CON_NOME.indexOf(tipo) >= 0 && nome.length < 2) return { errore: 'Scrivi il nome di chi invia la lettera (per esempio la società di revisione del gruppo).' };
+    return { tipo: tipo, nome: nome };
+}
+function esternoDetto(e) {
+    if (!e) return '';
+    return e.nome || (TIPI_ESTERNI[e.tipo] || 'Un altro soggetto').replace(/^(La|Il|Un) /, m => ({ 'La ': 'la ', 'Il ': 'il ', 'Un ': 'un ' }[m])).replace(/^./, x => x.toUpperCase());
+}
 
 /* ---------- le date ----------
    Le date che scrive chi invia sono giorni di calendario italiani
@@ -201,8 +271,8 @@ function codiceDa(testo) {
 /* Il Message-ID che imponiamo: il gestore lo ricopia nelle ricevute
    (X-Riferimento-Message-ID e daticert.xml), ed e' il filo che lega ogni
    ricevuta al suo invio. Il dominio e' quello della casella. */
-function riferimentoNuovo() {
-    const dominio = String(configurazione().mittente || '').split('@')[1] || 'pec.it';
+function riferimentoNuovo(casella) {
+    const dominio = String(configurazione(casella).mittente || '').split('@')[1] || 'pec.it';
     return 'circ-' + crypto.randomBytes(8).toString('hex') + '@' + dominio;
 }
 
@@ -221,11 +291,14 @@ function controllaRichiesta(b, oggi) {
     const nome = unaRiga(b.destinatario, 160);
     const pec = unaRiga(b.pec, 200).toLowerCase();
     const categoria = Object.prototype.hasOwnProperty.call(CATEGORIE, String(b.categoria)) ? String(b.categoria) : '';
+    // una lettera che manda un altro soggetto: niente PEC da spedire, niente PDF ne' date
+    const esterna = b.esterna ? esternoPulito(b.esterna) : null;
+    if (esterna && esterna.errore) return { ok: false, msg: esterna.errore };
     if (nome.length < 2) return { ok: false, msg: 'Indica la denominazione del destinatario.' };
-    if (!EMAIL_RE.test(pec)) return { ok: false, msg: 'L\'indirizzo PEC di ' + nome + ' non è valido.' };
+    if (esterna ? (pec && !EMAIL_RE.test(pec)) : !EMAIL_RE.test(pec)) return { ok: false, msg: 'L\'indirizzo PEC di ' + nome + ' non è valido.' };
     if (!categoria) return { ok: false, msg: 'Scegli il tipo di destinatario di ' + nome + '.' };
     const scadenza = String(b.scadenza || '');
-    if (!giornoValido(scadenza) || scadenza <= oggi) return { ok: false, msg: 'La data entro cui rispondere deve essere successiva a oggi.' };
+    if (!esterna && (!giornoValido(scadenza) || scadenza <= oggi)) return { ok: false, msg: 'La data entro cui rispondere deve essere successiva a oggi.' };
     const bilancio = String(b.bilancio || '');
     if (!giornoValido(bilancio)) return { ok: false, msg: 'Indica la data di chiusura del bilancio.' };
     /* Il saldo da confermare (clienti e fornitori) e una nota: non servono
@@ -239,6 +312,12 @@ function controllaRichiesta(b, oggi) {
         saldo = Math.round(n * 100) / 100;
     }
     const nota = unaRiga(b.nota, 200);
+    if (esterna) {
+        return {
+            ok: true,
+            dati: { destinatario: nome, pec: pec, categoria: categoria, scadenza: '', bilancio: bilancio, saldo: saldo, nota: nota, sollecito1: null, sollecito2: null, allegato: null, esterna: esterna }
+        };
+    }
 
     const sollecito = (x, etichetta, dopo) => {
         if (!x || !x.data) return { ok: true, dati: null };
@@ -307,7 +386,12 @@ function paragrafi(passo, d) {
     const cat = CATEGORIE[d.categoria] || CATEGORIE.altro;
     const cliente = unaRiga(d.cliente, 160), bilancio = dataEstesa(d.bilancio), entro = dataEstesa(d.scadenza);
     const p = [];
-    if (passo === 'primo') {
+    if (passo === 'primo' && d.committente) {
+        /* Per conto di chi ha la revisione legale: la PEC parte dalla sua
+           casella e parla a suo nome. Il nome non entra nella frase (non si sa
+           se e' "il collegio", "la societa'"...): sta in testa e in firma. */
+        p.push('Nell\'ambito della revisione legale del bilancio di ' + cliente + ' al ' + bilancio + ' e delle procedure previste dal principio ISA Italia 505 (Conferme esterne), Vi trasmettiamo in allegato, in nome e per conto della Società, la richiesta di conferma ' + cat.oggetto + '.');
+    } else if (passo === 'primo') {
         p.push('Revilaw S.p.A. è la società incaricata della revisione legale del bilancio di ' + cliente + ' al ' + bilancio + '.');
         p.push('Nell\'ambito delle procedure di revisione previste dal principio ISA Italia 505 (Conferme esterne), Vi trasmettiamo in allegato, in nome e per conto della Società, la richiesta di conferma ' + cat.oggetto + '.');
     } else if (passo === 'sollecito1') {
@@ -332,17 +416,22 @@ function istruzioni(passo, d) {
             'lasciando invariato l\'oggetto: contiene il riferimento ' + d.codice + ', che ci permette di abbinare la Vostra risposta alla richiesta;',
             'allegando la lettera compilata e firmata, in formato PDF.'
         ],
-        perche: 'La risposta va inviata direttamente a Revilaw S.p.A. e non alla Società: è questo che ne garantisce l\'attendibilità come elemento probativo ai fini della revisione.',
+        perche: d.committente
+            ? 'La risposta va inviata direttamente al soggetto incaricato della revisione legale (' + unaRiga(d.committente.nome, 160) + ') e non alla Società: è questo che ne garantisce l\'attendibilità come elemento probativo ai fini della revisione.'
+            : 'La risposta va inviata direttamente a Revilaw S.p.A. e non alla Società: è questo che ne garantisce l\'attendibilità come elemento probativo ai fini della revisione.',
         gia: passo === 'primo' ? '' : 'Se nel frattempo avete già risposto, Vi preghiamo di non tenere conto di questo messaggio.'
     };
 }
 const SALUTO = 'RingraziandoVi per la collaborazione, porgiamo distinti saluti.';
+// chi firma: Revilaw, oppure chi ha la revisione legale se si lavora per conto suo
+function firmatario(d) { return d.committente ? unaRiga(d.committente.nome, 160) : 'Revilaw S.p.A.'; }
 
 function testoSemplice(passo, d) {
     const i = istruzioni(passo, d), par = paragrafi(passo, d);
     const apertura = passo === 'primo' ? 'Spett.le ' + d.destinatario + ',' : 'Spett.le ' + d.destinatario + ',';
     return [
         'Società sottoposta a revisione legale: ' + d.cliente,
+        d.committente ? 'Soggetto incaricato della revisione legale: ' + firmatario(d) : null,
         'Riferimento: ' + d.codice,
         '',
         apertura,
@@ -357,10 +446,8 @@ function testoSemplice(passo, d) {
         '',
         SALUTO,
         '',
-        'Revilaw S.p.A.',
-        'Società di revisione legale',
-        'www.revilaw.it'
-    ].filter(x => x !== null).join('\n').replace(/\n{3,}/g, '\n\n');
+        firmatario(d)
+    ].concat(d.committente ? [] : ['Società di revisione legale', 'www.revilaw.it']).filter(x => x !== null).join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
 /* HTML a tabelle e stili in linea (i client PEC sono webmail vecchie e
@@ -379,14 +466,18 @@ function html(passo, d) {
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F1F5F9;"><tr><td align="center" style="padding:24px 12px;">'
         + '<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:640px;background-color:#ffffff;border:1px solid #E2E8F0;">'
         + '<tr><td style="background-color:#0A2844;padding:20px 28px;' + F + 'color:#ffffff;">'
-        + '<div style="font-size:19px;font-weight:bold;letter-spacing:.5px;">REVILAW S.p.A.</div>'
-        + '<div style="font-size:12px;color:#B6CCE0;letter-spacing:1px;text-transform:uppercase;margin-top:3px;">Società di revisione legale</div></td></tr>'
+        + (d.committente
+            ? '<div style="font-size:18px;font-weight:bold;letter-spacing:.3px;">' + esc(firmatario(d)) + '</div>'
+            + '<div style="font-size:12px;color:#B6CCE0;letter-spacing:1px;text-transform:uppercase;margin-top:3px;">Revisione legale</div></td></tr>'
+            : '<div style="font-size:19px;font-weight:bold;letter-spacing:.5px;">REVILAW S.p.A.</div>'
+            + '<div style="font-size:12px;color:#B6CCE0;letter-spacing:1px;text-transform:uppercase;margin-top:3px;">Società di revisione legale</div></td></tr>')
         + fascia
         + '<tr><td style="padding:26px 28px 8px;">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;"><tr>'
         + '<td style="border-left:4px solid #164068;background-color:#EEF4FA;padding:12px 16px;' + F + '">'
         + '<div style="font-size:11px;color:#475569;letter-spacing:1px;text-transform:uppercase;">Società sottoposta a revisione legale</div>'
         + '<div style="font-size:17px;font-weight:bold;color:#0A2844;margin-top:3px;">' + esc(d.cliente) + '</div>'
+        + (d.committente ? '<div style="font-size:12px;color:#475569;margin-top:6px;">Soggetto incaricato della revisione legale: <strong style="color:#0A2844;">' + esc(firmatario(d)) + '</strong></div>' : '')
         + '<div style="font-size:12px;color:#475569;margin-top:6px;">Bilancio al ' + esc(dataEstesa(d.bilancio)) + ' &nbsp;&middot;&nbsp; Riferimento <strong style="color:#0A2844;">' + esc(d.codice) + '</strong></div>'
         + '</td></tr></table>'
         + '<p style="' + P + '">Spett.le <strong>' + esc(d.destinatario) + '</strong>,</p>'
@@ -401,12 +492,12 @@ function html(passo, d) {
         + '<p style="' + P + '">' + esc(i.perche) + '</p>'
         + (i.gia ? '<p style="' + P + 'color:#475569;">' + esc(i.gia) + '</p>' : '')
         + '<p style="' + P + '">' + esc(SALUTO) + '</p>'
-        + '<p style="margin:18px 0 0;' + F + 'font-size:15px;line-height:1.5;color:#0A2844;"><strong>Revilaw S.p.A.</strong><br><span style="font-size:13px;color:#475569;">Società di revisione legale</span></p>'
+        + '<p style="margin:18px 0 0;' + F + 'font-size:15px;line-height:1.5;color:#0A2844;"><strong>' + esc(firmatario(d)) + '</strong>' + (d.committente ? '' : '<br><span style="font-size:13px;color:#475569;">Società di revisione legale</span>') + '</p>'
         + '</td></tr>'
         + '<tr><td style="padding:16px 28px 22px;"><div style="border-top:1px solid #E2E8F0;padding-top:12px;' + F + 'font-size:11px;line-height:1.5;color:#64748B;text-align:justify;">'
         + 'L\'invio delle lettere di circolarizzazione è una procedura di revisione volta ad acquisire direttamente dai terzi elementi probativi sui rapporti intrattenuti con la società revisionata. '
         + 'Questo messaggio e il suo allegato sono riservati al destinatario indicato: se lo avete ricevuto per errore, Vi preghiamo di comunicarcelo rispondendo a questa PEC e di cancellarlo. '
-        + 'Revilaw S.p.A. &middot; www.revilaw.it</div></td></tr>'
+        + (d.committente ? esc(firmatario(d)) : 'Revilaw S.p.A. &middot; www.revilaw.it') + '</div></td></tr>'
         + '</table></td></tr></table></body></html>';
 }
 
@@ -416,7 +507,9 @@ function datiMessaggio(invio, passo) {
     const primo = (invio.passi || {}).primo || {}, s1 = (invio.passi || {}).sollecito1 || {};
     return {
         cliente: invio.cliente, destinatario: invio.destinatario, categoria: invio.categoria,
-        bilancio: invio.bilancio, codice: invio.codice, casella: configurazione().mittente,
+        bilancio: invio.bilancio, codice: invio.codice, casella: configurazione(invio.casella).mittente,
+        // a nome di chi: quello fissato sulla lettera quando e' stata preparata
+        committente: invio.committente && invio.committente.nome ? { tipo: invio.committente.tipo, nome: invio.committente.nome } : null,
         scadenza: passo === 'primo' ? invio.scadenza : (p.scadenza || invio.scadenza),
         scadenzaPrima: invio.scadenza,
         inviatoIl: primo.inviatoIl ? giornoRoma(primo.inviatoIl) : giornoRoma(),
@@ -429,7 +522,9 @@ function messaggio(invio, passo) {
 }
 
 module.exports = {
-    configurazione, configurato, LIMITI, CATEGORIE, AMBITI, ambitoDi, PASSI, NOME_PASSO, EMAIL_RE,
+    configurazione, configurato, caselle, casellaBreve, idCasella, STUDIO,
+    TIPI_COMMITTENTE, TIPI_ESTERNI, committentePulito, esternoPulito, esternoDetto,
+    LIMITI, CATEGORIE, AMBITI, ambitoDi, PASSI, NOME_PASSO, EMAIL_RE,
     giornoValido, orarioValido, giornoRoma, istanteRoma, oraBreve, aggiungiGiorni, dataEstesa, dataBreve,
     codiceNuovo, codiceDa, riferimentoNuovo, unaRiga, nomeFile, megabyte,
     controllaRichiesta, oggetto, testoSemplice, html, datiMessaggio, messaggio
