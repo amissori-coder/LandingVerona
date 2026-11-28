@@ -657,7 +657,7 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
 .vetrina-sfondo::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(10, 40, 68, .82) 0%, rgba(10, 40, 68, .3) 58%, rgba(10, 40, 68, .55) 100%); }
 
 /* il quadrante: un punto (il centro del disco) da cui si dispone tutto */
-.vetrina-palco { z-index: 1; pointer-events: none; }
+.vetrina-palco { z-index: 1; }
 .vetrina-quadrante { position: absolute; width: 0; height: 0; --orienta: 0deg; }
 .vetrina-anello { position: absolute; left: calc(-1 * var(--d)); top: calc(-1 * var(--d)); width: calc(2 * var(--d)); height: calc(2 * var(--d)); border-radius: 50%; border: 1px solid rgba(255, 255, 255, .28); pointer-events: none; }
 .vetrina-anello-voci { --d: var(--R); }
@@ -707,10 +707,10 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
     cursor: pointer;
     pointer-events: auto;
     z-index: 2;
-    transform: rotate(calc(var(--orienta) + var(--ang, 0deg))) translateX(calc(-1 * var(--R))) rotate(calc(-1 * (var(--orienta) + var(--ang, 0deg))));
+    transform: rotate(calc(var(--orienta) + var(--ang, 0deg) + var(--trascina, 0deg))) translateX(calc(-1 * var(--R))) rotate(calc(-1 * (var(--orienta) + var(--ang, 0deg) + var(--trascina, 0deg))));
     transition: transform 1.1s cubic-bezier(.65, 0, .35, 1), opacity .9s ease;
 }
-.vetrina-voce-salta { transition: none !important; }
+.vetrina-voce-salta, .vetrina-trascina .vetrina-voce { transition: none !important; }
 .vetrina-voce-punto { position: absolute; left: -8px; top: -8px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 4px solid #0f2d4a; background: #7fbaff; transition: transform .6s ease, background-color .6s ease; }
 .vetrina-voce-punto::before { content: ''; position: absolute; top: -12px; right: -12px; bottom: -12px; left: -12px; border-radius: 50%; }
 /* i nomi compaiono a giro finito (non passano sopra il titolo) e spariscono subito */
@@ -732,8 +732,10 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
 .vetrina-progresso circle { fill: none; stroke: #7DD3A0; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
 .vetrina-progresso-va { animation: vetrinaProgresso 8s linear forwards; }
 @keyframes vetrinaProgresso { to { stroke-dashoffset: 0; } }
-/* fermo («Ferma», il mouse sul titolo o sul disco, il fuoco da tastiera, fuori dall'attesa): l'anello aspetta */
+/* fermo (dopo un passo a mano, il mouse sul titolo o sul disco, il fuoco da tastiera, fuori dall'attesa): l'anello aspetta;
+   con «meno movimento» il quadrante non gira da solo: niente anello che si riempie */
 .vetrina-ferma .vetrina-progresso circle, .vetrina-ferma .vetrina-anello-fuori { animation-play-state: paused; }
+.vetrina-a-mano .vetrina-progresso { display: none; }
 
 /* il titolo della voce in primo piano */
 .vetrina-titolo { display: grid; z-index: 2; pointer-events: auto; outline: none; }
@@ -753,23 +755,26 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
 @keyframes vetrinaEntra { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 @keyframes vetrinaEsce { to { opacity: 0; transform: translateY(-24px); } }
 
-/* «Ferma»/«Riprendi» */
-.vetrina-pausa {
-    display: inline-flex; align-items: center; gap: 6px;
-    min-height: 34px;
-    padding: 4px 14px 4px 11px;
+/* per scorrere a mano fra le voci: indietro, il numero della voce, avanti */
+.vetrina-comandi {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 3px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, .3);
-    background: rgba(10, 40, 68, .55);
-    color: #fff;
-    font-family: var(--font-testo); font-size: 13px; font-weight: 600;
-    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, .26);
+    background: rgba(10, 40, 68, .6);
     pointer-events: auto;
     z-index: 2;
 }
-.vetrina-pausa:hover { background: rgba(255, 255, 255, .14); }
-.vetrina-pausa:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.vetrina-freccia { width: 42px; height: 42px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.vetrina-freccia:hover { background: rgba(255, 255, 255, .16); }
+.vetrina-freccia:focus-visible { outline: 3px solid #fff; outline-offset: 1px; }
+.vetrina-freccia .vetrina-icona { width: 22px; height: 22px; }
+.vetrina p.vetrina-numero { min-width: 4.4em; text-align: center !important; font-size: 13px; font-weight: 700; letter-spacing: .06em; color: #DCE9F6; font-variant-numeric: tabular-nums; }
+.vetrina-solo-lettori { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .vetrina-icona { width: 14px; height: 14px; }
+/* il quadrante si trascina: la mano, e niente testo selezionato */
+.vetrina-palco { -webkit-user-select: none; user-select: none; touch-action: pan-y; }
+.vetrina-trascina .vetrina-palco { cursor: grabbing; }
 
 /* SUI COMPUTER (da 1200 px): il disco dal bordo destro, i testi nello spazio a sinistra */
 @media (min-width: 1200px) {
@@ -791,10 +796,11 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
     .fascia-scura.con-quadrante p.nota-chiara { margin: 0; max-width: 30em; }
     .fascia-scura.con-quadrante .schermo-attesa { position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: 0; pointer-events: none; }
     .vetrina { position: absolute; top: 0; right: 0; bottom: 0; left: 0; text-align: left; }
-    .vetrina-palco { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+    /* il quadrante (e solo lui: non i testi a sinistra) si prende e si trascina */
+    .vetrina-palco { position: absolute; top: 0; right: 0; bottom: 0; width: calc(var(--R) + 40px); pointer-events: auto; cursor: grab; }
     .vetrina-quadrante { right: 0; top: 50%; }
     .vetrina-titolo { position: absolute; right: calc(var(--rd) + 34px); width: min(calc(var(--R) - var(--rd) - 66px), 460px); top: 50%; transform: translateY(-50%); }
-    .vetrina-pausa { position: absolute; right: 22px; bottom: 18px; }
+    .vetrina-comandi { position: absolute; right: 22px; bottom: 18px; }
 }
 /* SUL TABLET E SUL TELEFONO: i testi, il titolo della voce e sotto il quadrante, con il disco dal bordo in basso */
 @media (max-width: 1199px) {
@@ -809,8 +815,8 @@ html.modo-azoto #vista-diretta { --colonna-video: min(1180px, max(560px, calc((1
     .vetrina-titolo { order: 1; position: relative; width: 100%; max-width: 560px; min-height: 142px; justify-items: center; align-items: center; }
     .vetrina-titolo-dentro { align-items: center; gap: 8px; }
     .vetrina-titolo-testo { font-size: 19px; -webkit-line-clamp: 3; }
-    .vetrina-pausa { order: 2; position: relative; margin-top: 12px; }
-    .vetrina-palco { order: 3; position: relative; width: 100%; height: calc(var(--R) + 30px); margin-top: 6px; }
+    .vetrina-comandi { order: 2; position: relative; margin-top: 10px; }
+    .vetrina-palco { order: 3; position: relative; width: 100%; height: calc(var(--R) + 30px); margin-top: 6px; cursor: grab; }
     .vetrina-quadrante { --orienta: 90deg; left: 50%; top: 100%; }
     .vetrina-disco {
         left: calc(-1 * var(--rd)); top: calc(-1 * var(--rd));

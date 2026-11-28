@@ -934,6 +934,8 @@ function eventoIniziale(T) {
                 titolo: titolo ? titolo.textContent.replace(/\s+/g, ' ') : '', disco: disco ? disco.textContent.replace(/\s+/g, ' ') : '',
                 link: titolo && titolo.querySelector('a') ? { href: titolo.querySelector('a').getAttribute('href'), target: titolo.querySelector('a').target, rel: titolo.querySelector('a').rel } : null,
                 vicine: voci.filter(b => b.tabIndex === 0 && b.getAttribute('aria-hidden') !== 'true').map(b => b.getAttribute('aria-label')),
+                numero: (document.querySelector('#schermo-attesa .vetrina-numero') || {}).textContent || '',
+                annuncio: (document.querySelector('#schermo-attesa .vetrina [aria-live]') || {}).textContent || '',
                 ferma: radice ? radice.classList.contains('vetrina-ferma') : null,
                 conVideo: radice ? radice.classList.contains('vetrina-con-video') : null,
                 video: v ? { pausa: v.paused, tempo: v.currentTime, muto: v.muted, src: v.getAttribute('src') || '' } : null
@@ -992,26 +994,60 @@ function eventoIniziale(T) {
             // l'anello attorno al punto in primo piano: si riempie in 4 secondi (nelle prove)
             vero(await p.evaluate(() => { const c = document.querySelector('#schermo-attesa .vetrina-progresso circle'); return c.classList.contains('vetrina-progresso-va') && c.style.animationDuration === '4000ms'; }), 'l\'anello che si riempie fino al passo dopo');
             vero((await vetrina()).ferma === true && (await vetrina()).tipo === 'video', 'con il mouse sul disco il quadrante aspetta');
-            // tolto il mouse, passati i secondi della voce, il quadrante gira da solo: le interviste
+            // tolto il mouse, passata l'attesa dopo il passo a mano (6 s nelle prove) e i secondi della voce, il quadrante gira da solo: le interviste
             await p.hover('#vista-attesa .attesa-testi h2');
-            await aspetta(async () => (await vetrina()).tipo === 'interviste', 9000, 'la voce dopo, da sola (le interviste)');
+            await aspetta(async () => (await vetrina()).tipo === 'interviste', 15000, 'la voce dopo, da sola (le interviste)');
             const v3 = await vetrina();
             vero(/20\s*interviste/.test(v3.disco) && v3.link && v3.link.href === '/interviste_verona_2026/' && !v3.conVideo, 'le 20 interviste, il link; il video non c\'e\' piu\': ' + JSON.stringify(v3).slice(0, 300));
             await aspetta(async () => { const v = await vetrina(); return !v.video || v.video.pausa; }, 3000, 'il video in pausa fuori dalla sua voce');
-            // «Ferma»/«Riprendi»
-            await p.click('#schermo-attesa .vetrina-pausa');
-            vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Riprendi' && await p.getAttribute('#schermo-attesa .vetrina-pausa', 'aria-label') === 'Riprendi il giro dei contenuti' && (await vetrina()).ferma === true,
-                '«Ferma» diventa «Riprendi»: ' + await p.textContent('#schermo-attesa .vetrina-pausa'));
-            await pausa(6000);
-            vero((await vetrina()).tipo === 'interviste', 'con «Ferma» la voce resta quella');
-            await p.click('#schermo-attesa .vetrina-pausa');
-            vero(await p.textContent('#schermo-attesa .vetrina-pausa') === 'Ferma' && (await vetrina()).ferma === false, '«Riprendi» torna «Ferma»');
-            // con il mouse sul disco la voce resta quella; tolto il mouse, si riparte
-            await p.hover('#schermo-attesa .vetrina-disco');
-            await pausa(6000);
-            vero((await vetrina()).tipo === 'interviste', 'con il mouse sul disco la voce resta quella');
+            // niente «Ferma»: si scorre a mano fra tutte le voci. La freccia avanti: l'approfondimento, «4 / 11», annunciato
+            vero(await p.locator('#schermo-attesa .vetrina-pausa').count() === 0, 'niente pulsante «Ferma»');
+            vero(await p.getAttribute('#schermo-attesa .vetrina-freccia-prima', 'aria-label') === 'Contenuto precedente' && await p.getAttribute('#schermo-attesa .vetrina-freccia-dopo', 'aria-label') === 'Contenuto successivo',
+                'le frecce per scorrere, con il loro nome');
+            await p.click('#schermo-attesa .vetrina-freccia-dopo');
+            const v5 = await vetrina();
+            vero(v5.tipo === 'articolo' && v5.numero === '4 / 11' && /^4 di 11: Cassazione 7134$/.test(v5.annuncio), 'la freccia avanti: la voce dopo, il suo numero, annunciata: ' + JSON.stringify({ tipo: v5.tipo, numero: v5.numero, annuncio: v5.annuncio }));
+            // dopo un passo a mano il giro da solo aspetta (6 s nelle prove, 20 s sul sito): si legge
             await p.hover('#vista-attesa .attesa-testi h2');
-            await aspetta(async () => (await vetrina()).tipo === 'articolo', 9000, 'tolto il mouse, la voce dopo (un approfondimento)');
+            await pausa(4500);
+            vero((await vetrina()).numero === '4 / 11', 'dopo un passo a mano la voce resta quella per un po\'');
+            // la freccia indietro e i tasti freccia (con il fuoco nel quadrante)
+            await p.click('#schermo-attesa .vetrina-freccia-prima');
+            vero((await vetrina()).numero === '3 / 11', 'la freccia indietro: ' + (await vetrina()).numero);
+            await p.focus('#schermo-attesa .vetrina-freccia-dopo');
+            await p.keyboard.press('ArrowRight');
+            await p.keyboard.press('ArrowRight');
+            vero((await vetrina()).numero === '5 / 11' && (await vetrina()).tipo === 'sedi', 'i tasti freccia: due passi avanti (le 63 sedi): ' + (await vetrina()).numero);
+            await p.keyboard.press('ArrowLeft');
+            vero((await vetrina()).numero === '4 / 11', 'il tasto freccia a sinistra: un passo indietro');
+            // il quadrante si trascina: con il mouse in su di due passi, poi lasciato si ferma sulla voce
+            // (si parte sull'anello, sotto il titolo della voce: fra l'anello e il disco)
+            const centro = await p.evaluate(() => { const r = document.querySelector('#schermo-attesa .vetrina-anello-voci').getBoundingClientRect(); const R = r.width / 2; return { x: r.left + R * 0.1, y: r.top + R * 1.3, r: R }; });
+            await p.mouse.move(centro.x, centro.y);
+            await p.mouse.down();
+            for (let k = 1; k <= 8; k++) await p.mouse.move(centro.x, centro.y - k * (centro.r * 0.84 / 8));
+            const durante = await p.evaluate(() => document.querySelector('#schermo-attesa .vetrina-quadrante').style.getPropertyValue('--trascina'));
+            await p.mouse.up();
+            const v6 = await vetrina();
+            vero(parseFloat(durante) > 30 && v6.numero === '6 / 11', 'trascinato in su di circa due passi: le voci seguono il mouse (' + durante + ') e si fermano due voci dopo: ' + v6.numero);
+            // lo scorrimento di lato del touchpad: un passo
+            await p.mouse.move(centro.x, centro.y);
+            vero(await p.evaluate(([x, y]) => !!document.elementFromPoint(x, y).closest('.vetrina-palco'), [centro.x, centro.y]), 'il punto di partenza e\' sul quadrante');
+            await p.mouse.wheel(60, 0);
+            await aspetta(async () => (await vetrina()).numero === '7 / 11', 2000, 'lo scorrimento di lato: un passo avanti');
+            // tutte le voci, una dopo l'altra, con la freccia avanti: si torna alla prima
+            for (let k = 0; k < 4; k++) await p.click('#schermo-attesa .vetrina-freccia-dopo');
+            vero((await vetrina()).numero === '11 / 11', 'fino all\'ultima voce: ' + (await vetrina()).numero);
+            await p.click('#schermo-attesa .vetrina-freccia-dopo');
+            vero((await vetrina()).numero === '1 / 11' && (await vetrina()).tipo === 'milano', 'dopo l\'ultima, di nuovo la prima (Milano)');
+            // e indietro, fino all'approfondimento della Cassazione
+            await p.click('#schermo-attesa .vetrina-freccia-dopo');
+            await p.click('#schermo-attesa .vetrina-freccia-dopo');
+            await p.click('#schermo-attesa .vetrina-freccia-dopo');
+            // con il mouse sul disco la voce resta quella anche passata l'attesa dopo il passo a mano
+            await p.hover('#schermo-attesa .vetrina-disco');
+            await pausa(7000);
+            vero((await vetrina()).numero === '4 / 11', 'con il mouse sul disco la voce resta quella');
             const v4 = await vetrina();
             vero(/Credito all'impresa già decotta: il finanziamento è nullo/.test(v4.titolo) && v4.link && v4.link.href === '/cassazione_7134_2026/', 'l\'approfondimento, con il link alla sua pagina: ' + v4.titolo);
             // le voci lontane non si leggono e non si raggiungono con il tasto Tab
@@ -2184,7 +2220,7 @@ function eventoIniziale(T) {
                 const disco = document.querySelector('#schermo-attesa .vetrina-disco').getBoundingClientRect();
                 const palco = document.querySelector('#schermo-attesa .vetrina-palco').getBoundingClientRect();
                 const titolo = document.querySelector('#schermo-attesa .vetrina-titolo').getBoundingClientRect();
-                const pausa = document.querySelector('#schermo-attesa .vetrina-pausa').getBoundingClientRect();
+                const comandi = document.querySelector('#schermo-attesa .vetrina-comandi').getBoundingClientRect();
                 // il punto di una voce vicina: si preme anche intorno (40 px); il quadrante e' sotto, si porta nello schermo
                 document.querySelector('#schermo-attesa .vetrina-palco').scrollIntoView({ block: 'center' });
                 const vicina = document.querySelector('#schermo-attesa .vetrina-voce[data-vicino="1"] .vetrina-voce-punto').getBoundingClientRect();
@@ -2192,11 +2228,11 @@ function eventoIniziale(T) {
                 const preso = document.elementFromPoint(x, y);
                 return {
                     spazio: Math.round(carta.top - fascia.bottom), sotto: titolo.top >= testi.bottom && palco.top >= titolo.bottom, bordo: Math.round(f.bottom - disco.bottom),
-                    mezzo: Math.round(disco.width / disco.height * 10) / 10, pausa: Math.round(pausa.height), toccoVicina: !!(preso && preso.closest('.vetrina-voce')),
+                    mezzo: Math.round(disco.width / disco.height * 10) / 10, comandi: Math.round(comandi.height), toccoVicina: !!(preso && preso.closest('.vetrina-voce')),
                     orizzontale: document.documentElement.scrollWidth, alta: Math.round(f.height)
                 };
             });
-            vero(m.spazio >= 20 && m.sotto && m.bordo === 0 && m.mezzo === 2 && m.pausa >= 32 && m.toccoVicina && m.orizzontale <= 390,
+            vero(m.spazio >= 20 && m.sotto && m.bordo === 0 && m.mezzo === 2 && m.comandi >= 44 && m.toccoVicina && m.orizzontale <= 390,
                 'attesa sul telefono: carte staccate; sotto i testi il titolo della voce e il quadrante, con il mezzo disco che sorge dal bordo in basso; pulsanti grandi, niente scorrimento orizzontale ' + JSON.stringify(m));
             // da una voce all'altra l'altezza della fascia non cambia (la pagina sotto non salta)
             const altezze = [m.alta];
@@ -2206,6 +2242,21 @@ function eventoIniziale(T) {
                 altezze.push(await t.evaluate(() => Math.round(document.querySelector('#vista-attesa .fascia-scura').getBoundingClientRect().height)));
             }
             vero(altezze.every(h => h === altezze[0]), 'l\'altezza della fascia resta la stessa da una voce all\'altra: ' + altezze.join(', '));
+            // con il dito di lato sul quadrante: le voci seguono il dito e si passa alla voce dopo
+            const prima = await t.evaluate(() => document.querySelector('#schermo-attesa .vetrina-numero').textContent);
+            const dito = await t.evaluate(() => {
+                const palco = document.querySelector('#schermo-attesa .vetrina-palco');
+                palco.scrollIntoView({ block: 'center' });
+                const r = palco.getBoundingClientRect();
+                const x0 = r.left + r.width / 2, y0 = r.top + r.height * 0.3;
+                const evento = (tipo, x) => palco.dispatchEvent(new PointerEvent(tipo, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y0 }));
+                evento('pointerdown', x0);
+                for (let k = 1; k <= 6; k++) evento('pointermove', x0 + k * 22);
+                evento('pointerup', x0 + 132);
+                return document.querySelector('#schermo-attesa .vetrina-numero').textContent;
+            });
+            const n0 = Number(prima.split('/')[0]), n1 = Number(dito.split('/')[0]);
+            vero(n1 !== n0, 'con il dito di lato il quadrante gira: da ' + prima + ' a ' + dito);
             await foto(t, 'attesa-telefono', true);
         });
 
