@@ -14,13 +14,18 @@
      - con il video della home, il video stesso dietro tutta la fascia,
        sfocato e velato (luce che si muove, senza audio); il link porta al
        video nella home.
-   Le voci vicine si vedono sull'anello (premute, vanno in primo piano);
-   un anello attorno al punto in primo piano si riempie fino al passo
-   dopo. «Ferma»/«Riprendi» ferma tutto (le cose che si muovono da sole
-   si devono poter fermare); con il mouse sul titolo o sul disco, o con
-   il fuoco (da tastiera) dentro il quadrante, il quadrante aspetta.
-   Fuori dall'attesa (ferma()) tutto si ferma, anche il video. Per chi
-   chiede meno movimento o il risparmio dei dati niente video.
+   Un anello attorno al punto in primo piano si riempie fino al passo
+   dopo. Fra tutte le voci si scorre a mano, avanti e indietro: con le
+   frecce sotto il quadrante (con il numero della voce, «3 / 11»), con le
+   voci vicine sull'anello, trascinando il quadrante (con il mouse in su e
+   in giu' lungo l'arco; con il dito di lato), con lo scorrimento di lato
+   del touchpad e con i tasti freccia. Dopo un passo a mano il giro da
+   solo aspetta (20 secondi senza tocchi), cosi' si legge; aspetta anche
+   con il mouse sul titolo o sul disco e con il fuoco da tastiera dentro
+   il quadrante. Per chi chiede meno movimento il quadrante non gira da
+   solo (solo a mano) e non c'e' il video, come per chi chiede il
+   risparmio dei dati. Fuori dall'attesa (ferma()) tutto si ferma, anche
+   il video.
 
    Le voci sono quelle del sito (la home e le sue pagine, novembre 2026):
    se il sito cambia, si aggiornano qui, in VOCI. Le immagini e il video
@@ -31,7 +36,8 @@
 
    window.NGBVetrina = {
      crea(contenitore, opzioni) -> { mostra(evento), ferma(), distruggi(), vai(n), avanti(), voci() }
-       opzioni.secondiVoce   la durata di ogni voce (le prove la accorciano)
+       opzioni.secondiVoce   la durata di ogni voce (le prove la accorciano; anche l'attesa dopo
+                             un passo a mano: una volta e mezza)
      voci(evento)            le voci per l'evento (con Milano solo se viene prima)
    }
    ============================================================ */
@@ -119,13 +125,21 @@
         }
     ];
 
+    // meno movimento: il quadrante non gira da solo e non c'e' il video
+    function menoMovimento() {
+        try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+    }
     // niente video che parte da solo per chi chiede meno movimento o il risparmio dei dati
     function senzaVideo() {
+        if (menoMovimento()) return true;
         try {
-            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
             var c = navigator.connection;
             return !!(c && c.saveData);
         } catch (e) { return false; }
+    }
+    // la disposizione dei computer (il disco dal bordo destro): la stessa soglia di diretta.css
+    function suComputer() {
+        try { return !window.matchMedia || window.matchMedia('(min-width: 1200px)').matches; } catch (e) { return true; }
     }
     function oggi() {
         var d = new Date();
@@ -168,8 +182,8 @@
         s.setAttribute('focusable', 'false');
         return s;
     }
-    // le icone: play e pausa
-    var DISEGNI = { play: 'M8 5.5v13l10.5-6.5z', pausa: 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z' };
+    // le icone: play e le frecce
+    var DISEGNI = { play: 'M8 5.5v13l10.5-6.5z', prima: 'M14.7 5.3 8 12l6.7 6.7 1.4-1.4L10.8 12l5.3-5.3z', dopo: 'M9.3 5.3 16 12l-6.7 6.7-1.4-1.4 5.3-5.3-5.3-5.3z' };
     function icona(tipo, classe) {
         var s = svg(classe || 'vetrina-icona', '0 0 24 24');
         var p = document.createElementNS(NS, 'path');
@@ -244,23 +258,37 @@
         var titolo = el('div', 'vetrina-titolo');
         titolo.tabIndex = -1;
         radice.appendChild(titolo);
-        // «Ferma»/«Riprendi»: l'icona e il testo si aggiornano (non si rifanno: un clic in corso non si perde)
-        var pausa = el('button', 'vetrina-pausa');
-        pausa.type = 'button';
-        var pausaIcona = icona('pausa');
-        var pausaTesto = el('span', 'vetrina-pausa-testo', 'Ferma');
-        pausa.appendChild(pausaIcona);
-        pausa.appendChild(pausaTesto);
-        radice.appendChild(pausa);
+        // per scorrere a mano fra tutte le voci: indietro, il numero della voce, avanti
+        var comandi = el('div', 'vetrina-comandi');
+        var indietro = el('button', 'vetrina-freccia vetrina-freccia-prima');
+        indietro.type = 'button';
+        indietro.setAttribute('aria-label', 'Contenuto precedente');
+        indietro.appendChild(icona('prima'));
+        var numero = el('p', 'vetrina-numero');
+        numero.setAttribute('aria-hidden', 'true');
+        var poi = el('button', 'vetrina-freccia vetrina-freccia-dopo');
+        poi.type = 'button';
+        poi.setAttribute('aria-label', 'Contenuto successivo');
+        poi.appendChild(icona('dopo'));
+        comandi.appendChild(indietro);
+        comandi.appendChild(numero);
+        comandi.appendChild(poi);
+        radice.appendChild(comandi);
+        // per i lettori di schermo: la voce scelta a mano (il giro da solo non si annuncia)
+        var annuncio = el('p', 'vetrina-solo-lettori');
+        annuncio.setAttribute('aria-live', 'polite');
+        radice.appendChild(annuncio);
         contenitore.appendChild(radice);
 
         var lista = [], firma = '', n = 0;
         var timer = null, scadenza = 0, restante = 0;
-        var attiva = false, inPausa = false;
-        var trattenuta = { mouse: false, fuoco: false };
+        var attiva = false;
+        var trattenuta = { mouse: false, fuoco: false, tocco: false, trascina: false };
+        var timerTocco = null;
+        var ATTESA_DOPO_TOCCO = secondiProva ? secondiProva * 1500 : 20000;
         var video = null;
 
-        function fermo() { return !attiva || inPausa || trattenuta.mouse || trattenuta.fuoco; }
+        function fermo() { return !attiva || menoMovimento() || trattenuta.mouse || trattenuta.fuoco || trattenuta.tocco || trattenuta.trascina; }
         function durataMs(v) { return secondiProva ? secondiProva * 1000 : (v.secondi || SECONDI_VOCE) * 1000; }
 
         function preparaVideo() {
@@ -284,15 +312,16 @@
         }
         function videoNo() { if (video) { try { video.pause(); } catch (e) { /* niente */ } } }
 
-        // il tempo della voce: si ferma (e riprende da dove era) con «Ferma», il mouse o il fuoco
+        // il tempo della voce: aspetta (e riprende da dove era) dopo un passo a mano, con il mouse o con il fuoco
         function aggiornaStato() {
             var f = fermo();
             radice.classList.toggle('vetrina-ferma', f);
+            radice.classList.toggle('vetrina-a-mano', menoMovimento());
             var conVideo = !!(lista[n] && lista[n].tipo === 'video');
             radice.classList.toggle('vetrina-con-video', conVideo && attiva);
             if (f) {
                 if (timer) { clearTimeout(timer); timer = null; restante = Math.max(0, scadenza - Date.now()); }
-                if (!attiva || inPausa || !conVideo) videoNo();
+                if (!attiva || !conVideo) videoNo(); else videoSi();
             } else {
                 if (!timer && lista.length > 1) {
                     var ms = restante > 0 ? restante : durataMs(lista[n]);
@@ -302,12 +331,6 @@
                 }
                 if (conVideo) videoSi(); else videoNo();
             }
-            var testo = inPausa ? 'Riprendi' : 'Ferma';
-            if (pausaTesto.textContent !== testo) {
-                pausaTesto.textContent = testo;
-                pausaIcona.firstChild.setAttribute('d', DISEGNI[inPausa ? 'play' : 'pausa']);
-            }
-            pausa.setAttribute('aria-label', inPausa ? 'Riprendi il giro dei contenuti' : 'Ferma il giro dei contenuti');
         }
 
         // la distanza (in passi) della voce i dalla voce in primo piano: da -m/2 a m/2
@@ -367,6 +390,7 @@
                 cambia(titolo, titoloDellaVoce(lista[n]));
             }
             radice.setAttribute('data-voce', lista[n].tipo);
+            numero.textContent = (n + 1) + ' / ' + lista.length;
             clearTimeout(timer);
             timer = null;
             restante = 0;
@@ -374,6 +398,15 @@
             aggiornaStato();
         }
         function avanti() { timer = null; vai(n + 1); }
+        // un passo a mano (frecce, voci vicine, trascinamento, tasti): il giro da solo aspetta, la voce si annuncia
+        function aMano(i) {
+            if (!lista.length) return;
+            trattenuta.tocco = true;
+            clearTimeout(timerTocco);
+            timerTocco = setTimeout(function () { trattenuta.tocco = false; aggiornaStato(); }, ATTESA_DOPO_TOCCO);
+            vai(i);
+            annuncio.textContent = (n + 1) + ' di ' + lista.length + ': ' + lista[n].nome;
+        }
 
         function costruisci(nuove) {
             while (anello.firstChild) anello.removeChild(anello.firstChild);
@@ -387,7 +420,7 @@
                 b.appendChild(el('span', 'vetrina-voce-punto'));
                 b.appendChild(el('span', 'vetrina-voce-nome', v.nome));
                 b.addEventListener('click', function (e) {
-                    vai(i);
+                    aMano(i);
                     // da tastiera il fuoco va al titolo della voce, che si legge (il quadrante aspetta)
                     if (e.detail === 0) titolo.focus();
                 });
@@ -410,7 +443,71 @@
         function ferma() { attiva = false; aggiornaStato(); }
         function distruggi() { ferma(); if (radice.parentNode) radice.parentNode.removeChild(radice); }
 
-        pausa.addEventListener('click', function () { inPausa = !inPausa; aggiornaStato(); });
+        indietro.addEventListener('click', function () { aMano(n - 1); });
+        poi.addEventListener('click', function () { aMano(n + 1); });
+        // i tasti freccia, con il fuoco nel quadrante
+        radice.addEventListener('keydown', function (e) {
+            var passo = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+            if (!passo || e.altKey || e.ctrlKey || e.metaKey) return;
+            e.preventDefault();
+            aMano(n + passo);
+        });
+        // lo scorrimento di lato del touchpad (o della rotella) sul quadrante: un passo alla volta
+        var ultimoScorrimento = 0;
+        palco.addEventListener('wheel', function (e) {
+            if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 8) return;
+            e.preventDefault();
+            var ora = Date.now();
+            if (ora - ultimoScorrimento < 450) return;
+            ultimoScorrimento = ora;
+            aMano(n + (e.deltaX > 0 ? 1 : -1));
+        }, { passive: false });
+        /* Il quadrante si trascina: le voci seguono il puntatore lungo l'arco (--trascina) e, lasciato,
+           si ferma sulla voce piu' vicina. Sui computer con il mouse in su e in giu' (l'arco e' in
+           verticale); con il dito di lato (in su e in giu' resta lo scorrimento della pagina). */
+        var presa = null, nienteClic = 0;
+        function raggio() { var a = quadrante.querySelector('.vetrina-anello-voci'); return (a && a.offsetWidth / 2) || 300; }
+        palco.addEventListener('pointerdown', function (e) {
+            if ((e.pointerType === 'mouse' && e.button !== 0) || lista.length < 2) return;
+            presa = { id: e.pointerId, x: e.clientX, y: e.clientY, gradi: 0, mossa: false, verticale: suComputer() && e.pointerType === 'mouse', computer: suComputer() };
+        });
+        palco.addEventListener('pointermove', function (e) {
+            if (!presa || e.pointerId !== presa.id) return;
+            var dx = e.clientX - presa.x, dy = e.clientY - presa.y;
+            if (!presa.mossa) {
+                if (Math.abs(presa.verticale ? dy : dx) < 8) return;
+                // con il dito, un gesto in su o in giu' e' lo scorrimento della pagina
+                if (!presa.verticale && Math.abs(dy) > Math.abs(dx)) { presa = null; return; }
+                presa.mossa = true;
+                try { palco.setPointerCapture(e.pointerId); } catch (x) { /* niente */ }
+                radice.classList.add('vetrina-trascina');
+                trattenuta.trascina = true;
+                aggiornaStato();
+            }
+            // le voci seguono il puntatore: in su sui computer (le voci salgono), di lato sul telefono (seguono il dito)
+            var d = presa.verticale ? -dy : (presa.computer ? -dx : dx);
+            presa.gradi = d / raggio() * 180 / Math.PI;
+            quadrante.style.setProperty('--trascina', presa.gradi.toFixed(2) + 'deg');
+            e.preventDefault();
+        });
+        function lascia(e) {
+            if (!presa || (e && e.pointerId !== presa.id)) return;
+            var gradi = presa.gradi, mossa = presa.mossa;
+            presa = null;
+            if (!mossa) return;
+            nienteClic = Date.now();
+            radice.classList.remove('vetrina-trascina');
+            quadrante.style.setProperty('--trascina', '0deg');
+            trattenuta.trascina = false;
+            var passi = Math.round(gradi / PASSO);
+            if (passi) aMano(n + passi); else aggiornaStato();
+        }
+        palco.addEventListener('pointerup', lascia);
+        palco.addEventListener('pointercancel', lascia);
+        // il clic che chiude un trascinamento non preme la voce sotto il puntatore
+        palco.addEventListener('click', function (e) {
+            if (Date.now() - nienteClic < 350) { e.stopPropagation(); e.preventDefault(); }
+        }, true);
         // il mouse sul titolo o sul disco: il quadrante aspetta
         [titolo, disco].forEach(function (x) {
             x.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') { trattenuta.mouse = true; aggiornaStato(); } });
@@ -420,7 +517,7 @@
         radice.addEventListener('focusin', function (e) {
             var daTastiera = true;
             try { daTastiera = e.target.matches(':focus-visible'); } catch (x) { /* browser vecchio: come da tastiera */ }
-            if (e.target === pausa) daTastiera = false;
+            if (e.target === indietro || e.target === poi) daTastiera = false;
             trattenuta.fuoco = daTastiera;
             aggiornaStato();
         });
